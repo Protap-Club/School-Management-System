@@ -142,4 +142,54 @@ const createUser = async (req, res) => {
     }
 };
 
-export { createUser };
+// Role view permission map (who can view whom)
+const ROLE_VIEW_MAP = {
+    super_admin: ["admin", "teacher", "student"],
+    admin: ["teacher", "student"],
+    teacher: ["student"]
+};
+
+// Function to get users based on logged-in user's role
+const getUsers = async (req, res) => {
+    try {
+        const currentUser = req.user;
+
+        // Students cannot view anyone
+        if (currentUser.role === "student") {
+            return res.status(403).json({
+                success: false,
+                message: "Access Denied"
+            });
+        }
+
+        // Get allowed roles this user can view
+        const allowedRoles = ROLE_VIEW_MAP[currentUser.role];
+        if (!allowedRoles || allowedRoles.length === 0) {
+            return res.status(403).json({
+                success: false,
+                message: "You are not allowed to view users"
+            });
+        }
+
+        // Fetch users with allowed roles
+        const users = await UserModel.find({ role: { $in: allowedRoles } })
+            .select("-password")
+            .sort({ createdAt: -1 });
+
+        return res.status(200).json({
+            success: true,
+            count: users.length,
+            data: users
+        });
+
+    } catch (error) {
+        console.error("Get users error:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Internal server error"
+        });
+    }
+};
+
+export { createUser, getUsers };
+
