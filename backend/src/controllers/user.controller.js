@@ -1,3 +1,4 @@
+import bcrypt from "bcryptjs";
 import UserModel from "../models/User.model.js";
 import TeacherProfileModel from "../models/TeacherProfile.model.js";
 import StudentProfileModel from "../models/StudentProfile.model.js";
@@ -106,11 +107,15 @@ const createUser = async (req, res) => {
             });
         }
 
+        // Hash password
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(password, salt);
+
         // Create user
         const newUser = await UserModel.create({
             name,
             email,
-            password, // TODO: Hash password before saving
+            password: hashedPassword,
             role: targetRole,
             contactNo,
             createdBy: creator._id
