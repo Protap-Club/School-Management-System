@@ -5,9 +5,9 @@ import { conf } from "../config/index.js";
 
 const checkAuth = async (req, res, next) => {
     try {
-        const authHeader = req.headers?.authorization?.startsWith("Bearer ");
+        const authHeader = req.headers?.authorization;
 
-        if (!authHeader) {
+        if (!authHeader || !authHeader.startsWith("Bearer ")) {
             return res.status(401).json({
                 success: false,
                 message: "No token provided, authorization denied",

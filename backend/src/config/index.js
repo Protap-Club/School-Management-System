@@ -6,4 +6,5 @@ export const conf = {
     MONGO_URI: process.env.MONGO_URI,
     NODE_ENV: process.env.NODE_ENV,
     JWT_SECRET: process.env.JWT_SECRET,
+    SUPER_ADMIN_PASSWORD: process.env.SUPER_ADMIN_PASSWORD,
 };
