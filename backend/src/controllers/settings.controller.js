@@ -13,9 +13,8 @@ export const getSettings = async (req, res) => {
         // If no settings exist, create default
         if (!settings) {
             settings = await Settings.create({
-                schoolName: "School Management System",
+                logoUrl: "",
                 theme: {
-                    mode: "light",
                     accentColor: "#2563eb"
                 }
             });
@@ -41,17 +40,7 @@ export const getSettings = async (req, res) => {
  */
 export const updateSettings = async (req, res) => {
     try {
-        const {
-            schoolName,
-            schoolCode,
-            logoUrl,
-            address,
-            contactEmail,
-            contactPhone,
-            welcomeMessage,
-            academicYear,
-            theme
-        } = req.body;
+        const { logoUrl, theme } = req.body;
 
         // Find existing settings or create new
         let settings = await Settings.findOne();
@@ -61,17 +50,9 @@ export const updateSettings = async (req, res) => {
         }
 
         // Update fields if provided
-        if (schoolName) settings.schoolName = schoolName;
-        if (schoolCode !== undefined) settings.schoolCode = schoolCode;
         if (logoUrl !== undefined) settings.logoUrl = logoUrl;
-        if (address !== undefined) settings.address = address;
-        if (contactEmail !== undefined) settings.contactEmail = contactEmail;
-        if (contactPhone !== undefined) settings.contactPhone = contactPhone;
-        if (welcomeMessage !== undefined) settings.welcomeMessage = welcomeMessage;
-        if (academicYear !== undefined) settings.academicYear = academicYear;
-        if (theme) {
-            if (theme.mode) settings.theme.mode = theme.mode;
-            if (theme.accentColor) settings.theme.accentColor = theme.accentColor;
+        if (theme && theme.accentColor) {
+            settings.theme.accentColor = theme.accentColor;
         }
 
         await settings.save();
@@ -89,3 +70,49 @@ export const updateSettings = async (req, res) => {
         });
     }
 };
+
+/**
+ * @desc    Upload logo file
+ * @route   POST /api/v1/settings/upload-logo
+ * @access  Private (Admin/SuperAdmin only)
+ */
+export const uploadLogo = async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({
+                success: false,
+                message: "No file uploaded"
+            });
+        }
+
+        // Construct the URL for the uploaded file
+        const logoUrl = `/uploads/${req.file.filename}`;
+
+        // Update settings with the new logo URL
+        let settings = await Settings.findOne();
+
+        if (!settings) {
+            settings = new Settings();
+        }
+
+        settings.logoUrl = logoUrl;
+        await settings.save();
+
+        res.status(200).json({
+            success: true,
+            message: "Logo uploaded successfully",
+            data: {
+                logoUrl: logoUrl,
+                settings: settings
+            }
+        });
+    } catch (error) {
+        console.error("Upload Logo Error:", error);
+        res.status(500).json({
+            success: false,
+            message: "Internal Server Error"
+        });
+    }
+};
+
+

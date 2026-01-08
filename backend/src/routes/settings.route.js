@@ -1,8 +1,9 @@
 import express from "express";
-import { getSettings, updateSettings } from "../controllers/settings.controller.js";
+import { getSettings, updateSettings, uploadLogo } from "../controllers/settings.controller.js";
 import { checkAuth } from "../middlewares/auth.middleware.js";
 import { checkRole } from "../middlewares/role.middleware.js";
 import { USER_ROLES } from "../constants/userRoles.js";
+import { upload } from "../middlewares/upload.middleware.js";
 
 const router = express.Router();
 
@@ -17,4 +18,14 @@ router.put(
     updateSettings
 );
 
+// POST /api/v1/settings/upload-logo - Upload logo file
+router.post(
+    "/upload-logo",
+    checkAuth,
+    checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN]),
+    upload.single('logo'),
+    uploadLogo
+);
+
 export default router;
+

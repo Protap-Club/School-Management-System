@@ -3,6 +3,8 @@ import UserModel from "../models/User.model.js";
 import TeacherProfileModel from "../models/TeacherProfile.model.js";
 import StudentProfileModel from "../models/StudentProfile.model.js";
 import AdminProfileModel from "../models/AdminProfile.model.js";
+import { generatePassword } from "../utils/password.util.js";
+import { sendCredentialsEmail } from "../services/email.service.js";
 
 // Role creation permission map (who can create whom)
 const ROLE_CREATE_MAP = {
@@ -52,7 +54,7 @@ const PROFILE_CONFIG = {
 // Function to create new user
 const createUser = async (req, res) => {
     try {
-        const { name, email, password, contactNo, targetRole } = req.body;
+        const { name, email, contactNo, targetRole, instituteId } = req.body;
         const creator = req.user;
 
         // Students cannot create anyone
@@ -72,12 +74,34 @@ const createUser = async (req, res) => {
             });
         }
 
-        // Validate common required fields
-        if (!name || !email || !password || !targetRole) {
+        // Validate common required fields (password is auto-generated now)
+        if (!name || !email || !targetRole) {
             return res.status(400).json({
                 success: false,
-                message: "Name, email, password and targetRole are required"
+                message: "Name, email, and targetRole are required"
             });
+        }
+
+        // Determine instituteId based on creator role
+        let userInstituteId;
+        if (creator.role === "super_admin") {
+            // SuperAdmin must provide instituteId
+            if (!instituteId) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Institute ID is required when SuperAdmin creates a user"
+                });
+            }
+            userInstituteId = instituteId;
+        } else {
+            // Admin/Teacher use their own instituteId
+            if (!creator.instituteId) {
+                return res.status(400).json({
+                    success: false,
+                    message: "You must belong to an institute to create users"
+                });
+            }
+            userInstituteId = creator.instituteId;
         }
 
         // Check if email already exists
@@ -107,18 +131,21 @@ const createUser = async (req, res) => {
             });
         }
 
-        // Hash password
+        // Auto-generate password
+        const plainPassword = generatePassword(12);
         const salt = await bcrypt.genSalt(10);
-        const hashedPassword = await bcrypt.hash(password, salt);
+        const hashedPassword = await bcrypt.hash(plainPassword, salt);
 
-        // Create user
+        // Create user with instituteId
         const newUser = await UserModel.create({
             name,
             email,
             password: hashedPassword,
             role: targetRole,
             contactNo,
-            createdBy: creator._id
+            instituteId: userInstituteId,
+            createdBy: creator._id,
+            mustChangePassword: true
         });
 
         // Create role-specific profile
@@ -127,15 +154,25 @@ const createUser = async (req, res) => {
             ...config.extractFields(req.body)
         });
 
+        // Send credentials email to the new user
+        const emailResult = await sendCredentialsEmail({
+            to: email,
+            name: name,
+            role: targetRole,
+            password: plainPassword
+        });
+
         return res.status(201).json({
             success: true,
-            message: `${targetRole} created successfully`,
+            message: `${targetRole} created successfully. ${emailResult.success ? 'Credentials sent via email.' : 'Email could not be sent.'}`,
             data: {
                 userId: newUser._id,
                 name: newUser.name,
                 email: newUser.email,
-                role: newUser.role
-            }
+                role: newUser.role,
+                instituteId: newUser.instituteId
+            },
+            emailSent: emailResult.success
         });
 
     } catch (error) {
@@ -176,9 +213,17 @@ const getUsers = async (req, res) => {
             });
         }
 
+        // Build query - filter by institute for non-SuperAdmin
+        let query = { role: { $in: allowedRoles } };
+        
+        if (currentUser.role !== "super_admin" && currentUser.instituteId) {
+            query.instituteId = currentUser.instituteId;
+        }
+
         // Fetch users with allowed roles
-        const users = await UserModel.find({ role: { $in: allowedRoles } })
+        const users = await UserModel.find(query)
             .select("-password")
+            .populate('instituteId', 'name code')
             .sort({ createdAt: -1 });
 
         return res.status(200).json({
@@ -196,5 +241,73 @@ const getUsers = async (req, res) => {
     }
 };
 
-export { createUser, getUsers };
+// Function to get users with their profile data
+const getUsersWithProfiles = async (req, res) => {
+    try {
+        const currentUser = req.user;
+        const { role } = req.query; // Optional filter by role
+
+        // Students cannot view anyone
+        if (currentUser.role === "student") {
+            return res.status(403).json({
+                success: false,
+                message: "Access Denied"
+            });
+        }
+
+        // Get allowed roles this user can view
+        const allowedRoles = ROLE_VIEW_MAP[currentUser.role];
+        if (!allowedRoles || allowedRoles.length === 0) {
+            return res.status(403).json({
+                success: false,
+                message: "You are not allowed to view users"
+            });
+        }
+
+        // Filter by role if specified, otherwise use all allowed roles
+        let targetRoles = allowedRoles;
+        if (role && allowedRoles.includes(role)) {
+            targetRoles = [role];
+        }
+
+        // Fetch users with allowed roles
+        const users = await UserModel.find({ role: { $in: targetRoles } })
+            .select("-password")
+            .sort({ createdAt: -1 })
+            .lean();
+
+        // Fetch profiles and attach to users
+        const usersWithProfiles = await Promise.all(users.map(async (user) => {
+            let profile = null;
+            
+            if (user.role === 'admin') {
+                profile = await AdminProfileModel.findOne({ userId: user._id }).lean();
+            } else if (user.role === 'teacher') {
+                profile = await TeacherProfileModel.findOne({ userId: user._id }).lean();
+            } else if (user.role === 'student') {
+                profile = await StudentProfileModel.findOne({ userId: user._id }).lean();
+            }
+
+            return {
+                ...user,
+                profile: profile || null
+            };
+        }));
+
+        return res.status(200).json({
+            success: true,
+            count: usersWithProfiles.length,
+            data: usersWithProfiles
+        });
+
+    } catch (error) {
+        console.error("Get users with profiles error:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Internal server error"
+        });
+    }
+};
+
+export { createUser, getUsers, getUsersWithProfiles };
 
