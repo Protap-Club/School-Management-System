@@ -5,11 +5,15 @@ import {
     getInstituteById,
     updateInstitute,
     deleteInstitute,
-    getInstitutesList
+    getInstitutesList,
+    uploadInstituteLogo,
+    updateInstituteFeatures,
+    getMyInstituteBranding
 } from "../controllers/institute.controller.js";
 import { checkAuth } from "../middlewares/auth.middleware.js";
 import { checkRole } from "../middlewares/role.middleware.js";
 import { USER_ROLES } from "../constants/userRoles.js";
+import { upload } from "../middlewares/upload.middleware.js";
 
 const router = express.Router();
 
@@ -19,6 +23,13 @@ router.get(
     checkAuth,
     checkRole([USER_ROLES.SUPER_ADMIN]),
     getInstitutesList
+);
+
+// GET /api/v1/institute/my-branding - Get logged-in user's institute branding
+router.get(
+    "/my-branding",
+    checkAuth,
+    getMyInstituteBranding
 );
 
 // GET /api/v1/institute - Get all institutes
@@ -45,12 +56,29 @@ router.post(
     createInstitute
 );
 
+// POST /api/v1/institute/:id/upload-logo - Upload institute logo
+router.post(
+    "/:id/upload-logo",
+    checkAuth,
+    checkRole([USER_ROLES.SUPER_ADMIN]),
+    upload.single('logo'),
+    uploadInstituteLogo
+);
+
 // PUT /api/v1/institute/:id - Update institute (SuperAdmin only)
 router.put(
     "/:id",
     checkAuth,
     checkRole([USER_ROLES.SUPER_ADMIN]),
     updateInstitute
+);
+
+// PUT /api/v1/institute/:id/features - Update institute features
+router.put(
+    "/:id/features",
+    checkAuth,
+    checkRole([USER_ROLES.SUPER_ADMIN]),
+    updateInstituteFeatures
 );
 
 // DELETE /api/v1/institute/:id - Delete institute (SuperAdmin only)
@@ -62,3 +90,4 @@ router.delete(
 );
 
 export default router;
+

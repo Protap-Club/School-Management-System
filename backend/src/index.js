@@ -8,6 +8,7 @@ import authRoutes from './routes/auth.route.js';
 import userRouter from './routes/user.route.js';
 import settingsRouter from './routes/settings.route.js';
 import instituteRouter from './routes/institute.route.js';
+import attendanceRouter from './routes/attendance.route.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -35,6 +36,7 @@ app.use('/api/v1/auth', authRoutes);
 app.use("/api/v1/user", userRouter);
 app.use("/api/v1/settings", settingsRouter);
 app.use("/api/v1/institute", instituteRouter);
+app.use("/api/v1/attendance", attendanceRouter);
 
 app.get('/', (req, res) => {
     res.send('Student Management System API is running...');

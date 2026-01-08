@@ -191,10 +191,16 @@ const ROLE_VIEW_MAP = {
     teacher: ["student"]
 };
 
-// Function to get users based on logged-in user's role
+// Function to get users based on logged-in user's role with pagination
 const getUsers = async (req, res) => {
     try {
         const currentUser = req.user;
+        const { 
+            instituteId: filterInstituteId, 
+            role: filterRole, 
+            page = 0, 
+            pageSize = 25 
+        } = req.query;
 
         // Students cannot view anyone
         if (currentUser.role === "student") {
@@ -213,23 +219,59 @@ const getUsers = async (req, res) => {
             });
         }
 
-        // Build query - filter by institute for non-SuperAdmin
-        let query = { role: { $in: allowedRoles } };
-        
-        if (currentUser.role !== "super_admin" && currentUser.instituteId) {
+        // Build query
+        let query = {};
+
+        // Role filter - ensure it's within allowed roles
+        if (filterRole && filterRole !== 'all') {
+            if (allowedRoles.includes(filterRole)) {
+                query.role = filterRole;
+            } else {
+                return res.status(403).json({
+                    success: false,
+                    message: "You are not allowed to view this role"
+                });
+            }
+        } else {
+            query.role = { $in: allowedRoles };
+        }
+
+        // Institute filter for SuperAdmin
+        if (currentUser.role === "super_admin") {
+            if (filterInstituteId) {
+                query.instituteId = filterInstituteId;
+            }
+            // If no institute selected, return empty for SuperAdmin (as per requirements)
+        } else if (currentUser.instituteId) {
+            // Non-SuperAdmin always filters by their own institute
             query.instituteId = currentUser.instituteId;
         }
 
-        // Fetch users with allowed roles
+        // Pagination
+        const pageNum = parseInt(page) || 0;
+        const limit = parseInt(pageSize) || 25;
+        const skip = pageNum * limit;
+
+        // Get total count
+        const totalCount = await UserModel.countDocuments(query);
+
+        // Fetch users with pagination
         const users = await UserModel.find(query)
             .select("-password")
             .populate('instituteId', 'name code')
-            .sort({ createdAt: -1 });
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limit);
 
         return res.status(200).json({
             success: true,
-            count: users.length,
-            data: users
+            data: users,
+            pagination: {
+                page: pageNum,
+                pageSize: limit,
+                totalCount: totalCount,
+                totalPages: Math.ceil(totalCount / limit)
+            }
         });
 
     } catch (error) {
@@ -270,8 +312,15 @@ const getUsersWithProfiles = async (req, res) => {
             targetRoles = [role];
         }
 
-        // Fetch users with allowed roles
-        const users = await UserModel.find({ role: { $in: targetRoles } })
+        // Build query - IMPORTANT: filter by institute for non-SuperAdmin
+        let query = { role: { $in: targetRoles } };
+        
+        if (currentUser.role !== "super_admin" && currentUser.instituteId) {
+            query.instituteId = currentUser.instituteId;
+        }
+
+        // Fetch users with allowed roles and institute filter
+        const users = await UserModel.find(query)
             .select("-password")
             .sort({ createdAt: -1 })
             .lean();

@@ -8,7 +8,7 @@ import User from "../models/User.model.js";
  */
 export const createInstitute = async (req, res) => {
     try {
-        const { name, code, address, contactEmail, contactPhone, logoUrl } = req.body;
+        const { name, code, address, contactEmail, contactPhone, logoUrl, theme, features } = req.body;
 
         if (!name || !code) {
             return res.status(400).json({
@@ -26,7 +26,7 @@ export const createInstitute = async (req, res) => {
             });
         }
 
-        const institute = await Institute.create({
+        const instituteData = {
             name,
             code: code.toUpperCase(),
             address,
@@ -34,7 +34,21 @@ export const createInstitute = async (req, res) => {
             contactPhone,
             logoUrl,
             createdBy: req.user._id
-        });
+        };
+
+        // Add theme if provided
+        if (theme && theme.accentColor) {
+            instituteData.theme = { accentColor: theme.accentColor };
+        }
+
+        // Add features if provided
+        if (features) {
+            instituteData.features = {
+                attendance: { enabled: features.attendance?.enabled || false }
+            };
+        }
+
+        const institute = await Institute.create(instituteData);
 
         res.status(201).json({
             success: true,
@@ -143,7 +157,7 @@ export const getInstituteById = async (req, res) => {
 export const updateInstitute = async (req, res) => {
     try {
         const { id } = req.params;
-        const { name, address, contactEmail, contactPhone, logoUrl, isActive } = req.body;
+        const { name, address, contactEmail, contactPhone, logoUrl, isActive, theme, features } = req.body;
 
         const institute = await Institute.findById(id);
 
@@ -161,6 +175,18 @@ export const updateInstitute = async (req, res) => {
         if (contactPhone !== undefined) institute.contactPhone = contactPhone;
         if (logoUrl !== undefined) institute.logoUrl = logoUrl;
         if (isActive !== undefined) institute.isActive = isActive;
+        
+        // Update theme
+        if (theme && theme.accentColor) {
+            institute.theme.accentColor = theme.accentColor;
+        }
+        
+        // Update features
+        if (features) {
+            if (features.attendance !== undefined) {
+                institute.features.attendance.enabled = features.attendance.enabled;
+            }
+        }
 
         await institute.save();
 
@@ -243,3 +269,123 @@ export const getInstitutesList = async (req, res) => {
         });
     }
 };
+
+/**
+ * @desc    Upload institute logo
+ * @route   POST /api/v1/institute/:id/upload-logo
+ * @access  Private (SuperAdmin only)
+ */
+export const uploadInstituteLogo = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        if (!req.file) {
+            return res.status(400).json({
+                success: false,
+                message: "No file uploaded"
+            });
+        }
+
+        const institute = await Institute.findById(id);
+
+        if (!institute) {
+            return res.status(404).json({
+                success: false,
+                message: "Institute not found"
+            });
+        }
+
+        // Construct the URL for the uploaded file
+        const logoUrl = `/uploads/${req.file.filename}`;
+        institute.logoUrl = logoUrl;
+        await institute.save();
+
+        res.status(200).json({
+            success: true,
+            message: "Logo uploaded successfully",
+            data: {
+                logoUrl: logoUrl,
+                institute: institute
+            }
+        });
+    } catch (error) {
+        console.error("Upload Institute Logo Error:", error);
+        res.status(500).json({
+            success: false,
+            message: "Internal Server Error"
+        });
+    }
+};
+
+/**
+ * @desc    Update institute features
+ * @route   PUT /api/v1/institute/:id/features
+ * @access  Private (SuperAdmin only)
+ */
+export const updateInstituteFeatures = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { features } = req.body;
+
+        const institute = await Institute.findById(id);
+
+        if (!institute) {
+            return res.status(404).json({
+                success: false,
+                message: "Institute not found"
+            });
+        }
+
+        // Update features
+        if (features.attendance !== undefined) {
+            institute.features.attendance.enabled = features.attendance.enabled;
+        }
+
+        await institute.save();
+
+        res.status(200).json({
+            success: true,
+            message: "Features updated successfully",
+            data: institute
+        });
+    } catch (error) {
+        console.error("Update Features Error:", error);
+        res.status(500).json({
+            success: false,
+            message: "Internal Server Error"
+        });
+    }
+};
+
+/**
+ * @desc    Get user's institute branding (for header)
+ * @route   GET /api/v1/institute/my-branding
+ * @access  Private
+ */
+export const getMyInstituteBranding = async (req, res) => {
+    try {
+        const user = req.user;
+
+        if (!user.instituteId) {
+            return res.status(200).json({
+                success: true,
+                data: null
+            });
+        }
+
+        const institute = await Institute.findById(user.instituteId)
+            .select('name logoUrl theme');
+
+        res.status(200).json({
+            success: true,
+            data: institute
+        });
+    } catch (error) {
+        console.error("Get My Branding Error:", error);
+        res.status(500).json({
+            success: false,
+            message: "Internal Server Error"
+        });
+    }
+};
+

@@ -15,6 +15,7 @@ import Settings from './pages/Settings';
 // Teacher Pages
 import TeacherDashboard from './pages/TeacherDashboard';
 import TeacherProfile from './pages/TeacherProfile';
+import AttendancePage from './pages/AttendancePage';
 
 // Shared Pages
 import TeachersPage from './pages/TeachersPage';
@@ -135,6 +136,14 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={['teacher']}>
                 <TeacherProfile />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/teacher/attendance"
+            element={
+              <ProtectedRoute allowedRoles={['teacher']}>
+                <AttendancePage />
               </ProtectedRoute>
             }
           />

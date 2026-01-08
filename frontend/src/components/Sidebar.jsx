@@ -9,34 +9,47 @@ import {
     FaHome,
     FaSignOutAlt,
     FaCog,
-    FaUsers,
-    FaBuilding
+    FaBuilding,
+    FaClipboardList
 } from 'react-icons/fa';
 
 const Sidebar = () => {
     const { user, logout } = useAuth();
     const navigate = useNavigate();
-    const [logoUrl, setLogoUrl] = useState('');
+    const [instituteBranding, setInstituteBranding] = useState(null);
+    const [attendanceEnabled, setAttendanceEnabled] = useState(false);
 
-    // Fetch settings for logo
+    // Fetch institute branding for non-SuperAdmin users
     useEffect(() => {
-        const fetchSettings = async () => {
-            try {
-                const response = await api.get('/settings');
-                if (response.data.success && response.data.data.logoUrl) {
-                    setLogoUrl(response.data.data.logoUrl);
+        const fetchBranding = async () => {
+            if (user && user.role !== 'super_admin' && user.instituteId) {
+                try {
+                    const response = await api.get('/institute/my-branding');
+                    if (response.data.success && response.data.data) {
+                        setInstituteBranding(response.data.data);
+                    }
+                } catch (error) {
+                    console.error('Failed to fetch branding', error);
                 }
-            } catch (error) {
-                console.error('Failed to fetch settings for logo', error);
             }
         };
-        fetchSettings();
 
-        // Listen for settings updates
-        const handleSettingsUpdate = () => fetchSettings();
-        window.addEventListener('settingsUpdated', handleSettingsUpdate);
-        return () => window.removeEventListener('settingsUpdated', handleSettingsUpdate);
-    }, []);
+        const checkAttendance = async () => {
+            if (user && user.role === 'teacher') {
+                try {
+                    const response = await api.get('/attendance/check-access');
+                    if (response.data.success) {
+                        setAttendanceEnabled(response.data.enabled);
+                    }
+                } catch (error) {
+                    console.error('Failed to check attendance access', error);
+                }
+            }
+        };
+
+        fetchBranding();
+        checkAttendance();
+    }, [user]);
 
     const handleLogout = () => {
         logout();
@@ -62,84 +75,129 @@ const Sidebar = () => {
                     { path: '/admin/settings', label: 'Settings', icon: <FaCog /> },
                 ];
             case 'teacher':
-                return [
+                const teacherLinks = [
                     { path: '/teacher/dashboard', label: 'Dashboard', icon: <FaHome /> },
-                    { path: '/teacher/students', label: 'My Students', icon: <FaUserGraduate /> },
-                    { path: '/teacher/profile', label: 'Profile', icon: <FaUserShield /> },
+                    { path: '/teacher/students', label: 'Students', icon: <FaUserGraduate /> },
                 ];
+                // Conditionally add attendance link
+                if (attendanceEnabled) {
+                    teacherLinks.push({ path: '/teacher/attendance', label: 'Attendance', icon: <FaClipboardList /> });
+                }
+                return teacherLinks;
             default:
                 return [];
         }
     };
 
-    const getRoleColor = () => {
+    // Get role-specific gradient
+    const getRoleGradient = () => {
         switch (user?.role) {
             case 'super_admin':
-                return 'from-purple-600 to-indigo-600';
+                return 'from-purple-600 to-blue-600';
             case 'admin':
-                return 'from-blue-600 to-blue-700';
+                return 'from-blue-600 to-indigo-600';
             case 'teacher':
-                return 'from-indigo-500 to-blue-500';
+                return 'from-indigo-600 to-purple-600';
             default:
                 return 'from-gray-600 to-gray-700';
         }
     };
 
+    // Get header content based on role
+    const getHeaderContent = () => {
+        if (user?.role === 'super_admin') {
+            // SuperAdmin sees "Protap"
+            return {
+                title: 'Protap',
+                logo: null
+            };
+        } else if (instituteBranding) {
+            // Other roles see institute branding
+            return {
+                title: instituteBranding.name,
+                logo: instituteBranding.logoUrl
+            };
+        }
+        return {
+            title: 'SMS Portal',
+            logo: null
+        };
+    };
+
+    const headerContent = getHeaderContent();
+
     return (
-        <div className="h-screen w-64 bg-white border-r border-gray-200 flex flex-col shadow-sm fixed left-0 top-0 z-20">
-            <div className={`p-6 flex items-center justify-center gap-3 border-b border-gray-100 bg-gradient-to-r ${getRoleColor()}`}>
-                {logoUrl && (
-                    <img
-                        src={logoUrl}
-                        alt="Logo"
-                        className="h-10 w-10 object-contain rounded-lg bg-white/20 p-1"
-                        onError={(e) => e.target.style.display = 'none'}
-                    />
-                )}
-                <h1 className="text-xl font-bold text-white">SMS Portal</h1>
+        <aside className="fixed left-0 top-0 w-64 min-h-screen bg-white border-r border-gray-200 flex flex-col z-40">
+            {/* Header */}
+            <div className={`p-4 bg-gradient-to-r ${getRoleGradient()}`}>
+                <div className="flex items-center gap-3">
+                    {headerContent.logo ? (
+                        <img
+                            src={headerContent.logo.startsWith('/') ? `http://localhost:5000${headerContent.logo}` : headerContent.logo}
+                            alt="Logo"
+                            className="w-10 h-10 rounded-lg object-cover bg-white/20 p-1"
+                            onError={(e) => {
+                                e.target.style.display = 'none';
+                            }}
+                        />
+                    ) : (
+                        <div className="w-10 h-10 rounded-lg bg-white/20 flex items-center justify-center">
+                            <FaBuilding className="text-white text-xl" />
+                        </div>
+                    )}
+                    <div>
+                        <h1 className="text-lg font-bold text-white truncate max-w-[140px]" title={headerContent.title}>
+                            {headerContent.title}
+                        </h1>
+                        <p className="text-white/70 text-xs capitalize">{user?.role?.replace('_', ' ')}</p>
+                    </div>
+                </div>
             </div>
 
-            <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
+            {/* User Info */}
+            <div className="p-4 border-b border-gray-100">
+                <div className="flex items-center gap-3">
+                    <div className={`w-10 h-10 rounded-full bg-gradient-to-r ${getRoleGradient()} flex items-center justify-center text-white font-bold`}>
+                        {user?.name?.charAt(0) || 'U'}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-800 truncate">{user?.name}</p>
+                        <p className="text-xs text-gray-500 truncate">{user?.email}</p>
+                    </div>
+                </div>
+            </div>
+
+            {/* Navigation */}
+            <nav className="flex-1 p-4 space-y-1">
                 {getLinks().map((link) => (
                     <NavLink
                         key={link.path}
                         to={link.path}
-                        end={link.path.endsWith('dashboard')}
                         className={({ isActive }) =>
-                            `flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200 ${isActive
-                                ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30'
-                                : 'text-gray-600 hover:bg-blue-50 hover:text-blue-600'
+                            `flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all ${isActive
+                                ? 'bg-blue-50 text-blue-600'
+                                : 'text-gray-600 hover:bg-gray-50 hover:text-gray-800'
                             }`
                         }
                     >
-                        <span className="text-lg">{link.icon}</span>
-                        <span className="font-medium">{link.label}</span>
+                        {link.icon}
+                        {link.label}
                     </NavLink>
                 ))}
             </nav>
 
+            {/* Logout */}
             <div className="p-4 border-t border-gray-100">
-                <div className="flex items-center space-x-3 px-4 py-3 mb-2">
-                    <div className={`w-10 h-10 rounded-full bg-gradient-to-r ${getRoleColor()} flex items-center justify-center text-white font-bold`}>
-                        {user?.name?.charAt(0).toUpperCase()}
-                    </div>
-                    <div className="overflow-hidden">
-                        <p className="text-sm font-semibold text-gray-800 truncate">{user?.name}</p>
-                        <p className="text-xs text-gray-500 capitalize">{user?.role?.replace('_', ' ')}</p>
-                    </div>
-                </div>
                 <button
                     onClick={handleLogout}
-                    className="w-full flex items-center justify-center space-x-2 px-4 py-2 border border-red-100 text-red-600 rounded-lg hover:bg-red-50 transition-colors duration-200"
+                    className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
                 >
                     <FaSignOutAlt />
-                    <span>Logout</span>
+                    Logout
                 </button>
             </div>
-        </div>
+        </aside>
     );
 };
 
 export default Sidebar;
-
-

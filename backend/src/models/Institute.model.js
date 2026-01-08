@@ -37,6 +37,24 @@ const instituteSchema = new mongoose.Schema(
             trim: true
         },
 
+        // Institute theme customization
+        theme: {
+            accentColor: {
+                type: String,
+                default: "#2563eb"
+            }
+        },
+
+        // Feature flags for this institute
+        features: {
+            attendance: {
+                enabled: {
+                    type: Boolean,
+                    default: false
+                }
+            }
+        },
+
         isActive: {
             type: Boolean,
             default: true

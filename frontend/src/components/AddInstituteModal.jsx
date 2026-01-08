@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import api from '../api/axios';
-import { FaTimes, FaBuilding } from 'react-icons/fa';
+import { FaTimes, FaBuilding, FaToggleOn, FaToggleOff } from 'react-icons/fa';
 
 const AddInstituteModal = ({ onClose, onSuccess }) => {
     const [formData, setFormData] = useState({
@@ -10,6 +10,9 @@ const AddInstituteModal = ({ onClose, onSuccess }) => {
         contactEmail: '',
         contactPhone: '',
         logoUrl: ''
+    });
+    const [features, setFeatures] = useState({
+        attendance: false
     });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
@@ -25,7 +28,14 @@ const AddInstituteModal = ({ onClose, onSuccess }) => {
         setLoading(true);
 
         try {
-            const response = await api.post('/institute', formData);
+            const payload = {
+                ...formData,
+                features: {
+                    attendance: { enabled: features.attendance }
+                }
+            };
+
+            const response = await api.post('/institute', payload);
             if (response.data.success) {
                 onSuccess();
             }
@@ -56,7 +66,7 @@ const AddInstituteModal = ({ onClose, onSuccess }) => {
                 </div>
 
                 {/* Form */}
-                <form onSubmit={handleSubmit} className="p-6 space-y-4">
+                <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
                     {error && (
                         <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm">
                             {error}
@@ -139,6 +149,25 @@ const AddInstituteModal = ({ onClose, onSuccess }) => {
                             className="w-full mt-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none"
                             placeholder="https://example.com/logo.png"
                         />
+                    </div>
+
+                    {/* Features Section */}
+                    <div className="border-t border-gray-200 pt-4 mt-4">
+                        <h3 className="text-sm font-semibold text-gray-800 mb-3">Institute Features</h3>
+
+                        <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                            <div>
+                                <p className="font-medium text-gray-800">Attendance Module</p>
+                                <p className="text-xs text-gray-500">Enable teachers to mark student attendance</p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setFeatures(p => ({ ...p, attendance: !p.attendance }))}
+                                className={`text-3xl transition-colors ${features.attendance ? 'text-green-500' : 'text-gray-300'}`}
+                            >
+                                {features.attendance ? <FaToggleOn /> : <FaToggleOff />}
+                            </button>
+                        </div>
                     </div>
 
                     {/* Buttons */}
