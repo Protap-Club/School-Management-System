@@ -290,16 +290,15 @@ const Settings = () => {
                                     {settings.logoUrl && (
                                         <div className="mt-4 p-6 bg-gray-50 rounded-xl">
                                             <p className="text-sm text-gray-500 mb-3">Preview:</p>
-                                            <div className="flex items-center gap-3 bg-white p-4 rounded-lg border border-gray-200">
+                                            <div className="flex items-center justify-center bg-white p-4 rounded-lg border border-gray-200">
                                                 <img
                                                     src={settings.logoUrl}
                                                     alt="Logo Preview"
-                                                    className="h-10 w-10 object-contain rounded"
+                                                    className="h-12 max-w-[200px] object-contain"
                                                     onError={(e) => {
                                                         e.target.style.display = 'none';
                                                     }}
                                                 />
-                                                <span className="text-xl font-bold text-gray-800">SMS Portal</span>
                                             </div>
                                         </div>
                                     )}

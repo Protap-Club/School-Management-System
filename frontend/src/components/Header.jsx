@@ -43,6 +43,10 @@ const Header = () => {
         };
 
         fetchBranding();
+
+        // Listen for settings updates to refresh branding (logo changes)
+        window.addEventListener('settingsUpdated', fetchBranding);
+        return () => window.removeEventListener('settingsUpdated', fetchBranding);
     }, [user]);
 
     const handleLogout = () => {
