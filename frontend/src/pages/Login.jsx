@@ -16,9 +16,9 @@ const Login = () => {
         try {
             const user = await login(email, password);
             // Redirect based on role
-            if (user.role === 'super_admin') navigate('/superadmin/dashboard');
-            else if (user.role === 'admin') navigate('/admin/dashboard');
-            else if (user.role === 'teacher') navigate('/teacher/dashboard');
+            if (user.role === 'super_admin') navigate('/superadmin/users');
+            else if (user.role === 'admin') navigate('/admin/users');
+            else if (user.role === 'teacher') navigate('/teacher/users');
             else navigate('/login'); // Fallback - students can't login
         } catch (err) {
             setError(err.response?.data?.message || err.message || 'Failed to login');

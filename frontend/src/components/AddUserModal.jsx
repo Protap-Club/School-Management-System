@@ -16,27 +16,32 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
         contactNo: '',
         instituteId: ''
     });
-    const [institutes, setInstitutes] = useState([]);
+    const [instituteName, setInstituteName] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
-    // Fetch institutes for SuperAdmin
+    // Fetch current institute details for everyone (including SuperAdmin)
     useEffect(() => {
-        if (isOpen && user?.role === 'super_admin') {
-            fetchInstitutes();
-        }
-    }, [isOpen, user?.role]);
+        const fetchInstituteDetails = async () => {
+            if (user?.instituteId) {
+                // Set ID immediately from user context
+                setFormData(prev => ({ ...prev, instituteId: user.instituteId }));
 
-    const fetchInstitutes = async () => {
-        try {
-            const response = await api.get('/institute/list');
-            if (response.data.success) {
-                setInstitutes(response.data.data);
+                try {
+                    const response = await api.get('/institute/my-branding');
+                    if (response.data.success && response.data.data) {
+                        setInstituteName(response.data.data.name);
+                    }
+                } catch (error) {
+                    console.error('Failed to fetch institute details', error);
+                }
             }
-        } catch (error) {
-            console.error('Failed to fetch institutes', error);
+        };
+
+        if (isOpen) {
+            fetchInstituteDetails();
         }
-    };
+    }, [isOpen, user]);
 
     if (!isOpen) return null;
 
@@ -48,13 +53,6 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
         e.preventDefault();
         setLoading(true);
         setError('');
-
-        // Validate institute for SuperAdmin
-        if (user?.role === 'super_admin' && !formData.instituteId) {
-            setError('Please select an institute');
-            setLoading(false);
-            return;
-        }
 
         try {
             const payload = {
@@ -71,7 +69,7 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
             // Reset form
             setFormData({
                 name: '', email: '', department: '', designation: '',
-                rollNumber: '', course: '', year: '', contactNo: '', instituteId: ''
+                rollNumber: '', course: '', year: '', contactNo: '', instituteId: user?.instituteId || ''
             });
         } catch (err) {
             setError(err.response?.data?.message || err.message || 'Failed to create user');
@@ -79,8 +77,6 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
             setLoading(false);
         }
     };
-
-    const isSuperAdmin = user?.role === 'super_admin';
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
@@ -108,34 +104,18 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
                     )}
 
                     <form onSubmit={handleSubmit} className="space-y-4">
-                        {/* Institute Selector - Only for SuperAdmin */}
-                        {isSuperAdmin && (
-                            <div className="space-y-1">
-                                <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
-                                    <FaBuilding className="text-purple-600" />
-                                    Select Institute *
-                                </label>
-                                <select
-                                    name="instituteId"
-                                    value={formData.instituteId}
-                                    onChange={handleChange}
-                                    className="w-full px-4 py-2 border border-purple-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition-all bg-purple-50"
-                                    required
-                                >
-                                    <option value="">-- Select an Institute --</option>
-                                    {institutes.map(inst => (
-                                        <option key={inst._id} value={inst._id}>
-                                            {inst.name} ({inst.code})
-                                        </option>
-                                    ))}
-                                </select>
-                                {institutes.length === 0 && (
-                                    <p className="text-xs text-amber-600 mt-1">
-                                        No institutes found. Please create an institute first.
-                                    </p>
-                                )}
-                            </div>
-                        )}
+                        {/* Institute Field - Read Only for Everyone */}
+                        <div className="space-y-1">
+                            <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                                <FaBuilding className="text-gray-400" />
+                                Institute
+                            </label>
+                            <input
+                                value={instituteName || 'Loading...'}
+                                disabled
+                                className="w-full px-4 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-500 cursor-not-allowed font-medium"
+                            />
+                        </div>
 
                         {/* Common Fields */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -261,7 +241,7 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
                             </button>
                             <button
                                 type="submit"
-                                disabled={loading || (isSuperAdmin && institutes.length === 0)}
+                                disabled={loading}
                                 className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-lg shadow-blue-600/30 transition-colors font-medium disabled:opacity-70 disabled:cursor-not-allowed"
                             >
                                 {loading ? 'Creating...' : `Create ${roleToAdd}`}

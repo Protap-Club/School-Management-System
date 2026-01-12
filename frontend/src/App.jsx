@@ -5,23 +5,9 @@ import { SidebarProvider } from './context/SidebarContext';
 import Login from './pages/Login';
 import ProtectedRoute from './components/ProtectedRoute';
 
-// SuperAdmin Pages
-import SuperAdminDashboard from './pages/SuperAdminDashboard';
-import InstitutesPage from './pages/InstitutesPage';
-
-// Admin Pages
-import AdminDashboard from './pages/AdminDashboard';
-import Settings from './pages/Settings';
-
-// Teacher Pages
-import TeacherDashboard from './pages/TeacherDashboard';
-import TeacherProfile from './pages/TeacherProfile';
-import AttendancePage from './pages/AttendancePage';
-
 // Shared Pages
-import TeachersPage from './pages/TeachersPage';
-import StudentsPage from './pages/StudentsPage';
-import AdminsPage from './pages/AdminsPage';
+import UsersPage from './pages/UsersPage';
+import Settings from './pages/Settings';
 
 function App() {
   return (
@@ -34,42 +20,10 @@ function App() {
 
             {/* SuperAdmin Routes */}
             <Route
-              path="/superadmin/dashboard"
+              path="/superadmin/users"
               element={
                 <ProtectedRoute allowedRoles={['super_admin']}>
-                  <SuperAdminDashboard />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/superadmin/institutes"
-              element={
-                <ProtectedRoute allowedRoles={['super_admin']}>
-                  <InstitutesPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/superadmin/admins"
-              element={
-                <ProtectedRoute allowedRoles={['super_admin']}>
-                  <AdminsPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/superadmin/teachers"
-              element={
-                <ProtectedRoute allowedRoles={['super_admin']}>
-                  <TeachersPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/superadmin/students"
-              element={
-                <ProtectedRoute allowedRoles={['super_admin']}>
-                  <StudentsPage />
+                  <UsersPage />
                 </ProtectedRoute>
               }
             />
@@ -84,26 +38,10 @@ function App() {
 
             {/* Admin Routes */}
             <Route
-              path="/admin/dashboard"
+              path="/admin/users"
               element={
                 <ProtectedRoute allowedRoles={['admin']}>
-                  <AdminDashboard />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/admin/teachers"
-              element={
-                <ProtectedRoute allowedRoles={['admin']}>
-                  <TeachersPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/admin/students"
-              element={
-                <ProtectedRoute allowedRoles={['admin']}>
-                  <StudentsPage />
+                  <UsersPage />
                 </ProtectedRoute>
               }
             />
@@ -118,34 +56,18 @@ function App() {
 
             {/* Teacher Routes */}
             <Route
-              path="/teacher/dashboard"
+              path="/teacher/users"
               element={
                 <ProtectedRoute allowedRoles={['teacher']}>
-                  <TeacherDashboard />
+                  <UsersPage />
                 </ProtectedRoute>
               }
             />
             <Route
-              path="/teacher/students"
+              path="/teacher/settings"
               element={
                 <ProtectedRoute allowedRoles={['teacher']}>
-                  <StudentsPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/teacher/profile"
-              element={
-                <ProtectedRoute allowedRoles={['teacher']}>
-                  <TeacherProfile />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/teacher/attendance"
-              element={
-                <ProtectedRoute allowedRoles={['teacher']}>
-                  <AttendancePage />
+                  <Settings />
                 </ProtectedRoute>
               }
             />
@@ -161,4 +83,3 @@ function App() {
 }
 
 export default App;
-
