@@ -73,13 +73,6 @@ const AdminDashboard = () => {
                             >
                                 <FaUserGraduate /> Add Student
                             </button>
-                            {/* As per request "Add User or Add Student". Admin usually adds Teachers (User) and Students. */}
-                            <button
-                                onClick={() => setActiveModal('student')}
-                                className="w-full text-left px-4 py-3 hover:bg-blue-50 text-gray-700 hover:text-blue-600 flex items-center gap-2 transition-colors"
-                            >
-                                <FaUserGraduate /> Add Admin
-                            </button>
                         </div>
                     </div>
                 </div>
@@ -105,16 +98,7 @@ const AdminDashboard = () => {
                         <h3 className="text-2xl font-bold text-gray-800">{stats.teachers}</h3>
                         <p className="text-sm text-gray-500">Teachers</p>
                     </div>
-                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                        <div className="flex items-center justify-between mb-4">
-                            <div className="p-3 bg-indigo-100 text-indigo-600 rounded-lg">
-                                <FaChalkboardTeacher size={24} />
-                            </div>
-                        </div>
-                        <h3 className="text-2xl font-bold text-gray-800">{stats.teachers}</h3>
-                        <p className="text-sm text-gray-500">Admin</p>
-                    </div>
-                    
+
                     <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
                         <div className="flex items-center justify-between mb-4">
                             <div className="p-3 bg-purple-100 text-purple-600 rounded-lg">

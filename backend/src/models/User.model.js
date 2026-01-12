@@ -31,6 +31,14 @@ const userSchema = new mongoose.Schema(
       index: true
     },
 
+    // Institute this user belongs to (required for admin, teacher, student)
+    instituteId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Institute",
+      index: true
+      // Not required for super_admin
+    },
+
     contactNo: {
       type: String,
       trim: true

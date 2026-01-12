@@ -16,12 +16,12 @@ const Login = () => {
         try {
             const user = await login(email, password);
             // Redirect based on role
-            if (user.role === 'admin' || user.role === 'super_admin') navigate('/admin/dashboard');
+            if (user.role === 'super_admin') navigate('/superadmin/dashboard');
+            else if (user.role === 'admin') navigate('/admin/dashboard');
             else if (user.role === 'teacher') navigate('/teacher/dashboard');
-            else if (user.role === 'student') navigate('/student/dashboard');
-            else navigate('/'); // Fallback
+            else navigate('/login'); // Fallback - students can't login
         } catch (err) {
-            setError(err.message || 'Failed to login');
+            setError(err.response?.data?.message || err.message || 'Failed to login');
         }
     };
 

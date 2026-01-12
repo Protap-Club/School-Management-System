@@ -2,6 +2,7 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import User from "../models/User.model.js";
 import { conf } from "../config/index.js";
+import { USER_ROLES } from "../constants/userRoles.js";
 
 /**
  * @desc    Login user
@@ -29,6 +30,22 @@ export const login = async (req, res) => {
             });
         }
 
+        // Block students from logging in
+        if (user.role === USER_ROLES.STUDENT) {
+            return res.status(403).json({
+                success: false,
+                message: "Students cannot access this portal. Please contact your administrator.",
+            });
+        }
+
+        // Check if user is active
+        if (!user.isActive) {
+            return res.status(403).json({
+                success: false,
+                message: "Your account has been deactivated. Please contact your administrator.",
+            });
+        }
+
         // Check password
         const isMatch = await bcrypt.compare(password, user.password);
 
@@ -38,6 +55,10 @@ export const login = async (req, res) => {
                 message: "Invalid credentials",
             });
         }
+
+        // Update last login timestamp
+        user.lastLoginAt = new Date();
+        await user.save();
 
         // Generate token
         const token = jwt.sign({ id: user._id }, conf.JWT_SECRET, {
@@ -61,6 +82,7 @@ export const login = async (req, res) => {
         });
     }
 };
+
 
 /**
  * @desc    Check auth status
