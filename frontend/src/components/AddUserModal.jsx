@@ -82,7 +82,7 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-fade-in-up">
                 {/* Header */}
-                <div className="bg-blue-600 px-6 py-4 flex items-center justify-between">
+                <div className="bg-primary px-6 py-4 flex items-center justify-between">
                     <h3 className="text-xl font-bold text-white flex items-center gap-2">
                         <FaUserPlus />
                         ADD {roleToAdd?.toUpperCase()}
@@ -125,7 +125,7 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
                                     name="name"
                                     value={formData.name}
                                     onChange={handleChange}
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
                                     required
                                 />
                             </div>
@@ -135,7 +135,7 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
                                     name="contactNo"
                                     value={formData.contactNo}
                                     onChange={handleChange}
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
                                 />
                             </div>
                         </div>
@@ -147,15 +147,15 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
                                 name="email"
                                 value={formData.email}
                                 onChange={handleChange}
-                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
                                 required
                             />
                         </div>
 
                         {/* Info about auto-generated password */}
-                        <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 flex items-start gap-2">
-                            <span className="text-blue-500 mt-0.5">ℹ️</span>
-                            <p className="text-sm text-blue-700">
+                        <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 flex items-start gap-2">
+                            <span className="text-primary mt-0.5">ℹ️</span>
+                            <p className="text-sm text-primary">
                                 A secure password will be auto-generated and sent to the user's email address.
                             </p>
                         </div>
@@ -170,7 +170,7 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
                                             name="department"
                                             value={formData.department}
                                             onChange={handleChange}
-                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
                                             required
                                         />
                                     </div>
@@ -181,7 +181,7 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
                                                 name="designation"
                                                 value={formData.designation}
                                                 onChange={handleChange}
-                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
                                                 required
                                             />
                                         </div>
@@ -200,7 +200,7 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
                                             name="rollNumber"
                                             value={formData.rollNumber}
                                             onChange={handleChange}
-                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
                                             required
                                         />
                                     </div>
@@ -210,7 +210,7 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
                                             name="course"
                                             value={formData.course}
                                             onChange={handleChange}
-                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
                                             required
                                         />
                                     </div>
@@ -223,7 +223,7 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
                                             onChange={handleChange}
                                             min="1"
                                             max="6"
-                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
                                             required
                                         />
                                     </div>
@@ -242,7 +242,7 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
                             <button
                                 type="submit"
                                 disabled={loading}
-                                className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-lg shadow-blue-600/30 transition-colors font-medium disabled:opacity-70 disabled:cursor-not-allowed"
+                                className="px-6 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg shadow-lg shadow-primary/30 transition-colors font-medium disabled:opacity-70 disabled:cursor-not-allowed"
                             >
                                 {loading ? 'Creating...' : `Create ${roleToAdd}`}
                             </button>

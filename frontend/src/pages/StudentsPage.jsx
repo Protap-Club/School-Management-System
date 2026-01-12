@@ -35,7 +35,7 @@ const StudentsPage = () => {
         return (
             <DashboardLayout>
                 <div className="flex items-center justify-center h-screen">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
                 </div>
             </DashboardLayout>
         );
@@ -64,7 +64,7 @@ const StudentsPage = () => {
                         placeholder="Search by name, email, roll number, or course..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full pl-12 pr-4 py-3 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                        className="w-full pl-12 pr-4 py-3 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary outline-none"
                     />
                 </div>
 
@@ -99,7 +99,7 @@ const StudentsPage = () => {
                                             </span>
                                         </td>
                                         <td className="px-6 py-4">
-                                            <span className="bg-blue-50 text-blue-600 px-3 py-1 rounded-full text-sm font-medium">
+                                            <span className="bg-primary/10 text-primary px-3 py-1 rounded-full text-sm font-medium">
                                                 {student.profile?.course || 'N/A'}
                                             </span>
                                         </td>

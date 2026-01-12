@@ -113,7 +113,7 @@ const UsersPage = () => {
                     {/* Add User Button/Dropdown */}
                     {allowedRoles.length > 0 && (
                         <div className="relative group">
-                            <button className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-5 py-2.5 rounded-xl shadow-lg shadow-blue-600/30 hover:from-blue-700 hover:to-indigo-700 transition-all font-medium">
+                            <button className="flex items-center gap-2 bg-primary text-white px-5 py-2.5 rounded-xl shadow-lg shadow-primary/30 hover:bg-primary-hover transition-all font-medium">
                                 <FaUserPlus />
                                 <span>Add User</span>
                             </button>
@@ -147,7 +147,7 @@ const UsersPage = () => {
                                 <select
                                     value={selectedRole}
                                     onChange={(e) => handleRoleChange(e.target.value)}
-                                    className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white"
+                                    className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none bg-white"
                                 >
                                     <option value="all">All Roles</option>
                                     {allowedRoles.map((role) => (
@@ -165,7 +165,7 @@ const UsersPage = () => {
                             <select
                                 value={pageSize}
                                 onChange={(e) => handlePageSizeChange(e.target.value)}
-                                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white text-sm"
+                                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none bg-white text-sm"
                             >
                                 <option value="25">25</option>
                                 <option value="50">50</option>
@@ -180,7 +180,7 @@ const UsersPage = () => {
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
                     <div className="p-5 border-b border-gray-100 flex justify-between items-center">
                         <div className="flex items-center gap-3">
-                            <FaUsers className="text-blue-600" />
+                            <FaUsers className="text-primary" />
                             <h2 className="text-lg font-bold text-gray-800">User List</h2>
                         </div>
                         {pagination.totalCount > 0 && (
@@ -192,7 +192,7 @@ const UsersPage = () => {
 
                     {loading ? (
                         <div className="p-12 text-center">
-                            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mx-auto"></div>
+                            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary mx-auto"></div>
                             <p className="text-gray-500 mt-4">Loading users...</p>
                         </div>
                     ) : users.length === 0 ? (

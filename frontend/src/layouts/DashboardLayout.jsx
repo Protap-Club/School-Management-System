@@ -1,10 +1,59 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import Sidebar from '../components/Sidebar';
 import Header from '../components/Header';
 import { useSidebar } from '../context/SidebarContext';
+import api from '../api/axios';
 
 const DashboardLayout = ({ children }) => {
     const { isCollapsed } = useSidebar();
+
+    // Helper to darken color for hover state
+    const adjustColor = (color, amount) => {
+        return '#' + color.replace(/^#/, '').replace(/../g, color => ('0' + Math.min(255, Math.max(0, parseInt(color, 16) + amount)).toString(16)).substr(-2));
+    }
+
+    // Helper to convert hex to rgb channels
+    const hexToRgb = (hex) => {
+        const bigint = parseInt(hex.replace('#', ''), 16);
+        const r = (bigint >> 16) & 255;
+        const g = (bigint >> 8) & 255;
+        const b = bigint & 255;
+        return `${r} ${g} ${b}`;
+    }
+
+    // Fetch and apply theme settings
+    useEffect(() => {
+        const fetchAndApplyTheme = async () => {
+            try {
+                // Check if user is logged in before fetching settings
+                const token = localStorage.getItem('token');
+                if (!token) return;
+
+                const response = await api.get('/settings');
+                if (response.data.success && response.data.data?.theme) {
+                    const { accentColor } = response.data.data.theme;
+
+                    // Set both Hex and RGB variables
+                    document.documentElement.style.setProperty('--primary-color', accentColor);
+                    document.documentElement.style.setProperty('--primary-rgb', hexToRgb(accentColor));
+
+                    // Hover state
+                    const hoverColor = adjustColor(accentColor, -25);
+                    document.documentElement.style.setProperty('--primary-hover', hoverColor);
+                    document.documentElement.style.setProperty('--primary-hover-rgb', hexToRgb(hoverColor));
+                }
+            } catch (error) {
+                console.error("Theme load failed", error);
+            }
+        };
+
+        // Initial load
+        fetchAndApplyTheme();
+
+        // Listen for updates
+        window.addEventListener('settingsUpdated', fetchAndApplyTheme);
+        return () => window.removeEventListener('settingsUpdated', fetchAndApplyTheme);
+    }, []);
 
     return (
         <div className="min-h-screen bg-gray-50">

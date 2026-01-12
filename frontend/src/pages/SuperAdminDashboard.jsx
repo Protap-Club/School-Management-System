@@ -115,7 +115,7 @@ const SuperAdminDashboard = () => {
 
                         {/* Add User Dropdown */}
                         <div className="relative group">
-                            <button className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-5 py-2.5 rounded-xl shadow-lg shadow-blue-600/30 hover:from-blue-700 hover:to-indigo-700 transition-all font-medium">
+                            <button className="flex items-center gap-2 bg-primary text-white px-5 py-2.5 rounded-xl shadow-lg shadow-primary/30 hover:bg-primary-hover transition-all font-medium">
                                 <FaUserPlus />
                                 <span>Add User</span>
                             </button>
@@ -129,7 +129,7 @@ const SuperAdminDashboard = () => {
                                 </button>
                                 <button
                                     onClick={() => setActiveModal('teacher')}
-                                    className="w-full text-left px-4 py-3 hover:bg-blue-50 text-gray-700 hover:text-blue-600 flex items-center gap-2 transition-colors"
+                                    className="w-full text-left px-4 py-3 hover:bg-primary/5 text-gray-700 hover:text-primary flex items-center gap-2 transition-colors"
                                 >
                                     <FaChalkboardTeacher /> Add Teacher
                                 </button>
@@ -168,7 +168,7 @@ const SuperAdminDashboard = () => {
                             <select
                                 value={selectedInstitute}
                                 onChange={(e) => handleInstituteChange(e.target.value)}
-                                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none"
                             >
                                 <option value="">-- Select Institute --</option>
                                 {institutes.map(inst => (
@@ -185,7 +185,7 @@ const SuperAdminDashboard = () => {
                             <select
                                 value={selectedRole}
                                 onChange={(e) => handleRoleChange(e.target.value)}
-                                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none"
                             >
                                 <option value="all">All</option>
                                 <option value="admin">Admin</option>
@@ -200,7 +200,7 @@ const SuperAdminDashboard = () => {
                             <select
                                 value={pageSize}
                                 onChange={(e) => handlePageSizeChange(e.target.value)}
-                                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none"
                             >
                                 <option value="25">25</option>
                                 <option value="50">50</option>
@@ -229,7 +229,7 @@ const SuperAdminDashboard = () => {
                         </div>
                     ) : loading ? (
                         <div className="p-12 text-center">
-                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
                         </div>
                     ) : users.length === 0 ? (
                         <div className="p-12 text-center text-gray-500">
@@ -253,8 +253,8 @@ const SuperAdminDashboard = () => {
                                                 <td className="px-5 py-3">
                                                     <div className="flex items-center gap-3">
                                                         <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs ${u.role === 'admin' ? 'bg-purple-100 text-purple-600' :
-                                                                u.role === 'teacher' ? 'bg-indigo-100 text-indigo-600' :
-                                                                    'bg-green-100 text-green-600'
+                                                            u.role === 'teacher' ? 'bg-indigo-100 text-indigo-600' :
+                                                                'bg-green-100 text-green-600'
                                                             }`}>
                                                             {u.name.charAt(0)}
                                                         </div>
@@ -263,8 +263,8 @@ const SuperAdminDashboard = () => {
                                                 </td>
                                                 <td className="px-5 py-3">
                                                     <span className={`px-2.5 py-1 rounded-full text-xs font-medium capitalize ${u.role === 'admin' ? 'bg-purple-100 text-purple-600' :
-                                                            u.role === 'teacher' ? 'bg-indigo-100 text-indigo-600' :
-                                                                'bg-green-100 text-green-600'
+                                                        u.role === 'teacher' ? 'bg-indigo-100 text-indigo-600' :
+                                                            'bg-green-100 text-green-600'
                                                         }`}>
                                                         {u.role}
                                                     </span>

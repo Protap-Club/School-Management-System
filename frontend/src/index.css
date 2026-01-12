@@ -3,10 +3,12 @@
 :root {
     --primary-color: #2563eb;
     /* Blue-600 */
+    --primary-rgb: 37 99 235;
+    --primary-hover: #1d4ed8;
+    /* Blue-700 */
+    --primary-hover-rgb: 29 78 216;
     --secondary-color: #ffffff;
-    /* White */
     --bg-color: #f3f4f6;
-    /* Gray-100 */
 }
 
 body {

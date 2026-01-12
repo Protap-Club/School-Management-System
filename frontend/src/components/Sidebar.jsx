@@ -48,7 +48,7 @@ const Sidebar = () => {
                         title={isCollapsed ? link.label : ''}
                         className={({ isActive }) =>
                             `flex items-center ${isCollapsed ? 'justify-center' : 'gap-3'} px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 ${isActive
-                                ? 'bg-blue-50 text-blue-600'
+                                ? 'bg-primary/10 text-primary'
                                 : 'text-gray-600 hover:bg-gray-50 hover:text-gray-800'
                             }`
                         }

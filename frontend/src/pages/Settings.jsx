@@ -5,13 +5,13 @@ import api from '../api/axios';
 import { FaSave, FaPalette, FaImage, FaCheck, FaUpload, FaLink, FaToggleOn, FaToggleOff } from 'react-icons/fa';
 
 // Predefined theme colors
+// Predefined theme colors
 const THEME_COLORS = [
-    { name: 'White', value: '#ffffff', textColor: '#1f2937' },
-    { name: 'Black', value: '#1f2937', textColor: '#ffffff' },
-    { name: 'Blue', value: '#2563eb', textColor: '#ffffff' },
+    { name: 'Royal Blue', value: '#2563eb', textColor: '#ffffff' },
     { name: 'Purple', value: '#7c3aed', textColor: '#ffffff' },
-    { name: 'Green', value: '#059669', textColor: '#ffffff' },
-    { name: 'Light Pink', value: '#ec4899', textColor: '#ffffff' },
+    { name: 'Emerald', value: '#059669', textColor: '#ffffff' },
+    { name: 'Rose', value: '#e11d48', textColor: '#ffffff' },
+    { name: 'Amber', value: '#d97706', textColor: '#ffffff' },
 ];
 
 // Feature toggle configuration
@@ -155,7 +155,7 @@ const Settings = () => {
         return (
             <DashboardLayout>
                 <div className="flex items-center justify-center h-screen">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
                 </div>
             </DashboardLayout>
         );
@@ -184,33 +184,30 @@ const Settings = () => {
                             {/* Theme Colors */}
                             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
                                 <div className="p-6 border-b border-gray-100 flex items-center gap-3">
-                                    <FaPalette className="text-blue-600 text-xl" />
+                                    <FaPalette className="text-primary text-xl" />
                                     <h2 className="text-lg font-bold text-gray-800">Theme Color</h2>
                                 </div>
                                 <div className="p-6">
-                                    <p className="text-sm text-gray-500 mb-4">Choose a theme color for your portal</p>
-                                    <div className="grid grid-cols-3 md:grid-cols-6 gap-4">
+                                    <p className="text-sm text-gray-500 mb-6 font-medium">Choose a primary theme color</p>
+                                    <div className="flex flex-wrap gap-4">
                                         {THEME_COLORS.map((color) => (
                                             <button
                                                 key={color.value}
                                                 type="button"
                                                 onClick={() => handleColorSelect(color.value)}
-                                                className={`relative w-full aspect-square rounded-xl border-2 transition-all duration-200 hover:scale-105 ${settings.theme?.accentColor === color.value
-                                                    ? 'border-blue-500 ring-2 ring-blue-200'
-                                                    : 'border-gray-200 hover:border-gray-300'
+                                                className={`group relative w-12 h-12 rounded-full shadow-sm transition-all duration-300 hover:scale-110 focus:outline-none focus:ring-2 focus:ring-offset-2 ${settings.theme?.accentColor === color.value
+                                                    ? 'ring-2 ring-offset-2 ring-gray-400 scale-110'
+                                                    : 'hover:shadow-md'
                                                     }`}
                                                 style={{ backgroundColor: color.value }}
                                                 title={color.name}
                                             >
                                                 {settings.theme?.accentColor === color.value && (
-                                                    <div className="absolute inset-0 flex items-center justify-center">
-                                                        <FaCheck style={{ color: color.textColor }} size={20} />
-                                                    </div>
+                                                    <span className="absolute inset-0 flex items-center justify-center">
+                                                        <FaCheck className="text-white text-lg drop-shadow-md" />
+                                                    </span>
                                                 )}
-                                                <span
-                                                    className="absolute bottom-1 left-0 right-0 text-center text-[10px] font-medium"
-                                                    style={{ color: color.textColor }}
-                                                >
+                                                <span className="absolute -bottom-8 left-1/2 -translate-x-1/2 text-xs font-medium text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap bg-gray-100 px-2 py-1 rounded shadow-sm z-10 pointer-events-none">
                                                     {color.name}
                                                 </span>
                                             </button>
@@ -222,7 +219,7 @@ const Settings = () => {
                             {/* Logo */}
                             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
                                 <div className="p-6 border-b border-gray-100 flex items-center gap-3">
-                                    <FaImage className="text-blue-600 text-xl" />
+                                    <FaImage className="text-primary text-xl" />
                                     <h2 className="text-lg font-bold text-gray-800">Portal Logo</h2>
                                 </div>
                                 <div className="p-6 space-y-4">
@@ -232,7 +229,7 @@ const Settings = () => {
                                             type="button"
                                             onClick={() => setLogoInputType('url')}
                                             className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${logoInputType === 'url'
-                                                ? 'bg-white text-blue-600 shadow-sm'
+                                                ? 'bg-white text-primary shadow-sm'
                                                 : 'text-gray-600 hover:text-gray-800'
                                                 }`}
                                         >
@@ -242,7 +239,7 @@ const Settings = () => {
                                             type="button"
                                             onClick={() => setLogoInputType('upload')}
                                             className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${logoInputType === 'upload'
-                                                ? 'bg-white text-blue-600 shadow-sm'
+                                                ? 'bg-white text-primary shadow-sm'
                                                 : 'text-gray-600 hover:text-gray-800'
                                                 }`}
                                         >
@@ -258,7 +255,7 @@ const Settings = () => {
                                                 type="url"
                                                 value={settings.logoUrl || ''}
                                                 onChange={handleLogoChange}
-                                                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                                                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
                                                 placeholder="https://example.com/logo.png"
                                             />
                                             <p className="text-xs text-gray-400">Enter a URL to your logo image</p>
@@ -280,7 +277,7 @@ const Settings = () => {
                                                 type="button"
                                                 onClick={() => fileInputRef.current?.click()}
                                                 disabled={uploading}
-                                                className="w-full flex items-center justify-center gap-3 px-6 py-4 border-2 border-dashed border-gray-300 rounded-xl hover:border-blue-400 hover:bg-blue-50 transition-all text-gray-600 hover:text-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                className="w-full flex items-center justify-center gap-3 px-6 py-4 border-2 border-dashed border-gray-300 rounded-xl hover:border-primary/60 hover:bg-primary/5 transition-all text-gray-600 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed"
                                             >
                                                 <FaUpload size={20} />
                                                 <span>{uploading ? 'Uploading...' : 'Click to upload logo'}</span>
