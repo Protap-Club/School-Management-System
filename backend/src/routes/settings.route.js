@@ -7,25 +7,8 @@ import { upload } from "../middlewares/upload.middleware.js";
 
 const router = express.Router();
 
-// GET /api/v1/settings - Public (for theme/logo on login page)
 router.get("/", getSettings);
-
-// PUT /api/v1/settings - Protected (Admin/SuperAdmin only)
-router.put(
-    "/",
-    checkAuth,
-    checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN]),
-    updateSettings
-);
-
-// POST /api/v1/settings/upload-logo - Upload logo file
-router.post(
-    "/upload-logo",
-    checkAuth,
-    checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN]),
-    upload.single('logo'),
-    uploadLogo
-);
+router.put("/", checkAuth, checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN]), updateSettings);
+router.post("/upload-logo", checkAuth, checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN]), upload.single('logo'), uploadLogo);
 
 export default router;
-
