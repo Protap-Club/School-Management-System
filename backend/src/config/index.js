@@ -7,6 +7,7 @@ export const conf = {
     NODE_ENV: process.env.NODE_ENV,
     JWT_SECRET: process.env.JWT_SECRET,
     SUPER_ADMIN_PASSWORD: process.env.SUPER_ADMIN_PASSWORD,
+    SUPER_ADMIN_EMAIL: process.env.SUPER_ADMIN_EMAIL,
     
     // SMTP Configuration for Email
     SMTP_HOST: process.env.SMTP_HOST || 'smtp.gmail.com',
