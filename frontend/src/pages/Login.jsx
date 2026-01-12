@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { FaUser, FaLock, FaSchool } from 'react-icons/fa';
+import { FaUser, FaLock } from 'react-icons/fa';
 
 const Login = () => {
     const [email, setEmail] = useState('');
@@ -16,9 +16,9 @@ const Login = () => {
         try {
             const user = await login(email, password);
             // Redirect based on role
-            if (user.role === 'super_admin') navigate('/superadmin/dashboard');
-            else if (user.role === 'admin') navigate('/admin/dashboard');
-            else if (user.role === 'teacher') navigate('/teacher/dashboard');
+            if (user.role === 'super_admin') navigate('/superadmin/users');
+            else if (user.role === 'admin') navigate('/admin/users');
+            else if (user.role === 'teacher') navigate('/teacher/users');
             else navigate('/login'); // Fallback - students can't login
         } catch (err) {
             setError(err.response?.data?.message || err.message || 'Failed to login');
@@ -36,9 +36,11 @@ const Login = () => {
 
             <div className="bg-white/80 backdrop-blur-lg rounded-2xl shadow-xl w-full max-w-md p-8 relative z-10 border border-white/50">
                 <div className="text-center mb-10">
-                    <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-blue-600 text-white mb-4 shadow-lg shadow-blue-600/30">
-                        <FaSchool className="text-3xl" />
-                    </div>
+                    <img
+                        src="/protap.png"
+                        alt="Protap Logo"
+                        className="w-20 h-20 mx-auto mb-4 object-contain"
+                    />
                     <h2 className="text-3xl font-bold text-gray-800">Welcome Back</h2>
                     <p className="text-gray-500 mt-2">Sign in to access your portal</p>
                 </div>

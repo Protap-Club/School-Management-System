@@ -16,27 +16,32 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
         contactNo: '',
         instituteId: ''
     });
-    const [institutes, setInstitutes] = useState([]);
+    const [instituteName, setInstituteName] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
-    // Fetch institutes for SuperAdmin
+    // Fetch current institute details for everyone (including SuperAdmin)
     useEffect(() => {
-        if (isOpen && user?.role === 'super_admin') {
-            fetchInstitutes();
-        }
-    }, [isOpen, user?.role]);
+        const fetchInstituteDetails = async () => {
+            if (user?.instituteId) {
+                // Set ID immediately from user context
+                setFormData(prev => ({ ...prev, instituteId: user.instituteId }));
 
-    const fetchInstitutes = async () => {
-        try {
-            const response = await api.get('/institute/list');
-            if (response.data.success) {
-                setInstitutes(response.data.data);
+                try {
+                    const response = await api.get('/institute/my-branding');
+                    if (response.data.success && response.data.data) {
+                        setInstituteName(response.data.data.name);
+                    }
+                } catch (error) {
+                    console.error('Failed to fetch institute details', error);
+                }
             }
-        } catch (error) {
-            console.error('Failed to fetch institutes', error);
+        };
+
+        if (isOpen) {
+            fetchInstituteDetails();
         }
-    };
+    }, [isOpen, user]);
 
     if (!isOpen) return null;
 
@@ -48,13 +53,6 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
         e.preventDefault();
         setLoading(true);
         setError('');
-
-        // Validate institute for SuperAdmin
-        if (user?.role === 'super_admin' && !formData.instituteId) {
-            setError('Please select an institute');
-            setLoading(false);
-            return;
-        }
 
         try {
             const payload = {
@@ -71,7 +69,7 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
             // Reset form
             setFormData({
                 name: '', email: '', department: '', designation: '',
-                rollNumber: '', course: '', year: '', contactNo: '', instituteId: ''
+                rollNumber: '', course: '', year: '', contactNo: '', instituteId: user?.instituteId || ''
             });
         } catch (err) {
             setError(err.response?.data?.message || err.message || 'Failed to create user');
@@ -80,13 +78,11 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
         }
     };
 
-    const isSuperAdmin = user?.role === 'super_admin';
-
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-fade-in-up">
                 {/* Header */}
-                <div className="bg-blue-600 px-6 py-4 flex items-center justify-between">
+                <div className="bg-primary px-6 py-4 flex items-center justify-between">
                     <h3 className="text-xl font-bold text-white flex items-center gap-2">
                         <FaUserPlus />
                         ADD {roleToAdd?.toUpperCase()}
@@ -108,34 +104,18 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
                     )}
 
                     <form onSubmit={handleSubmit} className="space-y-4">
-                        {/* Institute Selector - Only for SuperAdmin */}
-                        {isSuperAdmin && (
-                            <div className="space-y-1">
-                                <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
-                                    <FaBuilding className="text-purple-600" />
-                                    Select Institute *
-                                </label>
-                                <select
-                                    name="instituteId"
-                                    value={formData.instituteId}
-                                    onChange={handleChange}
-                                    className="w-full px-4 py-2 border border-purple-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition-all bg-purple-50"
-                                    required
-                                >
-                                    <option value="">-- Select an Institute --</option>
-                                    {institutes.map(inst => (
-                                        <option key={inst._id} value={inst._id}>
-                                            {inst.name} ({inst.code})
-                                        </option>
-                                    ))}
-                                </select>
-                                {institutes.length === 0 && (
-                                    <p className="text-xs text-amber-600 mt-1">
-                                        No institutes found. Please create an institute first.
-                                    </p>
-                                )}
-                            </div>
-                        )}
+                        {/* Institute Field - Read Only for Everyone */}
+                        <div className="space-y-1">
+                            <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                                <FaBuilding className="text-gray-400" />
+                                Institute
+                            </label>
+                            <input
+                                value={instituteName || 'Loading...'}
+                                disabled
+                                className="w-full px-4 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-500 cursor-not-allowed font-medium"
+                            />
+                        </div>
 
                         {/* Common Fields */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -145,7 +125,7 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
                                     name="name"
                                     value={formData.name}
                                     onChange={handleChange}
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
                                     required
                                 />
                             </div>
@@ -155,7 +135,7 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
                                     name="contactNo"
                                     value={formData.contactNo}
                                     onChange={handleChange}
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
                                 />
                             </div>
                         </div>
@@ -167,15 +147,15 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
                                 name="email"
                                 value={formData.email}
                                 onChange={handleChange}
-                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
                                 required
                             />
                         </div>
 
                         {/* Info about auto-generated password */}
-                        <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 flex items-start gap-2">
-                            <span className="text-blue-500 mt-0.5">ℹ️</span>
-                            <p className="text-sm text-blue-700">
+                        <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 flex items-start gap-2">
+                            <span className="text-primary mt-0.5">ℹ️</span>
+                            <p className="text-sm text-primary">
                                 A secure password will be auto-generated and sent to the user's email address.
                             </p>
                         </div>
@@ -190,7 +170,7 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
                                             name="department"
                                             value={formData.department}
                                             onChange={handleChange}
-                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
                                             required
                                         />
                                     </div>
@@ -201,7 +181,7 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
                                                 name="designation"
                                                 value={formData.designation}
                                                 onChange={handleChange}
-                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
                                                 required
                                             />
                                         </div>
@@ -220,7 +200,7 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
                                             name="rollNumber"
                                             value={formData.rollNumber}
                                             onChange={handleChange}
-                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
                                             required
                                         />
                                     </div>
@@ -230,7 +210,7 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
                                             name="course"
                                             value={formData.course}
                                             onChange={handleChange}
-                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
                                             required
                                         />
                                     </div>
@@ -243,7 +223,7 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
                                             onChange={handleChange}
                                             min="1"
                                             max="6"
-                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
                                             required
                                         />
                                     </div>
@@ -261,8 +241,8 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
                             </button>
                             <button
                                 type="submit"
-                                disabled={loading || (isSuperAdmin && institutes.length === 0)}
-                                className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-lg shadow-blue-600/30 transition-colors font-medium disabled:opacity-70 disabled:cursor-not-allowed"
+                                disabled={loading}
+                                className="px-6 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg shadow-lg shadow-primary/30 transition-colors font-medium disabled:opacity-70 disabled:cursor-not-allowed"
                             >
                                 {loading ? 'Creating...' : `Create ${roleToAdd}`}
                             </button>

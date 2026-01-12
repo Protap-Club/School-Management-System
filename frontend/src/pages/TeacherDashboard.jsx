@@ -32,7 +32,7 @@ const TeacherDashboard = () => {
         return (
             <DashboardLayout>
                 <div className="flex items-center justify-center h-screen">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
                 </div>
             </DashboardLayout>
         );
@@ -51,7 +51,7 @@ const TeacherDashboard = () => {
                     {/* Add Button - Only adds Student */}
                     <button
                         onClick={() => setIsModalOpen(true)}
-                        className="flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-xl shadow-lg shadow-blue-600/30 hover:bg-blue-700 transition-all font-medium"
+                        className="flex items-center gap-2 bg-primary text-white px-6 py-3 rounded-xl shadow-lg shadow-primary/30 hover:bg-primary-hover transition-all font-medium"
                     >
                         <FaUserPlus />
                         <span>Add Student</span>
@@ -60,7 +60,7 @@ const TeacherDashboard = () => {
 
                 {/* Overview Stats */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="bg-gradient-to-r from-blue-500 to-blue-600 p-6 rounded-2xl text-white shadow-lg shadow-blue-500/20">
+                    <div className="bg-gradient-to-r from-primary to-primary-hover p-6 rounded-2xl text-white shadow-lg shadow-primary/20">
                         <h3 className="text-lg font-medium opacity-90">Total Students</h3>
                         <p className="text-4xl font-bold mt-2">{students.length}</p>
                     </div>
