@@ -1,4 +1,9 @@
-// School Provisioning - Create school with SuperAdmin
+/**
+ * School Provisioning - Create school with SuperAdmin
+ * 
+ * Email format: vraj.{schoolcode}@protap.com
+ * Password: Uses SUPER_ADMIN_PASSWORD from .env (default: Admin@123)
+ */
 
 import { conf } from "../config/index.js";
 import { runSeed, SeedContext } from "../utils/seedRunner.util.js";
@@ -10,21 +15,31 @@ import {
 } from "../utils/seed.util.js";
 import { USER_ROLES } from "../constants/userRoles.js";
 import InstituteModel from "../models/Institute.model.js";
+import UserModel from "../models/User.model.js";
 
-export const provisionSchool = async ({ school, superAdmin, sendEmail = true }) => {
+/**
+ * Generate SuperAdmin email from school code
+ * Format: vraj.{schoolcode}@protap.com
+ */
+const generateSuperAdminEmail = (schoolCode) => {
+    const cleanCode = schoolCode.toLowerCase().replace(/[^a-z0-9]/g, '');
+    return `vraj.${cleanCode}@protap.com`;
+};
+
+export const provisionSchool = async ({ school, superAdmin = {}, sendEmail = true }) => {
     const ctx = new SeedContext("School Provisioning");
 
     if (!school?.name || !school?.code) {
         return { success: false, error: "School name and code are required" };
     }
-    if (!superAdmin?.name || !superAdmin?.email) {
-        return { success: false, error: "SuperAdmin name and email are required" };
-    }
+
+    const superAdminEmail = superAdmin.email || generateSuperAdminEmail(school.code);
+    const superAdminName = superAdmin.name || "Vraj";
+    const superAdminPassword = conf.SUPER_ADMIN_PASSWORD || "Admin@123";
 
     ctx.log(`Provisioning: ${school.name} (${school.code})`);
-    ctx.log(`SuperAdmin: ${superAdmin.name} <${superAdmin.email}>`);
+    ctx.log(`SuperAdmin: ${superAdminName} <${superAdminEmail}>`);
 
-    // Check existing
     const existingSchool = await findInstituteByCode(school.code);
     if (existingSchool) {
         const existingSuperAdmin = await findSuperAdminByInstitute(existingSchool._id);
@@ -39,7 +54,6 @@ export const provisionSchool = async ({ school, superAdmin, sendEmail = true }) 
         }
     }
 
-    // Create school
     let instituteResult;
     if (existingSchool) {
         instituteResult = { success: true, institute: existingSchool };
@@ -49,7 +63,7 @@ export const provisionSchool = async ({ school, superAdmin, sendEmail = true }) 
             name: school.name,
             code: school.code,
             address: school.address,
-            contactEmail: school.contactEmail || superAdmin.email,
+            contactEmail: school.contactEmail || superAdminEmail,
             contactPhone: school.contactPhone,
             features: school.features || { attendance: { enabled: false } },
             createdBy: null
@@ -63,26 +77,28 @@ export const provisionSchool = async ({ school, superAdmin, sendEmail = true }) 
 
     const instituteId = instituteResult.institute._id;
 
-    // Create SuperAdmin
     ctx.log("Creating SuperAdmin...");
     const superAdminResult = await createUserWithProfile({
-        name: superAdmin.name,
-        email: superAdmin.email,
+        name: superAdminName,
+        email: superAdminEmail,
         role: USER_ROLES.SUPER_ADMIN,
         instituteId: instituteId,
         contactNo: superAdmin.contactNo,
+        password: superAdminPassword,
         sendEmail: sendEmail,
-        mustChangePassword: true
+        mustChangePassword: false
     });
 
     if (!superAdminResult.success) {
         if (superAdminResult.existing) {
-            ctx.log(`⚠️ SuperAdmin ${superAdmin.email} already exists`);
+            ctx.log(`⚠️ SuperAdmin ${superAdminEmail} already exists`);
         } else {
             return { success: false, error: `Failed to create SuperAdmin: ${superAdminResult.error}` };
         }
     } else {
         ctx.log(`✅ SuperAdmin created: ${superAdminResult.user.name}`);
+        ctx.log(`   Email: ${superAdminEmail}`);
+        ctx.log(`   Password: ${superAdminPassword}`);
         if (!existingSchool) {
             await InstituteModel.findByIdAndUpdate(instituteId, { createdBy: superAdminResult.user._id });
         }
@@ -97,48 +113,83 @@ export const provisionSchool = async ({ school, superAdmin, sendEmail = true }) 
             _id: superAdminResult.user._id,
             name: superAdminResult.user.name,
             email: superAdminResult.user.email,
+            password: superAdminPassword,
             emailSent: superAdminResult.emailSent
         } : null,
         credentialsSent: superAdminResult.emailSent || false
     };
 };
 
-// Default config
-const DEFAULT_SEED_DATA = {
-    school: {
-        name: "Demo School",
-        code: "DEMO001",
-        address: "Demo Address",
-        features: { attendance: { enabled: true } }
+// ============================================================
+// SCHOOLS TO PROVISION
+// ============================================================
+
+const SCHOOLS = [
+    {
+        school: {
+            name: "Indian Institute of Technology Delhi",
+            code: "IITD",
+            address: "Hauz Khas, New Delhi, Delhi 110016",
+            contactPhone: "+91-11-26591999",
+            features: { attendance: { enabled: true } }
+        }
     },
-    superAdmin: {
-        name: "Vraj",
-        email: conf.SUPER_ADMIN_EMAIL || "npandyavrajesh31@gmail.com"
+    {
+        school: {
+            name: "Indian Institute of Management Ahmedabad",
+            code: "IIMA",
+            address: "Vastrapur, Ahmedabad, Gujarat 380015",
+            contactPhone: "+91-79-66324444",
+            features: { attendance: { enabled: true } }
+        }
     }
-};
+];
 
 const main = async () => {
-    console.log(`\n📋 School: ${DEFAULT_SEED_DATA.school.name} (${DEFAULT_SEED_DATA.school.code})`);
-    console.log(`   SuperAdmin: ${DEFAULT_SEED_DATA.superAdmin.name} <${DEFAULT_SEED_DATA.superAdmin.email}>\n`);
+    console.log("\n" + "=".repeat(60));
+    console.log("🏫 SCHOOL PROVISIONING");
+    console.log("=".repeat(60));
+    console.log(`Password for all SuperAdmins: ${conf.SUPER_ADMIN_PASSWORD || "Admin@123"}\n`);
 
-    const result = await provisionSchool({
-        school: DEFAULT_SEED_DATA.school,
-        superAdmin: DEFAULT_SEED_DATA.superAdmin,
-        sendEmail: true
-    });
+    const results = [];
 
-    if (result.success) {
-        console.log("\n✅ COMPLETE");
-        console.log(`School: ${result.school.name} (${result.school.code})`);
-        if (result.superAdmin) {
-            console.log(`SuperAdmin: ${result.superAdmin.name} <${result.superAdmin.email}>`);
-            console.log(`Credentials: ${result.credentialsSent ? "Sent via email" : "Check logs"}`);
+    for (const schoolData of SCHOOLS) {
+        const email = generateSuperAdminEmail(schoolData.school.code);
+        console.log(`\n📋 ${schoolData.school.name} (${schoolData.school.code})`);
+        console.log(`   SuperAdmin: vraj.${schoolData.school.code.toLowerCase()}@protap.com`);
+
+        const result = await provisionSchool({
+            school: schoolData.school,
+            sendEmail: false
+        });
+
+        if (result.success) {
+            console.log(`   ✅ Created successfully`);
+        } else if (result.existing) {
+            console.log(`   ⏭️  Already exists`);
+        } else {
+            console.log(`   ❌ Failed: ${result.error}`);
         }
-    } else {
-        console.log(`\n⚠️ ${result.existing ? "Already exists" : "Failed"}: ${result.error}`);
+
+        results.push(result);
     }
 
-    return result;
+    console.log("\n" + "=".repeat(60));
+    console.log("📊 SUMMARY");
+    console.log("=".repeat(60));
+    
+    const created = results.filter(r => r.success && !r.existing).length;
+    const existing = results.filter(r => r.existing).length;
+    const failed = results.filter(r => !r.success && !r.existing).length;
+    
+    console.log(`Created: ${created} | Already Existed: ${existing} | Failed: ${failed}`);
+    console.log("\n🔐 LOGIN CREDENTIALS:");
+    SCHOOLS.forEach(s => {
+        console.log(`   ${s.school.code}: vraj.${s.school.code.toLowerCase()}@protap.com / ${conf.SUPER_ADMIN_PASSWORD || "Admin@123"}`);
+    });
+    console.log("=".repeat(60) + "\n");
+
+    return results;
 };
 
 if (process.argv[1].includes("schoolProvisioning.seed.js")) {
