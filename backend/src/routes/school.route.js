@@ -1,7 +1,8 @@
 import express from "express";
 import {
     createSchool, getSchools, getSchoolById, updateSchool,
-    deleteSchool, getSchoolsList, uploadSchoolLogo, deleteSchoolLogo, getMySchoolBranding
+    deleteSchool, getSchoolsList, uploadSchoolLogo, deleteSchoolLogo,
+    updateSchoolTheme, getMySchoolBranding
 } from "../controllers/school.controller.js";
 import { checkAuth } from "../middlewares/auth.middleware.js";
 import { checkRole } from "../middlewares/role.middleware.js";
@@ -24,4 +25,8 @@ router.delete("/:id", checkAuth, checkRole([USER_ROLES.SUPER_ADMIN]), deleteScho
 router.post("/logo", checkAuth, checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN]), upload.single('logo'), uploadSchoolLogo);
 router.delete("/logo", checkAuth, checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN]), deleteSchoolLogo);
 
+// Theme Update
+router.put("/theme", checkAuth, checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN]), updateSchoolTheme);
+
 export default router;
+

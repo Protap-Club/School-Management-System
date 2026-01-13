@@ -129,3 +129,19 @@ export const getMySchoolBranding = async (req, res) => {
     }
 };
 
+export const updateSchoolTheme = async (req, res) => {
+    try {
+        const schoolId = req.body.schoolId || req.user.schoolId;
+        if (!schoolId) {
+            return res.status(400).json({ success: false, message: "School ID required" });
+        }
+
+        const branding = await schoolService.updateTheme(schoolId, req.body.theme || req.body, req.user);
+        res.status(200).json({ success: true, message: "Theme updated", data: branding });
+    } catch (error) {
+        console.error("Update Theme Error:", error.message);
+        res.status(error.statusCode || 500).json({ success: false, message: error.message || "Internal Server Error" });
+    }
+};
+
+
