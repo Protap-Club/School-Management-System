@@ -17,7 +17,8 @@ import {
     FaEdit,
     FaTrash,
     FaTimes,
-    FaArchive
+    FaArchive,
+    FaUndo
 } from 'react-icons/fa';
 
 // Role hierarchy - what each role can view/create
@@ -181,20 +182,57 @@ const UsersPage = () => {
         setDeleteConfirm({ open: true, users: usersToDelete, isBulk: true });
     };
 
-    // Confirm Delete (Archive)
+    // Confirm Delete (Archive or Hard Delete)
     const confirmDelete = async () => {
         try {
-            if (deleteConfirm.isBulk) {
-                await api.put('/user/archive-bulk', { userIds: selectedUsers });
+            if (showArchived) {
+                // Hard Delete
+                if (deleteConfirm.isBulk) {
+                    await api.delete('/user/delete-bulk', { data: { userIds: selectedUsers } });
+                } else {
+                    await api.delete(`/user/delete/${deleteConfirm.users[0]._id}`);
+                }
             } else {
-                await api.put(`/user/archive/${deleteConfirm.users[0]._id}`);
+                // Soft Delete (Archive)
+                if (deleteConfirm.isBulk) {
+                    await api.put('/user/archive-bulk', { userIds: selectedUsers });
+                } else {
+                    await api.put(`/user/archive/${deleteConfirm.users[0]._id}`);
+                }
             }
+            // Optimistic update
+            if (deleteConfirm.isBulk) {
+                setUsers(prev => prev.filter(u => !selectedUsers.includes(u._id)));
+            } else {
+                setUsers(prev => prev.filter(u => u._id !== deleteConfirm.users[0]._id));
+            }
+
             fetchUsers();
             exitSelectionMode();
+            setMessage({ type: 'success', text: showArchived ? 'User(s) deleted permanently' : 'User(s) archived successfully' });
+            setTimeout(() => setMessage({ type: '', text: '' }), 3000);
         } catch (error) {
             console.error('Delete failed', error);
+            setMessage({ type: 'error', text: 'Operation failed' });
         } finally {
             setDeleteConfirm({ open: false, users: [], isBulk: false });
+        }
+    };
+
+    // Restore User
+    const handleRestore = async (userId) => {
+        try {
+            await api.put(`/user/restore/${userId}`);
+            setMessage({ type: 'success', text: 'User restored successfully' });
+            // Optimistic update
+            setUsers(prev => prev.filter(u => u._id !== userId));
+            setActiveDropdown(null);
+
+            fetchUsers();
+            setTimeout(() => setMessage({ type: '', text: '' }), 3000);
+        } catch (error) {
+            console.error('Restore failed', error);
+            setMessage({ type: 'error', text: 'Restore failed' });
         }
     };
 
@@ -278,7 +316,7 @@ const UsersPage = () => {
                                 className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium disabled:opacity-50"
                             >
                                 <FaTrash size={14} />
-                                Delete {isMultipleSelected ? `(${selectedUsers.length})` : ''}
+                                {showArchived ? 'Delete Forever' : 'Delete'} {isMultipleSelected ? `(${selectedUsers.length})` : ''}
                             </button>
 
                             {/* Cancel Selection Mode */}
@@ -337,8 +375,8 @@ const UsersPage = () => {
                                         setPage(0);
                                     }}
                                     className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${showArchived
-                                            ? 'bg-orange-100 text-orange-700 border border-orange-300'
-                                            : 'bg-gray-100 text-gray-600 border border-gray-300 hover:bg-gray-200'
+                                        ? 'bg-orange-100 text-orange-700 border border-orange-300'
+                                        : 'bg-gray-100 text-gray-600 border border-gray-300 hover:bg-gray-200'
                                         }`}
                                 >
                                     <FaArchive size={14} />
@@ -454,20 +492,42 @@ const UsersPage = () => {
                                                                             <FaCheck size={12} className="text-indigo-500" />
                                                                             Select
                                                                         </button>
-                                                                        <button
-                                                                            onClick={() => handleEdit(u)}
-                                                                            className="w-full text-left px-4 py-2.5 hover:bg-gray-50 text-gray-700 flex items-center gap-2 transition-colors text-sm"
-                                                                        >
-                                                                            <FaEdit size={12} className="text-blue-500" />
-                                                                            Edit
-                                                                        </button>
-                                                                        <button
-                                                                            onClick={() => handleDelete(u)}
-                                                                            className="w-full text-left px-4 py-2.5 hover:bg-red-50 text-red-600 flex items-center gap-2 transition-colors text-sm"
-                                                                        >
-                                                                            <FaTrash size={12} />
-                                                                            Delete
-                                                                        </button>
+
+                                                                        {!showArchived ? (
+                                                                            <>
+                                                                                <button
+                                                                                    onClick={() => handleEdit(u)}
+                                                                                    className="w-full text-left px-4 py-2.5 hover:bg-gray-50 text-gray-700 flex items-center gap-2 transition-colors text-sm"
+                                                                                >
+                                                                                    <FaEdit size={12} className="text-blue-500" />
+                                                                                    Edit
+                                                                                </button>
+                                                                                <button
+                                                                                    onClick={() => handleDelete(u)}
+                                                                                    className="w-full text-left px-4 py-2.5 hover:bg-red-50 text-red-600 flex items-center gap-2 transition-colors text-sm"
+                                                                                >
+                                                                                    <FaArchive size={12} />
+                                                                                    Archive
+                                                                                </button>
+                                                                            </>
+                                                                        ) : (
+                                                                            <>
+                                                                                <button
+                                                                                    onClick={() => handleRestore(u._id)}
+                                                                                    className="w-full text-left px-4 py-2.5 hover:bg-green-50 text-green-600 flex items-center gap-2 transition-colors text-sm"
+                                                                                >
+                                                                                    <FaUndo size={12} />
+                                                                                    Restore
+                                                                                </button>
+                                                                                <button
+                                                                                    onClick={() => handleDelete(u)}
+                                                                                    className="w-full text-left px-4 py-2.5 hover:bg-red-50 text-red-600 flex items-center gap-2 transition-colors text-sm"
+                                                                                >
+                                                                                    <FaTrash size={12} />
+                                                                                    Delete Forever
+                                                                                </button>
+                                                                            </>
+                                                                        )}
                                                                     </div>
                                                                 )}
                                                             </div>
@@ -558,14 +618,18 @@ const UsersPage = () => {
                                 <FaTrash className="text-red-600" size={20} />
                             </div>
                             <h3 className="text-xl font-bold text-gray-800 text-center mb-2">
-                                {deleteConfirm.isBulk
-                                    ? `Delete ${deleteConfirm.users.length} Users?`
-                                    : 'Delete User?'}
+                                {showArchived
+                                    ? (deleteConfirm.isBulk ? `Permanently Delete ${deleteConfirm.users.length} Users?` : 'Permanently Delete User?')
+                                    : (deleteConfirm.isBulk ? `Archive ${deleteConfirm.users.length} Users?` : 'Archive User?')}
                             </h3>
                             <p className="text-gray-500 text-center mb-6">
-                                {deleteConfirm.isBulk
-                                    ? `Are you sure you want to archive ${deleteConfirm.users.length} selected users? They can be restored later.`
-                                    : `Are you sure you want to archive "${deleteConfirm.users[0]?.name}"? This user can be restored later.`}
+                                {showArchived
+                                    ? (deleteConfirm.isBulk
+                                        ? `Are you sure you want to permanently delete ${deleteConfirm.users.length} selected users? This action CANNOT be undone.`
+                                        : `Are you sure you want to permanently delete "${deleteConfirm.users[0]?.name}"? This action CANNOT be undone.`)
+                                    : (deleteConfirm.isBulk
+                                        ? `Are you sure you want to archive ${deleteConfirm.users.length} selected users? They can be restored later.`
+                                        : `Are you sure you want to archive "${deleteConfirm.users[0]?.name}"? This user can be restored later.`)}
                             </p>
                             <div className="flex gap-3">
                                 <button
@@ -578,7 +642,7 @@ const UsersPage = () => {
                                     onClick={confirmDelete}
                                     className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-xl hover:bg-red-700 transition-colors font-medium"
                                 >
-                                    Delete
+                                    {showArchived ? 'Delete Forever' : 'Archive'}
                                 </button>
                             </div>
                         </div>
