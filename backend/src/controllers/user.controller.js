@@ -1,4 +1,3 @@
-import bcrypt from "bcryptjs";
 import UserModel from "../models/User.model.js";
 import { USER_ROLES, canManageRole, getManageableRoles } from "../constants/userRoles.js";
 import { PROFILE_CONFIG } from "../constants/profileConfig.js";
@@ -8,7 +7,7 @@ import { generatePassword } from "../utils/password.util.js";
 
 const createUser = async (req, res) => {
     try {
-        const { name, email, contactNo, targetRole, instituteId } = req.body;
+        const { name, email, contactNo, targetRole, schoolId } = req.body;
         const creator = req.user;
 
         // Check if creator can manage target role
@@ -20,18 +19,18 @@ const createUser = async (req, res) => {
             return res.status(400).json({ success: false, message: "Name, email, and targetRole are required" });
         }
 
-        // Determine institute ID based on creator's role
-        let userInstituteId;
+        // Determine school ID based on creator's role
+        let userSchoolId;
         if (creator.role === USER_ROLES.SUPER_ADMIN) {
-            if (!instituteId) {
-                return res.status(400).json({ success: false, message: "Institute ID is required" });
+            if (!schoolId) {
+                return res.status(400).json({ success: false, message: "School ID is required" });
             }
-            userInstituteId = instituteId;
+            userSchoolId = schoolId;
         } else {
-            if (!creator.instituteId) {
-                return res.status(400).json({ success: false, message: "You must belong to an institute" });
+            if (!creator.schoolId) {
+                return res.status(400).json({ success: false, message: "You must belong to a school" });
             }
-            userInstituteId = creator.instituteId;
+            userSchoolId = creator.schoolId;
         }
 
         const existingUser = await UserModel.findOne({ email });
@@ -54,7 +53,7 @@ const createUser = async (req, res) => {
 
         const newUser = await UserModel.create({
             name, email, password: hashedPassword, role: targetRole,
-            contactNo, instituteId: userInstituteId, createdBy: creator._id, mustChangePassword: true
+            contactNo, schoolId: userSchoolId, createdBy: creator._id, mustChangePassword: true
         });
 
         await config.model.create({ userId: newUser._id, ...config.extractFields(req.body) });
@@ -64,7 +63,7 @@ const createUser = async (req, res) => {
         return res.status(201).json({
             success: true,
             message: `${targetRole} created. ${emailResult.success ? 'Credentials sent.' : 'Email failed.'}`,
-            data: { userId: newUser._id, name: newUser.name, email: newUser.email, role: newUser.role, instituteId: newUser.instituteId },
+            data: { userId: newUser._id, name: newUser.name, email: newUser.email, role: newUser.role, schoolId: newUser.schoolId },
             emailSent: emailResult.success
         });
     } catch (error) {
@@ -76,7 +75,7 @@ const createUser = async (req, res) => {
 const getUsers = async (req, res) => {
     try {
         const currentUser = req.user;
-        const { instituteId: filterInstituteId, role: filterRole, page = 0, pageSize = 25 } = req.query;
+        const { schoolId: filterSchoolId, role: filterRole, page = 0, pageSize = 25 } = req.query;
 
         const allowedRoles = getManageableRoles(currentUser.role);
         if (!allowedRoles?.length) {
@@ -96,9 +95,9 @@ const getUsers = async (req, res) => {
         }
 
         if (currentUser.role === USER_ROLES.SUPER_ADMIN) {
-            if (filterInstituteId) query.instituteId = filterInstituteId;
-        } else if (currentUser.instituteId) {
-            query.instituteId = currentUser.instituteId;
+            if (filterSchoolId) query.schoolId = filterSchoolId;
+        } else if (currentUser.schoolId) {
+            query.schoolId = currentUser.schoolId;
         }
 
         const pageNum = parseInt(page) || 0;
@@ -108,7 +107,7 @@ const getUsers = async (req, res) => {
         const totalCount = await UserModel.countDocuments(query);
         const users = await UserModel.find(query)
             .select("-password")
-            .populate('instituteId', 'name code')
+            .populate('schoolId', 'name code')
             .sort({ createdAt: -1 })
             .skip(skip)
             .limit(limit);
@@ -138,8 +137,8 @@ const getUsersWithProfiles = async (req, res) => {
         if (role && allowedRoles.includes(role)) targetRoles = [role];
 
         let query = { role: { $in: targetRoles } };
-        if (currentUser.role !== USER_ROLES.SUPER_ADMIN && currentUser.instituteId) {
-            query.instituteId = currentUser.instituteId;
+        if (currentUser.role !== USER_ROLES.SUPER_ADMIN && currentUser.schoolId) {
+            query.schoolId = currentUser.schoolId;
         }
 
         const users = await UserModel.find(query).select("-password").sort({ createdAt: -1 }).lean();

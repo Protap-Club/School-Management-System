@@ -2,23 +2,23 @@
  * User Operations - Bulk user creation
  */
 
-import { createUserWithProfile, findInstituteByCode, findSuperAdminByInstitute, validateUserSeedData, SeedResultTracker } from "../../utils/seed.util.js";
+import { createUserWithProfile, findSchoolByCode, findSuperAdminBySchool, validateUserSeedData, SeedResultTracker } from "../../utils/seed.util.js";
 import { USER_ROLES } from "../../constants/userRoles.js";
 
 /**
- * Add multiple users to an institute
+ * Add multiple users to a school
  */
-export const addUsers = async ({ instituteCode, users, sendEmails = false }) => {
-    if (!instituteCode) return { success: false, error: "Institute code is required" };
+export const addUsers = async ({ schoolCode, users, sendEmails = false }) => {
+    if (!schoolCode) return { success: false, error: "School code is required" };
     if (!users?.length) return { success: false, error: "Users array is required" };
 
-    const institute = await findInstituteByCode(instituteCode);
-    if (!institute) return { success: false, error: `Institute ${instituteCode} not found` };
+    const school = await findSchoolByCode(schoolCode);
+    if (!school) return { success: false, error: `School ${schoolCode} not found` };
 
-    const superAdmin = await findSuperAdminByInstitute(institute._id);
+    const superAdmin = await findSuperAdminBySchool(school._id);
     const creatorId = superAdmin?._id || null;
 
-    console.log(`\n📋 Adding ${users.length} users to ${institute.name}`);
+    console.log(`\n📋 Adding ${users.length} users to ${school.name}`);
 
     const tracker = new SeedResultTracker("Users");
 
@@ -43,7 +43,7 @@ export const addUsers = async ({ instituteCode, users, sendEmails = false }) => 
             name: userData.name,
             email: userData.email,
             role: userData.role,
-            instituteId: institute._id,
+            schoolId: school._id,
             contactNo: userData.contactNo,
             createdBy: creatorId,
             profileData: userData.profile || userData,
@@ -66,43 +66,43 @@ export const addUsers = async ({ instituteCode, users, sendEmails = false }) => 
     const summary = tracker.getSummary();
     console.log(`\n   Created: ${summary.totals.created} | Skipped: ${summary.totals.skipped} | Failed: ${summary.totals.failed}`);
 
-    return { success: true, institute: { code: institute.code, name: institute.name }, summary };
+    return { success: true, school: { code: school.code, name: school.name }, summary };
 };
 
 /**
- * Add admins to an institute
+ * Add admins to a school
  */
-export const addAdmins = async (instituteCode, admins, options = {}) => {
+export const addAdmins = async (schoolCode, admins, options = {}) => {
     const users = admins.map(a => ({
         ...a,
         role: USER_ROLES.ADMIN,
         profile: { department: a.department || "Administration", employeeId: a.employeeId }
     }));
-    return addUsers({ instituteCode, users, ...options });
+    return addUsers({ schoolCode, users, ...options });
 };
 
 /**
- * Add teachers to an institute
+ * Add teachers to a school
  */
-export const addTeachers = async (instituteCode, teachers, options = {}) => {
+export const addTeachers = async (schoolCode, teachers, options = {}) => {
     const users = teachers.map(t => ({
         ...t,
         role: USER_ROLES.TEACHER,
         profile: { department: t.department, designation: t.designation, employeeId: t.employeeId }
     }));
-    return addUsers({ instituteCode, users, ...options });
+    return addUsers({ schoolCode, users, ...options });
 };
 
 /**
- * Add students to an institute
+ * Add students to a school
  */
-export const addStudents = async (instituteCode, students, options = {}) => {
+export const addStudents = async (schoolCode, students, options = {}) => {
     const users = students.map(s => ({
         ...s,
         role: USER_ROLES.STUDENT,
         profile: { rollNumber: s.rollNumber, course: s.course, year: s.year, section: s.section }
     }));
-    return addUsers({ instituteCode, users, ...options });
+    return addUsers({ schoolCode, users, ...options });
 };
 
 export default { addUsers, addAdmins, addTeachers, addStudents };

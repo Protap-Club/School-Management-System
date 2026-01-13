@@ -3,9 +3,9 @@
  */
 
 import { conf } from "../../config/index.js";
-import { createUserWithProfile, createInstitute, findInstituteByCode, findSuperAdminByInstitute } from "../../utils/seed.util.js";
+import { createUserWithProfile, createSchool as createSchoolInDB, findSchoolByCode, findSuperAdminBySchool } from "../../utils/seed.util.js";
 import { USER_ROLES } from "../../constants/userRoles.js";
-import InstituteModel from "../../models/Institute.model.js";
+import SchoolModel from "../../models/School.model.js";
 
 /**
  * Generate SuperAdmin email from school code
@@ -18,7 +18,7 @@ const generateSuperAdminEmail = (schoolCode) => {
 /**
  * Create a new school with its SuperAdmin
  */
-export const createSchool = async ({ name, code, address, contactPhone, features, superAdmin = {}, sendEmail = false }) => {
+export const createSchool = async ({ name, code, address, contactPhone, superAdmin = {}, sendEmail = false }) => {
     if (!name || !code) {
         return { success: false, error: "School name and code are required" };
     }
@@ -31,9 +31,9 @@ export const createSchool = async ({ name, code, address, contactPhone, features
     console.log(`   SuperAdmin: ${superAdminEmail}`);
 
     // Check if school already exists
-    const existingSchool = await findInstituteByCode(code);
+    const existingSchool = await findSchoolByCode(code);
     if (existingSchool) {
-        const existingSuperAdmin = await findSuperAdminByInstitute(existingSchool._id);
+        const existingSuperAdmin = await findSuperAdminBySchool(existingSchool._id);
         if (existingSuperAdmin) {
             console.log(`   ⏭️  Already exists`);
             return {
@@ -50,20 +50,19 @@ export const createSchool = async ({ name, code, address, contactPhone, features
     if (existingSchool) {
         school = existingSchool;
     } else {
-        const result = await createInstitute({
+        const result = await createSchoolInDB({
             name,
             code,
             address,
             contactEmail: superAdminEmail,
-            contactPhone,
-            features: features || { attendance: { enabled: false } }
+            contactPhone
         });
 
         if (!result.success) {
             console.log(`   ❌ Failed: ${result.error}`);
             return result;
         }
-        school = result.institute;
+        school = result.school;
         console.log(`   ✅ School created`);
     }
 
@@ -72,7 +71,7 @@ export const createSchool = async ({ name, code, address, contactPhone, features
         name: superAdminName,
         email: superAdminEmail,
         role: USER_ROLES.SUPER_ADMIN,
-        instituteId: school._id,
+        schoolId: school._id,
         password: superAdminPassword,
         sendEmail,
         mustChangePassword: false
@@ -85,7 +84,7 @@ export const createSchool = async ({ name, code, address, contactPhone, features
 
     // Link SuperAdmin as creator
     if (adminResult.success && !existingSchool) {
-        await InstituteModel.findByIdAndUpdate(school._id, { createdBy: adminResult.user._id });
+        await SchoolModel.findByIdAndUpdate(school._id, { createdBy: adminResult.user._id });
     }
 
     console.log(`   ✅ SuperAdmin: ${superAdminEmail} / ${superAdminPassword}`);

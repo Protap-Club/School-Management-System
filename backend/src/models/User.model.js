@@ -7,7 +7,7 @@ const userSchema = new mongoose.Schema(
         email: { type: String, required: true, unique: true, lowercase: true, trim: true, index: true },
         password: { type: String, required: true, select: false },
         role: { type: String, enum: VALID_ROLES, required: true, index: true },
-        instituteId: { type: mongoose.Schema.Types.ObjectId, ref: "Institute", index: true },
+        schoolId: { type: mongoose.Schema.Types.ObjectId, ref: "School", index: true },
         contactNo: { type: String, trim: true },
         isEmailVerified: { type: Boolean, default: false },
         isActive: { type: Boolean, default: true },

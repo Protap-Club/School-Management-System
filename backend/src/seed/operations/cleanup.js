@@ -3,35 +3,35 @@
  */
 
 import UserModel from "../../models/User.model.js";
-import InstituteModel from "../../models/Institute.model.js";
+import SchoolModel from "../../models/School.model.js";
 import AdminProfileModel from "../../models/AdminProfile.model.js";
 import TeacherProfileModel from "../../models/TeacherProfile.model.js";
 import StudentProfileModel from "../../models/StudentProfile.model.js";
 
 /**
- * Remove demo institutes and their users
+ * Remove demo schools and their users
  */
 export const cleanupDemo = async () => {
     console.log("\n🧹 Cleaning up demo data...\n");
 
-    // Find demo institutes
-    const demoInstitutes = await InstituteModel.find({
+    // Find demo schools
+    const demoSchools = await SchoolModel.find({
         $or: [
             { code: "DEMO001" },
             { code: { $regex: /^DEMO/i } }
         ]
     });
 
-    let totalDeleted = { institutes: 0, users: 0, profiles: 0 };
+    let totalDeleted = { schools: 0, users: 0, profiles: 0 };
 
-    if (demoInstitutes.length === 0) {
-        console.log("   ℹ️  No demo institutes found");
+    if (demoSchools.length === 0) {
+        console.log("   ℹ️  No demo schools found");
     } else {
-        for (const institute of demoInstitutes) {
-            console.log(`   Removing: ${institute.name} (${institute.code})`);
+        for (const school of demoSchools) {
+            console.log(`   Removing: ${school.name} (${school.code})`);
 
             // Get users
-            const users = await UserModel.find({ instituteId: institute._id });
+            const users = await UserModel.find({ schoolId: school._id });
             const userIds = users.map(u => u._id);
 
             // Delete profiles
@@ -41,12 +41,12 @@ export const cleanupDemo = async () => {
             totalDeleted.profiles += adminDel.deletedCount + teacherDel.deletedCount + studentDel.deletedCount;
 
             // Delete users
-            const usersDel = await UserModel.deleteMany({ instituteId: institute._id });
+            const usersDel = await UserModel.deleteMany({ schoolId: school._id });
             totalDeleted.users += usersDel.deletedCount;
 
-            // Delete institute
-            await InstituteModel.findByIdAndDelete(institute._id);
-            totalDeleted.institutes++;
+            // Delete school
+            await SchoolModel.findByIdAndDelete(school._id);
+            totalDeleted.schools++;
         }
     }
 
@@ -54,7 +54,7 @@ export const cleanupDemo = async () => {
     const orphanUsers = await UserModel.deleteMany({ email: { $regex: /@demo\.school$/i } });
     totalDeleted.users += orphanUsers.deletedCount;
 
-    console.log(`\n   ✅ Deleted: ${totalDeleted.institutes} institutes, ${totalDeleted.users} users, ${totalDeleted.profiles} profiles`);
+    console.log(`\n   ✅ Deleted: ${totalDeleted.schools} schools, ${totalDeleted.users} users, ${totalDeleted.profiles} profiles`);
 
     return { success: true, deleted: totalDeleted };
 };
