@@ -5,10 +5,8 @@
 import bcrypt from "bcryptjs";
 import UserModel from "../models/User.model.js";
 import InstituteModel from "../models/Institute.model.js";
-import AdminProfileModel from "../models/AdminProfile.model.js";
-import TeacherProfileModel from "../models/TeacherProfile.model.js";
-import StudentProfileModel from "../models/StudentProfile.model.js";
 import { USER_ROLES } from "../constants/userRoles.js";
+import { PROFILE_CONFIG } from "../constants/profileConfig.js";
 import { generatePassword } from "./password.util.js";
 import { sendCredentialsEmail } from "../services/email.service.js";
 
@@ -16,47 +14,6 @@ import { sendCredentialsEmail } from "../services/email.service.js";
 export const hashPassword = async (plainPassword) => {
     const salt = await bcrypt.genSalt(10);
     return bcrypt.hash(plainPassword, salt);
-};
-
-// Profile config for each role
-export const PROFILE_CONFIG = {
-    admin: {
-        model: AdminProfileModel,
-        requiredFields: ["department"],
-        extractFields: (data) => ({
-            department: data.department || "Administration",
-            employeeId: data.employeeId,
-            permissions: data.permissions || []
-        }),
-        defaultFields: { department: "Administration" }
-    },
-    teacher: {
-        model: TeacherProfileModel,
-        requiredFields: ["department", "designation"],
-        extractFields: (data) => ({
-            department: data.department,
-            designation: data.designation,
-            employeeId: data.employeeId,
-            qualification: data.qualification,
-            joiningDate: data.joiningDate || new Date()
-        }),
-        defaultFields: { department: "General", designation: "Teacher" }
-    },
-    student: {
-        model: StudentProfileModel,
-        requiredFields: ["rollNumber", "course", "year"],
-        extractFields: (data) => ({
-            rollNumber: data.rollNumber,
-            course: data.course,
-            year: data.year,
-            section: data.section,
-            guardianName: data.guardianName,
-            guardianContact: data.guardianContact,
-            address: data.address,
-            admissionDate: data.admissionDate || new Date()
-        }),
-        defaultFields: {}
-    }
 };
 
 // Idempotency helpers

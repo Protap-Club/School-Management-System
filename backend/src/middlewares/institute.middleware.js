@@ -82,3 +82,31 @@ export const scopeToInstitute = (req, res, next) => {
 
     next();
 };
+
+// Check if attendance feature is enabled for user's institute
+export const checkAttendanceFeature = async (req, res, next) => {
+    if (!req.user) {
+        return res.status(401).json({ success: false, message: "Authentication required" });
+    }
+
+    if (!req.user.instituteId) {
+        return res.status(400).json({ success: false, message: "You must belong to an institute" });
+    }
+
+    try {
+        const institute = await Institute.findById(req.user.instituteId);
+
+        if (!institute) {
+            return res.status(404).json({ success: false, message: "Institute not found" });
+        }
+
+        if (!institute.features?.attendance?.enabled) {
+            return res.status(403).json({ success: false, message: "Attendance feature not enabled for this institute" });
+        }
+
+        req.institute = institute;
+        next();
+    } catch (error) {
+        return res.status(500).json({ success: false, message: "Error checking attendance access" });
+    }
+};

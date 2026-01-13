@@ -1,20 +1,12 @@
 import Attendance from "../models/Attendance.model.js";
 import User from "../models/User.model.js";
-import Institute from "../models/Institute.model.js";
+import { USER_ROLES } from "../constants/userRoles.js";
 
 export const markAttendance = async (req, res) => {
     try {
         const { date, attendanceData } = req.body;
-        const teacher = req.user;
-
-        if (!teacher.instituteId) {
-            return res.status(400).json({ success: false, message: "Teacher must belong to an institute" });
-        }
-
-        const institute = await Institute.findById(teacher.instituteId);
-        if (!institute?.features?.attendance?.enabled) {
-            return res.status(403).json({ success: false, message: "Attendance feature not enabled" });
-        }
+        const user = req.user;
+        const institute = req.institute; // Set by checkAttendanceFeature middleware
 
         if (!date || !attendanceData || !Array.isArray(attendanceData)) {
             return res.status(400).json({ success: false, message: "Date and attendance data required" });
@@ -32,10 +24,10 @@ export const markAttendance = async (req, res) => {
                     { studentId: record.studentId, date: attendanceDate },
                     {
                         studentId: record.studentId,
-                        instituteId: teacher.instituteId,
+                        instituteId: user.instituteId,
                         date: attendanceDate,
                         status: record.status,
-                        markedBy: teacher._id,
+                        markedBy: user._id,
                         remarks: record.remarks || ""
                     },
                     { upsert: true, new: true }
@@ -61,21 +53,13 @@ export const markAttendance = async (req, res) => {
 export const getAttendanceByDate = async (req, res) => {
     try {
         const { date } = req.query;
-        const teacher = req.user;
-
-        if (!teacher.instituteId) {
-            return res.status(400).json({ success: false, message: "Teacher must belong to an institute" });
-        }
-
-        const institute = await Institute.findById(teacher.instituteId);
-        if (!institute?.features?.attendance?.enabled) {
-            return res.status(403).json({ success: false, message: "Attendance feature not enabled" });
-        }
+        const user = req.user;
+        // Institute already validated by checkAttendanceFeature middleware
 
         const attendanceDate = new Date(date);
         attendanceDate.setHours(0, 0, 0, 0);
 
-        const attendance = await Attendance.find({ instituteId: teacher.instituteId, date: attendanceDate })
+        const attendance = await Attendance.find({ instituteId: user.instituteId, date: attendanceDate })
             .populate('studentId', 'name email')
             .sort({ 'studentId.name': 1 });
 
@@ -88,20 +72,12 @@ export const getAttendanceByDate = async (req, res) => {
 
 export const getStudentsForAttendance = async (req, res) => {
     try {
-        const teacher = req.user;
-
-        if (!teacher.instituteId) {
-            return res.status(400).json({ success: false, message: "Teacher must belong to an institute" });
-        }
-
-        const institute = await Institute.findById(teacher.instituteId);
-        if (!institute?.features?.attendance?.enabled) {
-            return res.status(403).json({ success: false, message: "Attendance feature not enabled" });
-        }
+        const user = req.user;
+        // Institute already validated by checkAttendanceFeature middleware
 
         const students = await User.find({
-            instituteId: teacher.instituteId,
-            role: 'student',
+            instituteId: user.instituteId,
+            role: USER_ROLES.STUDENT,
             isActive: true
         }).select('name email').sort({ name: 1 });
 
@@ -120,7 +96,8 @@ export const checkAttendanceAccess = async (req, res) => {
             return res.status(200).json({ success: true, enabled: false });
         }
 
-        const institute = await Institute.findById(user.instituteId);
+        // Use the institute from middleware if available, otherwise query
+        const institute = req.institute || await (await import("../models/Institute.model.js")).default.findById(user.instituteId);
         const enabled = institute?.features?.attendance?.enabled || false;
 
         res.status(200).json({ success: true, enabled });

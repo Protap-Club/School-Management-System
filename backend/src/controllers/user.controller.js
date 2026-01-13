@@ -1,65 +1,18 @@
 import bcrypt from "bcryptjs";
 import UserModel from "../models/User.model.js";
-import TeacherProfileModel from "../models/TeacherProfile.model.js";
-import StudentProfileModel from "../models/StudentProfile.model.js";
-import AdminProfileModel from "../models/AdminProfile.model.js";
-import { generatePassword } from "../utils/password.util.js";
+import { USER_ROLES, canManageRole, getManageableRoles } from "../constants/userRoles.js";
+import { PROFILE_CONFIG } from "../constants/profileConfig.js";
+import { hashPassword } from "../utils/seed.util.js";
 import { sendCredentialsEmail } from "../services/email.service.js";
-
-const ROLE_CREATE_MAP = {
-    super_admin: ["admin", "teacher", "student"],
-    admin: ["teacher", "student"],
-    teacher: ["student"]
-};
-
-const PROFILE_CONFIG = {
-    admin: {
-        model: AdminProfileModel,
-        requiredFields: ["department"],
-        extractFields: (body) => ({
-            department: body.department,
-            employeeId: body.employeeId,
-            permissions: body.permissions || []
-        })
-    },
-    teacher: {
-        model: TeacherProfileModel,
-        requiredFields: ["department", "designation"],
-        extractFields: (body) => ({
-            department: body.department,
-            designation: body.designation,
-            employeeId: body.employeeId,
-            qualification: body.qualification,
-            joiningDate: body.joiningDate
-        })
-    },
-    student: {
-        model: StudentProfileModel,
-        requiredFields: ["rollNumber", "course", "year"],
-        extractFields: (body) => ({
-            rollNumber: body.rollNumber,
-            course: body.course,
-            year: body.year,
-            section: body.section,
-            guardianName: body.guardianName,
-            guardianContact: body.guardianContact,
-            address: body.address,
-            admissionDate: body.admissionDate
-        })
-    }
-};
+import { generatePassword } from "../utils/password.util.js";
 
 const createUser = async (req, res) => {
     try {
         const { name, email, contactNo, targetRole, instituteId } = req.body;
         const creator = req.user;
 
-        if (creator.role === "student") {
-            return res.status(403).json({ success: false, message: "Access Denied" });
-        }
-
-        const allowedRoles = ROLE_CREATE_MAP[creator.role];
-        if (!allowedRoles || !allowedRoles.includes(targetRole)) {
+        // Check if creator can manage target role
+        if (!canManageRole(creator.role, targetRole)) {
             return res.status(403).json({ success: false, message: "You are not allowed to create this role" });
         }
 
@@ -67,8 +20,9 @@ const createUser = async (req, res) => {
             return res.status(400).json({ success: false, message: "Name, email, and targetRole are required" });
         }
 
+        // Determine institute ID based on creator's role
         let userInstituteId;
-        if (creator.role === "super_admin") {
+        if (creator.role === USER_ROLES.SUPER_ADMIN) {
             if (!instituteId) {
                 return res.status(400).json({ success: false, message: "Institute ID is required" });
             }
@@ -96,8 +50,7 @@ const createUser = async (req, res) => {
         }
 
         const plainPassword = generatePassword(12);
-        const salt = await bcrypt.genSalt(10);
-        const hashedPassword = await bcrypt.hash(plainPassword, salt);
+        const hashedPassword = await hashPassword(plainPassword);
 
         const newUser = await UserModel.create({
             name, email, password: hashedPassword, role: targetRole,
@@ -120,22 +73,12 @@ const createUser = async (req, res) => {
     }
 };
 
-const ROLE_VIEW_MAP = {
-    super_admin: ["admin", "teacher", "student"],
-    admin: ["teacher", "student"],
-    teacher: ["student"]
-};
-
 const getUsers = async (req, res) => {
     try {
         const currentUser = req.user;
         const { instituteId: filterInstituteId, role: filterRole, page = 0, pageSize = 25 } = req.query;
 
-        if (currentUser.role === "student") {
-            return res.status(403).json({ success: false, message: "Access Denied" });
-        }
-
-        const allowedRoles = ROLE_VIEW_MAP[currentUser.role];
+        const allowedRoles = getManageableRoles(currentUser.role);
         if (!allowedRoles?.length) {
             return res.status(403).json({ success: false, message: "Not allowed to view users" });
         }
@@ -152,7 +95,7 @@ const getUsers = async (req, res) => {
             query.role = { $in: allowedRoles };
         }
 
-        if (currentUser.role === "super_admin") {
+        if (currentUser.role === USER_ROLES.SUPER_ADMIN) {
             if (filterInstituteId) query.instituteId = filterInstituteId;
         } else if (currentUser.instituteId) {
             query.instituteId = currentUser.instituteId;
@@ -186,11 +129,7 @@ const getUsersWithProfiles = async (req, res) => {
         const currentUser = req.user;
         const { role } = req.query;
 
-        if (currentUser.role === "student") {
-            return res.status(403).json({ success: false, message: "Access Denied" });
-        }
-
-        const allowedRoles = ROLE_VIEW_MAP[currentUser.role];
+        const allowedRoles = getManageableRoles(currentUser.role);
         if (!allowedRoles?.length) {
             return res.status(403).json({ success: false, message: "Not allowed to view users" });
         }
@@ -199,17 +138,15 @@ const getUsersWithProfiles = async (req, res) => {
         if (role && allowedRoles.includes(role)) targetRoles = [role];
 
         let query = { role: { $in: targetRoles } };
-        if (currentUser.role !== "super_admin" && currentUser.instituteId) {
+        if (currentUser.role !== USER_ROLES.SUPER_ADMIN && currentUser.instituteId) {
             query.instituteId = currentUser.instituteId;
         }
 
         const users = await UserModel.find(query).select("-password").sort({ createdAt: -1 }).lean();
 
         const usersWithProfiles = await Promise.all(users.map(async (user) => {
-            let profile = null;
-            if (user.role === 'admin') profile = await AdminProfileModel.findOne({ userId: user._id }).lean();
-            else if (user.role === 'teacher') profile = await TeacherProfileModel.findOne({ userId: user._id }).lean();
-            else if (user.role === 'student') profile = await StudentProfileModel.findOne({ userId: user._id }).lean();
+            const config = PROFILE_CONFIG[user.role];
+            const profile = config ? await config.model.findOne({ userId: user._id }).lean() : null;
             return { ...user, profile };
         }));
 
