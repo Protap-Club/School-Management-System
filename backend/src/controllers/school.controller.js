@@ -71,11 +71,21 @@ export const uploadSchoolLogo = async (req, res) => {
 
         // Use current user's school or provided schoolId (for super_admin)
         const schoolId = req.body.schoolId || req.user.schoolId;
+        const logoUrl = `/uploads/logos/${req.file.filename}`;
+
+        // Super admin - return success with logo URL (uses default branding)
+        if (!schoolId && req.user.role === 'super_admin') {
+            return res.status(200).json({
+                success: true,
+                message: "Logo uploaded (Super Admin uses default branding)",
+                data: { logoUrl }
+            });
+        }
+
         if (!schoolId) {
             return res.status(400).json({ success: false, message: "School ID required" });
         }
 
-        const logoUrl = `/uploads/logos/${req.file.filename}`;
         const result = await schoolService.uploadLogo(schoolId, logoUrl, req.user);
 
         // Delete old logo file if exists
@@ -132,6 +142,16 @@ export const getMySchoolBranding = async (req, res) => {
 export const updateSchoolTheme = async (req, res) => {
     try {
         const schoolId = req.body.schoolId || req.user.schoolId;
+
+        // Super admin uses default Protap branding - no need to save
+        if (!schoolId && req.user.role === 'super_admin') {
+            return res.status(200).json({
+                success: true,
+                message: "Theme updated (Super Admin uses default branding)",
+                data: { theme: { accentColor: req.body.accentColor || '#2563eb' } }
+            });
+        }
+
         if (!schoolId) {
             return res.status(400).json({ success: false, message: "School ID required" });
         }

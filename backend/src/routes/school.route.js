@@ -11,15 +11,10 @@ import { upload } from "../middlewares/upload.middleware.js";
 
 const router = express.Router();
 
-// Branding
-router.get("/my-branding", checkAuth, getMySchoolBranding);
+// --- Specific routes MUST come before /:id routes ---
 
-// Schools CRUD
-router.get("/", checkAuth, checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN]), getSchools);
-router.get("/:id", checkAuth, checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN]), getSchoolById);
-router.post("/", checkAuth, checkRole([USER_ROLES.SUPER_ADMIN]), createSchool);
-router.put("/:id", checkAuth, checkRole([USER_ROLES.SUPER_ADMIN]), updateSchool);
-router.delete("/:id", checkAuth, checkRole([USER_ROLES.SUPER_ADMIN]), deleteSchool);
+// Branding (for current user's school)
+router.get("/my-branding", checkAuth, getMySchoolBranding);
 
 // Logo Upload/Delete
 router.post("/logo", checkAuth, checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN]), upload.single('logo'), uploadSchoolLogo);
@@ -28,5 +23,13 @@ router.delete("/logo", checkAuth, checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.
 // Theme Update
 router.put("/theme", checkAuth, checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN]), updateSchoolTheme);
 
+// --- Schools CRUD (parameterized routes last) ---
+router.get("/", checkAuth, checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN]), getSchools);
+router.post("/", checkAuth, checkRole([USER_ROLES.SUPER_ADMIN]), createSchool);
+router.get("/:id", checkAuth, checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN]), getSchoolById);
+router.put("/:id", checkAuth, checkRole([USER_ROLES.SUPER_ADMIN]), updateSchool);
+router.delete("/:id", checkAuth, checkRole([USER_ROLES.SUPER_ADMIN]), deleteSchool);
+
 export default router;
+
 
