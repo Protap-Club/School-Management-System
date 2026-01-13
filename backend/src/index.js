@@ -29,6 +29,9 @@ app.use(express.json());
 // Serve uploaded files statically
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
+// Serve resource files (default logo, etc.)
+app.use('/resource', express.static(path.join(__dirname, '../resource')));
+
 // Routes
 app.use('/api/v1/auth', authRoutes);
 app.use("/api/v1/user", userRouter);
