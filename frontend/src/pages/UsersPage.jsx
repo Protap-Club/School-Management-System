@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import DashboardLayout from '../layouts/DashboardLayout';
 import AddUserModal from '../components/AddUserModal';
 import { useAuth } from '../context/AuthContext';
@@ -11,7 +11,12 @@ import {
     FaUserShield,
     FaChevronLeft,
     FaChevronRight,
-    FaFilter
+    FaFilter,
+    FaEllipsisV,
+    FaCheck,
+    FaEdit,
+    FaTrash,
+    FaTimes
 } from 'react-icons/fa';
 
 // Role hierarchy - what each role can view/create
@@ -31,7 +36,7 @@ const UsersPage = () => {
     const { user: currentUser } = useAuth();
     const [activeModal, setActiveModal] = useState(null);
 
-    // Filters
+    // Filters & Pagination
     const [selectedRole, setSelectedRole] = useState('all');
     const [pageSize, setPageSize] = useState(25);
     const [page, setPage] = useState(0);
@@ -41,8 +46,31 @@ const UsersPage = () => {
     const [pagination, setPagination] = useState({ totalCount: 0, totalPages: 0 });
     const [loading, setLoading] = useState(true);
 
+    // Selection Mode State
+    const [selectionMode, setSelectionMode] = useState(false);
+    const [selectedUsers, setSelectedUsers] = useState([]);
+    const [activeDropdown, setActiveDropdown] = useState(null);
+    const dropdownRef = useRef(null);
+
+    // Edit Modal State
+    const [editModal, setEditModal] = useState({ open: false, user: null });
+
+    // Delete Confirmation State
+    const [deleteConfirm, setDeleteConfirm] = useState({ open: false, users: [], isBulk: false });
+
     // Get allowed roles for current user
     const allowedRoles = ROLE_PERMISSIONS[currentUser?.role] || [];
+
+    // Close dropdown when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+                setActiveDropdown(null);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
 
     // Fetch users with filters and pagination
     const fetchUsers = async () => {
@@ -72,7 +100,14 @@ const UsersPage = () => {
         }
     }, [selectedRole, page, pageSize, currentUser]);
 
-    // Reset page when filter changes
+    // Reset selection when exiting selection mode
+    useEffect(() => {
+        if (!selectionMode) {
+            setSelectedUsers([]);
+        }
+    }, [selectionMode]);
+
+    // Handlers
     const handleRoleChange = (value) => {
         setSelectedRole(value);
         setPage(0);
@@ -87,16 +122,83 @@ const UsersPage = () => {
         fetchUsers();
     };
 
-    // Get role color classes
-    const getRoleColorClasses = (role) => {
-        const config = ROLE_LABELS[role];
-        if (!config) return 'bg-gray-100 text-gray-600';
-        return `bg-${config.color}-100 text-${config.color}-600`;
+    // Toggle dropdown for a specific user
+    const toggleDropdown = (userId) => {
+        setActiveDropdown(activeDropdown === userId ? null : userId);
+    };
+
+    // Enter selection mode
+    const handleSelectAction = (userId) => {
+        setSelectionMode(true);
+        setSelectedUsers([userId]);
+        setActiveDropdown(null);
+    };
+
+    // Toggle single user selection
+    const toggleUserSelection = (userId) => {
+        setSelectedUsers(prev =>
+            prev.includes(userId)
+                ? prev.filter(id => id !== userId)
+                : [...prev, userId]
+        );
+    };
+
+    // Select all / deselect all
+    const toggleSelectAll = () => {
+        if (selectedUsers.length === users.length) {
+            setSelectedUsers([]);
+        } else {
+            setSelectedUsers(users.map(u => u._id));
+        }
+    };
+
+    // Exit selection mode
+    const exitSelectionMode = () => {
+        setSelectionMode(false);
+        setSelectedUsers([]);
+    };
+
+    // Single Edit
+    const handleEdit = (user) => {
+        setEditModal({ open: true, user });
+        setActiveDropdown(null);
+    };
+
+    // Single Delete
+    const handleDelete = (user) => {
+        setDeleteConfirm({ open: true, users: [user], isBulk: false });
+        setActiveDropdown(null);
+    };
+
+    // Bulk Delete
+    const handleBulkDelete = () => {
+        const usersToDelete = users.filter(u => selectedUsers.includes(u._id));
+        setDeleteConfirm({ open: true, users: usersToDelete, isBulk: true });
+    };
+
+    // Confirm Delete (Archive)
+    const confirmDelete = async () => {
+        try {
+            if (deleteConfirm.isBulk) {
+                await api.put('/user/archive-bulk', { userIds: selectedUsers });
+            } else {
+                await api.put(`/user/archive/${deleteConfirm.users[0]._id}`);
+            }
+            fetchUsers();
+            exitSelectionMode();
+        } catch (error) {
+            console.error('Delete failed', error);
+        } finally {
+            setDeleteConfirm({ open: false, users: [], isBulk: false });
+        }
     };
 
     // Calculate showing range
     const showingStart = pagination.totalCount > 0 ? page * pageSize + 1 : 0;
     const showingEnd = Math.min((page + 1) * pageSize, pagination.totalCount);
+
+    // Check if multiple selected
+    const isMultipleSelected = selectedUsers.length > 1;
 
     return (
         <DashboardLayout>
@@ -111,7 +213,7 @@ const UsersPage = () => {
                     </div>
 
                     {/* Add User Button/Dropdown */}
-                    {allowedRoles.length > 0 && (
+                    {allowedRoles.length > 0 && !selectionMode && (
                         <div className="relative group">
                             <button className="flex items-center gap-2 bg-primary text-white px-5 py-2.5 rounded-xl shadow-lg shadow-primary/30 hover:bg-primary-hover transition-all font-medium">
                                 <FaUserPlus />
@@ -137,51 +239,93 @@ const UsersPage = () => {
                     )}
                 </div>
 
-                {/* Filters Bar */}
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-                    <div className="flex flex-wrap items-center gap-4">
-                        {/* Teacher Filter - Fixed to Student */}
-                        {currentUser?.role === 'teacher' && (
-                            <div className="flex items-center gap-2">
-                                <FaFilter className="text-gray-400" />
-                                <select
-                                    disabled
-                                    className="px-4 py-2 border border-gray-300 rounded-lg outline-none bg-gray-50 text-gray-500 cursor-not-allowed"
-                                >
-                                    <option>Student</option>
-                                </select>
-                            </div>
-                        )}
+                {/* Selection Mode Bulk Action Bar */}
+                {selectionMode && (
+                    <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-4 flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <span className="bg-indigo-600 text-white text-sm font-bold px-3 py-1 rounded-full">
+                                {selectedUsers.length}
+                            </span>
+                            <span className="text-indigo-700 font-medium">
+                                {selectedUsers.length === 1 ? 'user selected' : 'users selected'}
+                            </span>
+                        </div>
 
-                        {/* Role Filter - only show if multiple roles allowed */}
-                        {allowedRoles.length > 1 && (
-                            <div className="flex items-center gap-2">
-                                <FaFilter className="text-gray-400" />
-                                <select
-                                    value={selectedRole}
-                                    onChange={(e) => handleRoleChange(e.target.value)}
-                                    className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none bg-white"
+                        <div className="flex items-center gap-3">
+                            {/* Edit - Only show for single selection */}
+                            {selectedUsers.length === 1 && (
+                                <button
+                                    onClick={() => {
+                                        const user = users.find(u => u._id === selectedUsers[0]);
+                                        if (user) handleEdit(user);
+                                    }}
+                                    className="flex items-center gap-2 px-4 py-2 bg-white border border-indigo-300 text-indigo-700 rounded-lg hover:bg-indigo-100 transition-colors font-medium"
                                 >
-                                    <option value="all">All Roles</option>
-                                    {allowedRoles.map((role) => (
-                                        <option key={role} value={role}>
-                                            {ROLE_LABELS[role]?.label || role}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-                        )}
+                                    <FaEdit size={14} />
+                                    Edit
+                                </button>
+                            )}
 
-                        {/* Archive Button - Super Admin & Admin Only */}
-                        {['super_admin', 'admin'].includes(currentUser?.role) && (
-                            <button className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors font-medium text-sm">
-                                Archive
+                            {/* Delete - Available for single or multiple */}
+                            <button
+                                onClick={handleBulkDelete}
+                                disabled={selectedUsers.length === 0}
+                                className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium disabled:opacity-50"
+                            >
+                                <FaTrash size={14} />
+                                Delete {isMultipleSelected ? `(${selectedUsers.length})` : ''}
                             </button>
-                        )}
 
-
+                            {/* Cancel Selection Mode */}
+                            <button
+                                onClick={exitSelectionMode}
+                                className="flex items-center gap-2 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium"
+                            >
+                                <FaTimes size={14} />
+                                Cancel
+                            </button>
+                        </div>
                     </div>
-                </div>
+                )}
+
+                {/* Filters Bar */}
+                {!selectionMode && (
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+                        <div className="flex flex-wrap items-center gap-4">
+                            {/* Teacher Filter - Fixed to Student */}
+                            {currentUser?.role === 'teacher' && (
+                                <div className="flex items-center gap-2">
+                                    <FaFilter className="text-gray-400" />
+                                    <select
+                                        disabled
+                                        className="px-4 py-2 border border-gray-300 rounded-lg outline-none bg-gray-50 text-gray-500 cursor-not-allowed"
+                                    >
+                                        <option>Student</option>
+                                    </select>
+                                </div>
+                            )}
+
+                            {/* Role Filter - only show if multiple roles allowed */}
+                            {allowedRoles.length > 1 && (
+                                <div className="flex items-center gap-2">
+                                    <FaFilter className="text-gray-400" />
+                                    <select
+                                        value={selectedRole}
+                                        onChange={(e) => handleRoleChange(e.target.value)}
+                                        className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none bg-white"
+                                    >
+                                        <option value="all">All Roles</option>
+                                        {allowedRoles.map((role) => (
+                                            <option key={role} value={role}>
+                                                {ROLE_LABELS[role]?.label || role}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
 
                 {/* Users Table */}
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
@@ -208,17 +352,44 @@ const UsersPage = () => {
                                 <table className="w-full text-left">
                                     <thead>
                                         <tr className="bg-gray-50/50">
+                                            {/* Select All Checkbox - Only in selection mode */}
+                                            {selectionMode && (
+                                                <th className="px-5 py-3 w-12">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={selectedUsers.length === users.length && users.length > 0}
+                                                        onChange={toggleSelectAll}
+                                                        className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 cursor-pointer"
+                                                    />
+                                                </th>
+                                            )}
                                             <th className="px-5 py-3 text-sm font-semibold text-gray-600">Name</th>
                                             <th className="px-5 py-3 text-sm font-semibold text-gray-600">Role</th>
                                             <th className="px-5 py-3 text-sm font-semibold text-gray-600">Email</th>
                                             <th className="px-5 py-3 text-sm font-semibold text-gray-600">Status</th>
+                                            <th className="px-5 py-3 text-sm font-semibold text-gray-600 w-12"></th>
                                         </tr>
                                     </thead>
-                                    <tbody className="divide-y divide-gray-100">
+                                    <tbody className="divide-y divide-gray-100" ref={dropdownRef}>
                                         {users.map((u) => {
                                             const roleConfig = ROLE_LABELS[u.role];
+                                            const isSelected = selectedUsers.includes(u._id);
                                             return (
-                                                <tr key={u._id} className="hover:bg-gray-50/50 transition-colors">
+                                                <tr
+                                                    key={u._id}
+                                                    className={`hover:bg-gray-50/50 transition-colors ${isSelected ? 'bg-indigo-50/50' : ''}`}
+                                                >
+                                                    {/* Row Checkbox - Only in selection mode */}
+                                                    {selectionMode && (
+                                                        <td className="px-5 py-4">
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={isSelected}
+                                                                onChange={() => toggleUserSelection(u._id)}
+                                                                className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 cursor-pointer"
+                                                            />
+                                                        </td>
+                                                    )}
                                                     <td className="px-5 py-4">
                                                         <div className="flex items-center gap-3">
                                                             <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm bg-${roleConfig?.color || 'gray'}-100 text-${roleConfig?.color || 'gray'}-600`}>
@@ -239,6 +410,47 @@ const UsersPage = () => {
                                                             {u.isActive ? 'Active' : 'Inactive'}
                                                         </span>
                                                     </td>
+
+                                                    {/* Kebab Menu - Hidden in selection mode */}
+                                                    <td className="px-5 py-4">
+                                                        {!selectionMode && (
+                                                            <div className="relative">
+                                                                <button
+                                                                    onClick={() => toggleDropdown(u._id)}
+                                                                    className="p-2 hover:bg-gray-100 rounded-lg transition-colors text-gray-500 hover:text-gray-700"
+                                                                >
+                                                                    <FaEllipsisV size={14} />
+                                                                </button>
+
+                                                                {/* Dropdown Menu */}
+                                                                {activeDropdown === u._id && (
+                                                                    <div className="absolute right-0 top-full mt-1 w-40 bg-white rounded-xl shadow-xl border border-gray-100 z-20 overflow-hidden animate-fadeIn">
+                                                                        <button
+                                                                            onClick={() => handleSelectAction(u._id)}
+                                                                            className="w-full text-left px-4 py-2.5 hover:bg-gray-50 text-gray-700 flex items-center gap-2 transition-colors text-sm"
+                                                                        >
+                                                                            <FaCheck size={12} className="text-indigo-500" />
+                                                                            Select
+                                                                        </button>
+                                                                        <button
+                                                                            onClick={() => handleEdit(u)}
+                                                                            className="w-full text-left px-4 py-2.5 hover:bg-gray-50 text-gray-700 flex items-center gap-2 transition-colors text-sm"
+                                                                        >
+                                                                            <FaEdit size={12} className="text-blue-500" />
+                                                                            Edit
+                                                                        </button>
+                                                                        <button
+                                                                            onClick={() => handleDelete(u)}
+                                                                            className="w-full text-left px-4 py-2.5 hover:bg-red-50 text-red-600 flex items-center gap-2 transition-colors text-sm"
+                                                                        >
+                                                                            <FaTrash size={12} />
+                                                                            Delete
+                                                                        </button>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        )}
+                                                    </td>
                                                 </tr>
                                             );
                                         })}
@@ -253,7 +465,7 @@ const UsersPage = () => {
                                         Showing {showingStart}-{showingEnd} of {pagination.totalCount}
                                     </div>
 
-                                    {/* Page Size - Bottom Center */}
+                                    {/* Page Size */}
                                     <div className="flex items-center gap-2">
                                         <span className="text-sm text-gray-500">Show:</span>
                                         <select
@@ -278,22 +490,18 @@ const UsersPage = () => {
                                         </button>
 
                                         <div className="flex items-center gap-1">
-                                            {[...Array(pagination.totalPages)].map((_, idx) => {
-                                                // Simple pagination logic: show all if <= 7 pages, otherwise simplistic view (can be improved if many pages)
-                                                // For now, simple mapping as per typical dashboard requirements
-                                                return (
-                                                    <button
-                                                        key={idx}
-                                                        onClick={() => setPage(idx)}
-                                                        className={`w-8 h-8 flex items-center justify-center rounded-md text-sm font-medium transition-colors ${page === idx
-                                                            ? 'bg-primary text-white shadow-sm'
-                                                            : 'text-gray-600 hover:bg-gray-100 border border-gray-200'
-                                                            }`}
-                                                    >
-                                                        {idx + 1}
-                                                    </button>
-                                                );
-                                            })}
+                                            {[...Array(pagination.totalPages)].map((_, idx) => (
+                                                <button
+                                                    key={idx}
+                                                    onClick={() => setPage(idx)}
+                                                    className={`w-8 h-8 flex items-center justify-center rounded-md text-sm font-medium transition-colors ${page === idx
+                                                        ? 'bg-primary text-white shadow-sm'
+                                                        : 'text-gray-600 hover:bg-gray-100 border border-gray-200'
+                                                        }`}
+                                                >
+                                                    {idx + 1}
+                                                </button>
+                                            ))}
                                         </div>
 
                                         <button
@@ -318,6 +526,86 @@ const UsersPage = () => {
                 roleToAdd={activeModal}
                 onSuccess={handleUserCreated}
             />
+
+            {/* Delete Confirmation Modal */}
+            {deleteConfirm.open && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                    <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 overflow-hidden animate-fadeIn">
+                        <div className="p-6">
+                            <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <FaTrash className="text-red-600" size={20} />
+                            </div>
+                            <h3 className="text-xl font-bold text-gray-800 text-center mb-2">
+                                {deleteConfirm.isBulk
+                                    ? `Delete ${deleteConfirm.users.length} Users?`
+                                    : 'Delete User?'}
+                            </h3>
+                            <p className="text-gray-500 text-center mb-6">
+                                {deleteConfirm.isBulk
+                                    ? `Are you sure you want to archive ${deleteConfirm.users.length} selected users? They can be restored later.`
+                                    : `Are you sure you want to archive "${deleteConfirm.users[0]?.name}"? This user can be restored later.`}
+                            </p>
+                            <div className="flex gap-3">
+                                <button
+                                    onClick={() => setDeleteConfirm({ open: false, users: [], isBulk: false })}
+                                    className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors font-medium"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={confirmDelete}
+                                    className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-xl hover:bg-red-700 transition-colors font-medium"
+                                >
+                                    Delete
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Edit Modal Placeholder - You can implement full edit functionality */}
+            {editModal.open && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                    <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 overflow-hidden animate-fadeIn">
+                        <div className="p-6">
+                            <div className="flex justify-between items-center mb-4">
+                                <h3 className="text-xl font-bold text-gray-800">Edit User</h3>
+                                <button
+                                    onClick={() => setEditModal({ open: false, user: null })}
+                                    className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                                >
+                                    <FaTimes />
+                                </button>
+                            </div>
+                            <p className="text-gray-500 mb-6">
+                                Editing: <strong>{editModal.user?.name}</strong>
+                            </p>
+                            <p className="text-sm text-gray-400 italic mb-4">
+                                Edit form fields can be added here based on your requirements.
+                            </p>
+                            <div className="flex gap-3">
+                                <button
+                                    onClick={() => setEditModal({ open: false, user: null })}
+                                    className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors font-medium"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        // Save logic here
+                                        setEditModal({ open: false, user: null });
+                                        exitSelectionMode();
+                                    }}
+                                    className="flex-1 px-4 py-2.5 bg-primary text-white rounded-xl hover:bg-primary-hover transition-colors font-medium"
+                                >
+                                    Save Changes
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </DashboardLayout>
     );
 };
