@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { useSidebar } from '../context/SidebarContext';
 import api from '../api/axios';
 import { useNavigate } from 'react-router-dom';
-import { FaBars, FaUserCircle, FaSignOutAlt, FaBuilding, FaChevronDown } from 'react-icons/fa';
+import { FaBars, FaUserCircle, FaSignOutAlt, FaBuilding, FaChevronDown, FaSearch } from 'react-icons/fa';
 
 const Header = () => {
     const { user, logout } = useAuth();
@@ -111,9 +111,23 @@ const Header = () => {
                             <span className="font-bold text-lg">{headerContent.title.substring(0, 2).toUpperCase()}</span>
                         </div>
                     )}
-                    <span className="font-bold text-gray-800 text-lg hidden md:block truncate max-w-[200px]">
+                    <span className="font-bold text-gray-800 text-lg hidden md:block">
                         {headerContent.title}
                     </span>
+                </div>
+            </div>
+
+            {/* Search Bar */}
+            <div className="hidden md:flex items-center ml-auto mr-6 w-64">
+                <div className="relative w-full">
+                    <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
+                        <FaSearch />
+                    </span>
+                    <input
+                        type="text"
+                        placeholder="Search..."
+                        className="w-full py-2 pl-10 pr-4 text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                    />
                 </div>
             </div>
 
