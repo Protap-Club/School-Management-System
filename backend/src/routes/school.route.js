@@ -10,7 +10,6 @@ import { upload } from "../middlewares/upload.middleware.js";
 
 const router = express.Router();
 
-router.get("/list", checkAuth, checkRole([USER_ROLES.SUPER_ADMIN]), getSchoolsList);
 router.get("/my-branding", checkAuth, getMySchoolBranding);
 router.get("/", checkAuth, checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN]), getSchools);
 router.get("/:id", checkAuth, checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN]), getSchoolById);

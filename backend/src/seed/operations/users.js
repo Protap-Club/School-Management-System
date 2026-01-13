@@ -100,7 +100,7 @@ export const addStudents = async (schoolCode, students, options = {}) => {
     const users = students.map(s => ({
         ...s,
         role: USER_ROLES.STUDENT,
-        profile: { rollNumber: s.rollNumber, course: s.course, year: s.year, section: s.section }
+        profile: { rollNumber: s.rollNumber, standard: s.standard, year: s.year, section: s.section }
     }));
     return addUsers({ schoolCode, users, ...options });
 };

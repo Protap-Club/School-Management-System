@@ -2,6 +2,7 @@
  * Cleanup Operations - Remove demo data
  */
 
+import mongoose from "mongoose";
 import UserModel from "../../models/User.model.js";
 import SchoolModel from "../../models/School.model.js";
 import AdminProfileModel from "../../models/AdminProfile.model.js";
@@ -9,15 +10,42 @@ import TeacherProfileModel from "../../models/TeacherProfile.model.js";
 import StudentProfileModel from "../../models/StudentProfile.model.js";
 
 /**
- * Remove demo schools and their users
+ * Drop stale indexes that may cause issues
+ */
+const dropStaleIndexes = async () => {
+    try {
+        const userCollection = mongoose.connection.db.collection('users');
+        const indexes = await userCollection.indexes();
+
+        // Check for username index
+        const usernameIndex = indexes.find(idx => idx.key?.username);
+        if (usernameIndex) {
+            console.log("   ⚠️  Dropping stale 'username' index...");
+            await userCollection.dropIndex("username_1");
+            console.log("   ✅ Index dropped");
+        }
+    } catch (error) {
+        // Index might not exist, that's fine
+        if (!error.message.includes('not found')) {
+            console.log("   ℹ️  No stale indexes to drop");
+        }
+    }
+};
+
+/**
+ * Remove all schools and their users (for demo schools: IITD, IIMA, or DEMO*)
  */
 export const cleanupDemo = async () => {
     console.log("\n🧹 Cleaning up demo data...\n");
 
-    // Find demo schools
+    // First drop any stale indexes
+    await dropStaleIndexes();
+
+    // Find demo schools (IITD, IIMA, or anything starting with DEMO)
     const demoSchools = await SchoolModel.find({
         $or: [
-            { code: "DEMO001" },
+            { code: "IITD" },
+            { code: "IIMA" },
             { code: { $regex: /^DEMO/i } }
         ]
     });
@@ -51,7 +79,11 @@ export const cleanupDemo = async () => {
     }
 
     // Delete orphan demo users
-    const orphanUsers = await UserModel.deleteMany({ email: { $regex: /@demo\.school$/i } });
+    const orphanUsers = await UserModel.deleteMany({
+        email: {
+            $regex: /@(demo\.school|iitd\.ac\.in|iima\.ac\.in|student\.iitd\.ac\.in|student\.iima\.ac\.in)$/i
+        }
+    });
     totalDeleted.users += orphanUsers.deletedCount;
 
     console.log(`\n   ✅ Deleted: ${totalDeleted.schools} schools, ${totalDeleted.users} users, ${totalDeleted.profiles} profiles`);

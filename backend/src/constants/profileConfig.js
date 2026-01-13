@@ -32,10 +32,10 @@ export const PROFILE_CONFIG = Object.freeze({
     },
     student: {
         model: StudentProfileModel,
-        requiredFields: ["rollNumber", "course", "year"],
+        requiredFields: ["rollNumber", "standard", "year"],
         extractFields: (data) => ({
             rollNumber: data.rollNumber,
-            course: data.course,
+            standard: data.standard,
             year: data.year,
             section: data.section,
             guardianName: data.guardianName,

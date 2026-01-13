@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import api from '../api/axios';
-import { FaTimes, FaBuilding, FaToggleOn, FaToggleOff } from 'react-icons/fa';
+import { FaTimes, FaBuilding } from 'react-icons/fa';
 
-const AddInstituteModal = ({ onClose, onSuccess }) => {
+const AddSchoolModal = ({ onClose, onSuccess }) => {
     const [formData, setFormData] = useState({
         name: '',
         code: '',
@@ -10,9 +10,6 @@ const AddInstituteModal = ({ onClose, onSuccess }) => {
         contactEmail: '',
         contactPhone: '',
         logoUrl: ''
-    });
-    const [features, setFeatures] = useState({
-        attendance: false
     });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
@@ -28,19 +25,12 @@ const AddInstituteModal = ({ onClose, onSuccess }) => {
         setLoading(true);
 
         try {
-            const payload = {
-                ...formData,
-                features: {
-                    attendance: { enabled: features.attendance }
-                }
-            };
-
-            const response = await api.post('/institute', payload);
+            const response = await api.post('/school', formData);
             if (response.data.success) {
                 onSuccess();
             }
         } catch (error) {
-            setError(error.response?.data?.message || 'Failed to create institute');
+            setError(error.response?.data?.message || 'Failed to create school');
         } finally {
             setLoading(false);
         }
@@ -55,7 +45,7 @@ const AddInstituteModal = ({ onClose, onSuccess }) => {
                         <div className="p-2 bg-white/20 rounded-lg">
                             <FaBuilding className="text-white text-xl" />
                         </div>
-                        <h2 className="text-xl font-bold text-white">Add New Institute</h2>
+                        <h2 className="text-xl font-bold text-white">Add New School</h2>
                     </div>
                     <button
                         onClick={onClose}
@@ -75,7 +65,7 @@ const AddInstituteModal = ({ onClose, onSuccess }) => {
 
                     <div className="grid grid-cols-2 gap-4">
                         <div className="col-span-2 md:col-span-1">
-                            <label className="text-sm font-medium text-gray-700">Institute Name *</label>
+                            <label className="text-sm font-medium text-gray-700">School Name *</label>
                             <input
                                 type="text"
                                 name="name"
@@ -88,7 +78,7 @@ const AddInstituteModal = ({ onClose, onSuccess }) => {
                         </div>
 
                         <div className="col-span-2 md:col-span-1">
-                            <label className="text-sm font-medium text-gray-700">Institute Code *</label>
+                            <label className="text-sm font-medium text-gray-700">School Code *</label>
                             <input
                                 type="text"
                                 name="code"
@@ -151,25 +141,6 @@ const AddInstituteModal = ({ onClose, onSuccess }) => {
                         />
                     </div>
 
-                    {/* Features Section */}
-                    <div className="border-t border-gray-200 pt-4 mt-4">
-                        <h3 className="text-sm font-semibold text-gray-800 mb-3">Institute Features</h3>
-
-                        <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                            <div>
-                                <p className="font-medium text-gray-800">Attendance Module</p>
-                                <p className="text-xs text-gray-500">Enable teachers to mark student attendance</p>
-                            </div>
-                            <button
-                                type="button"
-                                onClick={() => setFeatures(p => ({ ...p, attendance: !p.attendance }))}
-                                className={`text-3xl transition-colors ${features.attendance ? 'text-green-500' : 'text-gray-300'}`}
-                            >
-                                {features.attendance ? <FaToggleOn /> : <FaToggleOff />}
-                            </button>
-                        </div>
-                    </div>
-
                     {/* Buttons */}
                     <div className="flex gap-3 pt-4">
                         <button
@@ -184,7 +155,7 @@ const AddInstituteModal = ({ onClose, onSuccess }) => {
                             disabled={loading}
                             className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                            {loading ? 'Creating...' : 'Create Institute'}
+                            {loading ? 'Creating...' : 'Create School'}
                         </button>
                     </div>
                 </form>
@@ -193,4 +164,4 @@ const AddInstituteModal = ({ onClose, onSuccess }) => {
     );
 };
 
-export default AddInstituteModal;
+export default AddSchoolModal;
