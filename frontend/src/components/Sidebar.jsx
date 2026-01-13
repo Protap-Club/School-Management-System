@@ -6,6 +6,7 @@ import {
     FaUserGraduate,
     FaCog,
     FaClipboardList,
+    FaHome,
 } from 'react-icons/fa';
 
 const Sidebar = () => {
@@ -13,19 +14,23 @@ const Sidebar = () => {
     const { isCollapsed } = useSidebar();
 
     const getLinks = () => {
+        const dashboardLink = { path: '/dashboard', label: 'Dashboard', icon: <FaHome /> };
         switch (user?.role) {
             case 'super_admin':
                 return [
+                    dashboardLink,
                     { path: '/superadmin/users', label: 'Users', icon: <FaUserGraduate /> },
                     { path: '/superadmin/settings', label: 'Settings', icon: <FaCog /> },
                 ];
             case 'admin':
                 return [
+                    dashboardLink,
                     { path: '/admin/users', label: 'Users', icon: <FaUserGraduate /> },
                     { path: '/admin/settings', label: 'Settings', icon: <FaCog /> },
                 ];
             case 'teacher':
                 return [
+                    dashboardLink,
                     { path: '/teacher/users', label: 'Users', icon: <FaUserGraduate /> },
                     { path: '/teacher/settings', label: 'Settings', icon: <FaCog /> },
                 ];
