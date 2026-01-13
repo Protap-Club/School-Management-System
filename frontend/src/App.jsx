@@ -9,6 +9,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import UsersPage from './pages/UsersPage';
 import Settings from './pages/Settings';
 import Dashboard from './pages/Dashboard';
+import Attendance from './pages/Attendance';
 
 function App() {
   return (
@@ -71,6 +72,14 @@ function App() {
               element={
                 <ProtectedRoute allowedRoles={['teacher']}>
                   <UsersPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/teacher/attendance"
+              element={
+                <ProtectedRoute allowedRoles={['teacher']}>
+                  <Attendance />
                 </ProtectedRoute>
               }
             />
