@@ -140,6 +140,19 @@ const UsersPage = () => {
                 {/* Filters Bar */}
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
                     <div className="flex flex-wrap items-center gap-4">
+                        {/* Teacher Filter - Fixed to Student */}
+                        {currentUser?.role === 'teacher' && (
+                            <div className="flex items-center gap-2">
+                                <FaFilter className="text-gray-400" />
+                                <select
+                                    disabled
+                                    className="px-4 py-2 border border-gray-300 rounded-lg outline-none bg-gray-50 text-gray-500 cursor-not-allowed"
+                                >
+                                    <option>Student</option>
+                                </select>
+                            </div>
+                        )}
+
                         {/* Role Filter - only show if multiple roles allowed */}
                         {allowedRoles.length > 1 && (
                             <div className="flex items-center gap-2">
@@ -159,20 +172,14 @@ const UsersPage = () => {
                             </div>
                         )}
 
-                        {/* Page Size */}
-                        <div className="flex items-center gap-2 ml-auto">
-                            <span className="text-sm text-gray-500">Show:</span>
-                            <select
-                                value={pageSize}
-                                onChange={(e) => handlePageSizeChange(e.target.value)}
-                                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none bg-white text-sm"
-                            >
-                                <option value="25">25</option>
-                                <option value="50">50</option>
-                                <option value="75">75</option>
-                                <option value="100">100</option>
-                            </select>
-                        </div>
+                        {/* Archive Button - Super Admin & Admin Only */}
+                        {['super_admin', 'admin'].includes(currentUser?.role) && (
+                            <button className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors font-medium text-sm">
+                                Archive
+                            </button>
+                        )}
+
+
                     </div>
                 </div>
 
@@ -183,11 +190,6 @@ const UsersPage = () => {
                             <FaUsers className="text-primary" />
                             <h2 className="text-lg font-bold text-gray-800">User List</h2>
                         </div>
-                        {pagination.totalCount > 0 && (
-                            <span className="text-sm text-gray-500">
-                                Showing {showingStart}-{showingEnd} of {pagination.totalCount}
-                            </span>
-                        )}
                     </div>
 
                     {loading ? (
@@ -246,26 +248,62 @@ const UsersPage = () => {
 
                             {/* Pagination */}
                             {pagination.totalPages > 1 && (
-                                <div className="p-4 border-t border-gray-100 flex justify-between items-center">
-                                    <button
-                                        onClick={() => setPage(p => Math.max(0, p - 1))}
-                                        disabled={page === 0}
-                                        className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                                    >
-                                        <FaChevronLeft size={12} /> Previous
-                                    </button>
-                                    <div className="flex items-center gap-2">
-                                        <span className="text-sm text-gray-600">
-                                            Page {page + 1} of {pagination.totalPages}
-                                        </span>
+                                <div className="p-4 border-t border-gray-100 flex flex-col md:flex-row justify-between items-center gap-4">
+                                    <div className="text-gray-600">
+                                        Showing {showingStart}-{showingEnd} of {pagination.totalCount}
                                     </div>
-                                    <button
-                                        onClick={() => setPage(p => Math.min(pagination.totalPages - 1, p + 1))}
-                                        disabled={page >= pagination.totalPages - 1}
-                                        className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                                    >
-                                        Next <FaChevronRight size={12} />
-                                    </button>
+
+                                    {/* Page Size - Bottom Center */}
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-sm text-gray-500">Show:</span>
+                                        <select
+                                            value={pageSize}
+                                            onChange={(e) => handlePageSizeChange(e.target.value)}
+                                            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none bg-white text-sm"
+                                        >
+                                            <option value="25">25</option>
+                                            <option value="50">50</option>
+                                            <option value="75">75</option>
+                                            <option value="100">100</option>
+                                        </select>
+                                    </div>
+
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            onClick={() => setPage(p => Math.max(0, p - 1))}
+                                            disabled={page === 0}
+                                            className="px-3 py-1 text-gray-600 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
+                                        >
+                                            Previous
+                                        </button>
+
+                                        <div className="flex items-center gap-1">
+                                            {[...Array(pagination.totalPages)].map((_, idx) => {
+                                                // Simple pagination logic: show all if <= 7 pages, otherwise simplistic view (can be improved if many pages)
+                                                // For now, simple mapping as per typical dashboard requirements
+                                                return (
+                                                    <button
+                                                        key={idx}
+                                                        onClick={() => setPage(idx)}
+                                                        className={`w-8 h-8 flex items-center justify-center rounded-md text-sm font-medium transition-colors ${page === idx
+                                                            ? 'bg-primary text-white shadow-sm'
+                                                            : 'text-gray-600 hover:bg-gray-100 border border-gray-200'
+                                                            }`}
+                                                    >
+                                                        {idx + 1}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+
+                                        <button
+                                            onClick={() => setPage(p => Math.min(pagination.totalPages - 1, p + 1))}
+                                            disabled={page >= pagination.totalPages - 1}
+                                            className="px-3 py-1 text-gray-600 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
+                                        >
+                                            Next
+                                        </button>
+                                    </div>
                                 </div>
                             )}
                         </>

@@ -8,6 +8,8 @@ import ProtectedRoute from './components/ProtectedRoute';
 // Shared Pages
 import UsersPage from './pages/UsersPage';
 import Settings from './pages/Settings';
+import Dashboard from './pages/Dashboard';
+import Attendance from './pages/Attendance';
 
 function App() {
   return (
@@ -17,6 +19,16 @@ function App() {
           <Routes>
             {/* Public Routes */}
             <Route path="/login" element={<Login />} />
+
+            {/* Dashboard Route */}
+            <Route
+              path="/dashboard"
+              element={
+                <ProtectedRoute allowedRoles={['super_admin', 'admin', 'teacher']}>
+                  <Dashboard />
+                </ProtectedRoute>
+              }
+            />
 
             {/* SuperAdmin Routes */}
             <Route
@@ -64,16 +76,17 @@ function App() {
               }
             />
             <Route
-              path="/teacher/settings"
+              path="/teacher/attendance"
               element={
                 <ProtectedRoute allowedRoles={['teacher']}>
-                  <Settings />
+                  <Attendance />
                 </ProtectedRoute>
               }
             />
 
+
             {/* Default Routes */}
-            <Route path="/" element={<Navigate to="/login" replace />} />
+            <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="*" element={<Navigate to="/login" replace />} />
           </Routes>
         </SidebarProvider>
