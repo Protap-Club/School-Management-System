@@ -32,7 +32,6 @@ const Sidebar = () => {
                 return [
                     dashboardLink,
                     { path: '/teacher/users', label: 'Users', icon: <FaUserGraduate /> },
-                    { path: '/teacher/settings', label: 'Settings', icon: <FaCog /> },
                 ];
             default:
                 return [];

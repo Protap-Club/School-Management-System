@@ -111,7 +111,7 @@ const Header = () => {
                             <span className="font-bold text-lg">{headerContent.title.substring(0, 2).toUpperCase()}</span>
                         </div>
                     )}
-                    <span className="font-bold text-gray-800 text-lg hidden md:block truncate max-w-[200px]">
+                    <span className="font-bold text-gray-800 text-lg hidden md:block">
                         {headerContent.title}
                     </span>
                 </div>

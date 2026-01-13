@@ -74,14 +74,7 @@ function App() {
                 </ProtectedRoute>
               }
             />
-            <Route
-              path="/teacher/settings"
-              element={
-                <ProtectedRoute allowedRoles={['teacher']}>
-                  <Settings />
-                </ProtectedRoute>
-              }
-            />
+
 
             {/* Default Routes */}
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
