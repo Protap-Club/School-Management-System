@@ -1,10 +1,262 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import DashboardLayout from '../layouts/DashboardLayout';
+import { useAuth } from '../context/AuthContext';
+import api from '../api/axios';
+import {
+  FaUserGraduate,
+  FaCalendarAlt,
+  FaCheckCircle,
+  FaTimesCircle,
+  FaClock,
+  FaChartBar,
+  FaUsers,
+  FaSearch
+} from 'react-icons/fa';
 
 const Attendance = () => {
+  const { user: currentUser } = useAuth();
+  const [students, setStudents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [stats, setStats] = useState({
+    total: 0,
+    present: 0,
+    absent: 0,
+    late: 0
+  });
+
+  // Fetch students from the school
+  useEffect(() => {
+    const fetchStudents = async () => {
+      try {
+        const response = await api.get('/user/get-users?role=student&pageSize=100');
+        if (response.data.success) {
+          const studentData = response.data.data;
+          setStudents(studentData);
+
+          // Mock attendance stats based on student count
+          const total = studentData.length;
+          const present = Math.floor(total * 0.85);
+          const absent = Math.floor(total * 0.08);
+          const late = total - present - absent;
+
+          setStats({ total, present, absent, late });
+        }
+      } catch (error) {
+        console.error('Failed to fetch students', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchStudents();
+  }, []);
+
+  // Filter students by search
+  const filteredStudents = students.filter(student =>
+    student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    student.email.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  // Get today's date formatted
+  const today = new Date().toLocaleDateString('en-US', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
+
+  const StatCard = ({ icon: Icon, label, value, color, bgColor }) => (
+    <div className={`${bgColor} rounded-2xl p-5 border border-gray-100`}>
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-gray-500 text-sm font-medium">{label}</p>
+          <p className={`text-3xl font-bold ${color} mt-1`}>{value}</p>
+        </div>
+        <div className={`w-12 h-12 ${color.replace('text-', 'bg-').replace('-600', '-100')} rounded-xl flex items-center justify-center`}>
+          <Icon className={color} size={24} />
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <DashboardLayout>
-      {/* Blank content area as requested */}
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-800">Attendance</h1>
+            <p className="text-gray-500 mt-1 flex items-center gap-2">
+              <FaCalendarAlt className="text-primary" />
+              {today}
+            </p>
+          </div>
+        </div>
+
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <StatCard
+            icon={FaUsers}
+            label="Total Students"
+            value={stats.total}
+            color="text-blue-600"
+            bgColor="bg-white shadow-sm"
+          />
+          <StatCard
+            icon={FaCheckCircle}
+            label="Present Today"
+            value={stats.present}
+            color="text-green-600"
+            bgColor="bg-white shadow-sm"
+          />
+          <StatCard
+            icon={FaTimesCircle}
+            label="Absent Today"
+            value={stats.absent}
+            color="text-red-600"
+            bgColor="bg-white shadow-sm"
+          />
+          <StatCard
+            icon={FaClock}
+            label="Late Arrival"
+            value={stats.late}
+            color="text-orange-600"
+            bgColor="bg-white shadow-sm"
+          />
+        </div>
+
+        {/* Attendance Rate Card */}
+        <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-2xl p-6 text-white">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-medium opacity-90">Today's Attendance Rate</h3>
+              <p className="text-4xl font-bold mt-2">
+                {stats.total > 0 ? ((stats.present / stats.total) * 100).toFixed(1) : 0}%
+              </p>
+              <p className="text-sm opacity-75 mt-1">
+                {stats.present} out of {stats.total} students present
+              </p>
+            </div>
+            <div className="hidden md:block">
+              <FaChartBar size={60} className="opacity-30" />
+            </div>
+          </div>
+        </div>
+
+        {/* Student List */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+          <div className="p-5 border-b border-gray-100 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div className="flex items-center gap-3">
+              <FaUserGraduate className="text-primary" />
+              <h2 className="text-lg font-bold text-gray-800">Student List</h2>
+              <span className="bg-gray-100 text-gray-600 text-sm px-2 py-1 rounded-full">
+                {filteredStudents.length} students
+              </span>
+            </div>
+
+            {/* Search */}
+            <div className="relative w-full md:w-64">
+              <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search students..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none"
+              />
+            </div>
+          </div>
+
+          {loading ? (
+            <div className="p-12 text-center">
+              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary mx-auto"></div>
+              <p className="text-gray-500 mt-4">Loading students...</p>
+            </div>
+          ) : filteredStudents.length === 0 ? (
+            <div className="p-12 text-center text-gray-500">
+              <FaUserGraduate size={40} className="mx-auto mb-4 text-gray-300" />
+              <p>No students found</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left">
+                <thead>
+                  <tr className="bg-gray-50/50">
+                    <th className="px-5 py-3 text-sm font-semibold text-gray-600">Student</th>
+                    <th className="px-5 py-3 text-sm font-semibold text-gray-600">Email</th>
+                    <th className="px-5 py-3 text-sm font-semibold text-gray-600">Status</th>
+                    <th className="px-5 py-3 text-sm font-semibold text-gray-600 text-center">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {filteredStudents.slice(0, 20).map((student, index) => {
+                    // Mock status based on index
+                    const statusOptions = ['present', 'present', 'present', 'present', 'absent', 'late'];
+                    const status = statusOptions[index % statusOptions.length];
+
+                    return (
+                      <tr key={student._id} className="hover:bg-gray-50/50 transition-colors">
+                        <td className="px-5 py-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-full bg-green-100 text-green-600 flex items-center justify-center font-bold text-sm">
+                              {student.name.charAt(0).toUpperCase()}
+                            </div>
+                            <span className="font-medium text-gray-800">{student.name}</span>
+                          </div>
+                        </td>
+                        <td className="px-5 py-4 text-sm text-gray-600">{student.email}</td>
+                        <td className="px-5 py-4">
+                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${status === 'present'
+                              ? 'bg-green-100 text-green-700'
+                              : status === 'absent'
+                                ? 'bg-red-100 text-red-700'
+                                : 'bg-orange-100 text-orange-700'
+                            }`}>
+                            {status === 'present' && <FaCheckCircle size={10} />}
+                            {status === 'absent' && <FaTimesCircle size={10} />}
+                            {status === 'late' && <FaClock size={10} />}
+                            {status.charAt(0).toUpperCase() + status.slice(1)}
+                          </span>
+                        </td>
+                        <td className="px-5 py-4 text-center">
+                          <div className="flex items-center justify-center gap-2">
+                            <button
+                              className="p-2 rounded-lg bg-green-50 text-green-600 hover:bg-green-100 transition-colors"
+                              title="Mark Present"
+                            >
+                              <FaCheckCircle size={14} />
+                            </button>
+                            <button
+                              className="p-2 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 transition-colors"
+                              title="Mark Absent"
+                            >
+                              <FaTimesCircle size={14} />
+                            </button>
+                            <button
+                              className="p-2 rounded-lg bg-orange-50 text-orange-600 hover:bg-orange-100 transition-colors"
+                              title="Mark Late"
+                            >
+                              <FaClock size={14} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* Info Footer */}
+          {filteredStudents.length > 20 && (
+            <div className="p-4 bg-gray-50 border-t border-gray-100 text-center text-sm text-gray-500">
+              Showing 20 of {filteredStudents.length} students. Full pagination coming soon.
+            </div>
+          )}
+        </div>
+      </div>
     </DashboardLayout>
   );
 };

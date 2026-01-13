@@ -16,7 +16,8 @@ import {
     FaCheck,
     FaEdit,
     FaTrash,
-    FaTimes
+    FaTimes,
+    FaArchive
 } from 'react-icons/fa';
 
 // Role hierarchy - what each role can view/create
@@ -58,6 +59,9 @@ const UsersPage = () => {
     // Delete Confirmation State
     const [deleteConfirm, setDeleteConfirm] = useState({ open: false, users: [], isBulk: false });
 
+    // Archive View State
+    const [showArchived, setShowArchived] = useState(false);
+
     // Get allowed roles for current user
     const allowedRoles = ROLE_PERMISSIONS[currentUser?.role] || [];
 
@@ -82,7 +86,8 @@ const UsersPage = () => {
                 pageSize: pageSize.toString()
             });
 
-            const response = await api.get(`/user/get-users?${params}`);
+            const endpoint = showArchived ? '/user/archived' : '/user/get-users';
+            const response = await api.get(`${endpoint}?${params}`);
             if (response.data.success) {
                 setUsers(response.data.data);
                 setPagination(response.data.pagination);
@@ -98,7 +103,7 @@ const UsersPage = () => {
         if (currentUser) {
             fetchUsers();
         }
-    }, [selectedRole, page, pageSize, currentUser]);
+    }, [selectedRole, page, pageSize, currentUser, showArchived]);
 
     // Reset selection when exiting selection mode
     useEffect(() => {
@@ -322,6 +327,23 @@ const UsersPage = () => {
                                         ))}
                                     </select>
                                 </div>
+                            )}
+
+                            {/* Archive Toggle - Only for Admin and Super Admin */}
+                            {(currentUser?.role === 'super_admin' || currentUser?.role === 'admin') && (
+                                <button
+                                    onClick={() => {
+                                        setShowArchived(!showArchived);
+                                        setPage(0);
+                                    }}
+                                    className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${showArchived
+                                            ? 'bg-orange-100 text-orange-700 border border-orange-300'
+                                            : 'bg-gray-100 text-gray-600 border border-gray-300 hover:bg-gray-200'
+                                        }`}
+                                >
+                                    <FaArchive size={14} />
+                                    {showArchived ? 'Viewing Archived' : 'View Archive'}
+                                </button>
                             )}
                         </div>
                     </div>
