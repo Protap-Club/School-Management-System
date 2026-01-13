@@ -1,7 +1,4 @@
-/**
- * Seed Runner - Database connection and execution framework
- */
-
+// Seed Runner - Database connection and execution framework
 import mongoose from "mongoose";
 import { conf } from "../config/index.js";
 
@@ -55,27 +52,3 @@ export const runSeed = async (operationName, seedFunction, options = {}) => {
         throw error;
     }
 };
-
-export class SeedContext {
-    constructor(operationName) {
-        this.operationName = operationName;
-        this.startTime = Date.now();
-        this.data = {};
-        this.logs = [];
-    }
-
-    log(message) {
-        this.logs.push({ timestamp: new Date().toISOString(), message });
-        console.log(`[${this.operationName}] ${message}`);
-    }
-
-    setData(key, value) { this.data[key] = value; }
-    getData(key) { return this.data[key]; }
-    getElapsedTime() { return Date.now() - this.startTime; }
-
-    getSummary() {
-        return { operation: this.operationName, elapsedMs: this.getElapsedTime(), data: this.data, logCount: this.logs.length };
-    }
-}
-
-export default { connectDB, disconnectDB, runSeed, SeedContext };

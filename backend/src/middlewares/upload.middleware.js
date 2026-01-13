@@ -6,24 +6,45 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const uploadDir = path.join(__dirname, '../../uploads');
-if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+// Create logos directory inside uploads
+const logosDir = path.join(__dirname, '../../uploads/logos');
+if (!fs.existsSync(logosDir)) fs.mkdirSync(logosDir, { recursive: true });
 
 const storage = multer.diskStorage({
-    destination: (req, file, cb) => cb(null, uploadDir),
+    destination: (req, file, cb) => cb(null, logosDir),
     filename: (req, file, cb) => {
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        cb(null, 'logo-' + uniqueSuffix + path.extname(file.originalname));
+        const schoolId = req.body?.schoolId || req.user?.schoolId || 'unknown';
+        const timestamp = Date.now();
+        const ext = path.extname(file.originalname).toLowerCase();
+        cb(null, `school_${schoolId}_${timestamp}${ext}`);
     }
 });
 
 const fileFilter = (req, file, cb) => {
-    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'];
-    cb(allowedTypes.includes(file.mimetype) ? null : new Error('Invalid file type'), allowedTypes.includes(file.mimetype));
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+    if (allowedTypes.includes(file.mimetype)) {
+        cb(null, true);
+    } else {
+        cb(new Error('Only image files (jpg, png, gif, webp) are allowed'), false);
+    }
 };
 
 export const upload = multer({
     storage,
     fileFilter,
-    limits: { fileSize: 5 * 1024 * 1024 }
+    limits: { fileSize: 2 * 1024 * 1024 } // 2MB
 });
+
+// Delete file utility
+export const deleteFile = (filePath) => {
+    try {
+        const fullPath = path.join(__dirname, '../..', filePath);
+        if (fs.existsSync(fullPath)) {
+            fs.unlinkSync(fullPath);
+            return true;
+        }
+    } catch (error) {
+        console.error('Error deleting file:', error.message);
+    }
+    return false;
+};

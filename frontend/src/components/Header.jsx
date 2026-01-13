@@ -9,7 +9,7 @@ const Header = () => {
     const { user, logout } = useAuth();
     const { toggleSidebar } = useSidebar();
     const navigate = useNavigate();
-    const [instituteBranding, setInstituteBranding] = useState(null);
+    const [schoolBranding, setSchoolBranding] = useState(null);
     const [dropdownOpen, setDropdownOpen] = useState(false);
     const dropdownRef = useRef(null);
 
@@ -27,14 +27,14 @@ const Header = () => {
         };
     }, []);
 
-    // Fetch institute branding
+    // Fetch school branding
     useEffect(() => {
         const fetchBranding = async () => {
-            if (user && user.role !== 'super_admin' && user.instituteId) {
+            if (user && user.role !== 'super_admin' && user.schoolId) {
                 try {
-                    const response = await api.get('/institute/my-branding');
+                    const response = await api.get('/school/my-branding');
                     if (response.data.success && response.data.data) {
-                        setInstituteBranding(response.data.data);
+                        setSchoolBranding(response.data.data);
                     }
                 } catch (error) {
                     console.error('Failed to fetch branding', error);
@@ -61,10 +61,10 @@ const Header = () => {
                 title: 'Protap',
                 logo: null
             };
-        } else if (instituteBranding) {
+        } else if (schoolBranding) {
             return {
-                title: instituteBranding.name,
-                logo: instituteBranding.logoUrl
+                title: schoolBranding.name,
+                logo: schoolBranding.logoUrl
             };
         }
         return {

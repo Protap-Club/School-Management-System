@@ -1,19 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import DashboardLayout from '../layouts/DashboardLayout';
 import AddUserModal from '../components/AddUserModal';
-import AddInstituteModal from '../components/AddInstituteModal';
+import AddSchoolModal from '../components/AddSchoolModal';
 import api from '../api/axios';
 import { FaUserPlus, FaBuilding, FaChalkboardTeacher, FaUserGraduate, FaUserShield, FaChevronLeft, FaChevronRight, FaPlus } from 'react-icons/fa';
 
 const SuperAdminDashboard = () => {
     const [activeModal, setActiveModal] = useState(null);
-    const [showInstituteModal, setShowInstituteModal] = useState(false);
+    const [showSchoolModal, setShowSchoolModal] = useState(false);
 
-    // Institutes for dropdown
-    const [institutes, setInstitutes] = useState([]);
+    // Schools for dropdown
+    const [schools, setSchools] = useState([]);
 
     // Filters
-    const [selectedInstitute, setSelectedInstitute] = useState('');
+    const [selectedSchool, setSelectedSchool] = useState('');
     const [selectedRole, setSelectedRole] = useState('all');
     const [pageSize, setPageSize] = useState(25);
     const [page, setPage] = useState(0);
@@ -23,21 +23,21 @@ const SuperAdminDashboard = () => {
     const [pagination, setPagination] = useState({ totalCount: 0, totalPages: 0 });
     const [loading, setLoading] = useState(false);
 
-    // Fetch institutes for dropdown
-    const fetchInstitutes = async () => {
+    // Fetch schools for dropdown
+    const fetchSchools = async () => {
         try {
-            const response = await api.get('/institute/list');
+            const response = await api.get('/school');
             if (response.data.success) {
-                setInstitutes(response.data.data);
+                setSchools(response.data.data);
             }
         } catch (error) {
-            console.error('Failed to fetch institutes', error);
+            console.error('Failed to fetch schools', error);
         }
     };
 
     // Fetch users with filters and pagination
     const fetchUsers = async () => {
-        if (!selectedInstitute) {
+        if (!selectedSchool) {
             setUsers([]);
             setPagination({ totalCount: 0, totalPages: 0 });
             return;
@@ -46,7 +46,7 @@ const SuperAdminDashboard = () => {
         setLoading(true);
         try {
             const params = new URLSearchParams({
-                instituteId: selectedInstitute,
+                schoolId: selectedSchool,
                 role: selectedRole,
                 page: page.toString(),
                 pageSize: pageSize.toString()
@@ -65,16 +65,16 @@ const SuperAdminDashboard = () => {
     };
 
     useEffect(() => {
-        fetchInstitutes();
+        fetchSchools();
     }, []);
 
     useEffect(() => {
         fetchUsers();
-    }, [selectedInstitute, selectedRole, page, pageSize]);
+    }, [selectedSchool, selectedRole, page, pageSize]);
 
     // Reset page when filters change
-    const handleInstituteChange = (value) => {
-        setSelectedInstitute(value);
+    const handleSchoolChange = (value) => {
+        setSelectedSchool(value);
         setPage(0);
     };
 
@@ -90,7 +90,7 @@ const SuperAdminDashboard = () => {
 
     const handleUserCreated = () => {
         fetchUsers();
-        fetchInstitutes();
+        fetchSchools();
     };
 
     return (
@@ -106,11 +106,11 @@ const SuperAdminDashboard = () => {
                     {/* Action Buttons */}
                     <div className="flex gap-3">
                         <button
-                            onClick={() => setShowInstituteModal(true)}
+                            onClick={() => setShowSchoolModal(true)}
                             className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-5 py-2.5 rounded-xl shadow-lg shadow-purple-600/30 transition-all font-medium"
                         >
                             <FaBuilding />
-                            <span>Add Institute</span>
+                            <span>Add School</span>
                         </button>
 
                         {/* Add User Dropdown */}
@@ -152,8 +152,8 @@ const SuperAdminDashboard = () => {
                                 <FaBuilding size={20} />
                             </div>
                             <div>
-                                <h3 className="text-2xl font-bold text-gray-800">{institutes.length}</h3>
-                                <p className="text-sm text-gray-500">Institutes</p>
+                                <h3 className="text-2xl font-bold text-gray-800">{schools.length}</h3>
+                                <p className="text-sm text-gray-500">Schools</p>
                             </div>
                         </div>
                     </div>
@@ -162,18 +162,18 @@ const SuperAdminDashboard = () => {
                 {/* Filters */}
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        {/* Institute Selector */}
+                        {/* School Selector */}
                         <div>
-                            <label className="text-sm font-medium text-gray-700 mb-1 block">Institute *</label>
+                            <label className="text-sm font-medium text-gray-700 mb-1 block">School *</label>
                             <select
-                                value={selectedInstitute}
-                                onChange={(e) => handleInstituteChange(e.target.value)}
+                                value={selectedSchool}
+                                onChange={(e) => handleSchoolChange(e.target.value)}
                                 className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none"
                             >
-                                <option value="">-- Select Institute --</option>
-                                {institutes.map(inst => (
-                                    <option key={inst._id} value={inst._id}>
-                                        {inst.name} ({inst.code})
+                                <option value="">-- Select School --</option>
+                                {schools.map(school => (
+                                    <option key={school._id} value={school._id}>
+                                        {school.name} ({school.code})
                                     </option>
                                 ))}
                             </select>
@@ -222,10 +222,10 @@ const SuperAdminDashboard = () => {
                         )}
                     </div>
 
-                    {!selectedInstitute ? (
+                    {!selectedSchool ? (
                         <div className="p-12 text-center text-gray-500">
                             <FaBuilding size={40} className="mx-auto mb-4 text-gray-300" />
-                            <p>Please select an institute to view users</p>
+                            <p>Please select a school to view users</p>
                         </div>
                     ) : loading ? (
                         <div className="p-12 text-center">
@@ -317,13 +317,13 @@ const SuperAdminDashboard = () => {
                 onSuccess={handleUserCreated}
             />
 
-            {/* Add Institute Modal */}
-            {showInstituteModal && (
-                <AddInstituteModal
-                    onClose={() => setShowInstituteModal(false)}
+            {/* Add School Modal */}
+            {showSchoolModal && (
+                <AddSchoolModal
+                    onClose={() => setShowSchoolModal(false)}
                     onSuccess={() => {
-                        fetchInstitutes();
-                        setShowInstituteModal(false);
+                        fetchSchools();
+                        setShowSchoolModal(false);
                     }}
                 />
             )}

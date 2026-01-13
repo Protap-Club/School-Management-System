@@ -14,32 +14,32 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
         course: '',
         year: '',
         contactNo: '',
-        instituteId: ''
+        schoolId: ''
     });
-    const [instituteName, setInstituteName] = useState('');
+    const [schoolName, setSchoolName] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
-    // Fetch current institute details for everyone (including SuperAdmin)
+    // Fetch current school details for everyone (including SuperAdmin)
     useEffect(() => {
-        const fetchInstituteDetails = async () => {
-            if (user?.instituteId) {
+        const fetchSchoolDetails = async () => {
+            if (user?.schoolId) {
                 // Set ID immediately from user context
-                setFormData(prev => ({ ...prev, instituteId: user.instituteId }));
+                setFormData(prev => ({ ...prev, schoolId: user.schoolId }));
 
                 try {
-                    const response = await api.get('/institute/my-branding');
+                    const response = await api.get('/school/my-branding');
                     if (response.data.success && response.data.data) {
-                        setInstituteName(response.data.data.name);
+                        setSchoolName(response.data.data.name);
                     }
                 } catch (error) {
-                    console.error('Failed to fetch institute details', error);
+                    console.error('Failed to fetch school details', error);
                 }
             }
         };
 
         if (isOpen) {
-            fetchInstituteDetails();
+            fetchSchoolDetails();
         }
     }, [isOpen, user]);
 
@@ -69,7 +69,7 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
             // Reset form
             setFormData({
                 name: '', email: '', department: '', designation: '',
-                rollNumber: '', course: '', year: '', contactNo: '', instituteId: user?.instituteId || ''
+                rollNumber: '', course: '', year: '', contactNo: '', schoolId: user?.schoolId || ''
             });
         } catch (err) {
             setError(err.response?.data?.message || err.message || 'Failed to create user');
@@ -104,14 +104,14 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
                     )}
 
                     <form onSubmit={handleSubmit} className="space-y-4">
-                        {/* Institute Field - Read Only for Everyone */}
+                        {/* School Field - Read Only for Everyone */}
                         <div className="space-y-1">
                             <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
                                 <FaBuilding className="text-gray-400" />
-                                Institute
+                                School
                             </label>
                             <input
-                                value={instituteName || 'Loading...'}
+                                value={schoolName || 'Loading...'}
                                 disabled
                                 className="w-full px-4 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-500 cursor-not-allowed font-medium"
                             />

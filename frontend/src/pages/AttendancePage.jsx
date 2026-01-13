@@ -186,7 +186,7 @@ const AttendancePage = () => {
                 {/* Students List */}
                 {students.length === 0 ? (
                     <div className="bg-white rounded-xl p-12 text-center text-gray-500">
-                        No students found in your institute
+                        No students found in your school
                     </div>
                 ) : (
                     <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
@@ -219,8 +219,8 @@ const AttendancePage = () => {
                                                 <button
                                                     onClick={() => handleStatusChange(student._id, 'present')}
                                                     className={`p-2 rounded-lg transition-all ${attendance[student._id]?.status === 'present'
-                                                            ? 'bg-green-500 text-white'
-                                                            : 'bg-gray-100 text-gray-400 hover:bg-green-100 hover:text-green-600'
+                                                        ? 'bg-green-500 text-white'
+                                                        : 'bg-gray-100 text-gray-400 hover:bg-green-100 hover:text-green-600'
                                                         }`}
                                                     title="Present"
                                                 >
@@ -229,8 +229,8 @@ const AttendancePage = () => {
                                                 <button
                                                     onClick={() => handleStatusChange(student._id, 'absent')}
                                                     className={`p-2 rounded-lg transition-all ${attendance[student._id]?.status === 'absent'
-                                                            ? 'bg-red-500 text-white'
-                                                            : 'bg-gray-100 text-gray-400 hover:bg-red-100 hover:text-red-600'
+                                                        ? 'bg-red-500 text-white'
+                                                        : 'bg-gray-100 text-gray-400 hover:bg-red-100 hover:text-red-600'
                                                         }`}
                                                     title="Absent"
                                                 >
@@ -239,8 +239,8 @@ const AttendancePage = () => {
                                                 <button
                                                     onClick={() => handleStatusChange(student._id, 'late')}
                                                     className={`p-2 rounded-lg transition-all ${attendance[student._id]?.status === 'late'
-                                                            ? 'bg-amber-500 text-white'
-                                                            : 'bg-gray-100 text-gray-400 hover:bg-amber-100 hover:text-amber-600'
+                                                        ? 'bg-amber-500 text-white'
+                                                        : 'bg-gray-100 text-gray-400 hover:bg-amber-100 hover:text-amber-600'
                                                         }`}
                                                     title="Late"
                                                 >

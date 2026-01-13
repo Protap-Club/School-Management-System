@@ -1,15 +1,10 @@
-/**
- * Seed Utilities - Reusable functions for database seeding
- */
-
+// Seed Utilities - Reusable functions for database seeding
 import bcrypt from "bcryptjs";
 import UserModel from "../models/User.model.js";
-import InstituteModel from "../models/Institute.model.js";
-import AdminProfileModel from "../models/AdminProfile.model.js";
-import TeacherProfileModel from "../models/TeacherProfile.model.js";
-import StudentProfileModel from "../models/StudentProfile.model.js";
+import SchoolModel from "../models/School.model.js";
 import { USER_ROLES } from "../constants/userRoles.js";
-import { generatePassword } from "./password.util.js";
+import { PROFILE_CONFIG } from "../constants/profileConfig.js";
+import { generatePassword } from "../utils/password.util.js";
 import { sendCredentialsEmail } from "../services/email.service.js";
 
 // Hash password
@@ -18,63 +13,22 @@ export const hashPassword = async (plainPassword) => {
     return bcrypt.hash(plainPassword, salt);
 };
 
-// Profile config for each role
-export const PROFILE_CONFIG = {
-    admin: {
-        model: AdminProfileModel,
-        requiredFields: ["department"],
-        extractFields: (data) => ({
-            department: data.department || "Administration",
-            employeeId: data.employeeId,
-            permissions: data.permissions || []
-        }),
-        defaultFields: { department: "Administration" }
-    },
-    teacher: {
-        model: TeacherProfileModel,
-        requiredFields: ["department", "designation"],
-        extractFields: (data) => ({
-            department: data.department,
-            designation: data.designation,
-            employeeId: data.employeeId,
-            qualification: data.qualification,
-            joiningDate: data.joiningDate || new Date()
-        }),
-        defaultFields: { department: "General", designation: "Teacher" }
-    },
-    student: {
-        model: StudentProfileModel,
-        requiredFields: ["rollNumber", "course", "year"],
-        extractFields: (data) => ({
-            rollNumber: data.rollNumber,
-            course: data.course,
-            year: data.year,
-            section: data.section,
-            guardianName: data.guardianName,
-            guardianContact: data.guardianContact,
-            address: data.address,
-            admissionDate: data.admissionDate || new Date()
-        }),
-        defaultFields: {}
-    }
-};
-
 // Idempotency helpers
 export const findUserByEmail = async (email) => {
     return UserModel.findOne({ email: email.toLowerCase().trim() });
 };
 
-export const findInstituteByCode = async (code) => {
-    return InstituteModel.findOne({ code: code.toUpperCase().trim() });
+export const findSchoolByCode = async (code) => {
+    return SchoolModel.findOne({ code: code.toUpperCase().trim() });
 };
 
-export const findSuperAdminByInstitute = async (instituteId) => {
-    return UserModel.findOne({ instituteId, role: USER_ROLES.SUPER_ADMIN, isActive: true });
+export const findSuperAdminBySchool = async (schoolId) => {
+    return UserModel.findOne({ schoolId, role: USER_ROLES.SUPER_ADMIN, isActive: true });
 };
 
 // Create user with profile
 export const createUserWithProfile = async ({
-    name, email, role, instituteId, createdBy = null, profileData = {},
+    name, email, role, schoolId, createdBy = null, profileData = {},
     contactNo = null, sendEmail = true, password = null, mustChangePassword = true
 }) => {
     if (!name || !email || !role) {
@@ -85,8 +39,8 @@ export const createUserWithProfile = async ({
         return { success: false, error: `Invalid role: ${role}` };
     }
 
-    if (!instituteId) {
-        return { success: false, error: "Institute ID is required" };
+    if (!schoolId) {
+        return { success: false, error: "School ID is required" };
     }
 
     const existingUser = await findUserByEmail(email);
@@ -103,7 +57,7 @@ export const createUserWithProfile = async ({
             email: email.toLowerCase().trim(),
             password: hashedPassword,
             role,
-            instituteId,
+            schoolId,
             contactNo,
             createdBy,
             mustChangePassword,
@@ -127,7 +81,7 @@ export const createUserWithProfile = async ({
 
         return {
             success: true,
-            user: { _id: newUser._id, name: newUser.name, email: newUser.email, role: newUser.role, instituteId: newUser.instituteId },
+            user: { _id: newUser._id, name: newUser.name, email: newUser.email, role: newUser.role, schoolId: newUser.schoolId },
             profile,
             plainPassword: sendEmail ? "[sent via email]" : plainPassword,
             emailSent: emailResult.success
@@ -138,30 +92,30 @@ export const createUserWithProfile = async ({
     }
 };
 
-// Create institute
-export const createInstitute = async ({
+// Create school
+export const createSchool = async ({
     name, code, address = null, contactEmail = null, contactPhone = null,
-    logoUrl = null, features = { attendance: { enabled: false } }, createdBy = null
+    logoUrl = null, createdBy = null
 }) => {
     if (!name || !code) {
         return { success: false, error: "Name and code are required" };
     }
 
-    const existingInstitute = await findInstituteByCode(code);
-    if (existingInstitute) {
-        return { success: false, error: `Institute ${code} already exists`, existing: true, institute: existingInstitute };
+    const existingSchool = await findSchoolByCode(code);
+    if (existingSchool) {
+        return { success: false, error: `School ${code} already exists`, existing: true, school: existingSchool };
     }
 
     try {
-        const institute = await InstituteModel.create({
+        const school = await SchoolModel.create({
             name: name.trim(),
             code: code.toUpperCase().trim(),
-            address, contactEmail, contactPhone, logoUrl, features, createdBy, isActive: true
+            address, contactEmail, contactPhone, logoUrl, createdBy, isActive: true
         });
 
-        return { success: true, institute: { _id: institute._id, name: institute.name, code: institute.code } };
+        return { success: true, school: { _id: school._id, name: school.name, code: school.code } };
     } catch (error) {
-        console.error("Error creating institute:", error);
+        console.error("Error creating school:", error);
         return { success: false, error: error.message };
     }
 };
@@ -220,9 +174,4 @@ export const validateUserSeedData = (userData, expectedRole) => {
     }
 
     return { valid: errors.length === 0, errors };
-};
-
-export default {
-    hashPassword, findUserByEmail, findInstituteByCode, findSuperAdminByInstitute,
-    createUserWithProfile, createInstitute, SeedResultTracker, isValidEmail, validateUserSeedData, PROFILE_CONFIG
 };
