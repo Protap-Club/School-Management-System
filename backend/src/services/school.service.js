@@ -140,9 +140,17 @@ export const updateSchoolLogo = async (id, logoUrl) => {
 
 /**
  * Get school branding for a user
+ * Returns default Protap branding for super_admin (no schoolId)
  */
 export const getSchoolBranding = async (schoolId) => {
-    if (!schoolId) return null;
+    // Default branding for super_admin (no school assigned)
+    if (!schoolId) {
+        return {
+            name: "Protap Club",
+            logoUrl: "/resource/protap.png",
+            theme: { accentColor: "#2563eb" }
+        };
+    }
     return await School.findById(schoolId).select('name logoUrl theme');
 };
 
@@ -195,4 +203,29 @@ export const deleteLogo = async (schoolId, currentUser) => {
     return { school, oldLogoUrl };
 };
 
+/**
+ * Update school theme
+ */
+export const updateTheme = async (schoolId, themeData, currentUser) => {
+    const school = await School.findById(schoolId);
+    if (!school) {
+        throw new ServiceError("School not found", 404);
+    }
+
+    // Check access - only super_admin or admin of this school
+    if (currentUser.role !== USER_ROLES.SUPER_ADMIN) {
+        if (String(currentUser.schoolId) !== String(schoolId)) {
+            throw new ServiceError("Access denied", 403);
+        }
+    }
+
+    if (themeData.accentColor) {
+        school.theme.accentColor = themeData.accentColor;
+    }
+
+    await school.save();
+    return { name: school.name, logoUrl: school.logoUrl, theme: school.theme };
+};
+
 export { ServiceError };
+

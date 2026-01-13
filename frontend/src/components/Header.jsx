@@ -30,7 +30,7 @@ const Header = () => {
     // Fetch school branding
     useEffect(() => {
         const fetchBranding = async () => {
-            if (user && user.role !== 'super_admin' && user.schoolId) {
+            if (user) {
                 try {
                     const response = await api.get('/school/my-branding');
                     if (response.data.success && response.data.data) {
@@ -56,19 +56,15 @@ const Header = () => {
 
     // Get Header Content
     const getHeaderContent = () => {
-        if (user?.role === 'super_admin') {
-            return {
-                title: 'Protap',
-                logo: null
-            };
-        } else if (schoolBranding) {
+        if (schoolBranding) {
             return {
                 title: schoolBranding.name,
                 logo: schoolBranding.logoUrl
             };
         }
+        // Fallback if no branding loaded yet
         return {
-            title: 'SMS Portal',
+            title: user?.role === 'super_admin' ? 'Protap' : 'SMS Portal',
             logo: null
         };
     };
