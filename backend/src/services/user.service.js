@@ -93,7 +93,8 @@ export const getUsers = async (currentUser, filters, pagination) => {
         throw new ServiceError("Not allowed to view users", 403);
     }
 
-    let query = {};
+    // Exclude archived users by default
+    let query = { isArchived: { $ne: true } };
 
     if (filterRole && filterRole !== 'all') {
         if (allowedRoles.includes(filterRole)) {
@@ -141,7 +142,7 @@ export const getUsersWithProfiles = async (currentUser, roleFilter) => {
     let targetRoles = allowedRoles;
     if (roleFilter && allowedRoles.includes(roleFilter)) targetRoles = [roleFilter];
 
-    let query = { role: { $in: targetRoles } };
+    let query = { role: { $in: targetRoles }, isArchived: { $ne: true } };
     if (currentUser.role !== USER_ROLES.SUPER_ADMIN && currentUser.schoolId) {
         query.schoolId = currentUser.schoolId;
     }
@@ -155,6 +156,224 @@ export const getUsersWithProfiles = async (currentUser, roleFilter) => {
     }));
 
     return usersWithProfiles;
+};
+
+// ═══════════════════════════════════════════════════════════════
+// Archive & Delete Functions
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Check if current user can archive target user
+ */
+const canArchiveUser = (currentUser, targetUser) => {
+    // Only super_admin and admin can archive
+    if (![USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN].includes(currentUser.role)) {
+        return false;
+    }
+    // Check role hierarchy
+    return canManageRole(currentUser.role, targetUser.role);
+};
+
+/**
+ * Soft delete (archive) a single user
+ */
+export const softDeleteUser = async (currentUser, userId) => {
+    const user = await UserModel.findById(userId);
+    if (!user) {
+        throw new ServiceError("User not found", 404);
+    }
+
+    if (user.isArchived) {
+        throw new ServiceError("User is already archived", 400);
+    }
+
+    if (!canArchiveUser(currentUser, user)) {
+        throw new ServiceError("Not allowed to archive this user", 403);
+    }
+
+    // Non-super_admin can only archive users from their own school
+    if (currentUser.role !== USER_ROLES.SUPER_ADMIN) {
+        if (String(user.schoolId) !== String(currentUser.schoolId)) {
+            throw new ServiceError("Cannot archive users from other schools", 403);
+        }
+    }
+
+    user.isArchived = true;
+    user.archivedAt = new Date();
+    user.archivedBy = currentUser._id;
+    user.isActive = false;
+    await user.save();
+
+    return { success: true, user: { _id: user._id, name: user.name, email: user.email } };
+};
+
+/**
+ * Soft delete (archive) multiple users
+ */
+export const softDeleteUsers = async (currentUser, userIds) => {
+    if (!Array.isArray(userIds) || userIds.length === 0) {
+        throw new ServiceError("User IDs array is required", 400);
+    }
+
+    const results = { archived: [], failed: [] };
+
+    for (const userId of userIds) {
+        try {
+            const result = await softDeleteUser(currentUser, userId);
+            results.archived.push(result.user);
+        } catch (error) {
+            results.failed.push({ userId, error: error.message });
+        }
+    }
+
+    return results;
+};
+
+/**
+ * Hard delete (permanent) a single user - only from archived users
+ */
+export const hardDeleteUser = async (currentUser, userId) => {
+    const user = await UserModel.findById(userId);
+    if (!user) {
+        throw new ServiceError("User not found", 404);
+    }
+
+    if (!user.isArchived) {
+        throw new ServiceError("Can only permanently delete archived users. Archive first.", 400);
+    }
+
+    // Only super_admin and admin can hard delete
+    if (![USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN].includes(currentUser.role)) {
+        throw new ServiceError("Not allowed to permanently delete users", 403);
+    }
+
+    if (!canManageRole(currentUser.role, user.role)) {
+        throw new ServiceError("Not allowed to delete this user role", 403);
+    }
+
+    // Non-super_admin can only delete users from their own school
+    if (currentUser.role !== USER_ROLES.SUPER_ADMIN) {
+        if (String(user.schoolId) !== String(currentUser.schoolId)) {
+            throw new ServiceError("Cannot delete users from other schools", 403);
+        }
+    }
+
+    // Delete user profile first
+    const config = PROFILE_CONFIG[user.role];
+    if (config) {
+        await config.model.deleteOne({ userId: user._id });
+    }
+
+    // Delete user
+    await UserModel.findByIdAndDelete(userId);
+
+    return { success: true, user: { _id: user._id, name: user.name, email: user.email } };
+};
+
+/**
+ * Hard delete (permanent) multiple users
+ */
+export const hardDeleteUsers = async (currentUser, userIds) => {
+    if (!Array.isArray(userIds) || userIds.length === 0) {
+        throw new ServiceError("User IDs array is required", 400);
+    }
+
+    const results = { deleted: [], failed: [] };
+
+    for (const userId of userIds) {
+        try {
+            const result = await hardDeleteUser(currentUser, userId);
+            results.deleted.push(result.user);
+        } catch (error) {
+            results.failed.push({ userId, error: error.message });
+        }
+    }
+
+    return results;
+};
+
+/**
+ * Restore an archived user
+ */
+export const restoreUser = async (currentUser, userId) => {
+    const user = await UserModel.findById(userId);
+    if (!user) {
+        throw new ServiceError("User not found", 404);
+    }
+
+    if (!user.isArchived) {
+        throw new ServiceError("User is not archived", 400);
+    }
+
+    if (!canArchiveUser(currentUser, user)) {
+        throw new ServiceError("Not allowed to restore this user", 403);
+    }
+
+    // Non-super_admin can only restore users from their own school
+    if (currentUser.role !== USER_ROLES.SUPER_ADMIN) {
+        if (String(user.schoolId) !== String(currentUser.schoolId)) {
+            throw new ServiceError("Cannot restore users from other schools", 403);
+        }
+    }
+
+    user.isArchived = false;
+    user.archivedAt = undefined;
+    user.archivedBy = undefined;
+    user.isActive = true;
+    await user.save();
+
+    return { success: true, user: { _id: user._id, name: user.name, email: user.email } };
+};
+
+/**
+ * Get archived users with pagination
+ */
+export const getArchivedUsers = async (currentUser, filters, pagination) => {
+    const { schoolId: filterSchoolId, role: filterRole } = filters;
+    const { page = 0, pageSize = 25 } = pagination;
+
+    // Only super_admin and admin can view archived users
+    if (![USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN].includes(currentUser.role)) {
+        throw new ServiceError("Not allowed to view archived users", 403);
+    }
+
+    const allowedRoles = getManageableRoles(currentUser.role);
+
+    let query = { isArchived: true };
+
+    if (filterRole && filterRole !== 'all') {
+        if (allowedRoles.includes(filterRole)) {
+            query.role = filterRole;
+        } else {
+            throw new ServiceError("Not allowed to view this role", 403);
+        }
+    } else {
+        query.role = { $in: allowedRoles };
+    }
+
+    if (currentUser.role === USER_ROLES.SUPER_ADMIN) {
+        if (filterSchoolId) query.schoolId = filterSchoolId;
+    } else if (currentUser.schoolId) {
+        query.schoolId = currentUser.schoolId;
+    }
+
+    const pageNum = parseInt(page) || 0;
+    const limit = parseInt(pageSize) || 25;
+    const skip = pageNum * limit;
+
+    const totalCount = await UserModel.countDocuments(query);
+    const users = await UserModel.find(query)
+        .select("-password")
+        .populate('schoolId', 'name code')
+        .populate('archivedBy', 'name email')
+        .sort({ archivedAt: -1 })
+        .skip(skip)
+        .limit(limit);
+
+    return {
+        users,
+        pagination: { page: pageNum, pageSize: limit, totalCount, totalPages: Math.ceil(totalCount / limit) }
+    };
 };
 
 export { ServiceError };

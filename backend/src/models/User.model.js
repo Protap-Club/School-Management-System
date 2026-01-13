@@ -11,6 +11,9 @@ const userSchema = new mongoose.Schema(
         contactNo: { type: String, trim: true },
         isEmailVerified: { type: Boolean, default: false },
         isActive: { type: Boolean, default: true },
+        isArchived: { type: Boolean, default: false, index: true },
+        archivedAt: { type: Date },
+        archivedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
         mustChangePassword: { type: Boolean, default: true },
         lastLoginAt: { type: Date },
         createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" }
