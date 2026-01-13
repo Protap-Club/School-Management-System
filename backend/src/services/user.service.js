@@ -5,7 +5,7 @@
 import UserModel from "../models/User.model.js";
 import { USER_ROLES, canManageRole, getManageableRoles } from "../constants/userRoles.js";
 import { PROFILE_CONFIG } from "../constants/profileConfig.js";
-import { hashPassword } from "../utils/seed.util.js";
+import { hashPassword } from "../seed/utils.js";
 import { sendCredentialsEmail } from "./email.service.js";
 import { generatePassword } from "../utils/password.util.js";
 
