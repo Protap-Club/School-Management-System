@@ -11,7 +11,7 @@
  */
 
 import readline from "readline";
-import { connectDB, disconnectDB } from "../utils/seedRunner.util.js";
+import { connectDB, disconnectDB } from "./runner.js";
 import { createSchool } from "./operations/school.js";
 import { addAdmins, addTeachers, addStudents } from "./operations/users.js";
 import { cleanupDemo } from "./operations/cleanup.js";

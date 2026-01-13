@@ -1,67 +1,56 @@
 # Seed Manager
 
-Unified CLI tool for database seeding operations.
+Unified CLI for database seeding operations.
 
-## Quick Start
-
-```bash
-cd backend
-node src/seed/seed.js              # Interactive menu
-node src/seed/seed.js demo         # Full demo setup
-```
-
-## Commands
-
-| Command | Description |
-|---------|-------------|
-| `school [CODE]` | Create school(s) with SuperAdmin |
-| `users <CODE>` | Add demo users to a school |
-| `demo` | Full demo setup (all schools + users) |
-| `cleanup` | Remove demo institutes and users |
-| `help` | Show help |
-
-## Examples
-
-```bash
-# Create all demo schools
-node src/seed/seed.js school
-
-# Create only IITD
-node src/seed/seed.js school IITD
-
-# Add users to IITD
-node src/seed/seed.js users IITD
-
-# Full demo with all schools and users
-node src/seed/seed.js demo
-
-# Clean up demo data
-node src/seed/seed.js cleanup
-```
-
-## Demo Schools
-
-- **IITD** - Indian Institute of Technology Delhi
-- **IIMA** - Indian Institute of Management Ahmedabad
-
-## Login Credentials
-
-After running `school` or `demo`:
-
-| School | Email | Password |
-|--------|-------|----------|
-| IITD | vraj.iitd@protap.com | Admin@123 |
-| IIMA | vraj.iima@protap.com | Admin@123 |
-
-## File Structure
+## Structure
 
 ```
 seed/
 ├── seed.js              # Main CLI entry point
-├── operations/
-│   ├── school.js        # School provisioning
-│   ├── users.js         # User creation
-│   └── cleanup.js       # Cleanup utilities
-└── data/
-    └── demo.js          # Demo data
+├── runner.js            # DB connection utilities
+├── utils.js             # Seed helper functions
+├── README.md            # This file
+├── data/
+│   └── demo.js          # Demo data (IITD/IIMA)
+└── operations/
+    ├── school.js        # Create school with SuperAdmin
+    ├── users.js         # Bulk user creation
+    └── cleanup.js       # Cleanup demo data
+```
+
+## Usage
+
+```bash
+# Interactive menu
+node src/seed/seed.js
+
+# Create all demo schools
+node src/seed/seed.js school
+
+# Create specific school
+node src/seed/seed.js school IITD
+
+# Add users to a school
+node src/seed/seed.js users IITD
+
+# Full demo setup (schools + users)
+node src/seed/seed.js demo
+
+# Cleanup demo data
+node src/seed/seed.js cleanup
+
+# Show help
+node src/seed/seed.js help
+```
+
+## Demo Data
+
+- **IITD**: 50 students, 20 teachers, 2 admins
+- **IIMA**: 50 students, 20 teachers, 2 admins
+
+## Login Credentials
+
+```
+IITD SuperAdmin: vraj.iitd@protap.com / Admin@123
+IIMA SuperAdmin: vraj.iima@protap.com / Admin@123
 ```

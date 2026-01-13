@@ -1,13 +1,10 @@
-/**
- * Seed Utilities - Reusable functions for database seeding
- */
-
+// Seed Utilities - Reusable functions for database seeding
 import bcrypt from "bcryptjs";
 import UserModel from "../models/User.model.js";
 import SchoolModel from "../models/School.model.js";
 import { USER_ROLES } from "../constants/userRoles.js";
 import { PROFILE_CONFIG } from "../constants/profileConfig.js";
-import { generatePassword } from "./password.util.js";
+import { generatePassword } from "../utils/password.util.js";
 import { sendCredentialsEmail } from "../services/email.service.js";
 
 // Hash password
@@ -177,9 +174,4 @@ export const validateUserSeedData = (userData, expectedRole) => {
     }
 
     return { valid: errors.length === 0, errors };
-};
-
-export default {
-    hashPassword, findUserByEmail, findSchoolByCode, findSuperAdminBySchool,
-    createUserWithProfile, createSchool, SeedResultTracker, isValidEmail, validateUserSeedData, PROFILE_CONFIG
 };
