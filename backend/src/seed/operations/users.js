@@ -2,7 +2,7 @@
  * User Operations - Bulk user creation
  */
 
-import { createUserWithProfile, findSchoolByCode, findSuperAdminBySchool, validateUserSeedData, SeedResultTracker } from "../../utils/seed.util.js";
+import { createUserWithProfile, findSchoolByCode, findSuperAdminBySchool, validateUserSeedData, SeedResultTracker } from "../utils.js";
 import { USER_ROLES } from "../../constants/userRoles.js";
 
 /**

@@ -3,7 +3,7 @@
  */
 
 import { conf } from "../../config/index.js";
-import { createUserWithProfile, createSchool as createSchoolInDB, findSchoolByCode, findSuperAdminBySchool } from "../../utils/seed.util.js";
+import { createUserWithProfile, createSchool as createSchoolInDB, findSchoolByCode, findSuperAdminBySchool } from "../utils.js";
 import { USER_ROLES } from "../../constants/userRoles.js";
 import SchoolModel from "../../models/School.model.js";
 

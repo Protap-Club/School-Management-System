@@ -37,7 +37,7 @@ const Login = () => {
             <div className="bg-white/80 backdrop-blur-lg rounded-2xl shadow-xl w-full max-w-md p-8 relative z-10 border border-white/50">
                 <div className="text-center mb-10">
                     <img
-                        src="/protap.png"
+                        src="/public/protap.png"
                         alt="Protap Logo"
                         className="w-20 h-20 mx-auto mb-4 object-contain"
                     />

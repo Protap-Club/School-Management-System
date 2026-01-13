@@ -146,4 +146,53 @@ export const getSchoolBranding = async (schoolId) => {
     return await School.findById(schoolId).select('name logoUrl theme');
 };
 
+/**
+ * Upload school logo - saves file path and deletes old logo if exists
+ */
+export const uploadLogo = async (schoolId, filePath, currentUser) => {
+    const school = await School.findById(schoolId);
+    if (!school) {
+        throw new ServiceError("School not found", 404);
+    }
+
+    // Check access - only super_admin or admin of this school
+    if (currentUser.role !== USER_ROLES.SUPER_ADMIN) {
+        if (String(currentUser.schoolId) !== String(schoolId)) {
+            throw new ServiceError("Access denied", 403);
+        }
+    }
+
+    // Store old logo path for deletion
+    const oldLogoUrl = school.logoUrl;
+
+    // Update with new logo
+    school.logoUrl = filePath;
+    await school.save();
+
+    return { school, oldLogoUrl };
+};
+
+/**
+ * Delete school logo
+ */
+export const deleteLogo = async (schoolId, currentUser) => {
+    const school = await School.findById(schoolId);
+    if (!school) {
+        throw new ServiceError("School not found", 404);
+    }
+
+    // Check access
+    if (currentUser.role !== USER_ROLES.SUPER_ADMIN) {
+        if (String(currentUser.schoolId) !== String(schoolId)) {
+            throw new ServiceError("Access denied", 403);
+        }
+    }
+
+    const oldLogoUrl = school.logoUrl;
+    school.logoUrl = null;
+    await school.save();
+
+    return { school, oldLogoUrl };
+};
+
 export { ServiceError };
