@@ -388,7 +388,7 @@ const UsersPage = () => {
                 )}
 
                 {/* Users Table */}
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100">
                     <div className="p-5 border-b border-gray-100 flex justify-between items-center">
                         <div className="flex items-center gap-3">
                             <FaUsers className="text-primary" />
@@ -431,7 +431,7 @@ const UsersPage = () => {
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-100" ref={dropdownRef}>
-                                        {users.map((u) => {
+                                        {users.map((u, index) => {
                                             const roleConfig = ROLE_LABELS[u.role];
                                             const isSelected = selectedUsers.includes(u._id);
                                             return (
@@ -484,7 +484,7 @@ const UsersPage = () => {
 
                                                                 {/* Dropdown Menu */}
                                                                 {activeDropdown === u._id && (
-                                                                    <div className="absolute right-0 top-full mt-1 w-40 bg-white rounded-xl shadow-xl border border-gray-100 z-20 overflow-hidden animate-fadeIn">
+                                                                    <div className={`absolute right-0 ${users.length > 2 && index >= users.length - 2 ? 'bottom-full mb-1' : 'top-full mt-1'} w-40 bg-white rounded-xl shadow-xl border border-gray-100 z-50 overflow-hidden animate-fadeIn`}>
                                                                         <button
                                                                             onClick={() => handleSelectAction(u._id)}
                                                                             className="w-full text-left px-4 py-2.5 hover:bg-gray-50 text-gray-700 flex items-center gap-2 transition-colors text-sm"
@@ -502,13 +502,15 @@ const UsersPage = () => {
                                                                                     <FaEdit size={12} className="text-blue-500" />
                                                                                     Edit
                                                                                 </button>
-                                                                                <button
-                                                                                    onClick={() => handleDelete(u)}
-                                                                                    className="w-full text-left px-4 py-2.5 hover:bg-red-50 text-red-600 flex items-center gap-2 transition-colors text-sm"
-                                                                                >
-                                                                                    <FaArchive size={12} />
-                                                                                    Archive
-                                                                                </button>
+                                                                                {(currentUser?.role === 'super_admin' || currentUser?.role === 'admin') && (
+                                                                                    <button
+                                                                                        onClick={() => handleDelete(u)}
+                                                                                        className="w-full text-left px-4 py-2.5 hover:bg-red-50 text-red-600 flex items-center gap-2 transition-colors text-sm"
+                                                                                    >
+                                                                                        <FaArchive size={12} />
+                                                                                        Archive
+                                                                                    </button>
+                                                                                )}
                                                                             </>
                                                                         ) : (
                                                                             <>
