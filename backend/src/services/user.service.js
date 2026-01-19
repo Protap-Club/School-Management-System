@@ -280,7 +280,8 @@ export const hardDeleteUser = async (currentUser, userId) => {
 
     // Non-super_admin can only delete users from their own school
     if (currentUser.role !== USER_ROLES.SUPER_ADMIN) {
-        if (String(user.schoolId) !== String(currentUser.schoolId)) {
+        const currentUserSchoolId = currentUser.schoolId?._id || currentUser.schoolId;
+        if (String(user.schoolId) !== String(currentUserSchoolId)) {
             throw new ServiceError("Cannot delete users from other schools", 403);
         }
     }
@@ -338,7 +339,8 @@ export const restoreUser = async (currentUser, userId) => {
 
     // Non-super_admin can only restore users from their own school
     if (currentUser.role !== USER_ROLES.SUPER_ADMIN) {
-        if (String(user.schoolId) !== String(currentUser.schoolId)) {
+        const currentUserSchoolId = currentUser.schoolId?._id || currentUser.schoolId;
+        if (String(user.schoolId) !== String(currentUserSchoolId)) {
             throw new ServiceError("Cannot restore users from other schools", 403);
         }
     }
