@@ -9,7 +9,8 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
         name: '',
         email: '',
         department: '',
-        designation: '',
+        standard: '',
+        section: '',
         rollNumber: '',
         course: '',
         year: '',
@@ -20,26 +21,19 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
-    // Fetch current school details for everyone (including SuperAdmin)
+    // Set school data from user context (already populated from backend)
     useEffect(() => {
-        const fetchSchoolDetails = async () => {
-            if (user?.schoolId) {
-                // Set ID immediately from user context
-                setFormData(prev => ({ ...prev, schoolId: user.schoolId }));
-
-                try {
-                    const response = await api.get('/school/my-branding');
-                    if (response.data.success && response.data.data) {
-                        setSchoolName(response.data.data.name);
-                    }
-                } catch (error) {
-                    console.error('Failed to fetch school details', error);
-                }
+        if (isOpen && user?.schoolId) {
+            // If schoolId is populated object with name
+            if (typeof user.schoolId === 'object' && user.schoolId.name) {
+                setSchoolName(user.schoolId.name);
+                setFormData(prev => ({ ...prev, schoolId: user.schoolId._id }));
             }
-        };
-
-        if (isOpen) {
-            fetchSchoolDetails();
+            // If schoolId is just an ID (fallback)
+            else {
+                setFormData(prev => ({ ...prev, schoolId: user.schoolId }));
+                setSchoolName('School');
+            }
         }
     }, [isOpen, user]);
 
@@ -68,7 +62,7 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
             onClose();
             // Reset form
             setFormData({
-                name: '', email: '', department: '', designation: '',
+                name: '', email: '', department: '', standard: '', section: '',
                 rollNumber: '', course: '', year: '', contactNo: '', schoolId: user?.schoolId || ''
             });
         } catch (err) {
@@ -160,34 +154,56 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
                             </p>
                         </div>
 
-                        {/* Teacher/Admin Specific Fields */}
-                        {(roleToAdd === 'teacher' || roleToAdd === 'admin') && (
-                            <>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div className="space-y-1">
-                                        <label className="text-sm font-medium text-gray-700">Department *</label>
-                                        <input
-                                            name="department"
-                                            value={formData.department}
-                                            onChange={handleChange}
-                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
-                                            required
-                                        />
-                                    </div>
-                                    {roleToAdd === 'teacher' && (
-                                        <div className="space-y-1">
-                                            <label className="text-sm font-medium text-gray-700">Designation *</label>
-                                            <input
-                                                name="designation"
-                                                value={formData.designation}
-                                                onChange={handleChange}
-                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
-                                                required
-                                            />
-                                        </div>
-                                    )}
+                        {/* Admin Specific Fields */}
+                        {roleToAdd === 'admin' && (
+                            <div className="space-y-1">
+                                <label className="text-sm font-medium text-gray-700">Department *</label>
+                                <input
+                                    name="department"
+                                    value={formData.department}
+                                    onChange={handleChange}
+                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
+                                    required
+                                />
+                            </div>
+                        )}
+
+                        {/* Teacher Specific Fields */}
+                        {roleToAdd === 'teacher' && (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="space-y-1">
+                                    <label className="text-sm font-medium text-gray-700">Standard *</label>
+                                    <select
+                                        name="standard"
+                                        value={formData.standard}
+                                        onChange={handleChange}
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
+                                        required
+                                    >
+                                        <option value="">Select Standard</option>
+                                        <option value="9th">9th</option>
+                                        <option value="10th">10th</option>
+                                        <option value="11th">11th</option>
+                                        <option value="12th">12th</option>
+                                    </select>
                                 </div>
-                            </>
+                                <div className="space-y-1">
+                                    <label className="text-sm font-medium text-gray-700">Section *</label>
+                                    <select
+                                        name="section"
+                                        value={formData.section}
+                                        onChange={handleChange}
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
+                                        required
+                                    >
+                                        <option value="">Select Section</option>
+                                        <option value="A">A</option>
+                                        <option value="B">B</option>
+                                        <option value="C">C</option>
+                                        <option value="D">D</option>
+                                    </select>
+                                </div>
+                            </div>
                         )}
 
                         {/* Student Specific Fields */}

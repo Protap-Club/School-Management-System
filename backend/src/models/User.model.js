@@ -9,6 +9,7 @@ const userSchema = new mongoose.Schema(
         role: { type: String, enum: VALID_ROLES, required: true, index: true },
         schoolId: { type: mongoose.Schema.Types.ObjectId, ref: "School", index: true },
         contactNo: { type: String, trim: true },
+        nfcUid: { type: String, unique: true, sparse: true, trim: true, index: true },
         isEmailVerified: { type: Boolean, default: false },
         isActive: { type: Boolean, default: true },
         isArchived: { type: Boolean, default: false, index: true },

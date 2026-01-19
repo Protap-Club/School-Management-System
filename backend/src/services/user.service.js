@@ -3,9 +3,11 @@
  */
 
 import UserModel from "../models/User.model.js";
+import TeacherProfileModel from "../models/TeacherProfile.model.js";
+import StudentProfileModel from "../models/StudentProfile.model.js";
 import { USER_ROLES, canManageRole, getManageableRoles } from "../constants/userRoles.js";
 import { PROFILE_CONFIG } from "../constants/profileConfig.js";
-import { hashPassword } from "../seed/utils.js";
+import { hashPassword } from "../seed/helpers.js";
 import { sendCredentialsEmail } from "./email.service.js";
 import { generatePassword } from "../utils/password.util.js";
 
@@ -110,6 +112,30 @@ export const getUsers = async (currentUser, filters, pagination) => {
         if (filterSchoolId) query.schoolId = filterSchoolId;
     } else if (currentUser.schoolId) {
         query.schoolId = currentUser.schoolId;
+    }
+
+    // If teacher is viewing students, filter by their assigned standard/section
+    if (currentUser.role === USER_ROLES.TEACHER && (filterRole === 'student' || (!filterRole || filterRole === 'all'))) {
+        const teacherProfile = await TeacherProfileModel.findOne({ userId: currentUser._id });
+        if (teacherProfile?.standard && teacherProfile?.section) {
+            // Get student user IDs matching teacher's standard/section
+            const matchingStudents = await StudentProfileModel.find({
+                standard: teacherProfile.standard,
+                section: teacherProfile.section
+            }).select('userId');
+            const studentUserIds = matchingStudents.map(s => s.userId);
+
+            // If filtering by student role, only show matching students
+            if (filterRole === 'student') {
+                query._id = { $in: studentUserIds };
+            } else {
+                // For 'all' roles, add condition that students must match
+                query.$or = [
+                    { role: { $ne: USER_ROLES.STUDENT } },
+                    { _id: { $in: studentUserIds } }
+                ];
+            }
+        }
     }
 
     const pageNum = parseInt(page) || 0;

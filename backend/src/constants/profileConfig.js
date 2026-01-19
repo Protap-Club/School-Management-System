@@ -20,15 +20,15 @@ export const PROFILE_CONFIG = Object.freeze({
     },
     teacher: {
         model: TeacherProfileModel,
-        requiredFields: ["department", "designation"],
+        requiredFields: ["standard", "section"],
         extractFields: (data) => ({
-            department: data.department,
-            designation: data.designation,
             employeeId: data.employeeId,
+            standard: data.standard,
+            section: data.section,
             qualification: data.qualification,
             joiningDate: data.joiningDate || new Date()
         }),
-        defaultFields: { department: "General", designation: "Teacher" }
+        defaultFields: { standard: "9th", section: "A" }
     },
     student: {
         model: StudentProfileModel,
