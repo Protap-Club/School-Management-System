@@ -58,44 +58,47 @@ const Attendance = () => {
 
   // Socket.io connection for real-time updates
   useEffect(() => {
-    if (currentUser?.schoolId) {
-      const socket = connectSocket(currentUser.schoolId);
+    // Debug: Log the current user and schoolId
+    console.log('Current User:', currentUser);
+    console.log('School ID for socket:', currentUser?.schoolId);
 
-      socket.on('connect', () => {
-        console.log('Socket connected');
-        setSocketConnected(true);
-      });
+    // Connect socket - even without schoolId for debugging
+    const socket = connectSocket(currentUser?.schoolId);
 
-      socket.on('disconnect', () => {
-        console.log('Socket disconnected');
-        setSocketConnected(false);
-      });
+    socket.on('connect', () => {
+      console.log('Socket connected with ID:', socket.id);
+      setSocketConnected(true);
+    });
 
-      // Listen for real-time attendance updates
-      socket.on('attendance-marked', (data) => {
-        console.log('Attendance marked:', data);
+    socket.on('disconnect', () => {
+      console.log('Socket disconnected');
+      setSocketConnected(false);
+    });
 
-        // Update attendance map
-        setAttendanceMap(prev => ({
-          ...prev,
-          [data.studentId]: {
-            status: data.status.toLowerCase(),
-            checkInTime: data.checkInTime
-          }
-        }));
+    // Listen for real-time attendance updates
+    socket.on('attendance-marked', (data) => {
+      console.log('🎉 Attendance marked event received:', data);
 
-        // Update stats
-        setStats(prev => ({
-          ...prev,
-          present: prev.present + 1,
-          absent: Math.max(0, prev.absent - 1)
-        }));
-      });
+      // Update attendance map
+      setAttendanceMap(prev => ({
+        ...prev,
+        [data.studentId]: {
+          status: data.status.toLowerCase(),
+          checkInTime: data.checkInTime
+        }
+      }));
 
-      return () => {
-        disconnectSocket();
-      };
-    }
+      // Update stats
+      setStats(prev => ({
+        ...prev,
+        present: prev.present + 1,
+        absent: Math.max(0, prev.absent - 1)
+      }));
+    });
+
+    return () => {
+      disconnectSocket();
+    };
   }, [currentUser?.schoolId]);
 
   // Filter students by search
@@ -145,8 +148,8 @@ const Attendance = () => {
           </div>
           {/* Socket Connection Status */}
           <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm ${socketConnected
-              ? 'bg-green-100 text-green-700'
-              : 'bg-gray-100 text-gray-500'
+            ? 'bg-green-100 text-green-700'
+            : 'bg-gray-100 text-gray-500'
             }`}>
             <FaWifi size={12} />
             {socketConnected ? 'Live Updates Active' : 'Connecting...'}
@@ -260,15 +263,15 @@ const Attendance = () => {
                       <tr
                         key={student._id}
                         className={`transition-all duration-500 ${isPresent
-                            ? 'bg-green-50 hover:bg-green-100'
-                            : 'hover:bg-gray-50/50'
+                          ? 'bg-green-50 hover:bg-green-100'
+                          : 'hover:bg-gray-50/50'
                           }`}
                       >
                         <td className="px-5 py-4">
                           <div className="flex items-center gap-3">
                             <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm ${isPresent
-                                ? 'bg-green-200 text-green-700'
-                                : 'bg-green-100 text-green-600'
+                              ? 'bg-green-200 text-green-700'
+                              : 'bg-green-100 text-green-600'
                               }`}>
                               {student.name.charAt(0).toUpperCase()}
                             </div>
@@ -283,12 +286,12 @@ const Attendance = () => {
                         <td className="px-5 py-4 text-sm text-gray-600">{student.email}</td>
                         <td className="px-5 py-4">
                           <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${isPresent
-                              ? 'bg-green-100 text-green-700'
-                              : isLate
-                                ? 'bg-orange-100 text-orange-700'
-                                : isAbsent
-                                  ? 'bg-red-100 text-red-700'
-                                  : 'bg-gray-100 text-gray-500'
+                            ? 'bg-green-100 text-green-700'
+                            : isLate
+                              ? 'bg-orange-100 text-orange-700'
+                              : isAbsent
+                                ? 'bg-red-100 text-red-700'
+                                : 'bg-gray-100 text-gray-500'
                             }`}>
                             {isPresent && <FaCheckCircle size={10} />}
                             {isLate && <FaClock size={10} />}
@@ -300,8 +303,8 @@ const Attendance = () => {
                           <div className="flex items-center justify-center gap-2">
                             <button
                               className={`p-2 rounded-lg transition-colors ${isPresent
-                                  ? 'bg-green-200 text-green-700 cursor-default'
-                                  : 'bg-green-50 text-green-600 hover:bg-green-100'
+                                ? 'bg-green-200 text-green-700 cursor-default'
+                                : 'bg-green-50 text-green-600 hover:bg-green-100'
                                 }`}
                               title="Mark Present"
                               disabled={isPresent}
