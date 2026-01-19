@@ -167,4 +167,54 @@ export const updateSchoolTheme = async (req, res) => {
     }
 };
 
+// ═══════════════════════════════════════════════════════════════
+// Feature Management Controllers
+// ═══════════════════════════════════════════════════════════════
+
+export const getSchoolFeatures = async (req, res) => {
+    try {
+        const result = await schoolService.getSchoolFeatures(req.params.id);
+        res.status(200).json({ success: true, data: result });
+    } catch (error) {
+        console.error("Get School Features Error:", error.message);
+        res.status(error.statusCode || 500).json({ success: false, message: error.message || "Internal Server Error" });
+    }
+};
+
+export const updateSchoolFeatures = async (req, res) => {
+    try {
+        const result = await schoolService.updateSchoolFeatures(req.params.id, req.body, req.user);
+        res.status(200).json({ success: true, message: "Features updated", data: result });
+    } catch (error) {
+        console.error("Update School Features Error:", error.message);
+        res.status(error.statusCode || 500).json({ success: false, message: error.message || "Internal Server Error" });
+    }
+};
+
+export const toggleSchoolFeature = async (req, res) => {
+    try {
+        const { featureKey } = req.params;
+        const { enabled } = req.body;
+
+        if (enabled === undefined) {
+            return res.status(400).json({ success: false, message: "enabled field is required" });
+        }
+
+        const result = await schoolService.toggleSchoolFeature(req.params.id, featureKey, enabled, req.user);
+        res.status(200).json({ success: true, message: `Feature ${featureKey} ${enabled ? 'enabled' : 'disabled'}`, data: result });
+    } catch (error) {
+        console.error("Toggle School Feature Error:", error.message);
+        res.status(error.statusCode || 500).json({ success: false, message: error.message || "Internal Server Error" });
+    }
+};
+
+export const getAvailableFeatures = async (req, res) => {
+    try {
+        const features = schoolService.getAvailableFeatures();
+        res.status(200).json({ success: true, data: features });
+    } catch (error) {
+        console.error("Get Available Features Error:", error.message);
+        res.status(error.statusCode || 500).json({ success: false, message: error.message || "Internal Server Error" });
+    }
+};
 

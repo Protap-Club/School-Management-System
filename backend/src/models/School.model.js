@@ -11,6 +11,13 @@ const schoolSchema = new mongoose.Schema(
         theme: {
             accentColor: { type: String, default: "#2563eb" }
         },
+        features: {
+            attendance: { type: Boolean, default: false },
+            fees: { type: Boolean, default: false },
+            timetable: { type: Boolean, default: false },
+            library: { type: Boolean, default: false },
+            transport: { type: Boolean, default: false }
+        },
         isActive: { type: Boolean, default: true },
         createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" }
     },
