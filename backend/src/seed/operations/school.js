@@ -6,26 +6,21 @@ import { conf } from "../../config/index.js";
 import { createUserWithProfile, createSchool as createSchoolInDB, findSchoolByCode, findSuperAdminBySchool } from "../utils.js";
 import { USER_ROLES } from "../../constants/userRoles.js";
 import SchoolModel from "../../models/School.model.js";
-
-/**
- * Generate SuperAdmin email from school code
- */
-const generateSuperAdminEmail = (schoolCode) => {
-    const cleanCode = schoolCode.toLowerCase().replace(/[^a-z0-9]/g, '');
-    return `vraj.${cleanCode}@protap.com`;
-};
+import { DEMO_PASSWORD } from "../data/demo.js";
 
 /**
  * Create a new school with its SuperAdmin
+ * Uses superAdmin details from school data if provided
  */
 export const createSchool = async ({ name, code, address, contactPhone, superAdmin = {}, sendEmail = false }) => {
     if (!name || !code) {
         return { success: false, error: "School name and code are required" };
     }
 
-    const superAdminEmail = superAdmin.email || generateSuperAdminEmail(code);
-    const superAdminName = superAdmin.name || "Vraj";
-    const superAdminPassword = conf.SUPER_ADMIN_PASSWORD || "Admin@123";
+    // Use provided super admin details or generate defaults
+    const superAdminEmail = superAdmin.email || `superadmin@${code.toLowerCase()}.edu.in`;
+    const superAdminName = superAdmin.name || "Super Admin";
+    const superAdminPassword = DEMO_PASSWORD || conf.SUPER_ADMIN_PASSWORD || "Demo@123";
 
     console.log(`\n📋 Creating: ${name} (${code})`);
     console.log(`   SuperAdmin: ${superAdminEmail}`);
