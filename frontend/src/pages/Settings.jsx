@@ -3,7 +3,7 @@ import DashboardLayout from '../layouts/DashboardLayout';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import api from '../api/axios';
-import { FaPalette, FaImage, FaCheck, FaUpload } from 'react-icons/fa';
+import { FaPalette, FaImage, FaCheck, FaUpload, FaToggleOn, FaToggleOff, FaChevronDown, FaBuilding } from 'react-icons/fa';
 
 // Predefined theme colors
 const THEME_COLORS = [
@@ -14,9 +14,19 @@ const THEME_COLORS = [
     { name: 'Amber', value: '#d97706', textColor: '#ffffff' },
 ];
 
+// Feature icons and colors
+const FEATURE_META = {
+    attendance: { label: 'Attendance', description: 'Track student attendance via NFC', color: 'from-blue-100 to-cyan-100', iconColor: 'text-blue-500' },
+    fees: { label: 'Fee Management', description: 'Manage student fees and payments', color: 'from-emerald-100 to-green-100', iconColor: 'text-emerald-500' },
+    timetable: { label: 'Timetable', description: 'Class and exam schedules', color: 'from-violet-100 to-purple-100', iconColor: 'text-violet-500' },
+    library: { label: 'Library', description: 'Book inventory and borrowing', color: 'from-amber-100 to-orange-100', iconColor: 'text-amber-500' },
+    transport: { label: 'Transport', description: 'Bus routes and tracking', color: 'from-rose-100 to-pink-100', iconColor: 'text-rose-500' },
+};
+
 const Settings = () => {
     const { user: currentUser } = useAuth();
     const { updateTheme } = useTheme();
+    const isSuperAdmin = currentUser?.role === 'super_admin';
 
     const [settings, setSettings] = useState({
         logoUrl: '',
@@ -29,9 +39,25 @@ const Settings = () => {
     const [message, setMessage] = useState({ type: '', text: '' });
     const fileInputRef = useRef(null);
 
+    // Feature toggles state (super_admin only)
+    const [schools, setSchools] = useState([]);
+    const [selectedSchool, setSelectedSchool] = useState(null);
+    const [features, setFeatures] = useState({});
+    const [featuresLoading, setFeaturesLoading] = useState(false);
+    const [togglingFeature, setTogglingFeature] = useState(null);
+
     useEffect(() => {
         fetchSettings();
+        if (isSuperAdmin) {
+            fetchSchools();
+        }
     }, []);
+
+    useEffect(() => {
+        if (selectedSchool && isSuperAdmin) {
+            fetchSchoolFeatures(selectedSchool._id);
+        }
+    }, [selectedSchool]);
 
     const fetchSettings = async () => {
         try {
@@ -49,20 +75,71 @@ const Settings = () => {
         }
     };
 
+    const fetchSchools = async () => {
+        try {
+            const response = await api.get('/school');
+            if (response.data.success) {
+                setSchools(response.data.data);
+                if (response.data.data.length > 0) {
+                    setSelectedSchool(response.data.data[0]);
+                }
+            }
+        } catch (error) {
+            console.error('Failed to fetch schools', error);
+        }
+    };
+
+    const fetchSchoolFeatures = async (schoolId) => {
+        setFeaturesLoading(true);
+        try {
+            const response = await api.get(`/school/${schoolId}/features`);
+            if (response.data.success) {
+                setFeatures(response.data.data.features || {});
+            }
+        } catch (error) {
+            console.error('Failed to fetch features', error);
+        } finally {
+            setFeaturesLoading(false);
+        }
+    };
+
+    const handleToggleFeature = async (featureKey) => {
+        if (!selectedSchool || togglingFeature) return;
+
+        setTogglingFeature(featureKey);
+        const newValue = !features[featureKey];
+
+        try {
+            const response = await api.patch(`/school/${selectedSchool._id}/features/${featureKey}`, {
+                enabled: newValue
+            });
+
+            if (response.data.success) {
+                setFeatures(response.data.data.features);
+                setMessage({
+                    type: 'success',
+                    text: `${FEATURE_META[featureKey]?.label || featureKey} ${newValue ? 'enabled' : 'disabled'}`
+                });
+                setTimeout(() => setMessage({ type: '', text: '' }), 2000);
+            }
+        } catch (error) {
+            setMessage({ type: 'error', text: 'Failed to update feature' });
+            setTimeout(() => setMessage({ type: '', text: '' }), 2000);
+        } finally {
+            setTogglingFeature(null);
+        }
+    };
+
     const handleColorSelect = async (colorValue) => {
-        // Update local state
         setSettings(prev => ({
             ...prev,
             theme: { ...prev.theme, accentColor: colorValue }
         }));
-        // Immediately apply theme for live preview
         updateTheme(colorValue);
 
-        // Auto-save theme to backend
         try {
             await api.put('/school/theme', { accentColor: colorValue });
             setMessage({ type: 'success', text: 'Theme updated!' });
-            // Clear message after 2 seconds
             setTimeout(() => setMessage({ type: '', text: '' }), 2000);
         } catch (error) {
             console.error('Failed to save theme', error);
@@ -138,7 +215,11 @@ const Settings = () => {
                 {/* Header */}
                 <div>
                     <h1 className="text-3xl font-bold text-gray-900">Settings</h1>
-                    <p className="text-gray-500 mt-1">Customize your portal appearance and branding</p>
+                    <p className="text-gray-500 mt-1">
+                        {isSuperAdmin
+                            ? 'Manage portal appearance and school features'
+                            : 'Customize your portal appearance and branding'}
+                    </p>
                 </div>
 
                 {/* Two Column Layout */}
@@ -178,7 +259,6 @@ const Settings = () => {
                                                     <FaCheck className="text-white text-lg drop-shadow-md" />
                                                 </span>
                                             )}
-                                            {/* Tooltip */}
                                             <span className="absolute -bottom-8 left-1/2 -translate-x-1/2 text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap bg-gray-900 text-white px-3 py-1.5 rounded-lg pointer-events-none shadow-lg">
                                                 {color.name}
                                             </span>
@@ -200,7 +280,6 @@ const Settings = () => {
                                 </div>
                             </div>
                             <div className="p-6">
-                                {/* Upload Area */}
                                 <input
                                     type="file"
                                     ref={fileInputRef}
@@ -236,85 +315,164 @@ const Settings = () => {
                         </div>
                     </div>
 
-                    {/* Right Column - Live Preview */}
-                    <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl border border-gray-200 p-6 lg:p-8">
-                        <div className="mb-6">
-                            <h3 className="text-lg font-semibold text-gray-900">Live Preview</h3>
-                            <p className="text-sm text-gray-500">See how your branding looks</p>
-                        </div>
+                    {/* Right Column - Live Preview OR Feature Toggles */}
+                    <div className="space-y-6">
+                        {/* Feature Toggles - Super Admin Only */}
+                        {isSuperAdmin && (
+                            <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+                                <div className="px-6 py-5 border-b border-gray-100">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <div className="flex items-center gap-4">
+                                            <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-cyan-100 to-blue-100 flex items-center justify-center">
+                                                <FaToggleOn className="text-blue-500" size={18} />
+                                            </div>
+                                            <div>
+                                                <h2 className="text-lg font-semibold text-gray-900">Feature Toggles</h2>
+                                                <p className="text-sm text-gray-500">Enable/disable school features</p>
+                                            </div>
+                                        </div>
+                                        <span className="text-xs text-blue-600 bg-blue-50 px-2.5 py-1 rounded-full font-medium">Super Admin</span>
+                                    </div>
 
-                        {/* Preview Card - Simulated Sidebar Header */}
-                        <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
-                            {/* Simulated Sidebar Header */}
-                            <div
-                                className="p-4 flex items-center gap-3"
-                                style={{ backgroundColor: settings.theme?.accentColor || '#2563eb' }}
-                            >
-                                {settings.logoUrl ? (
-                                    <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center p-1.5">
-                                        <img
-                                            src={settings.logoUrl.startsWith('/') ? `http://localhost:5000${settings.logoUrl}` : settings.logoUrl}
-                                            alt="Logo"
-                                            className="h-full w-full object-contain"
-                                            onError={(e) => {
-                                                e.target.style.display = 'none';
-                                            }}
-                                        />
-                                    </div>
-                                ) : (
-                                    <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
-                                        <span className="text-white font-bold text-lg">S</span>
-                                    </div>
-                                )}
-                                <div>
-                                    <p className="text-white font-semibold text-sm">School Portal</p>
-                                    <p className="text-white/70 text-xs">Management System</p>
+                                    {/* School Selector */}
+                                    {schools.length > 0 && (
+                                        <div className="relative">
+                                            <select
+                                                value={selectedSchool?._id || ''}
+                                                onChange={(e) => {
+                                                    const school = schools.find(s => s._id === e.target.value);
+                                                    setSelectedSchool(school);
+                                                }}
+                                                className="w-full appearance-none bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 pr-10 text-sm font-medium text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                            >
+                                                {schools.map(school => (
+                                                    <option key={school._id} value={school._id}>
+                                                        {school.name} ({school.code})
+                                                    </option>
+                                                ))}
+                                            </select>
+                                            <FaChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400" size={12} />
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Feature List */}
+                                <div className="p-4">
+                                    {featuresLoading ? (
+                                        <div className="flex items-center justify-center py-8">
+                                            <div className="animate-spin rounded-full h-6 w-6 border-2 border-gray-200 border-t-gray-600"></div>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-2">
+                                            {Object.keys(FEATURE_META).map(featureKey => (
+                                                <div
+                                                    key={featureKey}
+                                                    className={`flex items-center justify-between p-4 rounded-xl transition-colors ${features[featureKey] ? 'bg-gray-50' : 'bg-white hover:bg-gray-50'
+                                                        }`}
+                                                >
+                                                    <div className="flex items-center gap-3">
+                                                        <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${FEATURE_META[featureKey].color} flex items-center justify-center`}>
+                                                            <FaBuilding className={FEATURE_META[featureKey].iconColor} size={14} />
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-sm font-medium text-gray-900">{FEATURE_META[featureKey].label}</p>
+                                                            <p className="text-xs text-gray-400">{FEATURE_META[featureKey].description}</p>
+                                                        </div>
+                                                    </div>
+                                                    <button
+                                                        onClick={() => handleToggleFeature(featureKey)}
+                                                        disabled={togglingFeature === featureKey}
+                                                        className={`relative w-12 h-7 rounded-full transition-colors ${features[featureKey]
+                                                                ? 'bg-emerald-500'
+                                                                : 'bg-gray-200'
+                                                            } ${togglingFeature === featureKey ? 'opacity-50' : ''}`}
+                                                    >
+                                                        <span
+                                                            className={`absolute top-1 left-1 w-5 h-5 bg-white rounded-full shadow-sm transition-transform ${features[featureKey] ? 'translate-x-5' : 'translate-x-0'
+                                                                }`}
+                                                        />
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
                             </div>
+                        )}
 
-                            {/* Simulated Menu Items */}
-                            <div className="p-3 space-y-1">
+                        {/* Live Preview */}
+                        <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl border border-gray-200 p-6 lg:p-8">
+                            <div className="mb-6">
+                                <h3 className="text-lg font-semibold text-gray-900">Live Preview</h3>
+                                <p className="text-sm text-gray-500">See how your branding looks</p>
+                            </div>
+
+                            {/* Preview Card */}
+                            <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
                                 <div
-                                    className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-white text-sm font-medium"
+                                    className="p-4 flex items-center gap-3"
                                     style={{ backgroundColor: settings.theme?.accentColor || '#2563eb' }}
                                 >
-                                    <div className="w-5 h-5 bg-white/20 rounded"></div>
-                                    <span>Dashboard</span>
+                                    {settings.logoUrl ? (
+                                        <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center p-1.5">
+                                            <img
+                                                src={settings.logoUrl.startsWith('/') ? `http://localhost:5000${settings.logoUrl}` : settings.logoUrl}
+                                                alt="Logo"
+                                                className="h-full w-full object-contain"
+                                                onError={(e) => {
+                                                    e.target.style.display = 'none';
+                                                }}
+                                            />
+                                        </div>
+                                    ) : (
+                                        <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
+                                            <span className="text-white font-bold text-lg">S</span>
+                                        </div>
+                                    )}
+                                    <div>
+                                        <p className="text-white font-semibold text-sm">School Portal</p>
+                                        <p className="text-white/70 text-xs">Management System</p>
+                                    </div>
                                 </div>
-                                <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 text-sm hover:bg-gray-50">
-                                    <div className="w-5 h-5 bg-gray-200 rounded"></div>
-                                    <span>Users</span>
+
+                                <div className="p-3 space-y-1">
+                                    <div
+                                        className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-white text-sm font-medium"
+                                        style={{ backgroundColor: settings.theme?.accentColor || '#2563eb' }}
+                                    >
+                                        <div className="w-5 h-5 bg-white/20 rounded"></div>
+                                        <span>Dashboard</span>
+                                    </div>
+                                    <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 text-sm hover:bg-gray-50">
+                                        <div className="w-5 h-5 bg-gray-200 rounded"></div>
+                                        <span>Users</span>
+                                    </div>
                                 </div>
-                                <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 text-sm hover:bg-gray-50">
-                                    <div className="w-5 h-5 bg-gray-200 rounded"></div>
-                                    <span>Settings</span>
+
+                                <div className="px-4 pb-4">
+                                    <button
+                                        className="w-full py-2.5 rounded-lg text-white text-sm font-medium transition-opacity hover:opacity-90"
+                                        style={{ backgroundColor: settings.theme?.accentColor || '#2563eb' }}
+                                    >
+                                        Sample Button
+                                    </button>
                                 </div>
                             </div>
 
-                            {/* Sample Button */}
-                            <div className="px-4 pb-4">
-                                <button
-                                    className="w-full py-2.5 rounded-lg text-white text-sm font-medium transition-opacity hover:opacity-90"
-                                    style={{ backgroundColor: settings.theme?.accentColor || '#2563eb' }}
-                                >
-                                    Sample Button
-                                </button>
-                            </div>
-                        </div>
-
-                        {/* Current Selection Info */}
-                        <div className="mt-6 p-4 bg-white rounded-xl border border-gray-200">
-                            <p className="text-xs text-gray-400 uppercase tracking-wider font-medium mb-2">Current Theme</p>
-                            <div className="flex items-center gap-3">
-                                <div
-                                    className="w-8 h-8 rounded-lg shadow-sm"
-                                    style={{ backgroundColor: settings.theme?.accentColor || '#2563eb' }}
-                                ></div>
-                                <div>
-                                    <p className="text-sm font-medium text-gray-900">
-                                        {THEME_COLORS.find(c => c.value === settings.theme?.accentColor)?.name || 'Custom'}
-                                    </p>
-                                    <p className="text-xs text-gray-400 font-mono">{settings.theme?.accentColor}</p>
+                            {/* Current Theme Info */}
+                            <div className="mt-6 p-4 bg-white rounded-xl border border-gray-200">
+                                <p className="text-xs text-gray-400 uppercase tracking-wider font-medium mb-2">Current Theme</p>
+                                <div className="flex items-center gap-3">
+                                    <div
+                                        className="w-8 h-8 rounded-lg shadow-sm"
+                                        style={{ backgroundColor: settings.theme?.accentColor || '#2563eb' }}
+                                    ></div>
+                                    <div>
+                                        <p className="text-sm font-medium text-gray-900">
+                                            {THEME_COLORS.find(c => c.value === settings.theme?.accentColor)?.name || 'Custom'}
+                                        </p>
+                                        <p className="text-xs text-gray-400 font-mono">{settings.theme?.accentColor}</p>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -326,4 +484,3 @@ const Settings = () => {
 };
 
 export default Settings;
-
