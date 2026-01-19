@@ -16,7 +16,10 @@ import {
     FaCheck,
     FaEdit,
     FaTrash,
-    FaTimes
+    FaTimes,
+    FaArchive,
+    FaUndo,
+    FaSearch
 } from 'react-icons/fa';
 
 // Role hierarchy - what each role can view/create
@@ -58,6 +61,12 @@ const UsersPage = () => {
     // Delete Confirmation State
     const [deleteConfirm, setDeleteConfirm] = useState({ open: false, users: [], isBulk: false });
 
+    // Archive View State
+    const [showArchived, setShowArchived] = useState(false);
+
+    // Search State
+    const [searchQuery, setSearchQuery] = useState('');
+
     // Get allowed roles for current user
     const allowedRoles = ROLE_PERMISSIONS[currentUser?.role] || [];
 
@@ -82,7 +91,8 @@ const UsersPage = () => {
                 pageSize: pageSize.toString()
             });
 
-            const response = await api.get(`/user/get-users?${params}`);
+            const endpoint = showArchived ? '/user/archived' : '/user/get-users';
+            const response = await api.get(`${endpoint}?${params}`);
             if (response.data.success) {
                 setUsers(response.data.data);
                 setPagination(response.data.pagination);
@@ -98,7 +108,13 @@ const UsersPage = () => {
         if (currentUser) {
             fetchUsers();
         }
-    }, [selectedRole, page, pageSize, currentUser]);
+    }, [selectedRole, page, pageSize, currentUser, showArchived]);
+
+    // Derived State: Filtered Users
+    const filteredUsers = users.filter(u =>
+        u.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        u.email.toLowerCase().includes(searchQuery.toLowerCase())
+    );
 
     // Reset selection when exiting selection mode
     useEffect(() => {
@@ -176,20 +192,57 @@ const UsersPage = () => {
         setDeleteConfirm({ open: true, users: usersToDelete, isBulk: true });
     };
 
-    // Confirm Delete (Archive)
+    // Confirm Delete (Archive or Hard Delete)
     const confirmDelete = async () => {
         try {
-            if (deleteConfirm.isBulk) {
-                await api.put('/user/archive-bulk', { userIds: selectedUsers });
+            if (showArchived) {
+                // Hard Delete
+                if (deleteConfirm.isBulk) {
+                    await api.delete('/user/delete-bulk', { data: { userIds: selectedUsers } });
+                } else {
+                    await api.delete(`/user/delete/${deleteConfirm.users[0]._id}`);
+                }
             } else {
-                await api.put(`/user/archive/${deleteConfirm.users[0]._id}`);
+                // Soft Delete (Archive)
+                if (deleteConfirm.isBulk) {
+                    await api.put('/user/archive-bulk', { userIds: selectedUsers });
+                } else {
+                    await api.put(`/user/archive/${deleteConfirm.users[0]._id}`);
+                }
             }
+            // Optimistic update
+            if (deleteConfirm.isBulk) {
+                setUsers(prev => prev.filter(u => !selectedUsers.includes(u._id)));
+            } else {
+                setUsers(prev => prev.filter(u => u._id !== deleteConfirm.users[0]._id));
+            }
+
             fetchUsers();
             exitSelectionMode();
+            setMessage({ type: 'success', text: showArchived ? 'User(s) deleted permanently' : 'User(s) archived successfully' });
+            setTimeout(() => setMessage({ type: '', text: '' }), 3000);
         } catch (error) {
             console.error('Delete failed', error);
+            setMessage({ type: 'error', text: 'Operation failed' });
         } finally {
             setDeleteConfirm({ open: false, users: [], isBulk: false });
+        }
+    };
+
+    // Restore User
+    const handleRestore = async (userId) => {
+        try {
+            await api.put(`/user/restore/${userId}`);
+            setMessage({ type: 'success', text: 'User restored successfully' });
+            // Optimistic update
+            setUsers(prev => prev.filter(u => u._id !== userId));
+            setActiveDropdown(null);
+
+            fetchUsers();
+            setTimeout(() => setMessage({ type: '', text: '' }), 3000);
+        } catch (error) {
+            console.error('Restore failed', error);
+            setMessage({ type: 'error', text: 'Restore failed' });
         }
     };
 
@@ -201,7 +254,7 @@ const UsersPage = () => {
     const isMultipleSelected = selectedUsers.length > 1;
 
     return (
-        <DashboardLayout>
+        <DashboardLayout onSearch={setSearchQuery} searchValue={searchQuery}>
             <div className="space-y-6">
                 {/* Header */}
                 <div className="flex justify-between items-center">
@@ -273,7 +326,7 @@ const UsersPage = () => {
                                 className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium disabled:opacity-50"
                             >
                                 <FaTrash size={14} />
-                                Delete {isMultipleSelected ? `(${selectedUsers.length})` : ''}
+                                {showArchived ? 'Delete Forever' : 'Delete'} {isMultipleSelected ? `(${selectedUsers.length})` : ''}
                             </button>
 
                             {/* Cancel Selection Mode */}
@@ -305,6 +358,8 @@ const UsersPage = () => {
                                 </div>
                             )}
 
+
+
                             {/* Role Filter - only show if multiple roles allowed */}
                             {allowedRoles.length > 1 && (
                                 <div className="flex items-center gap-2">
@@ -323,12 +378,29 @@ const UsersPage = () => {
                                     </select>
                                 </div>
                             )}
+
+                            {/* Archive Toggle - Only for Admin and Super Admin */}
+                            {(currentUser?.role === 'super_admin' || currentUser?.role === 'admin') && (
+                                <button
+                                    onClick={() => {
+                                        setShowArchived(!showArchived);
+                                        setPage(0);
+                                    }}
+                                    className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${showArchived
+                                        ? 'bg-orange-100 text-orange-700 border border-orange-300'
+                                        : 'bg-gray-100 text-gray-600 border border-gray-300 hover:bg-gray-200'
+                                        }`}
+                                >
+                                    <FaArchive size={14} />
+                                    {showArchived ? 'Viewing Archived' : 'View Archive'}
+                                </button>
+                            )}
                         </div>
                     </div>
                 )}
 
                 {/* Users Table */}
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100">
                     <div className="p-5 border-b border-gray-100 flex justify-between items-center">
                         <div className="flex items-center gap-3">
                             <FaUsers className="text-primary" />
@@ -371,95 +443,127 @@ const UsersPage = () => {
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-100" ref={dropdownRef}>
-                                        {users.map((u) => {
-                                            const roleConfig = ROLE_LABELS[u.role];
-                                            const isSelected = selectedUsers.includes(u._id);
-                                            return (
-                                                <tr
-                                                    key={u._id}
-                                                    className={`hover:bg-gray-50/50 transition-colors ${isSelected ? 'bg-indigo-50/50' : ''}`}
-                                                >
-                                                    {/* Row Checkbox - Only in selection mode */}
-                                                    {selectionMode && (
-                                                        <td className="px-5 py-4">
-                                                            <input
-                                                                type="checkbox"
-                                                                checked={isSelected}
-                                                                onChange={() => toggleUserSelection(u._id)}
-                                                                className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 cursor-pointer"
-                                                            />
-                                                        </td>
-                                                    )}
-                                                    <td className="px-5 py-4">
-                                                        <div className="flex items-center gap-3">
-                                                            <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm bg-${roleConfig?.color || 'gray'}-100 text-${roleConfig?.color || 'gray'}-600`}>
-                                                                {u.name.charAt(0).toUpperCase()}
-                                                            </div>
-                                                            <span className="font-medium text-gray-800">{u.name}</span>
-                                                        </div>
-                                                    </td>
-                                                    <td className="px-5 py-4">
-                                                        <span className={`px-2.5 py-1 rounded-full text-xs font-medium capitalize bg-${roleConfig?.color || 'gray'}-100 text-${roleConfig?.color || 'gray'}-600`}>
-                                                            {u.role}
-                                                        </span>
-                                                    </td>
-                                                    <td className="px-5 py-4 text-sm text-gray-600">{u.email}</td>
-                                                    <td className="px-5 py-4">
-                                                        <span className={`inline-flex items-center gap-1.5 text-xs ${u.isActive ? 'text-green-600' : 'text-red-600'}`}>
-                                                            <span className={`w-2 h-2 rounded-full ${u.isActive ? 'bg-green-500' : 'bg-red-500'}`}></span>
-                                                            {u.isActive ? 'Active' : 'Inactive'}
-                                                        </span>
-                                                    </td>
-
-                                                    {/* Kebab Menu - Hidden in selection mode */}
-                                                    <td className="px-5 py-4">
-                                                        {!selectionMode && (
-                                                            <div className="relative">
-                                                                <button
-                                                                    onClick={() => toggleDropdown(u._id)}
-                                                                    className="p-2 hover:bg-gray-100 rounded-lg transition-colors text-gray-500 hover:text-gray-700"
-                                                                >
-                                                                    <FaEllipsisV size={14} />
-                                                                </button>
-
-                                                                {/* Dropdown Menu */}
-                                                                {activeDropdown === u._id && (
-                                                                    <div className="absolute right-0 top-full mt-1 w-40 bg-white rounded-xl shadow-xl border border-gray-100 z-20 overflow-hidden animate-fadeIn">
-                                                                        <button
-                                                                            onClick={() => handleSelectAction(u._id)}
-                                                                            className="w-full text-left px-4 py-2.5 hover:bg-gray-50 text-gray-700 flex items-center gap-2 transition-colors text-sm"
-                                                                        >
-                                                                            <FaCheck size={12} className="text-indigo-500" />
-                                                                            Select
-                                                                        </button>
-                                                                        <button
-                                                                            onClick={() => handleEdit(u)}
-                                                                            className="w-full text-left px-4 py-2.5 hover:bg-gray-50 text-gray-700 flex items-center gap-2 transition-colors text-sm"
-                                                                        >
-                                                                            <FaEdit size={12} className="text-blue-500" />
-                                                                            Edit
-                                                                        </button>
-                                                                        <button
-                                                                            onClick={() => handleDelete(u)}
-                                                                            className="w-full text-left px-4 py-2.5 hover:bg-red-50 text-red-600 flex items-center gap-2 transition-colors text-sm"
-                                                                        >
-                                                                            <FaTrash size={12} />
-                                                                            Delete
-                                                                        </button>
-                                                                    </div>
-                                                                )}
-                                                            </div>
+                                        {filteredUsers.length > 0 ? (
+                                            filteredUsers.map((u, index) => {
+                                                const roleConfig = ROLE_LABELS[u.role];
+                                                const isSelected = selectedUsers.includes(u._id);
+                                                return (
+                                                    <tr
+                                                        key={u._id}
+                                                        className={`hover:bg-gray-50/50 transition-colors ${isSelected ? 'bg-indigo-50/50' : ''}`}
+                                                    >
+                                                        {/* Row Checkbox - Only in selection mode */}
+                                                        {selectionMode && (
+                                                            <td className="px-5 py-4">
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={isSelected}
+                                                                    onChange={() => toggleUserSelection(u._id)}
+                                                                    className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 cursor-pointer"
+                                                                />
+                                                            </td>
                                                         )}
-                                                    </td>
-                                                </tr>
-                                            );
-                                        })}
+                                                        <td className="px-5 py-4">
+                                                            <div className="flex items-center gap-3">
+                                                                <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm bg-${roleConfig?.color || 'gray'}-100 text-${roleConfig?.color || 'gray'}-600`}>
+                                                                    {u.name.charAt(0).toUpperCase()}
+                                                                </div>
+                                                                <span className="font-medium text-gray-800">{u.name}</span>
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-5 py-4">
+                                                            <span className={`px-2.5 py-1 rounded-full text-xs font-medium capitalize bg-${roleConfig?.color || 'gray'}-100 text-${roleConfig?.color || 'gray'}-600`}>
+                                                                {u.role}
+                                                            </span>
+                                                        </td>
+                                                        <td className="px-5 py-4 text-sm text-gray-600">{u.email}</td>
+                                                        <td className="px-5 py-4">
+                                                            <span className={`inline-flex items-center gap-1.5 text-xs ${u.isActive ? 'text-green-600' : 'text-red-600'}`}>
+                                                                <span className={`w-2 h-2 rounded-full ${u.isActive ? 'bg-green-500' : 'bg-red-500'}`}></span>
+                                                                {u.isActive ? 'Active' : 'Inactive'}
+                                                            </span>
+                                                        </td>
+
+                                                        {/* Kebab Menu - Hidden in selection mode */}
+                                                        <td className="px-5 py-4">
+                                                            {!selectionMode && (
+                                                                <div className="relative">
+                                                                    <button
+                                                                        onClick={() => toggleDropdown(u._id)}
+                                                                        className="p-2 hover:bg-gray-100 rounded-lg transition-colors text-gray-500 hover:text-gray-700"
+                                                                    >
+                                                                        <FaEllipsisV size={14} />
+                                                                    </button>
+
+                                                                    {/* Dropdown Menu */}
+                                                                    {activeDropdown === u._id && (
+                                                                        <div className={`absolute right-0 ${users.length > 2 && index >= users.length - 2 ? 'bottom-full mb-1' : 'top-full mt-1'} w-40 bg-white rounded-xl shadow-xl border border-gray-100 z-50 overflow-hidden animate-fadeIn`}>
+                                                                            <button
+                                                                                onClick={() => handleSelectAction(u._id)}
+                                                                                className="w-full text-left px-4 py-2.5 hover:bg-gray-50 text-gray-700 flex items-center gap-2 transition-colors text-sm"
+                                                                            >
+                                                                                <FaCheck size={12} className="text-indigo-500" />
+                                                                                Select
+                                                                            </button>
+
+                                                                            {!showArchived ? (
+                                                                                <>
+                                                                                    <button
+                                                                                        onClick={() => handleEdit(u)}
+                                                                                        className="w-full text-left px-4 py-2.5 hover:bg-gray-50 text-gray-700 flex items-center gap-2 transition-colors text-sm"
+                                                                                    >
+                                                                                        <FaEdit size={12} className="text-blue-500" />
+                                                                                        Edit
+                                                                                    </button>
+                                                                                    {(currentUser?.role === 'super_admin' || currentUser?.role === 'admin') && (
+                                                                                        <button
+                                                                                            onClick={() => handleDelete(u)}
+                                                                                            className="w-full text-left px-4 py-2.5 hover:bg-red-50 text-red-600 flex items-center gap-2 transition-colors text-sm"
+                                                                                        >
+                                                                                            <FaArchive size={12} />
+                                                                                            Archive
+                                                                                        </button>
+                                                                                    )}
+                                                                                </>
+                                                                            ) : (
+                                                                                <>
+                                                                                    <button
+                                                                                        onClick={() => handleRestore(u._id)}
+                                                                                        className="w-full text-left px-4 py-2.5 hover:bg-green-50 text-green-600 flex items-center gap-2 transition-colors text-sm"
+                                                                                    >
+                                                                                        <FaUndo size={12} />
+                                                                                        Restore
+                                                                                    </button>
+                                                                                    <button
+                                                                                        onClick={() => handleDelete(u)}
+                                                                                        className="w-full text-left px-4 py-2.5 hover:bg-red-50 text-red-600 flex items-center gap-2 transition-colors text-sm"
+                                                                                    >
+                                                                                        <FaTrash size={12} />
+                                                                                        Delete Forever
+                                                                                    </button>
+                                                                                </>
+                                                                            )}
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            )}
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })
+                                        ) : (
+                                            <tr>
+                                                <td colSpan="6" className="px-5 py-8 text-center text-gray-500">
+                                                    No users found matching "{searchQuery}"
+                                                </td>
+                                            </tr>
+                                        )}
                                     </tbody>
                                 </table>
                             </div>
 
                             {/* Pagination */}
-                            {pagination.totalPages > 1 && (
+                            {pagination.totalCount > 0 && (
                                 <div className="p-4 border-t border-gray-100 flex flex-col md:flex-row justify-between items-center gap-4">
                                     <div className="text-gray-600">
                                         Showing {showingStart}-{showingEnd} of {pagination.totalCount}
@@ -481,6 +585,7 @@ const UsersPage = () => {
                                     </div>
 
                                     <div className="flex items-center gap-2">
+                                        {/* Previous Page */}
                                         <button
                                             onClick={() => setPage(p => Math.max(0, p - 1))}
                                             disabled={page === 0}
@@ -489,21 +594,43 @@ const UsersPage = () => {
                                             Previous
                                         </button>
 
-                                        <div className="flex items-center gap-1">
-                                            {[...Array(pagination.totalPages)].map((_, idx) => (
+                                        {/* Prev Group (<) */}
+                                        <button
+                                            onClick={() => setPage(Math.max(0, Math.floor((page - 3) / 3) * 3))}
+                                            disabled={page < 3}
+                                            className="w-8 h-8 flex items-center justify-center rounded-md text-gray-600 hover:bg-gray-100 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+                                        >
+                                            &lt;
+                                        </button>
+
+                                        {/* Page Numbers (Group of 3) */}
+                                        {[...Array(3)].map((_, i) => {
+                                            const pageNum = (Math.floor(page / 3) * 3) + i;
+                                            if (pageNum >= pagination.totalPages) return null;
+                                            return (
                                                 <button
-                                                    key={idx}
-                                                    onClick={() => setPage(idx)}
-                                                    className={`w-8 h-8 flex items-center justify-center rounded-md text-sm font-medium transition-colors ${page === idx
+                                                    key={pageNum}
+                                                    onClick={() => setPage(pageNum)}
+                                                    className={`w-8 h-8 flex items-center justify-center rounded-md text-sm font-medium transition-colors ${page === pageNum
                                                         ? 'bg-primary text-white shadow-sm'
                                                         : 'text-gray-600 hover:bg-gray-100 border border-gray-200'
                                                         }`}
                                                 >
-                                                    {idx + 1}
+                                                    {pageNum + 1}
                                                 </button>
-                                            ))}
-                                        </div>
+                                            );
+                                        })}
 
+                                        {/* Next Group (>) */}
+                                        <button
+                                            onClick={() => setPage(Math.min(pagination.totalPages - 1, (Math.floor(page / 3) + 1) * 3))}
+                                            disabled={(Math.floor(page / 3) + 1) * 3 >= pagination.totalPages}
+                                            className="w-8 h-8 flex items-center justify-center rounded-md text-gray-600 hover:bg-gray-100 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+                                        >
+                                            &gt;
+                                        </button>
+
+                                        {/* Next Page */}
                                         <button
                                             onClick={() => setPage(p => Math.min(pagination.totalPages - 1, p + 1))}
                                             disabled={page >= pagination.totalPages - 1}
@@ -536,14 +663,18 @@ const UsersPage = () => {
                                 <FaTrash className="text-red-600" size={20} />
                             </div>
                             <h3 className="text-xl font-bold text-gray-800 text-center mb-2">
-                                {deleteConfirm.isBulk
-                                    ? `Delete ${deleteConfirm.users.length} Users?`
-                                    : 'Delete User?'}
+                                {showArchived
+                                    ? (deleteConfirm.isBulk ? `Permanently Delete ${deleteConfirm.users.length} Users?` : 'Permanently Delete User?')
+                                    : (deleteConfirm.isBulk ? `Archive ${deleteConfirm.users.length} Users?` : 'Archive User?')}
                             </h3>
                             <p className="text-gray-500 text-center mb-6">
-                                {deleteConfirm.isBulk
-                                    ? `Are you sure you want to archive ${deleteConfirm.users.length} selected users? They can be restored later.`
-                                    : `Are you sure you want to archive "${deleteConfirm.users[0]?.name}"? This user can be restored later.`}
+                                {showArchived
+                                    ? (deleteConfirm.isBulk
+                                        ? `Are you sure you want to permanently delete ${deleteConfirm.users.length} selected users? This action CANNOT be undone.`
+                                        : `Are you sure you want to permanently delete "${deleteConfirm.users[0]?.name}"? This action CANNOT be undone.`)
+                                    : (deleteConfirm.isBulk
+                                        ? `Are you sure you want to archive ${deleteConfirm.users.length} selected users? They can be restored later.`
+                                        : `Are you sure you want to archive "${deleteConfirm.users[0]?.name}"? This user can be restored later.`)}
                             </p>
                             <div className="flex gap-3">
                                 <button
@@ -556,7 +687,7 @@ const UsersPage = () => {
                                     onClick={confirmDelete}
                                     className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-xl hover:bg-red-700 transition-colors font-medium"
                                 >
-                                    Delete
+                                    {showArchived ? 'Delete Forever' : 'Archive'}
                                 </button>
                             </div>
                         </div>
