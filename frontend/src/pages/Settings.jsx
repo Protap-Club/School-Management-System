@@ -3,7 +3,7 @@ import DashboardLayout from '../layouts/DashboardLayout';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import api from '../api/axios';
-import { FaPalette, FaImage, FaCheck, FaUpload, FaToggleOn, FaToggleOff, FaChevronDown, FaBuilding } from 'react-icons/fa';
+import { FaPalette, FaImage, FaCheck, FaUpload, FaToggleOn, FaToggleOff, FaBuilding } from 'react-icons/fa';
 
 // Predefined theme colors
 const THEME_COLORS = [
@@ -40,24 +40,22 @@ const Settings = () => {
     const fileInputRef = useRef(null);
 
     // Feature toggles state (super_admin only)
-    const [schools, setSchools] = useState([]);
-    const [selectedSchool, setSelectedSchool] = useState(null);
     const [features, setFeatures] = useState({});
     const [featuresLoading, setFeaturesLoading] = useState(false);
     const [togglingFeature, setTogglingFeature] = useState(null);
 
+    // Get the current user's school ID
+    const currentSchoolId = currentUser?.schoolId?._id || currentUser?.schoolId;
+
     useEffect(() => {
         fetchSettings();
-        if (isSuperAdmin) {
-            fetchSchools();
-        }
     }, []);
 
     useEffect(() => {
-        if (selectedSchool && isSuperAdmin) {
-            fetchSchoolFeatures(selectedSchool._id);
+        if (currentSchoolId && isSuperAdmin) {
+            fetchSchoolFeatures(currentSchoolId);
         }
-    }, [selectedSchool]);
+    }, [currentSchoolId, isSuperAdmin]);
 
     const fetchSettings = async () => {
         try {
@@ -75,19 +73,7 @@ const Settings = () => {
         }
     };
 
-    const fetchSchools = async () => {
-        try {
-            const response = await api.get('/school');
-            if (response.data.success) {
-                setSchools(response.data.data);
-                if (response.data.data.length > 0) {
-                    setSelectedSchool(response.data.data[0]);
-                }
-            }
-        } catch (error) {
-            console.error('Failed to fetch schools', error);
-        }
-    };
+
 
     const fetchSchoolFeatures = async (schoolId) => {
         setFeaturesLoading(true);
@@ -104,13 +90,13 @@ const Settings = () => {
     };
 
     const handleToggleFeature = async (featureKey) => {
-        if (!selectedSchool || togglingFeature) return;
+        if (!currentSchoolId || togglingFeature) return;
 
         setTogglingFeature(featureKey);
         const newValue = !features[featureKey];
 
         try {
-            const response = await api.patch(`/school/${selectedSchool._id}/features/${featureKey}`, {
+            const response = await api.patch(`/school/${currentSchoolId}/features/${featureKey}`, {
                 enabled: newValue
             });
 
@@ -201,8 +187,8 @@ const Settings = () => {
             {/* Toast Notification */}
             {message.text && (
                 <div className={`fixed top-6 right-6 z-[100] px-5 py-3.5 rounded-xl shadow-lg flex items-center gap-3 animate-fadeIn backdrop-blur-sm ${message.type === 'success'
-                        ? 'bg-emerald-500/90 text-white'
-                        : 'bg-red-500/90 text-white'
+                    ? 'bg-emerald-500/90 text-white'
+                    : 'bg-red-500/90 text-white'
                     }`}>
                     <div className="w-6 h-6 rounded-full flex items-center justify-center bg-white/20">
                         {message.type === 'success' ? <FaCheck size={12} /> : <FaPalette size={12} />}
@@ -248,8 +234,8 @@ const Settings = () => {
                                             type="button"
                                             onClick={() => handleColorSelect(color.value)}
                                             className={`group relative w-14 h-14 rounded-2xl transition-all duration-200 hover:scale-105 focus:outline-none shadow-sm ${settings.theme?.accentColor === color.value
-                                                    ? 'ring-2 ring-offset-4 ring-gray-900 scale-105'
-                                                    : 'hover:ring-2 hover:ring-offset-2 hover:ring-gray-200'
+                                                ? 'ring-2 ring-offset-4 ring-gray-900 scale-105'
+                                                : 'hover:ring-2 hover:ring-offset-2 hover:ring-gray-200'
                                                 }`}
                                             style={{ backgroundColor: color.value }}
                                             title={color.name}
@@ -292,8 +278,8 @@ const Settings = () => {
                                     onClick={() => fileInputRef.current?.click()}
                                     disabled={uploading}
                                     className={`w-full group flex flex-col items-center justify-center gap-3 px-6 py-8 border-2 border-dashed rounded-xl transition-all ${uploading
-                                            ? 'border-gray-200 bg-gray-50 cursor-not-allowed'
-                                            : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50 cursor-pointer'
+                                        ? 'border-gray-200 bg-gray-50 cursor-not-allowed'
+                                        : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50 cursor-pointer'
                                         }`}
                                 >
                                     <div className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-colors ${uploading ? 'bg-gray-100' : 'bg-gray-100 group-hover:bg-gray-200'
@@ -334,25 +320,11 @@ const Settings = () => {
                                         <span className="text-xs text-blue-600 bg-blue-50 px-2.5 py-1 rounded-full font-medium">Super Admin</span>
                                     </div>
 
-                                    {/* School Selector */}
-                                    {schools.length > 0 && (
-                                        <div className="relative">
-                                            <select
-                                                value={selectedSchool?._id || ''}
-                                                onChange={(e) => {
-                                                    const school = schools.find(s => s._id === e.target.value);
-                                                    setSelectedSchool(school);
-                                                }}
-                                                className="w-full appearance-none bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 pr-10 text-sm font-medium text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                            >
-                                                {schools.map(school => (
-                                                    <option key={school._id} value={school._id}>
-                                                        {school.name} ({school.code})
-                                                    </option>
-                                                ))}
-                                            </select>
-                                            <FaChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400" size={12} />
-                                        </div>
+                                    {/* Current School Info */}
+                                    {!currentSchoolId && (
+                                        <p className="text-sm text-amber-600 bg-amber-50 px-3 py-2 rounded-lg">
+                                            No school assigned to your account
+                                        </p>
                                     )}
                                 </div>
 
@@ -383,8 +355,8 @@ const Settings = () => {
                                                         onClick={() => handleToggleFeature(featureKey)}
                                                         disabled={togglingFeature === featureKey}
                                                         className={`relative w-12 h-7 rounded-full transition-colors ${features[featureKey]
-                                                                ? 'bg-emerald-500'
-                                                                : 'bg-gray-200'
+                                                            ? 'bg-emerald-500'
+                                                            : 'bg-gray-200'
                                                             } ${togglingFeature === featureKey ? 'opacity-50' : ''}`}
                                                     >
                                                         <span

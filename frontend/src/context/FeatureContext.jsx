@@ -19,15 +19,8 @@ export const FeatureProvider = ({ children }) => {
             }
 
             try {
-                // Get schoolId - handle populated object
-                const schoolId = user.schoolId?._id || user.schoolId;
-                if (!schoolId) {
-                    setFeatures({});
-                    setLoading(false);
-                    return;
-                }
-
-                const response = await api.get(`/school/${schoolId}/features`);
+                // Use the /my-features endpoint that works for any authenticated user
+                const response = await api.get('/school/my-features');
                 if (response.data.success) {
                     setFeatures(response.data.data.features || {});
                 }
@@ -58,11 +51,8 @@ export const FeatureProvider = ({ children }) => {
     const refreshFeatures = async () => {
         if (!user || user.role === 'super_admin') return;
 
-        const schoolId = user.schoolId?._id || user.schoolId;
-        if (!schoolId) return;
-
         try {
-            const response = await api.get(`/school/${schoolId}/features`);
+            const response = await api.get('/school/my-features');
             if (response.data.success) {
                 setFeatures(response.data.data.features || {});
             }
