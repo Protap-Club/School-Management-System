@@ -42,7 +42,7 @@ app.get('/', (req, res) => {
 });
 
 // MongoDB Connection
-mongoose.connect(conf.MONGO_URI)
+mongoose.connect(conf.MONGO_URI, { dbName: "Protap" })
     .then(() => {
         console.log('Connected to MongoDB');
         app.listen(PORT, () => {
