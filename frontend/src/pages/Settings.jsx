@@ -112,8 +112,8 @@ const Settings = () => {
     if (loading) {
         return (
             <DashboardLayout>
-                <div className="flex items-center justify-center h-screen">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+                <div className="flex items-center justify-center h-[60vh]">
+                    <div className="animate-spin rounded-full h-8 w-8 border-2 border-gray-200 border-t-gray-600"></div>
                 </div>
             </DashboardLayout>
         );
@@ -121,67 +121,86 @@ const Settings = () => {
 
     return (
         <DashboardLayout>
+            {/* Toast Notification */}
+            {message.text && (
+                <div className={`fixed top-6 right-6 z-[100] px-5 py-3.5 rounded-xl shadow-lg flex items-center gap-3 animate-fadeIn backdrop-blur-sm ${message.type === 'success'
+                        ? 'bg-emerald-500/90 text-white'
+                        : 'bg-red-500/90 text-white'
+                    }`}>
+                    <div className="w-6 h-6 rounded-full flex items-center justify-center bg-white/20">
+                        {message.type === 'success' ? <FaCheck size={12} /> : <FaPalette size={12} />}
+                    </div>
+                    <span className="font-medium">{message.text}</span>
+                </div>
+            )}
+
             <div className="space-y-8">
                 {/* Header */}
                 <div>
-                    <h1 className="text-3xl font-bold text-gray-800">Settings</h1>
-                    <p className="text-gray-500 mt-1">Customize your portal appearance</p>
+                    <h1 className="text-3xl font-bold text-gray-900">Settings</h1>
+                    <p className="text-gray-500 mt-1">Customize your portal appearance and branding</p>
                 </div>
 
-                {message.text && (
-                    <div className={`p-4 rounded-xl ${message.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
-                        {message.text}
-                    </div>
-                )}
-
-                {/* Theme & Logo Settings */}
-                <div className="max-w-2xl space-y-8">
-                    {/* Theme Colors */}
-                    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                        <div className="p-6 border-b border-gray-100 flex items-center gap-3">
-                            <FaPalette className="text-primary text-xl" />
-                            <h2 className="text-lg font-bold text-gray-800">Theme Color</h2>
-                            <span className="text-xs text-gray-400 ml-auto">Click to apply</span>
-                        </div>
-                        <div className="p-6">
-                            <p className="text-sm text-gray-500 mb-6 font-medium">Choose a primary theme color</p>
-                            <div className="flex flex-wrap gap-4">
-                                {THEME_COLORS.map((color) => (
-                                    <button
-                                        key={color.value}
-                                        type="button"
-                                        onClick={() => handleColorSelect(color.value)}
-                                        className={`group relative w-12 h-12 rounded-full shadow-sm transition-all duration-300 hover:scale-110 focus:outline-none focus:ring-2 focus:ring-offset-2 ${settings.theme?.accentColor === color.value
-                                            ? 'ring-2 ring-offset-2 ring-gray-400 scale-110'
-                                            : 'hover:shadow-md'
-                                            }`}
-                                        style={{ backgroundColor: color.value }}
-                                        title={color.name}
-                                    >
-                                        {settings.theme?.accentColor === color.value && (
-                                            <span className="absolute inset-0 flex items-center justify-center">
-                                                <FaCheck className="text-white text-lg drop-shadow-md" />
+                {/* Two Column Layout */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    {/* Left Column - Settings Controls */}
+                    <div className="space-y-6">
+                        {/* Theme Colors */}
+                        <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+                            <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between">
+                                <div className="flex items-center gap-4">
+                                    <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-violet-100 to-indigo-100 flex items-center justify-center">
+                                        <FaPalette className="text-indigo-500" size={18} />
+                                    </div>
+                                    <div>
+                                        <h2 className="text-lg font-semibold text-gray-900">Theme Color</h2>
+                                        <p className="text-sm text-gray-500">Choose your primary accent</p>
+                                    </div>
+                                </div>
+                                <span className="text-xs text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full font-medium">Auto-save</span>
+                            </div>
+                            <div className="p-6">
+                                <div className="flex flex-wrap gap-4">
+                                    {THEME_COLORS.map((color) => (
+                                        <button
+                                            key={color.value}
+                                            type="button"
+                                            onClick={() => handleColorSelect(color.value)}
+                                            className={`group relative w-14 h-14 rounded-2xl transition-all duration-200 hover:scale-105 focus:outline-none shadow-sm ${settings.theme?.accentColor === color.value
+                                                    ? 'ring-2 ring-offset-4 ring-gray-900 scale-105'
+                                                    : 'hover:ring-2 hover:ring-offset-2 hover:ring-gray-200'
+                                                }`}
+                                            style={{ backgroundColor: color.value }}
+                                            title={color.name}
+                                        >
+                                            {settings.theme?.accentColor === color.value && (
+                                                <span className="absolute inset-0 flex items-center justify-center">
+                                                    <FaCheck className="text-white text-lg drop-shadow-md" />
+                                                </span>
+                                            )}
+                                            {/* Tooltip */}
+                                            <span className="absolute -bottom-8 left-1/2 -translate-x-1/2 text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap bg-gray-900 text-white px-3 py-1.5 rounded-lg pointer-events-none shadow-lg">
+                                                {color.name}
                                             </span>
-                                        )}
-                                        <span className="absolute -bottom-8 left-1/2 -translate-x-1/2 text-xs font-medium text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap bg-gray-100 px-2 py-1 rounded shadow-sm z-10 pointer-events-none">
-                                            {color.name}
-                                        </span>
-                                    </button>
-                                ))}
+                                        </button>
+                                    ))}
+                                </div>
                             </div>
                         </div>
-                    </div>
 
-                    {/* Logo */}
-                    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                        <div className="p-6 border-b border-gray-100 flex items-center gap-3">
-                            <FaImage className="text-primary text-xl" />
-                            <h2 className="text-lg font-bold text-gray-800">Portal Logo</h2>
-                        </div>
-                        <div className="p-6 space-y-4">
-                            {/* File Upload */}
-                            <div className="space-y-2">
-                                <label className="text-sm font-medium text-gray-700">Upload Logo</label>
+                        {/* Logo Upload */}
+                        <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+                            <div className="px-6 py-5 border-b border-gray-100 flex items-center gap-4">
+                                <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-amber-100 to-orange-100 flex items-center justify-center">
+                                    <FaImage className="text-amber-600" size={18} />
+                                </div>
+                                <div>
+                                    <h2 className="text-lg font-semibold text-gray-900">Portal Logo</h2>
+                                    <p className="text-sm text-gray-500">Upload your organization logo</p>
+                                </div>
+                            </div>
+                            <div className="p-6">
+                                {/* Upload Area */}
                                 <input
                                     type="file"
                                     ref={fileInputRef}
@@ -193,30 +212,111 @@ const Settings = () => {
                                     type="button"
                                     onClick={() => fileInputRef.current?.click()}
                                     disabled={uploading}
-                                    className="w-full flex items-center justify-center gap-3 px-6 py-4 border-2 border-dashed border-gray-300 rounded-xl hover:border-primary/60 hover:bg-primary/5 transition-all text-gray-600 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                                    className={`w-full group flex flex-col items-center justify-center gap-3 px-6 py-8 border-2 border-dashed rounded-xl transition-all ${uploading
+                                            ? 'border-gray-200 bg-gray-50 cursor-not-allowed'
+                                            : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50 cursor-pointer'
+                                        }`}
                                 >
-                                    <FaUpload size={20} />
-                                    <span>{uploading ? 'Uploading...' : 'Click to upload logo'}</span>
+                                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-colors ${uploading ? 'bg-gray-100' : 'bg-gray-100 group-hover:bg-gray-200'
+                                        }`}>
+                                        {uploading ? (
+                                            <div className="animate-spin rounded-full h-6 w-6 border-2 border-gray-300 border-t-gray-600"></div>
+                                        ) : (
+                                            <FaUpload className="text-gray-400 group-hover:text-gray-600" size={20} />
+                                        )}
+                                    </div>
+                                    <div className="text-center">
+                                        <span className={`text-base font-medium ${uploading ? 'text-gray-400' : 'text-gray-700'}`}>
+                                            {uploading ? 'Uploading...' : 'Click to upload logo'}
+                                        </span>
+                                        <p className="text-sm text-gray-400 mt-1">PNG, JPG, GIF, WEBP (max 2MB)</p>
+                                    </div>
                                 </button>
-                                <p className="text-xs text-gray-400">PNG, JPG, GIF, WEBP up to 2MB</p>
                             </div>
+                        </div>
+                    </div>
 
-                            {/* Logo Preview */}
-                            {settings.logoUrl && (
-                                <div className="mt-4 p-6 bg-gray-50 rounded-xl">
-                                    <p className="text-sm text-gray-500 mb-3">Current Logo:</p>
-                                    <div className="flex items-center justify-center bg-white p-4 rounded-lg border border-gray-200">
+                    {/* Right Column - Live Preview */}
+                    <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl border border-gray-200 p-6 lg:p-8">
+                        <div className="mb-6">
+                            <h3 className="text-lg font-semibold text-gray-900">Live Preview</h3>
+                            <p className="text-sm text-gray-500">See how your branding looks</p>
+                        </div>
+
+                        {/* Preview Card - Simulated Sidebar Header */}
+                        <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
+                            {/* Simulated Sidebar Header */}
+                            <div
+                                className="p-4 flex items-center gap-3"
+                                style={{ backgroundColor: settings.theme?.accentColor || '#2563eb' }}
+                            >
+                                {settings.logoUrl ? (
+                                    <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center p-1.5">
                                         <img
                                             src={settings.logoUrl.startsWith('/') ? `http://localhost:5000${settings.logoUrl}` : settings.logoUrl}
-                                            alt="Logo Preview"
-                                            className="h-12 max-w-[200px] object-contain"
+                                            alt="Logo"
+                                            className="h-full w-full object-contain"
                                             onError={(e) => {
                                                 e.target.style.display = 'none';
                                             }}
                                         />
                                     </div>
+                                ) : (
+                                    <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
+                                        <span className="text-white font-bold text-lg">S</span>
+                                    </div>
+                                )}
+                                <div>
+                                    <p className="text-white font-semibold text-sm">School Portal</p>
+                                    <p className="text-white/70 text-xs">Management System</p>
                                 </div>
-                            )}
+                            </div>
+
+                            {/* Simulated Menu Items */}
+                            <div className="p-3 space-y-1">
+                                <div
+                                    className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-white text-sm font-medium"
+                                    style={{ backgroundColor: settings.theme?.accentColor || '#2563eb' }}
+                                >
+                                    <div className="w-5 h-5 bg-white/20 rounded"></div>
+                                    <span>Dashboard</span>
+                                </div>
+                                <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 text-sm hover:bg-gray-50">
+                                    <div className="w-5 h-5 bg-gray-200 rounded"></div>
+                                    <span>Users</span>
+                                </div>
+                                <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 text-sm hover:bg-gray-50">
+                                    <div className="w-5 h-5 bg-gray-200 rounded"></div>
+                                    <span>Settings</span>
+                                </div>
+                            </div>
+
+                            {/* Sample Button */}
+                            <div className="px-4 pb-4">
+                                <button
+                                    className="w-full py-2.5 rounded-lg text-white text-sm font-medium transition-opacity hover:opacity-90"
+                                    style={{ backgroundColor: settings.theme?.accentColor || '#2563eb' }}
+                                >
+                                    Sample Button
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Current Selection Info */}
+                        <div className="mt-6 p-4 bg-white rounded-xl border border-gray-200">
+                            <p className="text-xs text-gray-400 uppercase tracking-wider font-medium mb-2">Current Theme</p>
+                            <div className="flex items-center gap-3">
+                                <div
+                                    className="w-8 h-8 rounded-lg shadow-sm"
+                                    style={{ backgroundColor: settings.theme?.accentColor || '#2563eb' }}
+                                ></div>
+                                <div>
+                                    <p className="text-sm font-medium text-gray-900">
+                                        {THEME_COLORS.find(c => c.value === settings.theme?.accentColor)?.name || 'Custom'}
+                                    </p>
+                                    <p className="text-xs text-gray-400 font-mono">{settings.theme?.accentColor}</p>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -226,3 +326,4 @@ const Settings = () => {
 };
 
 export default Settings;
+
