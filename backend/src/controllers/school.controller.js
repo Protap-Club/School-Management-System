@@ -69,8 +69,9 @@ export const uploadSchoolLogo = async (req, res) => {
             return res.status(400).json({ success: false, message: "No file uploaded" });
         }
 
-        // Use current user's school or provided schoolId (for super_admin)
-        const schoolId = req.body.schoolId || req.user.schoolId;
+        // Extract schoolId - handle both populated object and plain ID
+        const userSchoolId = req.user.schoolId?._id || req.user.schoolId;
+        const schoolId = req.body.schoolId || userSchoolId;
         const logoUrl = `/uploads/logos/${req.file.filename}`;
 
         // Super admin - return success with logo URL (uses default branding)
@@ -106,7 +107,8 @@ export const uploadSchoolLogo = async (req, res) => {
 
 export const deleteSchoolLogo = async (req, res) => {
     try {
-        const schoolId = req.body.schoolId || req.user.schoolId;
+        const userSchoolId = req.user.schoolId?._id || req.user.schoolId;
+        const schoolId = req.body.schoolId || userSchoolId;
         if (!schoolId) {
             return res.status(400).json({ success: false, message: "School ID required" });
         }
@@ -141,7 +143,8 @@ export const getMySchoolBranding = async (req, res) => {
 
 export const updateSchoolTheme = async (req, res) => {
     try {
-        const schoolId = req.body.schoolId || req.user.schoolId;
+        const userSchoolId = req.user.schoolId?._id || req.user.schoolId;
+        const schoolId = req.body.schoolId || userSchoolId;
 
         // Super admin uses default Protap branding - no need to save
         if (!schoolId && req.user.role === 'super_admin') {
