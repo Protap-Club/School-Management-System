@@ -2,6 +2,7 @@ import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useSidebar } from '../context/SidebarContext';
+import { useFeatures } from '../context/FeatureContext';
 import {
     FaUserGraduate,
     FaCog,
@@ -12,9 +13,11 @@ import {
 const Sidebar = () => {
     const { user } = useAuth();
     const { isCollapsed } = useSidebar();
+    const { hasFeature } = useFeatures();
 
     const getLinks = () => {
         const dashboardLink = { path: '/dashboard', label: 'Dashboard', icon: <FaHome /> };
+
         switch (user?.role) {
             case 'super_admin':
                 return [
@@ -29,11 +32,18 @@ const Sidebar = () => {
                     { path: '/admin/settings', label: 'Settings', icon: <FaCog /> },
                 ];
             case 'teacher':
-                return [
+                // Build links based on enabled features
+                const teacherLinks = [
                     dashboardLink,
                     { path: '/teacher/users', label: 'Users', icon: <FaUserGraduate /> },
-                    { path: '/teacher/attendance', label: 'Attendance', icon: <FaClipboardList /> },
                 ];
+
+                // Only show Attendance if feature is enabled
+                if (hasFeature('attendance')) {
+                    teacherLinks.push({ path: '/teacher/attendance', label: 'Attendance', icon: <FaClipboardList /> });
+                }
+
+                return teacherLinks;
             default:
                 return [];
         }

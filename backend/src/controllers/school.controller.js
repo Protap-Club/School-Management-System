@@ -141,6 +141,20 @@ export const getMySchoolBranding = async (req, res) => {
     }
 };
 
+export const getMySchoolFeatures = async (req, res) => {
+    try {
+        const schoolId = req.user.schoolId?._id || req.user.schoolId;
+        if (!schoolId) {
+            return res.status(200).json({ success: true, data: { features: {} } });
+        }
+        const result = await schoolService.getSchoolFeatures(schoolId);
+        res.status(200).json({ success: true, data: result });
+    } catch (error) {
+        console.error("Get My School Features Error:", error.message);
+        res.status(error.statusCode || 500).json({ success: false, message: error.message || "Internal Server Error" });
+    }
+};
+
 export const updateSchoolTheme = async (req, res) => {
     try {
         const userSchoolId = req.user.schoolId?._id || req.user.schoolId;

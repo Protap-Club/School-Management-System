@@ -2,7 +2,7 @@ import express from "express";
 import {
     createSchool, getSchools, getSchoolById, updateSchool,
     deleteSchool, getSchoolsList, uploadSchoolLogo, deleteSchoolLogo,
-    updateSchoolTheme, getMySchoolBranding,
+    updateSchoolTheme, getMySchoolBranding, getMySchoolFeatures,
     getSchoolFeatures, updateSchoolFeatures, toggleSchoolFeature, getAvailableFeatures
 } from "../controllers/school.controller.js";
 import { checkAuth } from "../middlewares/auth.middleware.js";
@@ -16,6 +16,9 @@ const router = express.Router();
 
 // Branding (for current user's school)
 router.get("/my-branding", checkAuth, getMySchoolBranding);
+
+// Features for current user's school (any authenticated user can read)
+router.get("/my-features", checkAuth, getMySchoolFeatures);
 
 // Logo Upload/Delete
 router.post("/logo", checkAuth, checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN]), upload.single('logo'), uploadSchoolLogo);
