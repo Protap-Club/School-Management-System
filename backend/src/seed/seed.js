@@ -1,108 +1,136 @@
 #!/usr/bin/env node
 /**
- * Seed Manager - Unified CLI for database seeding
+ * ═══════════════════════════════════════════════════════════════
+ * Seed Manager - Database Seeding CLI
+ * ═══════════════════════════════════════════════════════════════
+ * 
+ * Commands:
+ *   demo      Full demo setup (2 schools + all users)
+ *   quick     Quick test setup (1 school, 1 admin, 2 teachers, 8 students)
+ *   cleanup   Remove all demo data
+ *   help      Show this help
  * 
  * Usage:
- *   node src/seed/seed.js              # Interactive menu
- *   node src/seed/seed.js school       # Create demo schools
- *   node src/seed/seed.js users IITD   # Add users to IITD
- *   node src/seed/seed.js demo         # Full demo setup
- *   node src/seed/seed.js cleanup      # Remove demo data
+ *   node src/seed/seed.js demo
+ *   node src/seed/seed.js quick
+ *   node src/seed/seed.js cleanup
+ * ═══════════════════════════════════════════════════════════════
  */
 
-import readline from "readline";
-import { connectDB, disconnectDB } from "./runner.js";
-import { createSchool } from "./operations/school.js";
-import { addAdmins, addTeachers, addStudents } from "./operations/users.js";
-import { cleanupDemo } from "./operations/cleanup.js";
-import { DEMO_SCHOOLS, DEMO_USERS } from "./data/demo.js";
+import mongoose from "mongoose";
 import { conf } from "../config/index.js";
+import { USER_ROLES } from "../constants/userRoles.js";
+import { createSchool, addUsers, cleanup, DEMO_PASSWORD } from "./helpers.js";
+import { DEMO_SCHOOLS, DEMO_USERS } from "./data/demo.js";
 
 // ═══════════════════════════════════════════════════════════════
-// Command Handlers
+// DATABASE CONNECTION
+// ═══════════════════════════════════════════════════════════════
+
+const connectDB = async () => {
+    try {
+        await mongoose.connect(conf.MONGO_URI, { dbName: "Protap" });
+        console.log("✅ Connected to MongoDB\n");
+    } catch (error) {
+        console.error("❌ MongoDB connection error:", error.message);
+        process.exit(1);
+    }
+};
+
+const disconnectDB = async () => {
+    try {
+        await mongoose.disconnect();
+        console.log("✅ Disconnected from MongoDB");
+    } catch (error) {
+        console.error("❌ Disconnect error:", error.message);
+    }
+};
+
+// ═══════════════════════════════════════════════════════════════
+// COMMANDS
 // ═══════════════════════════════════════════════════════════════
 
 const commands = {
     /**
-     * Create demo schools with SuperAdmin
-     */
-    async school(args) {
-        const code = args[0];
-
-        if (code) {
-            // Create specific school
-            const schoolData = DEMO_SCHOOLS.find(s => s.code === code.toUpperCase());
-            if (!schoolData) {
-                console.log(`❌ School code '${code}' not found in demo data`);
-                console.log(`   Available: ${DEMO_SCHOOLS.map(s => s.code).join(", ")}`);
-                return;
-            }
-            await createSchool(schoolData);
-        } else {
-            // Create all demo schools
-            console.log("\n🏫 Creating Demo Schools...\n");
-            for (const schoolData of DEMO_SCHOOLS) {
-                await createSchool(schoolData);
-            }
-        }
-
-        console.log("\n🔐 Login Credentials:");
-        DEMO_SCHOOLS.forEach(s => {
-            const email = s.superAdmin?.email || `superadmin@${s.code.toLowerCase()}.edu.in`;
-            console.log(`   ${s.code}: ${email} / Demo@123`);
-        });
-    },
-
-    /**
-     * Add users to a school
-     */
-    async users(args) {
-        const code = args[0]?.toUpperCase();
-
-        if (!code) {
-            console.log("❌ Usage: seed.js users <SCHOOL_CODE>");
-            console.log(`   Available: ${Object.keys(DEMO_USERS).join(", ")}`);
-            return;
-        }
-
-        const userData = DEMO_USERS[code];
-        if (!userData) {
-            console.log(`❌ No demo users for school '${code}'`);
-            console.log(`   Available: ${Object.keys(DEMO_USERS).join(", ")}`);
-            return;
-        }
-
-        console.log(`\n👥 Adding users to ${code}...\n`);
-
-        if (userData.admins?.length) await addAdmins(code, userData.admins);
-        if (userData.teachers?.length) await addTeachers(code, userData.teachers);
-        if (userData.students?.length) await addStudents(code, userData.students);
-
-        console.log("\n✅ Users added!");
-    },
-
-    /**
-     * Full demo setup - schools + users
+     * Full demo setup - 2 schools with all users
      */
     async demo() {
-        console.log("\n🚀 Running Full Demo Setup...\n");
+        console.log("🚀 Full Demo Setup\n");
+        console.log("═".repeat(50));
 
-        // Create all schools
-        await commands.school([]);
-
-        // Add users to each school
-        for (const code of Object.keys(DEMO_USERS)) {
-            await commands.users([code]);
+        // Create schools
+        for (const school of DEMO_SCHOOLS) {
+            await createSchool(school);
         }
 
-        console.log("\n🎉 Demo setup complete!");
+        // Add users to each school
+        for (const [code, users] of Object.entries(DEMO_USERS)) {
+            if (users.admins?.length) await addUsers(code, users.admins, USER_ROLES.ADMIN);
+            if (users.teachers?.length) await addUsers(code, users.teachers, USER_ROLES.TEACHER);
+            if (users.students?.length) await addUsers(code, users.students, USER_ROLES.STUDENT);
+        }
+
+        console.log("\n═".repeat(50));
+        console.log("🎉 Demo setup complete!\n");
+        console.log("📌 Login Credentials (Password: Demo@123):");
+        console.log("   DPS: vraj@dps.com");
+        console.log("   DAV: vraj@dav.com");
+        console.log("═".repeat(50));
+    },
+
+    /**
+     * Quick test setup - Minimal data for rapid testing
+     */
+    async quick() {
+        console.log("⚡ Quick Test Setup\n");
+        console.log("═".repeat(50));
+
+        // Create 1 test school
+        await createSchool({
+            name: "Test School",
+            code: "TEST",
+            address: "123 Test Street",
+            contactPhone: "+91-9999999999"
+        });
+
+        // Add 1 admin
+        await addUsers("TEST", [
+            { name: "Test Admin", email: "admin@test.com", department: "Administration", employeeId: "TEST-ADM-001" }
+        ], USER_ROLES.ADMIN);
+
+        // Add 2 teachers (different classes)
+        await addUsers("TEST", [
+            { name: "Teacher 10A", email: "teacher10a@test.com", standard: "10th", section: "A", employeeId: "TEST-TCH-001" },
+            { name: "Teacher 10B", email: "teacher10b@test.com", standard: "10th", section: "B", employeeId: "TEST-TCH-002" }
+        ], USER_ROLES.TEACHER);
+
+        // Add 8 students (4 per class)
+        await addUsers("TEST", [
+            { name: "Student 1", email: "student1@test.com", rollNumber: "TEST001", standard: "10th", section: "A", year: 2024 },
+            { name: "Student 2", email: "student2@test.com", rollNumber: "TEST002", standard: "10th", section: "A", year: 2024 },
+            { name: "Student 3", email: "student3@test.com", rollNumber: "TEST003", standard: "10th", section: "A", year: 2024 },
+            { name: "Student 4", email: "student4@test.com", rollNumber: "TEST004", standard: "10th", section: "A", year: 2024 },
+            { name: "Student 5", email: "student5@test.com", rollNumber: "TEST005", standard: "10th", section: "B", year: 2024 },
+            { name: "Student 6", email: "student6@test.com", rollNumber: "TEST006", standard: "10th", section: "B", year: 2024 },
+            { name: "Student 7", email: "student7@test.com", rollNumber: "TEST007", standard: "10th", section: "B", year: 2024 },
+            { name: "Student 8", email: "student8@test.com", rollNumber: "TEST008", standard: "10th", section: "B", year: 2024 }
+        ], USER_ROLES.STUDENT);
+
+        console.log("\n═".repeat(50));
+        console.log("⚡ Quick setup complete!\n");
+        console.log("📌 Login Credentials (Password: Demo@123):");
+        console.log("   Super Admin: vraj@test.com");
+        console.log("   Admin: admin@test.com");
+        console.log("   Teacher 10A: teacher10a@test.com (sees 4 students)");
+        console.log("   Teacher 10B: teacher10b@test.com (sees 4 students)");
+        console.log("═".repeat(50));
     },
 
     /**
      * Cleanup demo data
      */
     async cleanup() {
-        await cleanupDemo();
+        await cleanup();
     },
 
     /**
@@ -110,117 +138,58 @@ const commands = {
      */
     help() {
         console.log(`
+═══════════════════════════════════════════════════════════════
 🌱 Seed Manager - Database Seeding Tool
-════════════════════════════════════════════════════
+═══════════════════════════════════════════════════════════════
 
-Commands:
-  school [CODE]     Create school(s) with SuperAdmin
-                    - No code: creates all demo schools
-                    - With code: creates specific school
+COMMANDS:
+  demo      Full demo setup (DPS + DAV schools with users)
+  quick     Quick test (1 school, minimal users for testing)
+  cleanup   Remove all demo data (DPS, DAV, TEST, IITD, IIMA)
+  help      Show this help message
 
-  users <CODE>      Add demo users to a school
-                    - Adds admins, teachers, students
+USAGE:
+  node src/seed/seed.js demo
+  node src/seed/seed.js quick
+  node src/seed/seed.js cleanup
 
-  demo              Full demo setup
-                    - Creates all schools + all users
+PASSWORD: ${DEMO_PASSWORD} (same for all users)
 
-  cleanup           Remove demo data
-                    - Deletes demo institutes and users
+QUICK TEST CREDENTIALS:
+  - Super Admin: vraj@test.com
+  - Admin: admin@test.com
+  - Teacher: teacher10a@test.com, teacher10b@test.com
 
-  help              Show this help message
-
-Examples:
-  node src/seed/seed.js school              # All schools
-  node src/seed/seed.js school IITD         # Only IITD
-  node src/seed/seed.js users IITD          # Add users to IITD
-  node src/seed/seed.js demo                # Full setup
-  node src/seed/seed.js cleanup             # Clean up
-
-Available Schools: ${DEMO_SCHOOLS.map(s => s.code).join(", ")}
+DEMO CREDENTIALS:
+  - DPS Super Admin: vraj@dps.com
+  - DAV Super Admin: vraj@dav.com
+═══════════════════════════════════════════════════════════════
 `);
     }
 };
 
 // ═══════════════════════════════════════════════════════════════
-// Interactive Menu
-// ═══════════════════════════════════════════════════════════════
-
-const showMenu = async () => {
-    const rl = readline.createInterface({
-        input: process.stdin,
-        output: process.stdout
-    });
-
-    const question = (prompt) => new Promise(resolve => rl.question(prompt, resolve));
-
-    console.log(`
-🌱 Seed Manager
-═══════════════════════════════════════════
-1. Create Schools (with SuperAdmin)
-2. Add Users to a School
-3. Full Demo Setup (schools + users)
-4. Cleanup Demo Data
-5. Help
-0. Exit
-═══════════════════════════════════════════`);
-
-    const choice = await question("\nChoose an option: ");
-
-    rl.close();
-
-    switch (choice) {
-        case "1":
-            await commands.school([]);
-            break;
-        case "2":
-            const rl2 = readline.createInterface({ input: process.stdin, output: process.stdout });
-            const code = await new Promise(r => rl2.question(`Enter school code (${Object.keys(DEMO_USERS).join("/")}): `, r));
-            rl2.close();
-            await commands.users([code]);
-            break;
-        case "3":
-            await commands.demo();
-            break;
-        case "4":
-            await commands.cleanup();
-            break;
-        case "5":
-            commands.help();
-            return false; // Don't exit
-        case "0":
-            return true; // Exit
-        default:
-            console.log("Invalid option");
-            return false;
-    }
-
-    return true;
-};
-
-// ═══════════════════════════════════════════════════════════════
-// Main Entry Point
+// MAIN
 // ═══════════════════════════════════════════════════════════════
 
 const main = async () => {
-    const args = process.argv.slice(2);
-    const command = args[0]?.toLowerCase();
+    const command = process.argv[2]?.toLowerCase();
+
+    if (!command || command === "help") {
+        commands.help();
+        return;
+    }
+
+    if (!commands[command]) {
+        console.log(`❌ Unknown command: ${command}`);
+        commands.help();
+        return;
+    }
 
     try {
         await connectDB();
-
-        if (!command) {
-            // Interactive mode
-            await showMenu();
-        } else if (commands[command]) {
-            // Command mode
-            await commands[command](args.slice(1));
-        } else {
-            console.log(`❌ Unknown command: ${command}`);
-            commands.help();
-        }
-
+        await commands[command]();
         await disconnectDB();
-        process.exit(0);
     } catch (error) {
         console.error("❌ Error:", error.message);
         await disconnectDB();
