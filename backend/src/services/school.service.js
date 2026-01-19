@@ -165,7 +165,9 @@ export const uploadLogo = async (schoolId, filePath, currentUser) => {
 
     // Check access - only super_admin or admin of this school
     if (currentUser.role !== USER_ROLES.SUPER_ADMIN) {
-        if (String(currentUser.schoolId) !== String(schoolId)) {
+        // Handle populated schoolId object
+        const userSchoolId = currentUser.schoolId?._id || currentUser.schoolId;
+        if (String(userSchoolId) !== String(schoolId)) {
             throw new ServiceError("Access denied", 403);
         }
     }
@@ -225,6 +227,89 @@ export const updateTheme = async (schoolId, themeData, currentUser) => {
 
     await school.save();
     return { name: school.name, logoUrl: school.logoUrl, theme: school.theme };
+};
+
+// ═══════════════════════════════════════════════════════════════
+// Feature Management Functions
+// ═══════════════════════════════════════════════════════════════
+
+import { isValidFeatureKey, SCHOOL_FEATURES } from "../constants/featureFlags.js";
+
+/**
+ * Get all features for a school
+ */
+export const getSchoolFeatures = async (schoolId) => {
+    const school = await School.findById(schoolId).select('features name');
+    if (!school) {
+        throw new ServiceError("School not found", 404);
+    }
+    return { schoolId: school._id, name: school.name, features: school.features };
+};
+
+/**
+ * Toggle a single feature for a school (super_admin only)
+ */
+export const toggleSchoolFeature = async (schoolId, featureKey, enabled, currentUser) => {
+    if (currentUser.role !== USER_ROLES.SUPER_ADMIN) {
+        throw new ServiceError("Only super admin can modify school features", 403);
+    }
+
+    if (!isValidFeatureKey(featureKey)) {
+        throw new ServiceError(`Invalid feature: ${featureKey}`, 400);
+    }
+
+    const school = await School.findById(schoolId);
+    if (!school) {
+        throw new ServiceError("School not found", 404);
+    }
+
+    school.features[featureKey] = Boolean(enabled);
+    await school.save();
+
+    return { schoolId: school._id, name: school.name, features: school.features };
+};
+
+/**
+ * Update multiple features at once (super_admin only)
+ */
+export const updateSchoolFeatures = async (schoolId, featuresUpdate, currentUser) => {
+    if (currentUser.role !== USER_ROLES.SUPER_ADMIN) {
+        throw new ServiceError("Only super admin can modify school features", 403);
+    }
+
+    const school = await School.findById(schoolId);
+    if (!school) {
+        throw new ServiceError("School not found", 404);
+    }
+
+    // Only update valid feature keys
+    for (const [key, value] of Object.entries(featuresUpdate)) {
+        if (isValidFeatureKey(key)) {
+            school.features[key] = Boolean(value);
+        }
+    }
+
+    await school.save();
+    return { schoolId: school._id, name: school.name, features: school.features };
+};
+
+/**
+ * Check if a school has a specific feature enabled
+ */
+export const hasFeature = async (schoolId, featureKey) => {
+    if (!schoolId) return false; // No school = no features
+
+    const school = await School.findById(schoolId).select('features');
+    if (!school) return false;
+
+    return school.features?.[featureKey] === true;
+};
+
+/**
+ * Get list of all available features with metadata
+ */
+export const getAvailableFeatures = () => {
+    return Object.values(SCHOOL_FEATURES);
 };
 
 export { ServiceError };

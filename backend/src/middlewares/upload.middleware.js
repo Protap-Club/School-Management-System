@@ -13,7 +13,9 @@ if (!fs.existsSync(logosDir)) fs.mkdirSync(logosDir, { recursive: true });
 const storage = multer.diskStorage({
     destination: (req, file, cb) => cb(null, logosDir),
     filename: (req, file, cb) => {
-        const schoolId = req.body?.schoolId || req.user?.schoolId || 'unknown';
+        // Handle both populated object and plain ID
+        const rawSchoolId = req.body?.schoolId || req.user?.schoolId;
+        const schoolId = rawSchoolId?._id || rawSchoolId || 'unknown';
         const timestamp = Date.now();
         const ext = path.extname(file.originalname).toLowerCase();
         cb(null, `school_${schoolId}_${timestamp}${ext}`);

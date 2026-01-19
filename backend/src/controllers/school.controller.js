@@ -69,8 +69,9 @@ export const uploadSchoolLogo = async (req, res) => {
             return res.status(400).json({ success: false, message: "No file uploaded" });
         }
 
-        // Use current user's school or provided schoolId (for super_admin)
-        const schoolId = req.body.schoolId || req.user.schoolId;
+        // Extract schoolId - handle both populated object and plain ID
+        const userSchoolId = req.user.schoolId?._id || req.user.schoolId;
+        const schoolId = req.body.schoolId || userSchoolId;
         const logoUrl = `/uploads/logos/${req.file.filename}`;
 
         // Super admin - return success with logo URL (uses default branding)
@@ -106,7 +107,8 @@ export const uploadSchoolLogo = async (req, res) => {
 
 export const deleteSchoolLogo = async (req, res) => {
     try {
-        const schoolId = req.body.schoolId || req.user.schoolId;
+        const userSchoolId = req.user.schoolId?._id || req.user.schoolId;
+        const schoolId = req.body.schoolId || userSchoolId;
         if (!schoolId) {
             return res.status(400).json({ success: false, message: "School ID required" });
         }
@@ -141,7 +143,8 @@ export const getMySchoolBranding = async (req, res) => {
 
 export const updateSchoolTheme = async (req, res) => {
     try {
-        const schoolId = req.body.schoolId || req.user.schoolId;
+        const userSchoolId = req.user.schoolId?._id || req.user.schoolId;
+        const schoolId = req.body.schoolId || userSchoolId;
 
         // Super admin uses default Protap branding - no need to save
         if (!schoolId && req.user.role === 'super_admin') {
@@ -164,4 +167,54 @@ export const updateSchoolTheme = async (req, res) => {
     }
 };
 
+// ═══════════════════════════════════════════════════════════════
+// Feature Management Controllers
+// ═══════════════════════════════════════════════════════════════
+
+export const getSchoolFeatures = async (req, res) => {
+    try {
+        const result = await schoolService.getSchoolFeatures(req.params.id);
+        res.status(200).json({ success: true, data: result });
+    } catch (error) {
+        console.error("Get School Features Error:", error.message);
+        res.status(error.statusCode || 500).json({ success: false, message: error.message || "Internal Server Error" });
+    }
+};
+
+export const updateSchoolFeatures = async (req, res) => {
+    try {
+        const result = await schoolService.updateSchoolFeatures(req.params.id, req.body, req.user);
+        res.status(200).json({ success: true, message: "Features updated", data: result });
+    } catch (error) {
+        console.error("Update School Features Error:", error.message);
+        res.status(error.statusCode || 500).json({ success: false, message: error.message || "Internal Server Error" });
+    }
+};
+
+export const toggleSchoolFeature = async (req, res) => {
+    try {
+        const { featureKey } = req.params;
+        const { enabled } = req.body;
+
+        if (enabled === undefined) {
+            return res.status(400).json({ success: false, message: "enabled field is required" });
+        }
+
+        const result = await schoolService.toggleSchoolFeature(req.params.id, featureKey, enabled, req.user);
+        res.status(200).json({ success: true, message: `Feature ${featureKey} ${enabled ? 'enabled' : 'disabled'}`, data: result });
+    } catch (error) {
+        console.error("Toggle School Feature Error:", error.message);
+        res.status(error.statusCode || 500).json({ success: false, message: error.message || "Internal Server Error" });
+    }
+};
+
+export const getAvailableFeatures = async (req, res) => {
+    try {
+        const features = schoolService.getAvailableFeatures();
+        res.status(200).json({ success: true, data: features });
+    } catch (error) {
+        console.error("Get Available Features Error:", error.message);
+        res.status(error.statusCode || 500).json({ success: false, message: error.message || "Internal Server Error" });
+    }
+};
 

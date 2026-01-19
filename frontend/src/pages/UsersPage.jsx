@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import DashboardLayout from '../layouts/DashboardLayout';
 import AddUserModal from '../components/AddUserModal';
 import { useAuth } from '../context/AuthContext';
@@ -53,6 +54,7 @@ const UsersPage = () => {
     const [selectionMode, setSelectionMode] = useState(false);
     const [selectedUsers, setSelectedUsers] = useState([]);
     const [activeDropdown, setActiveDropdown] = useState(null);
+    const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 });
     const dropdownRef = useRef(null);
 
     // Edit Modal State
@@ -66,6 +68,9 @@ const UsersPage = () => {
 
     // Search State
     const [searchQuery, setSearchQuery] = useState('');
+
+    // Message/Toast State
+    const [message, setMessage] = useState({ type: '', text: '' });
 
     // Get allowed roles for current user
     const allowedRoles = ROLE_PERMISSIONS[currentUser?.role] || [];
@@ -139,8 +144,29 @@ const UsersPage = () => {
     };
 
     // Toggle dropdown for a specific user
-    const toggleDropdown = (userId) => {
-        setActiveDropdown(activeDropdown === userId ? null : userId);
+    const toggleDropdown = (userId, event) => {
+        if (activeDropdown === userId) {
+            setActiveDropdown(null);
+        } else {
+            const button = event.currentTarget;
+            const rect = button.getBoundingClientRect();
+            const dropdownHeight = 140; // approximate height of dropdown
+            const spaceBelow = window.innerHeight - rect.bottom;
+
+            // Position: if not enough space below, show above
+            if (spaceBelow < dropdownHeight) {
+                setDropdownPosition({
+                    top: rect.top - dropdownHeight - 4,
+                    left: rect.right - 144 // 144 = w-36 (9rem)
+                });
+            } else {
+                setDropdownPosition({
+                    top: rect.bottom + 4,
+                    left: rect.right - 144
+                });
+            }
+            setActiveDropdown(userId);
+        }
     };
 
     // Enter selection mode
@@ -255,86 +281,130 @@ const UsersPage = () => {
 
     return (
         <DashboardLayout onSearch={setSearchQuery} searchValue={searchQuery}>
-            <div className="space-y-6">
+            {/* Toast Notification */}
+            {message.text && (
+                <div className={`fixed top-6 right-6 z-[100] px-5 py-3.5 rounded-lg shadow-lg flex items-center gap-3 animate-fadeIn backdrop-blur-sm ${message.type === 'success'
+                    ? 'bg-emerald-500/90 text-white'
+                    : 'bg-red-500/90 text-white'
+                    }`}>
+                    <div className={`w-5 h-5 rounded-full flex items-center justify-center ${message.type === 'success' ? 'bg-white/20' : 'bg-white/20'
+                        }`}>
+                        {message.type === 'success' ? <FaCheck size={10} /> : <FaTimes size={10} />}
+                    </div>
+                    <span className="font-medium text-sm">{message.text}</span>
+                    <button
+                        onClick={() => setMessage({ type: '', text: '' })}
+                        className="ml-2 p-1.5 hover:bg-white/20 rounded-md transition-colors"
+                    >
+                        <FaTimes size={10} />
+                    </button>
+                </div>
+            )}
+
+            <div className="space-y-5">
                 {/* Header */}
-                <div className="flex justify-between items-center">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                     <div>
-                        <h1 className="text-3xl font-bold text-gray-800">Users</h1>
-                        <p className="text-gray-500 mt-1">
-                            Manage {allowedRoles.length > 1 ? 'users' : allowedRoles[0] + 's'} in your organization
+                        <h1 className="text-2xl font-semibold text-gray-900 tracking-tight">
+                            {showArchived ? 'Archived Users' : 'Users'}
+                        </h1>
+                        <p className="text-gray-500 text-sm mt-0.5">
+                            {showArchived
+                                ? 'Manage archived users - restore or permanently delete'
+                                : `Manage ${allowedRoles.length > 1 ? 'all users' : allowedRoles[0] + 's'} in your organization`
+                            }
                         </p>
                     </div>
 
-                    {/* Add User Button/Dropdown */}
-                    {allowedRoles.length > 0 && !selectionMode && (
-                        <div className="relative group">
-                            <button className="flex items-center gap-2 bg-primary text-white px-5 py-2.5 rounded-xl shadow-lg shadow-primary/30 hover:bg-primary-hover transition-all font-medium">
-                                <FaUserPlus />
-                                <span>Add User</span>
+                    {/* Action Buttons */}
+                    <div className="flex items-center gap-2">
+                        {/* Archive Toggle */}
+                        {(currentUser?.role === 'super_admin' || currentUser?.role === 'admin') && !selectionMode && (
+                            <button
+                                onClick={() => {
+                                    setShowArchived(!showArchived);
+                                    setPage(0);
+                                }}
+                                className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-medium transition-all ${showArchived
+                                    ? 'bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100'
+                                    : 'bg-gray-50 text-gray-600 border border-gray-200 hover:bg-gray-100 hover:text-gray-700'
+                                    }`}
+                            >
+                                <FaArchive size={13} />
+                                <span className="hidden sm:inline">{showArchived ? 'View Active' : 'Archive'}</span>
                             </button>
+                        )}
 
-                            <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-xl shadow-xl border border-gray-100 opacity-0 invisible group-hover:opacity-100 group-hover:visible transform translate-y-2 group-hover:translate-y-0 transition-all duration-200 z-10 overflow-hidden">
-                                {allowedRoles.map((role) => {
-                                    const config = ROLE_LABELS[role];
-                                    const Icon = config.icon;
-                                    return (
-                                        <button
-                                            key={role}
-                                            onClick={() => setActiveModal(role)}
-                                            className={`w-full text-left px-4 py-3 hover:bg-${config.color}-50 text-gray-700 hover:text-${config.color}-600 flex items-center gap-2 transition-colors`}
-                                        >
-                                            <Icon /> Add {config.label}
-                                        </button>
-                                    );
-                                })}
+                        {/* Add User Button */}
+                        {allowedRoles.length > 0 && !selectionMode && !showArchived && (
+                            <div className="relative group">
+                                <button className="flex items-center gap-2 bg-gray-900 text-white px-4 py-2 rounded-lg hover:bg-gray-800 transition-all text-sm font-medium">
+                                    <FaUserPlus size={13} />
+                                    <span>Add User</span>
+                                </button>
+
+                                <div className="absolute right-0 top-full mt-1.5 w-44 bg-white rounded-lg shadow-xl border border-gray-100 opacity-0 invisible group-hover:opacity-100 group-hover:visible transform translate-y-1 group-hover:translate-y-0 transition-all duration-150 z-20 py-1">
+                                    {allowedRoles.map((role) => {
+                                        const config = ROLE_LABELS[role];
+                                        const Icon = config.icon;
+                                        return (
+                                            <button
+                                                key={role}
+                                                onClick={() => setActiveModal(role)}
+                                                className="w-full text-left px-3.5 py-2 text-gray-700 hover:bg-gray-50 flex items-center gap-2.5 transition-colors text-sm"
+                                            >
+                                                <Icon size={13} className="text-gray-400" />
+                                                <span>Add {config.label}</span>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
                             </div>
-                        </div>
-                    )}
+                        )}
+                    </div>
                 </div>
 
-                {/* Selection Mode Bulk Action Bar */}
+                {/* Selection Mode Bar */}
                 {selectionMode && (
-                    <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-4 flex items-center justify-between">
+                    <div className="bg-indigo-50 border border-indigo-100 rounded-lg px-4 py-3 flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                            <span className="bg-indigo-600 text-white text-sm font-bold px-3 py-1 rounded-full">
+                            <span className="bg-indigo-600 text-white text-xs font-semibold w-6 h-6 rounded-full flex items-center justify-center">
                                 {selectedUsers.length}
                             </span>
-                            <span className="text-indigo-700 font-medium">
-                                {selectedUsers.length === 1 ? 'user selected' : 'users selected'}
+                            <span className="text-indigo-700 text-sm font-medium">
+                                {selectedUsers.length === 1 ? 'user' : 'users'} selected
                             </span>
                         </div>
 
-                        <div className="flex items-center gap-3">
-                            {/* Edit - Only show for single selection */}
-                            {selectedUsers.length === 1 && (
+                        <div className="flex items-center gap-2">
+                            {selectedUsers.length === 1 && !showArchived && (
                                 <button
                                     onClick={() => {
                                         const user = users.find(u => u._id === selectedUsers[0]);
                                         if (user) handleEdit(user);
                                     }}
-                                    className="flex items-center gap-2 px-4 py-2 bg-white border border-indigo-300 text-indigo-700 rounded-lg hover:bg-indigo-100 transition-colors font-medium"
+                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-indigo-200 text-indigo-700 rounded-md hover:bg-indigo-50 transition-colors text-sm font-medium"
                                 >
-                                    <FaEdit size={14} />
+                                    <FaEdit size={11} />
                                     Edit
                                 </button>
                             )}
 
-                            {/* Delete - Available for single or multiple */}
                             <button
                                 onClick={handleBulkDelete}
                                 disabled={selectedUsers.length === 0}
-                                className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium disabled:opacity-50"
+                                className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors text-sm font-medium disabled:opacity-50"
                             >
-                                <FaTrash size={14} />
-                                {showArchived ? 'Delete Forever' : 'Delete'} {isMultipleSelected ? `(${selectedUsers.length})` : ''}
+                                {showArchived ? <FaTrash size={11} /> : <FaArchive size={11} />}
+                                {showArchived ? 'Delete' : 'Archive'}
+                                {isMultipleSelected && ` (${selectedUsers.length})`}
                             </button>
 
-                            {/* Cancel Selection Mode */}
                             <button
                                 onClick={exitSelectionMode}
-                                className="flex items-center gap-2 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium"
+                                className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 text-gray-600 rounded-md hover:bg-gray-50 transition-colors text-sm font-medium"
                             >
-                                <FaTimes size={14} />
+                                <FaTimes size={11} />
                                 Cancel
                             </button>
                         </div>
@@ -342,91 +412,51 @@ const UsersPage = () => {
                 )}
 
                 {/* Filters Bar */}
-                {!selectionMode && (
-                    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-                        <div className="flex flex-wrap items-center gap-4">
-                            {/* Teacher Filter - Fixed to Student */}
-                            {currentUser?.role === 'teacher' && (
-                                <div className="flex items-center gap-2">
-                                    <FaFilter className="text-gray-400" />
-                                    <select
-                                        disabled
-                                        className="px-4 py-2 border border-gray-300 rounded-lg outline-none bg-gray-50 text-gray-500 cursor-not-allowed"
-                                    >
-                                        <option>Student</option>
-                                    </select>
-                                </div>
-                            )}
-
-
-
-                            {/* Role Filter - only show if multiple roles allowed */}
-                            {allowedRoles.length > 1 && (
-                                <div className="flex items-center gap-2">
-                                    <FaFilter className="text-gray-400" />
-                                    <select
-                                        value={selectedRole}
-                                        onChange={(e) => handleRoleChange(e.target.value)}
-                                        className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none bg-white"
-                                    >
-                                        <option value="all">All Roles</option>
-                                        {allowedRoles.map((role) => (
-                                            <option key={role} value={role}>
-                                                {ROLE_LABELS[role]?.label || role}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-                            )}
-
-                            {/* Archive Toggle - Only for Admin and Super Admin */}
-                            {(currentUser?.role === 'super_admin' || currentUser?.role === 'admin') && (
-                                <button
-                                    onClick={() => {
-                                        setShowArchived(!showArchived);
-                                        setPage(0);
-                                    }}
-                                    className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${showArchived
-                                        ? 'bg-orange-100 text-orange-700 border border-orange-300'
-                                        : 'bg-gray-100 text-gray-600 border border-gray-300 hover:bg-gray-200'
-                                        }`}
-                                >
-                                    <FaArchive size={14} />
-                                    {showArchived ? 'Viewing Archived' : 'View Archive'}
-                                </button>
-                            )}
+                {!selectionMode && allowedRoles.length > 1 && (
+                    <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-3 py-1.5">
+                            <FaFilter className="text-gray-400" size={11} />
+                            <select
+                                value={selectedRole}
+                                onChange={(e) => handleRoleChange(e.target.value)}
+                                className="bg-transparent text-sm text-gray-700 outline-none cursor-pointer pr-2"
+                            >
+                                <option value="all">All Roles</option>
+                                {allowedRoles.map((role) => (
+                                    <option key={role} value={role}>
+                                        {ROLE_LABELS[role]?.label || role}
+                                    </option>
+                                ))}
+                            </select>
                         </div>
                     </div>
                 )}
 
                 {/* Users Table */}
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100">
-                    <div className="p-5 border-b border-gray-100 flex justify-between items-center">
-                        <div className="flex items-center gap-3">
-                            <FaUsers className="text-primary" />
-                            <h2 className="text-lg font-bold text-gray-800">User List</h2>
-                        </div>
-                    </div>
-
+                <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
                     {loading ? (
-                        <div className="p-12 text-center">
-                            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary mx-auto"></div>
-                            <p className="text-gray-500 mt-4">Loading users...</p>
+                        <div className="py-16 text-center">
+                            <div className="animate-spin rounded-full h-8 w-8 border-2 border-gray-200 border-t-gray-600 mx-auto"></div>
+                            <p className="text-gray-400 text-sm mt-3">Loading users...</p>
                         </div>
                     ) : users.length === 0 ? (
-                        <div className="p-12 text-center text-gray-500">
-                            <FaUsers size={40} className="mx-auto mb-4 text-gray-300" />
-                            <p>No users found</p>
+                        <div className="py-16 text-center">
+                            <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                                <FaUsers size={20} className="text-gray-400" />
+                            </div>
+                            <p className="text-gray-500 text-sm">No users found</p>
+                            <p className="text-gray-400 text-xs mt-1">
+                                {showArchived ? 'No archived users' : 'Add your first user to get started'}
+                            </p>
                         </div>
                     ) : (
                         <>
                             <div className="overflow-x-auto">
-                                <table className="w-full text-left">
+                                <table className="w-full">
                                     <thead>
-                                        <tr className="bg-gray-50/50">
-                                            {/* Select All Checkbox - Only in selection mode */}
+                                        <tr className="border-b border-gray-100">
                                             {selectionMode && (
-                                                <th className="px-5 py-3 w-12">
+                                                <th className="px-4 py-3 w-10">
                                                     <input
                                                         type="checkbox"
                                                         checked={selectedUsers.length === users.length && users.length > 0}
@@ -435,14 +465,14 @@ const UsersPage = () => {
                                                     />
                                                 </th>
                                             )}
-                                            <th className="px-5 py-3 text-sm font-semibold text-gray-600">Name</th>
-                                            <th className="px-5 py-3 text-sm font-semibold text-gray-600">Role</th>
-                                            <th className="px-5 py-3 text-sm font-semibold text-gray-600">Email</th>
-                                            <th className="px-5 py-3 text-sm font-semibold text-gray-600">Status</th>
-                                            <th className="px-5 py-3 text-sm font-semibold text-gray-600 w-12"></th>
+                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
+                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
+                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">Email</th>
+                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                            <th className="px-4 py-3 w-10"></th>
                                         </tr>
                                     </thead>
-                                    <tbody className="divide-y divide-gray-100" ref={dropdownRef}>
+                                    <tbody className="divide-y divide-gray-50" ref={dropdownRef}>
                                         {filteredUsers.length > 0 ? (
                                             filteredUsers.map((u, index) => {
                                                 const roleConfig = ROLE_LABELS[u.role];
@@ -450,11 +480,10 @@ const UsersPage = () => {
                                                 return (
                                                     <tr
                                                         key={u._id}
-                                                        className={`hover:bg-gray-50/50 transition-colors ${isSelected ? 'bg-indigo-50/50' : ''}`}
+                                                        className={`group transition-colors ${isSelected ? 'bg-indigo-50/60' : 'hover:bg-gray-50/50'}`}
                                                     >
-                                                        {/* Row Checkbox - Only in selection mode */}
                                                         {selectionMode && (
-                                                            <td className="px-5 py-4">
+                                                            <td className="px-4 py-3">
                                                                 <input
                                                                     type="checkbox"
                                                                     checked={isSelected}
@@ -463,89 +492,44 @@ const UsersPage = () => {
                                                                 />
                                                             </td>
                                                         )}
-                                                        <td className="px-5 py-4">
+                                                        <td className="px-4 py-3">
                                                             <div className="flex items-center gap-3">
-                                                                <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm bg-${roleConfig?.color || 'gray'}-100 text-${roleConfig?.color || 'gray'}-600`}>
+                                                                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold bg-${roleConfig?.color || 'gray'}-100 text-${roleConfig?.color || 'gray'}-600`}>
                                                                     {u.name.charAt(0).toUpperCase()}
                                                                 </div>
-                                                                <span className="font-medium text-gray-800">{u.name}</span>
+                                                                <div>
+                                                                    <div className="text-sm font-medium text-gray-900">{u.name}</div>
+                                                                    <div className="text-xs text-gray-400 md:hidden">{u.email}</div>
+                                                                </div>
                                                             </div>
                                                         </td>
-                                                        <td className="px-5 py-4">
-                                                            <span className={`px-2.5 py-1 rounded-full text-xs font-medium capitalize bg-${roleConfig?.color || 'gray'}-100 text-${roleConfig?.color || 'gray'}-600`}>
+                                                        <td className="px-4 py-3">
+                                                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-${roleConfig?.color || 'gray'}-50 text-${roleConfig?.color || 'gray'}-600 capitalize`}>
                                                                 {u.role}
                                                             </span>
                                                         </td>
-                                                        <td className="px-5 py-4 text-sm text-gray-600">{u.email}</td>
-                                                        <td className="px-5 py-4">
-                                                            <span className={`inline-flex items-center gap-1.5 text-xs ${u.isActive ? 'text-green-600' : 'text-red-600'}`}>
-                                                                <span className={`w-2 h-2 rounded-full ${u.isActive ? 'bg-green-500' : 'bg-red-500'}`}></span>
+                                                        <td className="px-4 py-3 hidden md:table-cell">
+                                                            <span className="text-sm text-gray-500">{u.email}</span>
+                                                        </td>
+                                                        <td className="px-4 py-3">
+                                                            <span className={`inline-flex items-center gap-1.5 text-xs font-medium ${u.isActive ? 'text-emerald-600' : 'text-gray-400'}`}>
+                                                                <span className={`w-1.5 h-1.5 rounded-full ${u.isActive ? 'bg-emerald-500' : 'bg-gray-300'}`}></span>
                                                                 {u.isActive ? 'Active' : 'Inactive'}
                                                             </span>
                                                         </td>
 
-                                                        {/* Kebab Menu - Hidden in selection mode */}
-                                                        <td className="px-5 py-4">
+                                                        {/* Actions Menu */}
+                                                        <td className="px-4 py-3">
                                                             {!selectionMode && (
-                                                                <div className="relative">
-                                                                    <button
-                                                                        onClick={() => toggleDropdown(u._id)}
-                                                                        className="p-2 hover:bg-gray-100 rounded-lg transition-colors text-gray-500 hover:text-gray-700"
-                                                                    >
-                                                                        <FaEllipsisV size={14} />
-                                                                    </button>
-
-                                                                    {/* Dropdown Menu */}
-                                                                    {activeDropdown === u._id && (
-                                                                        <div className={`absolute right-0 ${users.length > 2 && index >= users.length - 2 ? 'bottom-full mb-1' : 'top-full mt-1'} w-40 bg-white rounded-xl shadow-xl border border-gray-100 z-50 overflow-hidden animate-fadeIn`}>
-                                                                            <button
-                                                                                onClick={() => handleSelectAction(u._id)}
-                                                                                className="w-full text-left px-4 py-2.5 hover:bg-gray-50 text-gray-700 flex items-center gap-2 transition-colors text-sm"
-                                                                            >
-                                                                                <FaCheck size={12} className="text-indigo-500" />
-                                                                                Select
-                                                                            </button>
-
-                                                                            {!showArchived ? (
-                                                                                <>
-                                                                                    <button
-                                                                                        onClick={() => handleEdit(u)}
-                                                                                        className="w-full text-left px-4 py-2.5 hover:bg-gray-50 text-gray-700 flex items-center gap-2 transition-colors text-sm"
-                                                                                    >
-                                                                                        <FaEdit size={12} className="text-blue-500" />
-                                                                                        Edit
-                                                                                    </button>
-                                                                                    {(currentUser?.role === 'super_admin' || currentUser?.role === 'admin') && (
-                                                                                        <button
-                                                                                            onClick={() => handleDelete(u)}
-                                                                                            className="w-full text-left px-4 py-2.5 hover:bg-red-50 text-red-600 flex items-center gap-2 transition-colors text-sm"
-                                                                                        >
-                                                                                            <FaArchive size={12} />
-                                                                                            Archive
-                                                                                        </button>
-                                                                                    )}
-                                                                                </>
-                                                                            ) : (
-                                                                                <>
-                                                                                    <button
-                                                                                        onClick={() => handleRestore(u._id)}
-                                                                                        className="w-full text-left px-4 py-2.5 hover:bg-green-50 text-green-600 flex items-center gap-2 transition-colors text-sm"
-                                                                                    >
-                                                                                        <FaUndo size={12} />
-                                                                                        Restore
-                                                                                    </button>
-                                                                                    <button
-                                                                                        onClick={() => handleDelete(u)}
-                                                                                        className="w-full text-left px-4 py-2.5 hover:bg-red-50 text-red-600 flex items-center gap-2 transition-colors text-sm"
-                                                                                    >
-                                                                                        <FaTrash size={12} />
-                                                                                        Delete Forever
-                                                                                    </button>
-                                                                                </>
-                                                                            )}
-                                                                        </div>
-                                                                    )}
-                                                                </div>
+                                                                <button
+                                                                    onClick={(e) => toggleDropdown(u._id, e)}
+                                                                    className={`p-1.5 rounded-md transition-all ${activeDropdown === u._id
+                                                                        ? 'bg-gray-100 text-gray-700'
+                                                                        : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'
+                                                                        }`}
+                                                                >
+                                                                    <FaEllipsisV size={12} />
+                                                                </button>
                                                             )}
                                                         </td>
                                                     </tr>
@@ -553,7 +537,7 @@ const UsersPage = () => {
                                             })
                                         ) : (
                                             <tr>
-                                                <td colSpan="6" className="px-5 py-8 text-center text-gray-500">
+                                                <td colSpan="6" className="px-4 py-8 text-center text-sm text-gray-400">
                                                     No users found matching "{searchQuery}"
                                                 </td>
                                             </tr>
@@ -564,56 +548,39 @@ const UsersPage = () => {
 
                             {/* Pagination */}
                             {pagination.totalCount > 0 && (
-                                <div className="p-4 border-t border-gray-100 flex flex-col md:flex-row justify-between items-center gap-4">
-                                    <div className="text-gray-600">
-                                        Showing {showingStart}-{showingEnd} of {pagination.totalCount}
+                                <div className="px-4 py-3 border-t border-gray-100 flex flex-col sm:flex-row justify-between items-center gap-3 bg-gray-50/50">
+                                    <div className="text-xs text-gray-500">
+                                        Showing <span className="font-medium text-gray-700">{showingStart}</span> to <span className="font-medium text-gray-700">{showingEnd}</span> of <span className="font-medium text-gray-700">{pagination.totalCount}</span>
                                     </div>
 
-                                    {/* Page Size */}
-                                    <div className="flex items-center gap-2">
-                                        <span className="text-sm text-gray-500">Show:</span>
-                                        <select
-                                            value={pageSize}
-                                            onChange={(e) => handlePageSizeChange(e.target.value)}
-                                            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none bg-white text-sm"
-                                        >
-                                            <option value="25">25</option>
-                                            <option value="50">50</option>
-                                            <option value="75">75</option>
-                                            <option value="100">100</option>
-                                        </select>
-                                    </div>
-
-                                    <div className="flex items-center gap-2">
-                                        {/* Previous Page */}
+                                    <div className="flex items-center gap-1">
                                         <button
                                             onClick={() => setPage(p => Math.max(0, p - 1))}
                                             disabled={page === 0}
-                                            className="px-3 py-1 text-gray-600 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
+                                            className="px-2.5 py-1.5 text-xs text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:hover:bg-transparent rounded-md transition-colors font-medium"
                                         >
-                                            Previous
+                                            <FaChevronLeft size={10} />
                                         </button>
 
-                                        {/* Prev Group (<) */}
-                                        <button
-                                            onClick={() => setPage(Math.max(0, Math.floor((page - 3) / 3) * 3))}
-                                            disabled={page < 3}
-                                            className="w-8 h-8 flex items-center justify-center rounded-md text-gray-600 hover:bg-gray-100 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
-                                        >
-                                            &lt;
-                                        </button>
-
-                                        {/* Page Numbers (Group of 3) */}
-                                        {[...Array(3)].map((_, i) => {
-                                            const pageNum = (Math.floor(page / 3) * 3) + i;
+                                        {[...Array(Math.min(5, pagination.totalPages))].map((_, i) => {
+                                            let pageNum;
+                                            if (pagination.totalPages <= 5) {
+                                                pageNum = i;
+                                            } else if (page < 3) {
+                                                pageNum = i;
+                                            } else if (page > pagination.totalPages - 4) {
+                                                pageNum = pagination.totalPages - 5 + i;
+                                            } else {
+                                                pageNum = page - 2 + i;
+                                            }
                                             if (pageNum >= pagination.totalPages) return null;
                                             return (
                                                 <button
                                                     key={pageNum}
                                                     onClick={() => setPage(pageNum)}
-                                                    className={`w-8 h-8 flex items-center justify-center rounded-md text-sm font-medium transition-colors ${page === pageNum
-                                                        ? 'bg-primary text-white shadow-sm'
-                                                        : 'text-gray-600 hover:bg-gray-100 border border-gray-200'
+                                                    className={`min-w-[28px] h-7 px-2 flex items-center justify-center rounded-md text-xs font-medium transition-colors ${page === pageNum
+                                                        ? 'bg-gray-900 text-white'
+                                                        : 'text-gray-600 hover:bg-gray-100'
                                                         }`}
                                                 >
                                                     {pageNum + 1}
@@ -621,30 +588,114 @@ const UsersPage = () => {
                                             );
                                         })}
 
-                                        {/* Next Group (>) */}
-                                        <button
-                                            onClick={() => setPage(Math.min(pagination.totalPages - 1, (Math.floor(page / 3) + 1) * 3))}
-                                            disabled={(Math.floor(page / 3) + 1) * 3 >= pagination.totalPages}
-                                            className="w-8 h-8 flex items-center justify-center rounded-md text-gray-600 hover:bg-gray-100 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
-                                        >
-                                            &gt;
-                                        </button>
-
-                                        {/* Next Page */}
                                         <button
                                             onClick={() => setPage(p => Math.min(pagination.totalPages - 1, p + 1))}
                                             disabled={page >= pagination.totalPages - 1}
-                                            className="px-3 py-1 text-gray-600 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
+                                            className="px-2.5 py-1.5 text-xs text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:hover:bg-transparent rounded-md transition-colors font-medium"
                                         >
-                                            Next
+                                            <FaChevronRight size={10} />
                                         </button>
                                     </div>
+
+                                    <select
+                                        value={pageSize}
+                                        onChange={(e) => handlePageSizeChange(e.target.value)}
+                                        className="px-2 py-1 border border-gray-200 rounded-md text-xs text-gray-600 bg-white focus:outline-none focus:ring-1 focus:ring-gray-300"
+                                    >
+                                        <option value="25">25 / page</option>
+                                        <option value="50">50 / page</option>
+                                        <option value="100">100 / page</option>
+                                    </select>
                                 </div>
                             )}
                         </>
                     )}
                 </div>
             </div>
+
+            {/* Portal Dropdown Menu - Renders outside table to avoid overflow clipping */}
+            {activeDropdown && createPortal(
+                <>
+                    {/* Backdrop to close dropdown */}
+                    <div
+                        className="fixed inset-0 z-[99]"
+                        onClick={() => setActiveDropdown(null)}
+                    />
+                    {/* Dropdown */}
+                    <div
+                        ref={dropdownRef}
+                        style={{
+                            position: 'fixed',
+                            top: dropdownPosition.top,
+                            left: dropdownPosition.left,
+                        }}
+                        className="w-36 bg-white rounded-lg shadow-xl border border-gray-100 py-1 z-[100] animate-fadeIn"
+                    >
+                        <button
+                            onClick={() => {
+                                const user = filteredUsers.find(u => u._id === activeDropdown);
+                                if (user) handleSelectAction(user._id);
+                            }}
+                            className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 transition-colors"
+                        >
+                            <FaCheck size={11} className="text-gray-400" />
+                            Select
+                        </button>
+
+                        {!showArchived ? (
+                            <>
+                                <button
+                                    onClick={() => {
+                                        const user = filteredUsers.find(u => u._id === activeDropdown);
+                                        if (user) handleEdit(user);
+                                    }}
+                                    className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 transition-colors"
+                                >
+                                    <FaEdit size={11} className="text-gray-400" />
+                                    Edit
+                                </button>
+                                {(currentUser?.role === 'super_admin' || currentUser?.role === 'admin') && (
+                                    <>
+                                        <div className="h-px bg-gray-100 my-1"></div>
+                                        <button
+                                            onClick={() => {
+                                                const user = filteredUsers.find(u => u._id === activeDropdown);
+                                                if (user) handleDelete(user);
+                                            }}
+                                            className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors"
+                                        >
+                                            <FaArchive size={11} />
+                                            Archive
+                                        </button>
+                                    </>
+                                )}
+                            </>
+                        ) : (
+                            <>
+                                <button
+                                    onClick={() => handleRestore(activeDropdown)}
+                                    className="w-full text-left px-3 py-2 text-sm text-emerald-600 hover:bg-emerald-50 flex items-center gap-2 transition-colors"
+                                >
+                                    <FaUndo size={11} />
+                                    Restore
+                                </button>
+                                <div className="h-px bg-gray-100 my-1"></div>
+                                <button
+                                    onClick={() => {
+                                        const user = filteredUsers.find(u => u._id === activeDropdown);
+                                        if (user) handleDelete(user);
+                                    }}
+                                    className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors"
+                                >
+                                    <FaTrash size={11} />
+                                    Delete
+                                </button>
+                            </>
+                        )}
+                    </div>
+                </>,
+                document.body
+            )}
 
             {/* Add User Modal */}
             <AddUserModal
@@ -654,40 +705,47 @@ const UsersPage = () => {
                 onSuccess={handleUserCreated}
             />
 
-            {/* Delete Confirmation Modal */}
+            {/* Delete/Archive Confirmation Modal */}
             {deleteConfirm.open && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-                    <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 overflow-hidden animate-fadeIn">
-                        <div className="p-6">
-                            <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                                <FaTrash className="text-red-600" size={20} />
-                            </div>
-                            <h3 className="text-xl font-bold text-gray-800 text-center mb-2">
+                <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-xl shadow-2xl max-w-sm w-full overflow-hidden animate-fadeIn">
+                        <div className="p-5">
+                            <div className={`w-11 h-11 rounded-full flex items-center justify-center mx-auto mb-4 ${showArchived ? 'bg-red-100' : 'bg-amber-100'
+                                }`}>
                                 {showArchived
-                                    ? (deleteConfirm.isBulk ? `Permanently Delete ${deleteConfirm.users.length} Users?` : 'Permanently Delete User?')
-                                    : (deleteConfirm.isBulk ? `Archive ${deleteConfirm.users.length} Users?` : 'Archive User?')}
+                                    ? <FaTrash className="text-red-600" size={16} />
+                                    : <FaArchive className="text-amber-600" size={16} />
+                                }
+                            </div>
+                            <h3 className="text-lg font-semibold text-gray-900 text-center mb-1.5">
+                                {showArchived
+                                    ? (deleteConfirm.isBulk ? `Delete ${deleteConfirm.users.length} users?` : 'Delete user?')
+                                    : (deleteConfirm.isBulk ? `Archive ${deleteConfirm.users.length} users?` : 'Archive user?')}
                             </h3>
-                            <p className="text-gray-500 text-center mb-6">
+                            <p className="text-gray-500 text-sm text-center mb-5 leading-relaxed">
                                 {showArchived
                                     ? (deleteConfirm.isBulk
-                                        ? `Are you sure you want to permanently delete ${deleteConfirm.users.length} selected users? This action CANNOT be undone.`
-                                        : `Are you sure you want to permanently delete "${deleteConfirm.users[0]?.name}"? This action CANNOT be undone.`)
+                                        ? 'This will permanently delete selected users. This action cannot be undone.'
+                                        : `This will permanently delete "${deleteConfirm.users[0]?.name}". This cannot be undone.`)
                                     : (deleteConfirm.isBulk
-                                        ? `Are you sure you want to archive ${deleteConfirm.users.length} selected users? They can be restored later.`
-                                        : `Are you sure you want to archive "${deleteConfirm.users[0]?.name}"? This user can be restored later.`)}
+                                        ? 'Selected users will be moved to archive. You can restore them later.'
+                                        : `"${deleteConfirm.users[0]?.name}" will be moved to archive.`)}
                             </p>
-                            <div className="flex gap-3">
+                            <div className="flex gap-2.5">
                                 <button
                                     onClick={() => setDeleteConfirm({ open: false, users: [], isBulk: false })}
-                                    className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors font-medium"
+                                    className="flex-1 px-4 py-2 border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium"
                                 >
                                     Cancel
                                 </button>
                                 <button
                                     onClick={confirmDelete}
-                                    className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-xl hover:bg-red-700 transition-colors font-medium"
+                                    className={`flex-1 px-4 py-2 rounded-lg transition-colors text-sm font-medium text-white ${showArchived
+                                        ? 'bg-red-600 hover:bg-red-700'
+                                        : 'bg-amber-600 hover:bg-amber-700'
+                                        }`}
                                 >
-                                    {showArchived ? 'Delete Forever' : 'Archive'}
+                                    {showArchived ? 'Delete' : 'Archive'}
                                 </button>
                             </div>
                         </div>
@@ -695,40 +753,45 @@ const UsersPage = () => {
                 </div>
             )}
 
-            {/* Edit Modal Placeholder - You can implement full edit functionality */}
+            {/* Edit Modal */}
             {editModal.open && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-                    <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 overflow-hidden animate-fadeIn">
-                        <div className="p-6">
-                            <div className="flex justify-between items-center mb-4">
-                                <h3 className="text-xl font-bold text-gray-800">Edit User</h3>
-                                <button
-                                    onClick={() => setEditModal({ open: false, user: null })}
-                                    className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                                >
-                                    <FaTimes />
-                                </button>
+                <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-xl shadow-2xl max-w-md w-full overflow-hidden animate-fadeIn">
+                        <div className="p-5 border-b border-gray-100 flex justify-between items-center">
+                            <h3 className="text-lg font-semibold text-gray-900">Edit User</h3>
+                            <button
+                                onClick={() => setEditModal({ open: false, user: null })}
+                                className="p-1.5 hover:bg-gray-100 rounded-md transition-colors text-gray-400 hover:text-gray-600"
+                            >
+                                <FaTimes size={12} />
+                            </button>
+                        </div>
+                        <div className="p-5">
+                            <div className="flex items-center gap-3 mb-5 pb-4 border-b border-gray-100">
+                                <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-semibold">
+                                    {editModal.user?.name?.charAt(0).toUpperCase()}
+                                </div>
+                                <div>
+                                    <div className="font-medium text-gray-900">{editModal.user?.name}</div>
+                                    <div className="text-xs text-gray-400">{editModal.user?.email}</div>
+                                </div>
                             </div>
-                            <p className="text-gray-500 mb-6">
-                                Editing: <strong>{editModal.user?.name}</strong>
-                            </p>
-                            <p className="text-sm text-gray-400 italic mb-4">
+                            <p className="text-sm text-gray-400 italic mb-5">
                                 Edit form fields can be added here based on your requirements.
                             </p>
-                            <div className="flex gap-3">
+                            <div className="flex gap-2.5">
                                 <button
                                     onClick={() => setEditModal({ open: false, user: null })}
-                                    className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors font-medium"
+                                    className="flex-1 px-4 py-2 border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium"
                                 >
                                     Cancel
                                 </button>
                                 <button
                                     onClick={() => {
-                                        // Save logic here
                                         setEditModal({ open: false, user: null });
                                         exitSelectionMode();
                                     }}
-                                    className="flex-1 px-4 py-2.5 bg-primary text-white rounded-xl hover:bg-primary-hover transition-colors font-medium"
+                                    className="flex-1 px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors text-sm font-medium"
                                 >
                                     Save Changes
                                 </button>
@@ -742,3 +805,4 @@ const UsersPage = () => {
 };
 
 export default UsersPage;
+
