@@ -219,7 +219,8 @@ export const softDeleteUser = async (currentUser, userId) => {
 
     // Non-super_admin can only archive users from their own school
     if (currentUser.role !== USER_ROLES.SUPER_ADMIN) {
-        if (String(user.schoolId) !== String(currentUser.schoolId)) {
+        const currentUserSchoolId = currentUser.schoolId?._id || currentUser.schoolId;
+        if (String(user.schoolId) !== String(currentUserSchoolId)) {
             throw new ServiceError("Cannot archive users from other schools", 403);
         }
     }
