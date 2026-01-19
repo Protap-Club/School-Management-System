@@ -5,7 +5,7 @@ import api from '../api/axios';
 import { useNavigate } from 'react-router-dom';
 import { FaBars, FaUserCircle, FaSignOutAlt, FaBuilding, FaChevronDown, FaSearch } from 'react-icons/fa';
 
-const Header = () => {
+const Header = ({ onSearch, searchValue }) => {
     const { user, logout } = useAuth();
     const { toggleSidebar } = useSidebar();
     const navigate = useNavigate();
@@ -122,7 +122,10 @@ const Header = () => {
                     <input
                         type="text"
                         placeholder="Search..."
-                        className="w-full py-2 pl-10 pr-4 text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                        value={searchValue || ''}
+                        onChange={(e) => onSearch && onSearch(e.target.value)}
+                        disabled={!onSearch}
+                        className="w-full py-2 pl-10 pr-4 text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                     />
                 </div>
             </div>

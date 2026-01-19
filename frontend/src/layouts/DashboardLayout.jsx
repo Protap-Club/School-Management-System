@@ -4,7 +4,7 @@ import Header from '../components/Header';
 import { useSidebar } from '../context/SidebarContext';
 import api from '../api/axios';
 
-const DashboardLayout = ({ children }) => {
+const DashboardLayout = ({ children, onSearch, searchValue }) => {
     const { isCollapsed } = useSidebar();
 
     // Helper to darken color for hover state
@@ -58,7 +58,7 @@ const DashboardLayout = ({ children }) => {
     return (
         <div className="min-h-screen bg-gray-50">
             {/* Top Navigation Header */}
-            <Header />
+            <Header onSearch={onSearch} searchValue={searchValue} />
 
             {/* Sidebar */}
             <div className="pt-16"> {/* Spacer for fixed header */}
