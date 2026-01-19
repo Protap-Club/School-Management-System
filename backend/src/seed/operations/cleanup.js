@@ -33,7 +33,8 @@ const dropStaleIndexes = async () => {
 };
 
 /**
- * Remove all schools and their users (for demo schools: IITD, IIMA, or DEMO*)
+ * Remove all demo schools and their users
+ * Includes: IITD, IIMA, DPS, DAV, or anything starting with DEMO
  */
 export const cleanupDemo = async () => {
     console.log("\n🧹 Cleaning up demo data...\n");
@@ -41,11 +42,13 @@ export const cleanupDemo = async () => {
     // First drop any stale indexes
     await dropStaleIndexes();
 
-    // Find demo schools (IITD, IIMA, or anything starting with DEMO)
+    // Find demo schools (all known demo codes)
     const demoSchools = await SchoolModel.find({
         $or: [
             { code: "IITD" },
             { code: "IIMA" },
+            { code: "DPS" },
+            { code: "DAV" },
             { code: { $regex: /^DEMO/i } }
         ]
     });
@@ -78,10 +81,10 @@ export const cleanupDemo = async () => {
         }
     }
 
-    // Delete orphan demo users
+    // Delete orphan demo users (all known demo email patterns)
     const orphanUsers = await UserModel.deleteMany({
         email: {
-            $regex: /@(demo\.school|iitd\.ac\.in|iima\.ac\.in|student\.iitd\.ac\.in|student\.iima\.ac\.in)$/i
+            $regex: /@(demo\.school|iitd\.ac\.in|iima\.ac\.in|student\.iitd\.ac\.in|student\.iima\.ac\.in|dps\.com|dav\.com|dps\.edu\.in|dav\.edu\.in|protap\.com)$/i
         }
     });
     totalDeleted.users += orphanUsers.deletedCount;
@@ -92,3 +95,4 @@ export const cleanupDemo = async () => {
 };
 
 export default { cleanupDemo };
+

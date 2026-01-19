@@ -28,7 +28,9 @@ export const login = async (email, password) => {
         throw new ServiceError("Please provide email and password", 400);
     }
 
-    const user = await User.findOne({ email }).select('+password');
+    const user = await User.findOne({ email })
+        .select('+password')
+        .populate('schoolId', 'name code');
 
     if (!user) {
         throw new ServiceError("Invalid credentials", 401);

@@ -13,7 +13,9 @@ const checkAuth = async (req, res, next) => {
         const token = authHeader.split(" ")[1];
         const decoded = jwt.verify(token, conf.JWT_SECRET);
 
-        const user = await User.findById(decoded.id).select("-password");
+        const user = await User.findById(decoded.id)
+            .select("-password")
+            .populate('schoolId', 'name code');
 
         if (!user) {
             return res.status(401).json({ success: false, message: "User not found" });

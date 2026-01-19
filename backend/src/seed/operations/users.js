@@ -4,9 +4,11 @@
 
 import { createUserWithProfile, findSchoolByCode, findSuperAdminBySchool, validateUserSeedData, SeedResultTracker } from "../utils.js";
 import { USER_ROLES } from "../../constants/userRoles.js";
+import { DEMO_PASSWORD } from "../data/demo.js";
 
 /**
  * Add multiple users to a school
+ * For demo seeding, uses DEMO_PASSWORD for all users
  */
 export const addUsers = async ({ schoolCode, users, sendEmails = false }) => {
     if (!schoolCode) return { success: false, error: "School code is required" };
@@ -48,7 +50,8 @@ export const addUsers = async ({ schoolCode, users, sendEmails = false }) => {
             createdBy: creatorId,
             profileData: userData.profile || userData,
             sendEmail: sendEmails,
-            mustChangePassword: true
+            password: DEMO_PASSWORD, // Use same password for all demo users
+            mustChangePassword: false // Demo users don't need to change password
         });
 
         if (result.success) {

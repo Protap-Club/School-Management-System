@@ -20,26 +20,19 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
-    // Fetch current school details for everyone (including SuperAdmin)
+    // Set school data from user context (already populated from backend)
     useEffect(() => {
-        const fetchSchoolDetails = async () => {
-            if (user?.schoolId) {
-                // Set ID immediately from user context
-                setFormData(prev => ({ ...prev, schoolId: user.schoolId }));
-
-                try {
-                    const response = await api.get('/school/my-branding');
-                    if (response.data.success && response.data.data) {
-                        setSchoolName(response.data.data.name);
-                    }
-                } catch (error) {
-                    console.error('Failed to fetch school details', error);
-                }
+        if (isOpen && user?.schoolId) {
+            // If schoolId is populated object with name
+            if (typeof user.schoolId === 'object' && user.schoolId.name) {
+                setSchoolName(user.schoolId.name);
+                setFormData(prev => ({ ...prev, schoolId: user.schoolId._id }));
             }
-        };
-
-        if (isOpen) {
-            fetchSchoolDetails();
+            // If schoolId is just an ID (fallback)
+            else {
+                setFormData(prev => ({ ...prev, schoolId: user.schoolId }));
+                setSchoolName('School');
+            }
         }
     }, [isOpen, user]);
 

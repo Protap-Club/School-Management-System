@@ -48,7 +48,8 @@ const commands = {
 
         console.log("\n🔐 Login Credentials:");
         DEMO_SCHOOLS.forEach(s => {
-            console.log(`   ${s.code}: vraj.${s.code.toLowerCase()}@protap.com / ${conf.SUPER_ADMIN_PASSWORD || "Admin@123"}`);
+            const email = s.superAdmin?.email || `superadmin@${s.code.toLowerCase()}.edu.in`;
+            console.log(`   ${s.code}: ${email} / Demo@123`);
         });
     },
 

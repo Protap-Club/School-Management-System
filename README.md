@@ -733,10 +733,6 @@ Contributions are welcome! Please follow these guidelines:
 
 ---
 
-## 📝 License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
-
 ---
 
 ## 👨‍💻 Authors & Acknowledgments
@@ -765,7 +761,5 @@ For support, email support@protapclub.com or open an issue in the repository.
 <div align="center">
 
 **Made with ❤️ for Schools**
-
-⭐ Star this repo if you find it helpful!
 
 </div>
