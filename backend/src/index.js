@@ -9,6 +9,7 @@ import { conf } from './config/index.js';
 import authRoutes from './routes/auth.route.js';
 import userRouter from './routes/user.route.js';
 import schoolRouter from './routes/school.route.js';
+import nfcRouter from './routes/nfc.route.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -69,6 +70,7 @@ app.use('/resource', express.static(path.join(__dirname, '../resource')));
 app.use('/api/v1/auth', authRoutes);
 app.use("/api/v1/user", userRouter);
 app.use("/api/v1/school", schoolRouter);
+app.use("/api/v1/nfc", nfcRouter);
 
 app.get('/', (req, res) => {
     res.send('School Management System API is running...');
