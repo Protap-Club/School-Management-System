@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import DashboardLayout from '../layouts/DashboardLayout';
 import { useAuth } from '../context/AuthContext';
 import api from '../api/axios';
+import { connectSocket, disconnectSocket } from '../api/socket';
 import {
   FaUserGraduate,
   FaCalendarAlt,
@@ -10,7 +11,8 @@ import {
   FaClock,
   FaChartBar,
   FaUsers,
-  FaSearch
+  FaSearch,
+  FaWifi
 } from 'react-icons/fa';
 
 const Attendance = () => {
@@ -18,6 +20,8 @@ const Attendance = () => {
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [attendanceMap, setAttendanceMap] = useState({});
+  const [socketConnected, setSocketConnected] = useState(false);
   const [stats, setStats] = useState({
     total: 0,
     present: 0,
@@ -34,13 +38,13 @@ const Attendance = () => {
           const studentData = response.data.data;
           setStudents(studentData);
 
-          // Mock attendance stats based on student count
           const total = studentData.length;
-          const present = Math.floor(total * 0.85);
-          const absent = Math.floor(total * 0.08);
-          const late = total - present - absent;
-
-          setStats({ total, present, absent, late });
+          setStats({
+            total,
+            present: 0,
+            absent: total,
+            late: 0
+          });
         }
       } catch (error) {
         console.error('Failed to fetch students', error);
@@ -52,11 +56,58 @@ const Attendance = () => {
     fetchStudents();
   }, []);
 
+  // Socket.io connection for real-time updates
+  useEffect(() => {
+    if (currentUser?.schoolId) {
+      const socket = connectSocket(currentUser.schoolId);
+
+      socket.on('connect', () => {
+        console.log('Socket connected');
+        setSocketConnected(true);
+      });
+
+      socket.on('disconnect', () => {
+        console.log('Socket disconnected');
+        setSocketConnected(false);
+      });
+
+      // Listen for real-time attendance updates
+      socket.on('attendance-marked', (data) => {
+        console.log('Attendance marked:', data);
+
+        // Update attendance map
+        setAttendanceMap(prev => ({
+          ...prev,
+          [data.studentId]: {
+            status: data.status.toLowerCase(),
+            checkInTime: data.checkInTime
+          }
+        }));
+
+        // Update stats
+        setStats(prev => ({
+          ...prev,
+          present: prev.present + 1,
+          absent: Math.max(0, prev.absent - 1)
+        }));
+      });
+
+      return () => {
+        disconnectSocket();
+      };
+    }
+  }, [currentUser?.schoolId]);
+
   // Filter students by search
   const filteredStudents = students.filter(student =>
     student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     student.email.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  // Get status for a student
+  const getStudentStatus = (studentId) => {
+    return attendanceMap[studentId]?.status || 'unmarked';
+  };
 
   // Get today's date formatted
   const today = new Date().toLocaleDateString('en-US', {
@@ -91,6 +142,14 @@ const Attendance = () => {
               <FaCalendarAlt className="text-primary" />
               {today}
             </p>
+          </div>
+          {/* Socket Connection Status */}
+          <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm ${socketConnected
+              ? 'bg-green-100 text-green-700'
+              : 'bg-gray-100 text-gray-500'
+            }`}>
+            <FaWifi size={12} />
+            {socketConnected ? 'Live Updates Active' : 'Connecting...'}
           </div>
         </div>
 
@@ -190,40 +249,62 @@ const Attendance = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {filteredStudents.slice(0, 20).map((student, index) => {
-                    // Mock status based on index
-                    const statusOptions = ['present', 'present', 'present', 'present', 'absent', 'late'];
-                    const status = statusOptions[index % statusOptions.length];
+                  {filteredStudents.slice(0, 20).map((student) => {
+                    const status = getStudentStatus(student._id);
+                    const isPresent = status === 'present';
+                    const isLate = status === 'late';
+                    const isAbsent = status === 'absent';
+                    const isUnmarked = status === 'unmarked';
 
                     return (
-                      <tr key={student._id} className="hover:bg-gray-50/50 transition-colors">
+                      <tr
+                        key={student._id}
+                        className={`transition-all duration-500 ${isPresent
+                            ? 'bg-green-50 hover:bg-green-100'
+                            : 'hover:bg-gray-50/50'
+                          }`}
+                      >
                         <td className="px-5 py-4">
                           <div className="flex items-center gap-3">
-                            <div className="w-9 h-9 rounded-full bg-green-100 text-green-600 flex items-center justify-center font-bold text-sm">
+                            <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm ${isPresent
+                                ? 'bg-green-200 text-green-700'
+                                : 'bg-green-100 text-green-600'
+                              }`}>
                               {student.name.charAt(0).toUpperCase()}
                             </div>
                             <span className="font-medium text-gray-800">{student.name}</span>
+                            {isPresent && (
+                              <span className="ml-2 text-green-600">
+                                <FaCheckCircle size={14} />
+                              </span>
+                            )}
                           </div>
                         </td>
                         <td className="px-5 py-4 text-sm text-gray-600">{student.email}</td>
                         <td className="px-5 py-4">
-                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${status === 'present'
+                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${isPresent
                               ? 'bg-green-100 text-green-700'
-                              : status === 'absent'
-                                ? 'bg-red-100 text-red-700'
-                                : 'bg-orange-100 text-orange-700'
+                              : isLate
+                                ? 'bg-orange-100 text-orange-700'
+                                : isAbsent
+                                  ? 'bg-red-100 text-red-700'
+                                  : 'bg-gray-100 text-gray-500'
                             }`}>
-                            {status === 'present' && <FaCheckCircle size={10} />}
-                            {status === 'absent' && <FaTimesCircle size={10} />}
-                            {status === 'late' && <FaClock size={10} />}
-                            {status.charAt(0).toUpperCase() + status.slice(1)}
+                            {isPresent && <FaCheckCircle size={10} />}
+                            {isLate && <FaClock size={10} />}
+                            {isAbsent && <FaTimesCircle size={10} />}
+                            {isUnmarked ? 'Waiting...' : status.charAt(0).toUpperCase() + status.slice(1)}
                           </span>
                         </td>
                         <td className="px-5 py-4 text-center">
                           <div className="flex items-center justify-center gap-2">
                             <button
-                              className="p-2 rounded-lg bg-green-50 text-green-600 hover:bg-green-100 transition-colors"
+                              className={`p-2 rounded-lg transition-colors ${isPresent
+                                  ? 'bg-green-200 text-green-700 cursor-default'
+                                  : 'bg-green-50 text-green-600 hover:bg-green-100'
+                                }`}
                               title="Mark Present"
+                              disabled={isPresent}
                             >
                               <FaCheckCircle size={14} />
                             </button>
