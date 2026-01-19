@@ -563,7 +563,7 @@ const UsersPage = () => {
                             </div>
 
                             {/* Pagination */}
-                            {pagination.totalPages > 1 && (
+                            {pagination.totalCount > 0 && (
                                 <div className="p-4 border-t border-gray-100 flex flex-col md:flex-row justify-between items-center gap-4">
                                     <div className="text-gray-600">
                                         Showing {showingStart}-{showingEnd} of {pagination.totalCount}
@@ -585,6 +585,7 @@ const UsersPage = () => {
                                     </div>
 
                                     <div className="flex items-center gap-2">
+                                        {/* Previous Page */}
                                         <button
                                             onClick={() => setPage(p => Math.max(0, p - 1))}
                                             disabled={page === 0}
@@ -593,21 +594,43 @@ const UsersPage = () => {
                                             Previous
                                         </button>
 
-                                        <div className="flex items-center gap-1">
-                                            {[...Array(pagination.totalPages)].map((_, idx) => (
+                                        {/* Prev Group (<) */}
+                                        <button
+                                            onClick={() => setPage(Math.max(0, Math.floor((page - 3) / 3) * 3))}
+                                            disabled={page < 3}
+                                            className="w-8 h-8 flex items-center justify-center rounded-md text-gray-600 hover:bg-gray-100 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+                                        >
+                                            &lt;
+                                        </button>
+
+                                        {/* Page Numbers (Group of 3) */}
+                                        {[...Array(3)].map((_, i) => {
+                                            const pageNum = (Math.floor(page / 3) * 3) + i;
+                                            if (pageNum >= pagination.totalPages) return null;
+                                            return (
                                                 <button
-                                                    key={idx}
-                                                    onClick={() => setPage(idx)}
-                                                    className={`w-8 h-8 flex items-center justify-center rounded-md text-sm font-medium transition-colors ${page === idx
+                                                    key={pageNum}
+                                                    onClick={() => setPage(pageNum)}
+                                                    className={`w-8 h-8 flex items-center justify-center rounded-md text-sm font-medium transition-colors ${page === pageNum
                                                         ? 'bg-primary text-white shadow-sm'
                                                         : 'text-gray-600 hover:bg-gray-100 border border-gray-200'
                                                         }`}
                                                 >
-                                                    {idx + 1}
+                                                    {pageNum + 1}
                                                 </button>
-                                            ))}
-                                        </div>
+                                            );
+                                        })}
 
+                                        {/* Next Group (>) */}
+                                        <button
+                                            onClick={() => setPage(Math.min(pagination.totalPages - 1, (Math.floor(page / 3) + 1) * 3))}
+                                            disabled={(Math.floor(page / 3) + 1) * 3 >= pagination.totalPages}
+                                            className="w-8 h-8 flex items-center justify-center rounded-md text-gray-600 hover:bg-gray-100 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+                                        >
+                                            &gt;
+                                        </button>
+
+                                        {/* Next Page */}
                                         <button
                                             onClick={() => setPage(p => Math.min(pagination.totalPages - 1, p + 1))}
                                             disabled={page >= pagination.totalPages - 1}
