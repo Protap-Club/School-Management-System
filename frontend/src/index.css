@@ -23,6 +23,8 @@ body {
     background-color: var(--bg-color);
     color: #1f2937;
     /* Gray-800 */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
 }
 
 @keyframes blob {
