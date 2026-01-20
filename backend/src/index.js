@@ -40,8 +40,14 @@ io.on('connection', (socket) => {
     // Join school-specific room for data isolation
     socket.on('join-school', (schoolId) => {
         if (schoolId) {
-            socket.join(`school-${schoolId}`);
-            console.log(`Socket ${socket.id} joined room: school-${schoolId}`);
+            const roomName = `school-${schoolId}`;
+            socket.join(roomName);
+            console.log(`\n🔌 [SOCKET] Client joined room:`);
+            console.log(`   └── Socket ID: ${socket.id}`);
+            console.log(`   └── School ID: ${schoolId}`);
+            console.log(`   └── Room Name: ${roomName}`);
+        } else {
+            console.log(`\n⚠️ [SOCKET] Client tried to join without schoolId - Socket ID: ${socket.id}`);
         }
     });
 
@@ -56,6 +62,7 @@ export const getIO = () => io;
 // Middleware
 app.use(cors(corsOptions));
 app.use(express.json());
+app.use(express.text({ type: 'text/plain' })); // For HTTP Shortcuts that send text/plain
 
 // Store io instance on app for access in routes/controllers
 app.set('io', io);
