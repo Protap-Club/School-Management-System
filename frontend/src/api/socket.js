@@ -10,12 +10,20 @@ let currentSchoolId = null;
  * Handles React Strict Mode double-mounting gracefully
  */
 export const connectSocket = (schoolId) => {
-    // Ensure schoolId is a string for consistent room naming
-    const schoolIdStr = schoolId ? String(schoolId) : null;
+    // Handle schoolId being either a string or a populated object {_id, name, code}
+    let schoolIdStr = null;
+    if (schoolId) {
+        // If schoolId is an object (populated), extract the _id
+        if (typeof schoolId === 'object' && schoolId._id) {
+            schoolIdStr = String(schoolId._id);
+        } else {
+            schoolIdStr = String(schoolId);
+        }
+    }
 
     console.log('🔌 [SOCKET] connectSocket called:');
     console.log('   └── Raw schoolId:', schoolId);
-    console.log('   └── String schoolId:', schoolIdStr);
+    console.log('   └── Extracted schoolId:', schoolIdStr);
     console.log('   └── Current socket:', socket ? (socket.connected ? 'connected' : 'disconnected') : 'null');
     console.log('   └── Current schoolId:', currentSchoolId);
 
@@ -59,8 +67,16 @@ export const connectSocket = (schoolId) => {
     // Join school room if schoolId provided
     if (schoolIdStr && schoolIdStr !== currentSchoolId) {
         currentSchoolId = schoolIdStr;
-        console.log('📤 [SOCKET] Emitting join-school:', schoolIdStr);
-        socket.emit('join-school', schoolIdStr);
+        
+        // Only emit join-school if socket is already connected
+        // Otherwise, the connect handler will emit it
+        if (socket.connected) {
+            console.log('📤 [SOCKET] Emitting join-school (connected):', schoolIdStr);
+            socket.emit('join-school', schoolIdStr);
+        } else {
+            console.log('📤 [SOCKET] Will emit join-school after connect:', schoolIdStr);
+            // The connect handler above will emit join-school when connected
+        }
     }
 
     return socket;
