@@ -48,30 +48,40 @@ const Dashboard = () => {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
-        <div className="bg-gradient-to-r from-primary/10 to-primary/5 rounded-2xl p-8 border border-primary/10 shadow-sm relative overflow-hidden">
-          {/* Background decoration circles */}
-          <div className="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 rounded-full bg-primary/5"></div>
-          <div className="absolute bottom-0 left-0 -ml-16 -mb-16 w-32 h-32 rounded-full bg-primary/5"></div>
+      <div className="max-w-7xl mx-auto space-y-8">
+        <div className="relative bg-white rounded-3xl p-10 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 overflow-hidden group hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] transition-all duration-500">
+          {/* Elegant Background Decor */}
+          <div className="absolute top-0 right-0 -mr-20 -mt-20 w-80 h-80 rounded-full bg-gradient-to-br from-primary/5 to-transparent blur-2xl"></div>
+          <div className="absolute bottom-0 left-0 -ml-20 -mb-20 w-64 h-64 rounded-full bg-gradient-to-tr from-blue-50 to-transparent blur-2xl"></div>
 
-          <div className="relative z-10">
-            <h1 className="text-4xl font-bold mb-2 tracking-tight text-gray-800">
-              Welcome, <span className="text-primary/80 font-medium">{user?.name}</span>
-            </h1>
+          <div className="relative z-10 space-y-4">
+            <div className="space-y-2">
+              <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-gray-900 leading-tight">
+                Welcome, <br className="md:hidden" />
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-blue-600 font-extrabold pb-1 inline-block">
+                  {user?.name}
+                </span>
+              </h1>
 
-            {/* Show School Name for Admin & Teacher */}
-            {(user?.role === 'admin' || user?.role === 'teacher') && user?.schoolId?.name && (
-              <p className="text-xl text-gray-600 font-medium mt-2">
-                {user.schoolId.name}
-              </p>
-            )}
+            </div>
 
-            {/* Show Class Assignment for Teacher */}
-            {user?.role === 'teacher' && teacherProfile && (
-              <p className="text-lg text-gray-500 mt-1">
-                Class Teacher: <span className="font-medium text-gray-700">{teacherProfile.standard} - {teacherProfile.section}</span>
-              </p>
-            )}
+            <div className="pt-6 flex flex-wrap gap-4 items-center">
+              {/* School Name Badge */}
+              {user?.schoolId?.name && (
+                <div className="inline-flex items-center px-4 py-2 rounded-full bg-gray-50 border border-gray-200 text-gray-700 shadow-sm">
+                  <span className="font-semibold text-sm tracking-wide uppercase text-gray-400 mr-2">School</span>
+                  <span className="font-medium text-gray-900">{user.schoolId.name}</span>
+                </div>
+              )}
+
+              {/* Class Teacher Badge */}
+              {user?.role === 'teacher' && teacherProfile && (
+                <div className="inline-flex items-center px-4 py-2 rounded-full bg-blue-50 border border-blue-100 text-blue-800 shadow-sm">
+                  <span className="font-semibold text-sm tracking-wide uppercase text-blue-400 mr-2">Class Teacher</span>
+                  <span className="font-medium text-blue-900">{teacherProfile.standard} • {teacherProfile.section}</span>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>

@@ -59,24 +59,26 @@ const Sidebar = () => {
 
     return (
         <aside
-            className={`fixed left-0 top-16 h-[calc(100vh-4rem)] bg-white border-r border-gray-200 flex flex-col z-40 transition-all duration-300 ease-in-out ${isCollapsed ? 'w-0 md:w-20 -translate-x-full md:translate-x-0' : 'w-64'
+            className={`fixed left-0 top-16 h-[calc(100vh-4rem)] bg-white border-r border-gray-100 flex flex-col z-40 transition-all duration-300 ease-in-out shadow-[4px_0_24px_-12px_rgba(0,0,0,0.1)] ${isCollapsed ? 'w-0 md:w-20 -translate-x-full md:translate-x-0' : 'w-64'
                 }`}
         >
             {/* Scrollable Navigation Area */}
-            <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
+            <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
                 {getLinks().map((link) => (
                     <NavLink
                         key={link.path}
                         to={link.path}
                         title={isCollapsed ? link.label : ''}
                         className={({ isActive }) =>
-                            `flex items-center ${isCollapsed ? 'justify-center' : 'gap-3'} px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 ${isActive
-                                ? 'bg-primary/10 text-primary'
-                                : 'text-gray-600 hover:bg-gray-50 hover:text-gray-800'
+                            `flex items-center ${isCollapsed ? 'justify-center' : 'gap-3'} px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 group ${isActive
+                                ? 'bg-primary/5 text-primary shadow-sm ring-1 ring-primary/10'
+                                : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'
                             }`
                         }
                     >
-                        <span className="flex-shrink-0 text-lg">{link.icon}</span>
+                        <span className={`flex-shrink-0 text-lg transition-colors duration-200 ${isCollapsed ? '' : ''}`}>
+                            {link.icon}
+                        </span>
                         <span className={`transition-all duration-300 overflow-hidden whitespace-nowrap ${isCollapsed ? 'w-0 opacity-0 hidden md:block md:w-0 md:opacity-0' : 'w-auto opacity-100'
                             }`}>
                             {link.label}
