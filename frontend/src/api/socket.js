@@ -10,13 +10,24 @@ let currentSchoolId = null;
  * Handles React Strict Mode double-mounting gracefully
  */
 export const connectSocket = (schoolId) => {
+    // Ensure schoolId is a string for consistent room naming
+    const schoolIdStr = schoolId ? String(schoolId) : null;
+
+    console.log('🔌 [SOCKET] connectSocket called:');
+    console.log('   └── Raw schoolId:', schoolId);
+    console.log('   └── String schoolId:', schoolIdStr);
+    console.log('   └── Current socket:', socket ? (socket.connected ? 'connected' : 'disconnected') : 'null');
+    console.log('   └── Current schoolId:', currentSchoolId);
+
     // If already connected to the same school, just return existing socket
-    if (socket && socket.connected && currentSchoolId === schoolId) {
+    if (socket && socket.connected && currentSchoolId === schoolIdStr) {
+        console.log('   └── Already connected to same school, reusing socket');
         return socket;
     }
 
     // Create socket if it doesn't exist
     if (!socket) {
+        console.log('   └── Creating new socket connection...');
         socket = io(SOCKET_URL, {
             autoConnect: true,
             transports: ['websocket', 'polling'],
@@ -26,28 +37,30 @@ export const connectSocket = (schoolId) => {
         });
 
         socket.on('connect', () => {
-            console.log('Socket.io connected:', socket.id);
+            console.log('✅ [SOCKET] Connected:', socket.id);
             // Re-join school room on reconnect
             if (currentSchoolId) {
+                console.log('🔄 [SOCKET] Re-joining school room:', currentSchoolId);
                 socket.emit('join-school', currentSchoolId);
             }
         });
 
         socket.on('connect_error', (error) => {
-            console.error('Socket.io connection error:', error);
+            console.error('❌ [SOCKET] Connection error:', error);
         });
     }
 
     // Connect if not connected
     if (!socket.connected) {
+        console.log('   └── Socket not connected, connecting...');
         socket.connect();
     }
 
     // Join school room if schoolId provided
-    if (schoolId && schoolId !== currentSchoolId) {
-        currentSchoolId = schoolId;
-        socket.emit('join-school', schoolId);
-        console.log('Joined school room:', schoolId);
+    if (schoolIdStr && schoolIdStr !== currentSchoolId) {
+        currentSchoolId = schoolIdStr;
+        console.log('📤 [SOCKET] Emitting join-school:', schoolIdStr);
+        socket.emit('join-school', schoolIdStr);
     }
 
     return socket;
