@@ -33,7 +33,12 @@ const Attendance = () => {
   useEffect(() => {
     const fetchStudents = async () => {
       try {
-        const response = await api.get('/user/get-users?role=student&pageSize=100');
+        // Admin needs profiles for filtering, Teachers get backend-filtered list via get-users
+        const endpoint = currentUser?.role === 'admin'
+          ? '/user/get-users-with-profiles?role=student'
+          : '/user/get-users?role=student&pageSize=100';
+
+        const response = await api.get(endpoint);
         if (response.data.success) {
           const studentData = response.data.data;
           setStudents(studentData);
@@ -101,11 +106,25 @@ const Attendance = () => {
     };
   }, [currentUser?.schoolId]);
 
-  // Filter students by search
-  const filteredStudents = students.filter(student =>
-    student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    student.email.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const [selectedStandard, setSelectedStandard] = useState('');
+  const [selectedSection, setSelectedSection] = useState('');
+
+  // Filter students by search, standard, and division
+  const filteredStudents = students.filter(student => {
+    const matchesSearch = student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      student.email.toLowerCase().includes(searchTerm.toLowerCase());
+
+    // Robust filtering: ensure string comparison and handle potential non-string types
+    // Standard matches if it starts with the selected value (e.g. "9th" starts with "9")
+    const studentStandard = student.profile?.standard || '';
+    const matchesStandard = !selectedStandard || String(studentStandard).startsWith(String(selectedStandard));
+
+    // Section matches exact value
+    const studentSection = student.profile?.section || '';
+    const matchesSection = !selectedSection || studentSection === selectedSection;
+
+    return matchesSearch && matchesStandard && matchesSection;
+  });
 
   // Get status for a student
   const getStudentStatus = (studentId) => {
@@ -217,15 +236,44 @@ const Attendance = () => {
               </span>
             </div>
 
+            {/* Filters for Admin */}
+            {currentUser?.role === 'admin' && (
+              <div className="flex gap-3 mb-4 md:mb-0 w-full md:w-auto">
+                <select
+                  value={selectedStandard}
+                  onChange={(e) => setSelectedStandard(e.target.value)}
+                  className="px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none bg-white text-gray-700 text-sm cursor-pointer hover:border-gray-300 transition-colors"
+                >
+                  <option value="">Standard</option>
+                  <option value="9">9</option>
+                  <option value="10">10</option>
+                  <option value="11">11</option>
+                  <option value="12">12</option>
+                </select>
+
+                <select
+                  value={selectedSection}
+                  onChange={(e) => setSelectedSection(e.target.value)}
+                  className="px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none bg-white text-gray-700 text-sm cursor-pointer hover:border-gray-300 transition-colors"
+                >
+                  <option value="">Section</option>
+                  <option value="A">A</option>
+                  <option value="B">B</option>
+                  <option value="C">C</option>
+                  <option value="D">D</option>
+                </select>
+              </div>
+            )}
+
             {/* Search */}
             <div className="relative w-full md:w-64">
-              <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
               <input
                 type="text"
                 placeholder="Search students..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none"
+                className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all text-sm"
               />
             </div>
           </div>
@@ -237,21 +285,28 @@ const Attendance = () => {
             </div>
           ) : filteredStudents.length === 0 ? (
             <div className="p-12 text-center text-gray-500">
-              <FaUserGraduate size={40} className="mx-auto mb-4 text-gray-300" />
-              <p>No students found</p>
+              <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                <FaUserGraduate size={24} className="text-gray-300" />
+              </div>
+              <p className="text-lg font-medium text-gray-600">No students found</p>
+              <p className="text-sm mt-1">
+                {(selectedStandard || selectedSection)
+                  ? "Try adjusting your Standard and Section filters."
+                  : "There are no students matching your search criteria."}
+              </p>
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-left">
                 <thead>
-                  <tr className="bg-gray-50/50">
-                    <th className="px-5 py-3 text-sm font-semibold text-gray-600">Student</th>
-                    <th className="px-5 py-3 text-sm font-semibold text-gray-600">Email</th>
-                    <th className="px-5 py-3 text-sm font-semibold text-gray-600">Status</th>
-                    <th className="px-5 py-3 text-sm font-semibold text-gray-600 text-center">Actions</th>
+                  <tr className="bg-gray-50/50 border-b border-gray-100">
+                    <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Student</th>
+                    <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Email</th>
+                    <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
+                    <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider text-center">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100">
+                <tbody className="divide-y divide-gray-50">
                   {filteredStudents.slice(0, 20).map((student) => {
                     const status = getStudentStatus(student._id);
                     const isPresent = status === 'present';
@@ -262,36 +317,31 @@ const Attendance = () => {
                     return (
                       <tr
                         key={student._id}
-                        className={`transition-all duration-500 ${isPresent
-                          ? 'bg-green-50 hover:bg-green-100'
-                          : 'hover:bg-gray-50/50'
+                        className={`group transition-all duration-200 ${isPresent
+                          ? 'bg-green-50/30 hover:bg-green-50/60'
+                          : 'hover:bg-gray-50'
                           }`}
                       >
-                        <td className="px-5 py-4">
+                        <td className="px-6 py-4">
                           <div className="flex items-center gap-3">
-                            <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm ${isPresent
-                              ? 'bg-green-200 text-green-700'
-                              : 'bg-green-100 text-green-600'
+                            <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shadow-sm ${isPresent
+                              ? 'bg-green-100 text-green-800'
+                              : 'bg-green-50 text-green-700 border border-green-100 group-hover:bg-green-100'
                               }`}>
                               {student.name.charAt(0).toUpperCase()}
                             </div>
-                            <span className="font-medium text-gray-800">{student.name}</span>
-                            {isPresent && (
-                              <span className="ml-2 text-green-600">
-                                <FaCheckCircle size={14} />
-                              </span>
-                            )}
+                            <span className="font-medium text-gray-900">{student.name}</span>
                           </div>
                         </td>
-                        <td className="px-5 py-4 text-sm text-gray-600">{student.email}</td>
-                        <td className="px-5 py-4">
-                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${isPresent
-                            ? 'bg-green-100 text-green-700'
+                        <td className="px-6 py-4 text-sm text-gray-500">{student.email}</td>
+                        <td className="px-6 py-4">
+                          <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border ${isPresent
+                            ? 'bg-green-50 text-green-700 border-green-100'
                             : isLate
-                              ? 'bg-orange-100 text-orange-700'
+                              ? 'bg-orange-50 text-orange-700 border-orange-100'
                               : isAbsent
-                                ? 'bg-red-100 text-red-700'
-                                : 'bg-gray-100 text-gray-500'
+                                ? 'bg-red-50 text-red-700 border-red-100'
+                                : 'bg-blue-50 text-blue-600 border-blue-100'
                             }`}>
                             {isPresent && <FaCheckCircle size={10} />}
                             {isLate && <FaClock size={10} />}
@@ -299,12 +349,12 @@ const Attendance = () => {
                             {isUnmarked ? 'Waiting...' : status.charAt(0).toUpperCase() + status.slice(1)}
                           </span>
                         </td>
-                        <td className="px-5 py-4 text-center">
-                          <div className="flex items-center justify-center gap-2">
+                        <td className="px-6 py-4 text-center">
+                          <div className="flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                             <button
                               className={`p-2 rounded-lg transition-colors ${isPresent
-                                ? 'bg-green-200 text-green-700 cursor-default'
-                                : 'bg-green-50 text-green-600 hover:bg-green-100'
+                                ? 'bg-green-100 text-green-700 cursor-default'
+                                : 'bg-white border border-gray-200 text-gray-400 hover:border-green-300 hover:text-green-600 hover:bg-green-50'
                                 }`}
                               title="Mark Present"
                               disabled={isPresent}
@@ -312,13 +362,13 @@ const Attendance = () => {
                               <FaCheckCircle size={14} />
                             </button>
                             <button
-                              className="p-2 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 transition-colors"
+                              className="p-2 rounded-lg bg-white border border-gray-200 text-gray-400 hover:border-red-300 hover:text-red-600 hover:bg-red-50 transition-all"
                               title="Mark Absent"
                             >
                               <FaTimesCircle size={14} />
                             </button>
                             <button
-                              className="p-2 rounded-lg bg-orange-50 text-orange-600 hover:bg-orange-100 transition-colors"
+                              className="p-2 rounded-lg bg-white border border-gray-200 text-gray-400 hover:border-orange-300 hover:text-orange-600 hover:bg-orange-50 transition-all"
                               title="Mark Late"
                             >
                               <FaClock size={14} />
