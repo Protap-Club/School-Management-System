@@ -26,11 +26,19 @@ const Sidebar = () => {
                     { path: '/superadmin/settings', label: 'Settings', icon: <FaCog /> },
                 ];
             case 'admin':
-                return [
+                // Build links based on enabled features
+                const adminLinks = [
                     dashboardLink,
                     { path: '/admin/users', label: 'Users', icon: <FaUserGraduate /> },
                     { path: '/admin/settings', label: 'Settings', icon: <FaCog /> },
                 ];
+
+                // Only show Attendance if feature is enabled
+                if (hasFeature('attendance')) {
+                    adminLinks.push({ path: '/admin/attendance', label: 'Attendance', icon: <FaClipboardList /> });
+                }
+
+                return adminLinks;
             case 'teacher':
                 // Build links based on enabled features
                 const teacherLinks = [
