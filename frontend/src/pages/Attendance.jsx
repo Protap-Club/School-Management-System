@@ -33,8 +33,12 @@ const Attendance = () => {
   useEffect(() => {
     const fetchStudents = async () => {
       try {
-        // Use get-users-with-profiles to access standard and section data
-        const response = await api.get('/user/get-users-with-profiles?role=student');
+        // Admin needs profiles for filtering, Teachers get backend-filtered list via get-users
+        const endpoint = currentUser?.role === 'admin'
+          ? '/user/get-users-with-profiles?role=student'
+          : '/user/get-users?role=student&pageSize=100';
+
+        const response = await api.get(endpoint);
         if (response.data.success) {
           const studentData = response.data.data;
           setStudents(studentData);
