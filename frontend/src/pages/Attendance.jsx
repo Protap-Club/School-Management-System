@@ -33,7 +33,8 @@ const Attendance = () => {
   useEffect(() => {
     const fetchStudents = async () => {
       try {
-        const response = await api.get('/user/get-users?role=student&pageSize=100');
+        // Use get-users-with-profiles to access standard and section data
+        const response = await api.get('/user/get-users-with-profiles?role=student');
         if (response.data.success) {
           const studentData = response.data.data;
           setStudents(studentData);
@@ -101,11 +102,25 @@ const Attendance = () => {
     };
   }, [currentUser?.schoolId]);
 
-  // Filter students by search
-  const filteredStudents = students.filter(student =>
-    student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    student.email.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const [selectedStandard, setSelectedStandard] = useState('');
+  const [selectedSection, setSelectedSection] = useState('');
+
+  // Filter students by search, standard, and division
+  const filteredStudents = students.filter(student => {
+    const matchesSearch = student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      student.email.toLowerCase().includes(searchTerm.toLowerCase());
+
+    // Robust filtering: ensure string comparison and handle potential non-string types
+    // Standard matches if it starts with the selected value (e.g. "9th" starts with "9")
+    const studentStandard = student.profile?.standard || '';
+    const matchesStandard = !selectedStandard || String(studentStandard).startsWith(String(selectedStandard));
+
+    // Section matches exact value
+    const studentSection = student.profile?.section || '';
+    const matchesSection = !selectedSection || studentSection === selectedSection;
+
+    return matchesSearch && matchesStandard && matchesSection;
+  });
 
   // Get status for a student
   const getStudentStatus = (studentId) => {
@@ -217,6 +232,35 @@ const Attendance = () => {
               </span>
             </div>
 
+            {/* Filters for Admin */}
+            {currentUser?.role === 'admin' && (
+              <div className="flex gap-3 mb-4 md:mb-0 w-full md:w-auto">
+                <select
+                  value={selectedStandard}
+                  onChange={(e) => setSelectedStandard(e.target.value)}
+                  className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none bg-white text-gray-700 cursor-pointer"
+                >
+                  <option value="">Standard</option>
+                  <option value="9">9</option>
+                  <option value="10">10</option>
+                  <option value="11">11</option>
+                  <option value="12">12</option>
+                </select>
+
+                <select
+                  value={selectedSection}
+                  onChange={(e) => setSelectedSection(e.target.value)}
+                  className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none bg-white text-gray-700 cursor-pointer"
+                >
+                  <option value="">Section</option>
+                  <option value="A">A</option>
+                  <option value="B">B</option>
+                  <option value="C">C</option>
+                  <option value="D">D</option>
+                </select>
+              </div>
+            )}
+
             {/* Search */}
             <div className="relative w-full md:w-64">
               <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -238,7 +282,11 @@ const Attendance = () => {
           ) : filteredStudents.length === 0 ? (
             <div className="p-12 text-center text-gray-500">
               <FaUserGraduate size={40} className="mx-auto mb-4 text-gray-300" />
-              <p>No students found</p>
+              <p>
+                {(selectedStandard || selectedSection)
+                  ? "No students found for the selected Standard and Section."
+                  : "No students found"}
+              </p>
             </div>
           ) : (
             <div className="overflow-x-auto">
