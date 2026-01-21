@@ -30,13 +30,15 @@ const Sidebar = () => {
                 const adminLinks = [
                     dashboardLink,
                     { path: '/admin/users', label: 'Users', icon: <FaUserGraduate /> },
-                    { path: '/admin/settings', label: 'Settings', icon: <FaCog /> },
                 ];
 
                 // Only show Attendance if feature is enabled
                 if (hasFeature('attendance')) {
                     adminLinks.push({ path: '/admin/attendance', label: 'Attendance', icon: <FaClipboardList /> });
                 }
+
+                // Settings always last
+                adminLinks.push({ path: '/admin/settings', label: 'Settings', icon: <FaCog /> });
 
                 return adminLinks;
             case 'teacher':
