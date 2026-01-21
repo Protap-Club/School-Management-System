@@ -8,6 +8,7 @@ export const SCHOOL_FEATURES = {
     TIMETABLE: { key: 'timetable', label: 'Timetable', description: 'Class and exam schedules' },
     LIBRARY: { key: 'library', label: 'Library Management', description: 'Book inventory and borrowing' },
     TRANSPORT: { key: 'transport', label: 'Transport Management', description: 'Bus routes and tracking' },
+    NOTICE: { key: 'notice', label: 'Notice Board', description: 'School announcements and notifications' },
 };
 
 /**

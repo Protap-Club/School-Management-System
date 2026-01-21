@@ -85,7 +85,9 @@ function App() {
                   path="/admin/notice"
                   element={
                     <ProtectedRoute allowedRoles={['admin']}>
-                      <Notice />
+                      <RequireFeature feature="notice">
+                        <Notice />
+                      </RequireFeature>
                     </ProtectedRoute>
                   }
                 />
@@ -113,7 +115,9 @@ function App() {
                   path="/teacher/notice"
                   element={
                     <ProtectedRoute allowedRoles={['teacher']}>
-                      <Notice />
+                      <RequireFeature feature="notice">
+                        <Notice />
+                      </RequireFeature>
                     </ProtectedRoute>
                   }
                 />

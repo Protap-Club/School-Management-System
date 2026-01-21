@@ -38,8 +38,10 @@ const Sidebar = () => {
                     adminLinks.push({ path: '/admin/attendance', label: 'Attendance', icon: <FaClipboardList /> });
                 }
 
-                // Notice link
-                adminLinks.push({ path: '/admin/notice', label: 'Notice', icon: <FaBullhorn /> });
+                // Notice link (only if feature enabled)
+                if (hasFeature('notice')) {
+                    adminLinks.push({ path: '/admin/notice', label: 'Notice', icon: <FaBullhorn /> });
+                }
 
                 // Settings always last
                 adminLinks.push({ path: '/admin/settings', label: 'Settings', icon: <FaCog /> });
@@ -57,8 +59,10 @@ const Sidebar = () => {
                     teacherLinks.push({ path: '/teacher/attendance', label: 'Attendance', icon: <FaClipboardList /> });
                 }
 
-                // Notice link
-                teacherLinks.push({ path: '/teacher/notice', label: 'Notice', icon: <FaBullhorn /> });
+                // Notice link (only if feature enabled)
+                if (hasFeature('notice')) {
+                    teacherLinks.push({ path: '/teacher/notice', label: 'Notice', icon: <FaBullhorn /> });
+                }
 
                 return teacherLinks;
             default:
