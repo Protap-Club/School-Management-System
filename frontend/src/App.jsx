@@ -13,6 +13,7 @@ import UsersPage from './pages/UsersPage';
 import Settings from './pages/Settings';
 import Dashboard from './pages/Dashboard';
 import Attendance from './pages/Attendance';
+import Notice from './pages/Notice';
 
 function App() {
   return (
@@ -80,6 +81,16 @@ function App() {
                     </ProtectedRoute>
                   }
                 />
+                <Route
+                  path="/admin/notice"
+                  element={
+                    <ProtectedRoute allowedRoles={['admin']}>
+                      <RequireFeature feature="notice">
+                        <Notice />
+                      </RequireFeature>
+                    </ProtectedRoute>
+                  }
+                />
 
                 {/* Teacher Routes */}
                 <Route
@@ -96,6 +107,16 @@ function App() {
                     <ProtectedRoute allowedRoles={['teacher']}>
                       <RequireFeature feature="attendance">
                         <Attendance />
+                      </RequireFeature>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/teacher/notice"
+                  element={
+                    <ProtectedRoute allowedRoles={['teacher']}>
+                      <RequireFeature feature="notice">
+                        <Notice />
                       </RequireFeature>
                     </ProtectedRoute>
                   }
