@@ -109,7 +109,7 @@ const Settings = () => {
                 setTimeout(() => setMessage({ type: '', text: '' }), 2000);
             }
         } catch (error) {
-            setMessage({ type: 'error', text: 'Failed to update feature' });
+            setMessage({ type: 'error', text: 'Internal Server Error' });
             setTimeout(() => setMessage({ type: '', text: '' }), 2000);
         } finally {
             setTogglingFeature(null);
@@ -137,12 +137,12 @@ const Settings = () => {
         if (!file) return;
 
         if (!file.type.startsWith('image/')) {
-            setMessage({ type: 'error', text: 'Please select an image file' });
+            setMessage({ type: 'error', text: 'Internal Server Error' });
             return;
         }
 
         if (file.size > 2 * 1024 * 1024) {
-            setMessage({ type: 'error', text: 'File size must be less than 2MB' });
+            setMessage({ type: 'error', text: 'Internal Server Error' });
             return;
         }
 
@@ -166,7 +166,7 @@ const Settings = () => {
                 window.dispatchEvent(new Event('settingsUpdated'));
             }
         } catch (error) {
-            setMessage({ type: 'error', text: error.response?.data?.message || 'Failed to upload logo' });
+            setMessage({ type: 'error', text: 'Internal Server Error' });
         } finally {
             setUploading(false);
         }

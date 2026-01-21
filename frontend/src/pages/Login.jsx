@@ -22,7 +22,7 @@ const Login = () => {
                 navigate('/login'); // Fallback
             }
         } catch (err) {
-            setError(err.response?.data?.message || err.message || 'Failed to login');
+            setError('Internal Server Error');
         }
     };
 
