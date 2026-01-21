@@ -8,6 +8,7 @@ import {
     FaCog,
     FaClipboardList,
     FaHome,
+    FaBullhorn,
 } from 'react-icons/fa';
 
 const Sidebar = () => {
@@ -37,6 +38,9 @@ const Sidebar = () => {
                     adminLinks.push({ path: '/admin/attendance', label: 'Attendance', icon: <FaClipboardList /> });
                 }
 
+                // Notice link
+                adminLinks.push({ path: '/admin/notice', label: 'Notice', icon: <FaBullhorn /> });
+
                 // Settings always last
                 adminLinks.push({ path: '/admin/settings', label: 'Settings', icon: <FaCog /> });
 
@@ -52,6 +56,9 @@ const Sidebar = () => {
                 if (hasFeature('attendance')) {
                     teacherLinks.push({ path: '/teacher/attendance', label: 'Attendance', icon: <FaClipboardList /> });
                 }
+
+                // Notice link
+                teacherLinks.push({ path: '/teacher/notice', label: 'Notice', icon: <FaBullhorn /> });
 
                 return teacherLinks;
             default:
