@@ -193,7 +193,9 @@ export const deleteLogo = async (schoolId, currentUser) => {
 
     // Check access
     if (currentUser.role !== USER_ROLES.SUPER_ADMIN) {
-        if (String(currentUser.schoolId) !== String(schoolId)) {
+        // Handle populated schoolId object
+        const userSchoolId = currentUser.schoolId?._id || currentUser.schoolId;
+        if (String(userSchoolId) !== String(schoolId)) {
             throw new ServiceError("Access denied", 403);
         }
     }
@@ -216,7 +218,9 @@ export const updateTheme = async (schoolId, themeData, currentUser) => {
 
     // Check access - only super_admin or admin of this school
     if (currentUser.role !== USER_ROLES.SUPER_ADMIN) {
-        if (String(currentUser.schoolId) !== String(schoolId)) {
+        // Handle populated schoolId object
+        const userSchoolId = currentUser.schoolId?._id || currentUser.schoolId;
+        if (String(userSchoolId) !== String(schoolId)) {
             throw new ServiceError("Access denied", 403);
         }
     }
