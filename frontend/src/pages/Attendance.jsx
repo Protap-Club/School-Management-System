@@ -63,26 +63,18 @@ const Attendance = () => {
 
   // Socket.io connection for real-time updates
   useEffect(() => {
-    // Debug: Log the current user and schoolId
-    console.log('Current User:', currentUser);
-    console.log('School ID for socket:', currentUser?.schoolId);
-
-    // Connect socket - even without schoolId for debugging
     const socket = connectSocket(currentUser?.schoolId);
 
     socket.on('connect', () => {
-      console.log('Socket connected with ID:', socket.id);
       setSocketConnected(true);
     });
 
     socket.on('disconnect', () => {
-      console.log('Socket disconnected');
       setSocketConnected(false);
     });
 
     // Listen for real-time attendance updates
     socket.on('attendance-marked', (data) => {
-      console.log('🎉 Attendance marked event received:', data);
 
       // Update attendance map
       setAttendanceMap(prev => ({

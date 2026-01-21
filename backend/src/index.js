@@ -35,24 +35,11 @@ const io = new Server(server, {
 
 // Socket.io Connection Handler
 io.on('connection', (socket) => {
-    console.log('Client connected:', socket.id);
-
     // Join school-specific room for data isolation
     socket.on('join-school', (schoolId) => {
         if (schoolId) {
-            const roomName = `school-${schoolId}`;
-            socket.join(roomName);
-            console.log(`\n🔌 [SOCKET] Client joined room:`);
-            console.log(`   └── Socket ID: ${socket.id}`);
-            console.log(`   └── School ID: ${schoolId}`);
-            console.log(`   └── Room Name: ${roomName}`);
-        } else {
-            console.log(`\n⚠️ [SOCKET] Client tried to join without schoolId - Socket ID: ${socket.id}`);
+            socket.join(`school-${schoolId}`);
         }
-    });
-
-    socket.on('disconnect', () => {
-        console.log('Client disconnected:', socket.id);
     });
 });
 
