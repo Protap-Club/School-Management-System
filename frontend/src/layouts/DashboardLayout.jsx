@@ -29,7 +29,7 @@ const DashboardLayout = ({ children, onSearch, searchValue }) => {
                 const token = localStorage.getItem('token');
                 if (!token) return;
 
-                const response = await api.get('/settings');
+                const response = await api.get('/school/my-branding');
                 if (response.data.success && response.data.data?.theme) {
                     const { accentColor } = response.data.data.theme;
 
@@ -43,7 +43,7 @@ const DashboardLayout = ({ children, onSearch, searchValue }) => {
                     document.documentElement.style.setProperty('--primary-hover-rgb', hexToRgb(hoverColor));
                 }
             } catch (error) {
-                console.error("Theme load failed", error);
+                // Silently fail - theme will use defaults
             }
         };
 

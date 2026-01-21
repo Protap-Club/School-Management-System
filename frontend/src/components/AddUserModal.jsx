@@ -66,7 +66,7 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
                 rollNumber: '', course: '', year: '', contactNo: '', schoolId: user?.schoolId || ''
             });
         } catch (err) {
-            setError(err.response?.data?.message || err.message || 'Failed to create user');
+            setError('Internal Server Error');
         } finally {
             setLoading(false);
         }

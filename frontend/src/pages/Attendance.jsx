@@ -63,26 +63,18 @@ const Attendance = () => {
 
   // Socket.io connection for real-time updates
   useEffect(() => {
-    // Debug: Log the current user and schoolId
-    console.log('Current User:', currentUser);
-    console.log('School ID for socket:', currentUser?.schoolId);
-
-    // Connect socket - even without schoolId for debugging
     const socket = connectSocket(currentUser?.schoolId);
 
     socket.on('connect', () => {
-      console.log('Socket connected with ID:', socket.id);
       setSocketConnected(true);
     });
 
     socket.on('disconnect', () => {
-      console.log('Socket disconnected');
       setSocketConnected(false);
     });
 
     // Listen for real-time attendance updates
     socket.on('attendance-marked', (data) => {
-      console.log('🎉 Attendance marked event received:', data);
 
       // Update attendance map
       setAttendanceMap(prev => ({
@@ -303,7 +295,6 @@ const Attendance = () => {
                     <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Student</th>
                     <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Email</th>
                     <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
-                    <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider text-center">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
@@ -339,42 +330,15 @@ const Attendance = () => {
                             ? 'bg-green-50 text-green-700 border-green-100'
                             : isLate
                               ? 'bg-orange-50 text-orange-700 border-orange-100'
-                              : isAbsent
-                                ? 'bg-red-50 text-red-700 border-red-100'
-                                : 'bg-blue-50 text-blue-600 border-blue-100'
+                              : 'bg-red-50 text-red-700 border-red-100'
                             }`}>
                             {isPresent && <FaCheckCircle size={10} />}
                             {isLate && <FaClock size={10} />}
-                            {isAbsent && <FaTimesCircle size={10} />}
-                            {isUnmarked ? 'Waiting...' : status.charAt(0).toUpperCase() + status.slice(1)}
+                            {(isAbsent || isUnmarked) && <FaTimesCircle size={10} />}
+                            {isPresent ? 'Present' : isLate ? 'Late' : 'Absent'}
                           </span>
                         </td>
-                        <td className="px-6 py-4 text-center">
-                          <div className="flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button
-                              className={`p-2 rounded-lg transition-colors ${isPresent
-                                ? 'bg-green-100 text-green-700 cursor-default'
-                                : 'bg-white border border-gray-200 text-gray-400 hover:border-green-300 hover:text-green-600 hover:bg-green-50'
-                                }`}
-                              title="Mark Present"
-                              disabled={isPresent}
-                            >
-                              <FaCheckCircle size={14} />
-                            </button>
-                            <button
-                              className="p-2 rounded-lg bg-white border border-gray-200 text-gray-400 hover:border-red-300 hover:text-red-600 hover:bg-red-50 transition-all"
-                              title="Mark Absent"
-                            >
-                              <FaTimesCircle size={14} />
-                            </button>
-                            <button
-                              className="p-2 rounded-lg bg-white border border-gray-200 text-gray-400 hover:border-orange-300 hover:text-orange-600 hover:bg-orange-50 transition-all"
-                              title="Mark Late"
-                            >
-                              <FaClock size={14} />
-                            </button>
-                          </div>
-                        </td>
+
                       </tr>
                     );
                   })}

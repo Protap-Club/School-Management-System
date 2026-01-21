@@ -249,7 +249,7 @@ const UsersPage = () => {
             setTimeout(() => setMessage({ type: '', text: '' }), 3000);
         } catch (error) {
             console.error('Delete failed', error);
-            setMessage({ type: 'error', text: 'Operation failed' });
+            setMessage({ type: 'error', text: 'Internal Server Error' });
         } finally {
             setDeleteConfirm({ open: false, users: [], isBulk: false });
         }
@@ -268,7 +268,7 @@ const UsersPage = () => {
             setTimeout(() => setMessage({ type: '', text: '' }), 3000);
         } catch (error) {
             console.error('Restore failed', error);
-            setMessage({ type: 'error', text: 'Restore failed' });
+            setMessage({ type: 'error', text: 'Internal Server Error' });
         }
     };
 
