@@ -2,6 +2,8 @@ import express from "express";
 import { checkAuth } from "../middlewares/auth.middleware.js";
 import { checkRole } from "../middlewares/role.middleware.js";
 import { linkTag, markAttendance } from "../controllers/nfc.controller.js";
+import { validate } from "../middlewares/validation.middleware.js";
+import { linkTagSchema, markAttendanceSchema } from "../validations/nfc.validation.js";
 
 const router = express.Router();
 
@@ -10,6 +12,7 @@ router.post(
     "/link",
     checkAuth,
     checkRole(["super_admin", "admin", "teacher"]),
+    validate(linkTagSchema),
     linkTag
 );
 
@@ -17,6 +20,7 @@ router.post(
 // Supports both: authenticated users OR device key for NFC readers
 router.post(
     "/attendance",
+    validate(markAttendanceSchema),
     (req, res, next) => {
         // Check for device key (for NFC reader devices)
         const deviceKey = req.headers['x-device-key'];

@@ -1,84 +1,39 @@
-// School Isolation Middleware - Ensures users can only access their own school's data
+// Middleware to extract and validate school ID from various request sources.
 
-import School from "../models/School.model.js";
-import { USER_ROLES } from "../constants/userRoles.js";
+import logger from "../config/logger.js"; // Import the logger
 
-// Ensure user belongs to a school (except for some SuperAdmin operations)
-export const requireSchool = (req, res, next) => {
-    if (!req.user) {
-        return res.status(401).json({ success: false, message: "Authentication required" });
-    }
+/**
+ * Middleware to extract the `schoolId` from request parameters, body, or the authenticated user object.
+ * This centralizes the logic for determining which school context a request is operating within.
+ *
+ * @param {object} req - Express request object.
+ * @param {object} res - Express response object.
+ * @param {function} next - Express next middleware function.
+ * @returns {void} Attaches `req.schoolId` and calls next(), or sends a 400 response if school ID is missing for non-Super Admins.
+ */
+const extractSchoolId = (req, res, next) => {
+    logger.debug(`Attempting to extract schoolId for user: ${req.user?._id}, role: ${req.user?.role}`);
+    
+    // Prioritize schoolId from user's context (if populated), then body, then params.
+    const userSchoolId = req.user?.schoolId?._id || req.user?.schoolId;
+    const schoolId = req.body.schoolId || req.params.id || userSchoolId;
 
-    // SuperAdmin may or may not have schoolId depending on operation
-    if (req.user.role === USER_ROLES.SUPER_ADMIN) {
+    // Super Admins operate globally and don't always need a specific schoolId context for certain actions.
+    if (!schoolId && req.user?.role === 'super_admin') {
+        logger.debug("Super admin detected, proceeding without specific schoolId context.");
         return next();
     }
 
-    if (!req.user.schoolId) {
-        return res.status(403).json({ success: false, message: "You must belong to a school" });
+    // If no schoolId is found for a non-Super Admin, it's a bad request.
+    if (!schoolId) {
+        logger.warn(`Failed to extract schoolId for user ${req.user?._id}. School ID is required.`);
+        return res.status(400).json({ success: false, message: "School ID is required but was not provided." });
     }
 
+    // Attach the resolved schoolId to the request object for downstream use.
+    req.schoolId = schoolId.toString();
+    logger.debug(`School ID '${req.schoolId}' extracted and attached to request.`);
     next();
 };
 
-// Ensure user can only access their own school
-export const checkSchoolAccess = async (req, res, next) => {
-    if (!req.user) {
-        return res.status(401).json({ success: false, message: "Authentication required" });
-    }
-
-    const targetSchoolId = req.params.id || req.body.schoolId || req.query.schoolId;
-
-    if (!targetSchoolId) {
-        return next(); // No school specified, let controller handle it
-    }
-
-    // SuperAdmin can only access their own school
-    if (req.user.role === USER_ROLES.SUPER_ADMIN) {
-        if (req.user.schoolId && req.user.schoolId.toString() !== targetSchoolId) {
-            return res.status(403).json({ success: false, message: "Access denied to other school" });
-        }
-    } else {
-        // Non-SuperAdmin must match their own school
-        if (!req.user.schoolId || req.user.schoolId.toString() !== targetSchoolId) {
-            return res.status(403).json({ success: false, message: "Access denied" });
-        }
-    }
-
-    next();
-};
-
-// Verify school exists and is active
-export const verifySchool = async (req, res, next) => {
-    const schoolId = req.params.id || req.body.schoolId;
-
-    if (!schoolId) return next();
-
-    try {
-        const school = await School.findById(schoolId);
-        if (!school) {
-            return res.status(404).json({ success: false, message: "School not found" });
-        }
-        if (!school.isActive) {
-            return res.status(403).json({ success: false, message: "School is deactivated" });
-        }
-        req.school = school;
-        next();
-    } catch (error) {
-        return res.status(400).json({ success: false, message: "Invalid school ID" });
-    }
-};
-
-// Add schoolId to query for school isolation
-export const scopeToSchool = (req, res, next) => {
-    if (!req.user) {
-        return res.status(401).json({ success: false, message: "Authentication required" });
-    }
-
-    // SuperAdmin uses their own schoolId
-    if (req.user.schoolId) {
-        req.schoolScope = req.user.schoolId;
-    }
-
-    next();
-};
+export default extractSchoolId;
