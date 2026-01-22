@@ -16,7 +16,10 @@ import {
     FaTrash,
     FaPlus,
     FaUserFriends,
-    FaSearch
+    FaSearch,
+    FaHistory,
+    FaEye,
+    FaDownload
 } from 'react-icons/fa';
 
 // Mock data for frontend-only implementation
@@ -46,6 +49,64 @@ const MOCK_USERS = [
     { _id: '3', name: 'Rahul Sharma', role: 'student', email: 'rahul@student.com' },
     { _id: '4', name: 'Priya Patel', role: 'student', email: 'priya@student.com' },
     { _id: '5', name: 'Amit Kumar', role: 'student', email: 'amit@student.com' },
+];
+
+const MOCK_HISTORY_DATA = [
+    {
+        id: '1',
+        type: 'notice',
+        title: 'Exam Schedule Update',
+        message: 'The final exam schedule has been updated. Please check the new dates for Mathematics and Science. All other exams remain as scheduled.',
+        sentTo: 'All Students',
+        sentToType: 'group',
+        date: '2024-03-15T10:30:00',
+        status: 'sent',
+        attachments: []
+    },
+    {
+        id: '2',
+        type: 'file',
+        title: 'Science Project Guidelines',
+        message: 'Please find attached the guidelines for the upcoming science project exhibition.',
+        sentTo: 'Class 9-A',
+        sentToType: 'group',
+        date: '2024-03-14T14:20:00',
+        status: 'sent',
+        attachments: [{ name: 'Project_Guidelines.pdf', size: 2048, type: 'pdf' }]
+    },
+    {
+        id: '3',
+        type: 'notice',
+        title: 'Holiday Announcement',
+        message: 'School will remain closed on Friday for Holi celebrations.',
+        sentTo: 'Entire School',
+        sentToType: 'all',
+        date: '2024-03-10T09:00:00',
+        status: 'sent',
+        attachments: []
+    },
+    {
+        id: '4',
+        type: 'notice',
+        title: 'Meeting Reminder',
+        message: 'Please meet me in the staff room after school hours regarding your progress report.',
+        sentTo: 'Rahul Sharma',
+        sentToType: 'individual',
+        date: '2024-03-05T15:45:00',
+        status: 'sent',
+        attachments: []
+    },
+    {
+        id: '5',
+        type: 'file',
+        title: 'Math Worksheet - Algebra',
+        message: 'Complete the attached worksheet by Monday.',
+        sentTo: 'Class 10-B',
+        sentToType: 'group',
+        date: '2024-02-28T11:10:00',
+        status: 'sent',
+        attachments: [{ name: 'Algebra_Worksheet.docx', size: 1024, type: 'doc' }]
+    }
 ];
 
 // Allowed file extensions
@@ -94,6 +155,12 @@ const Notice = () => {
     ]);
     const [newGroupName, setNewGroupName] = useState('');
     const [newGroupStudents, setNewGroupStudents] = useState([]);
+
+    // History state
+    const [historySearch, setHistorySearch] = useState('');
+    const [historyFilters, setHistoryFilters] = useState({ type: 'all', sentTo: 'all', date: 'all' });
+    const [historyItems, setHistoryItems] = useState(MOCK_HISTORY_DATA);
+    const [viewItem, setViewItem] = useState(null);
 
     // Toast state
     const [toast, setToast] = useState({ type: '', text: '' });
@@ -186,6 +253,48 @@ const Notice = () => {
         if (fileInputRef.current) fileInputRef.current.value = '';
     };
 
+    // Filter History Items
+    const filteredHistory = historyItems.filter(item => {
+        // Search
+        const searchLower = historySearch.toLowerCase();
+        const matchesSearch =
+            item.title.toLowerCase().includes(searchLower) ||
+            item.message.toLowerCase().includes(searchLower) ||
+            item.sentTo.toLowerCase().includes(searchLower);
+
+        if (!matchesSearch) return false;
+
+        // Type Filter
+        if (historyFilters.type !== 'all' && item.type !== historyFilters.type) return false;
+
+        // Sent To Filter
+        if (historyFilters.sentTo !== 'all') {
+            if (historyFilters.sentTo === 'group' && item.sentToType !== 'group' && item.sentToType !== 'all') return false; // 'all' is effectively a large group
+            if (historyFilters.sentTo === 'individual' && item.sentToType !== 'individual') return false;
+        }
+
+        // Date Filter (Mock logic)
+        if (historyFilters.date !== 'all') {
+            const itemDate = new Date(item.date);
+            const now = new Date();
+            const diffTime = Math.abs(now - itemDate);
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+            if (historyFilters.date === 'today' && diffDays > 1) return false;
+            if (historyFilters.date === 'last7' && diffDays > 7) return false;
+            if (historyFilters.date === 'last30' && diffDays > 30) return false;
+        }
+
+        return true;
+    });
+
+    // Handle delete history
+    const handleDeleteHistory = (itemId) => {
+        setHistoryItems(historyItems.filter(item => item.id !== itemId));
+        setToast({ type: 'success', text: 'History item deleted' });
+        setTimeout(() => setToast({ type: '', text: '' }), 3000);
+    };
+
     // Handle create group
     const handleCreateGroup = () => {
         if (!newGroupName.trim()) {
@@ -251,19 +360,19 @@ const Notice = () => {
                     </p>
                 </div>
 
-                {/* Tab Navigation (Teacher sees Groups tab) */}
-                {isTeacher && (
-                    <div className="flex gap-1 bg-gray-100 p-1 rounded-xl w-fit">
-                        <button
-                            onClick={() => setActiveTab('compose')}
-                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'compose'
-                                ? 'bg-white text-gray-900 shadow-sm'
-                                : 'text-gray-500 hover:text-gray-700'
-                                }`}
-                        >
-                            <FaPaperPlane className="inline mr-2" size={12} />
-                            Compose
-                        </button>
+                {/* Tab Navigation */}
+                <div className="flex gap-1 bg-gray-100 p-1 rounded-xl w-fit">
+                    <button
+                        onClick={() => setActiveTab('compose')}
+                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'compose'
+                            ? 'bg-white text-gray-900 shadow-sm'
+                            : 'text-gray-500 hover:text-gray-700'
+                            }`}
+                    >
+                        <FaPaperPlane className="inline mr-2" size={12} />
+                        Compose
+                    </button>
+                    {isTeacher && (
                         <button
                             onClick={() => setActiveTab('groups')}
                             className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'groups'
@@ -274,11 +383,21 @@ const Notice = () => {
                             <FaUserFriends className="inline mr-2" size={12} />
                             Groups
                         </button>
-                    </div>
-                )}
+                    )}
+                    <button
+                        onClick={() => setActiveTab('history')}
+                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'history'
+                            ? 'bg-white text-gray-900 shadow-sm'
+                            : 'text-gray-500 hover:text-gray-700'
+                            }`}
+                    >
+                        <FaHistory className="inline mr-2" size={12} />
+                        History
+                    </button>
+                </div>
 
                 {/* Compose Tab */}
-                {(activeTab === 'compose' || isAdmin) && (
+                {activeTab === 'compose' && (
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                         {/* Message Composer - Takes 2 columns */}
                         <div className="lg:col-span-2 space-y-6">
@@ -513,6 +632,236 @@ const Notice = () => {
                                         ))}
                                     </div>
                                 )}
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* History Tab */}
+                {activeTab === 'history' && (
+                    <div className="space-y-6">
+                        {/* History Header & Controls */}
+                        <div className="bg-white rounded-2xl border border-gray-200 p-6 space-y-6">
+                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                <div>
+                                    <h2 className="text-xl font-bold text-gray-900">Notice & Files History</h2>
+                                    <p className="text-sm text-gray-500">Track all your sent communications</p>
+                                </div>
+                                {/* Search Bar */}
+                                <div className="relative w-full md:w-72">
+                                    <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
+                                    <input
+                                        type="text"
+                                        placeholder="Search history..."
+                                        value={historySearch}
+                                        onChange={(e) => setHistorySearch(e.target.value)}
+                                        className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Filters */}
+                            <div className="flex flex-wrap gap-3 p-4 bg-gray-50 rounded-xl border border-gray-100">
+                                {/* Type Filter */}
+                                <div className="flex items-center gap-2">
+                                    <span className="text-xs font-medium text-gray-500 uppercase">Type:</span>
+                                    <select
+                                        value={historyFilters.type}
+                                        onChange={(e) => setHistoryFilters({ ...historyFilters, type: e.target.value })}
+                                        className="text-sm border-gray-200 rounded-lg focus:ring-primary focus:border-primary px-2 py-1 bg-white"
+                                    >
+                                        <option value="all">All</option>
+                                        <option value="notice">Notice</option>
+                                        <option value="file">File</option>
+                                    </select>
+                                </div>
+                                <div className="w-px h-6 bg-gray-200 hidden sm:block"></div>
+
+                                {/* Sent To Filter */}
+                                <div className="flex items-center gap-2">
+                                    <span className="text-xs font-medium text-gray-500 uppercase">Sent To:</span>
+                                    <select
+                                        value={historyFilters.sentTo}
+                                        onChange={(e) => setHistoryFilters({ ...historyFilters, sentTo: e.target.value })}
+                                        className="text-sm border-gray-200 rounded-lg focus:ring-primary focus:border-primary px-2 py-1 bg-white"
+                                    >
+                                        <option value="all">All</option>
+                                        <option value="group">Group / Class</option>
+                                        <option value="individual">Individual</option>
+                                    </select>
+                                </div>
+                                <div className="w-px h-6 bg-gray-200 hidden sm:block"></div>
+
+                                {/* Date Filter */}
+                                <div className="flex items-center gap-2">
+                                    <span className="text-xs font-medium text-gray-500 uppercase">Date:</span>
+                                    <select
+                                        value={historyFilters.date}
+                                        onChange={(e) => setHistoryFilters({ ...historyFilters, date: e.target.value })}
+                                        className="text-sm border-gray-200 rounded-lg focus:ring-primary focus:border-primary px-2 py-1 bg-white"
+                                    >
+                                        <option value="all">Any Time</option>
+                                        <option value="today">Today</option>
+                                        <option value="last7">Last 7 Days</option>
+                                        <option value="last30">Last 30 Days</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* History List */}
+                        <div className="space-y-4">
+                            {filteredHistory.length === 0 ? (
+                                <div className="bg-white rounded-2xl border border-gray-200 p-12 text-center">
+                                    <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                                        <FaHistory className="text-gray-300" size={24} />
+                                    </div>
+                                    <h3 className="text-lg font-medium text-gray-900">No history found</h3>
+                                    <p className="text-gray-500 text-sm mt-1">Try adjusting your filters or search terms</p>
+                                </div>
+                            ) : (
+                                filteredHistory.map(item => (
+                                    <div key={item.id} className="bg-white rounded-2xl border border-gray-200 p-5 hover:shadow-md transition-shadow group">
+                                        <div className="flex flex-col md:flex-row gap-4 items-start md:items-center">
+                                            {/* Icon */}
+                                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${item.type === 'notice' ? 'bg-blue-100 text-blue-600' : 'bg-amber-100 text-amber-600'
+                                                }`}>
+                                                {item.type === 'notice' ? <FaPaperPlane size={16} /> : <FaPaperclip size={16} />}
+                                            </div>
+
+                                            {/* Content */}
+                                            <div className="flex-1 min-w-0 grid grid-cols-1 md:grid-cols-12 gap-4 w-full">
+                                                {/* Details */}
+                                                <div className="md:col-span-5">
+                                                    <div className="flex items-center gap-2 mb-1">
+                                                        <h3 className="text-base font-semibold text-gray-900 truncate">{item.title}</h3>
+                                                        {item.attachments.length > 0 && (
+                                                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">
+                                                                <FaPaperclip className="mr-1" size={10} />
+                                                                {item.attachments.length}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <p className="text-sm text-gray-500 line-clamp-2">{item.message}</p>
+                                                </div>
+
+                                                {/* Sent To */}
+                                                <div className="md:col-span-3 flex items-center">
+                                                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                                                        <div className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center">
+                                                            {item.sentToType === 'individual' ? <FaUserFriends size={10} /> : <FaUsers size={10} />}
+                                                        </div>
+                                                        <span className="truncate max-w-[150px]" title={item.sentTo}>{item.sentTo}</span>
+                                                    </div>
+                                                </div>
+
+                                                {/* Status & Date */}
+                                                <div className="md:col-span-4 flex items-center justify-between md:justify-end gap-6">
+                                                    <div className="text-right">
+                                                        <div className="text-sm font-medium text-emerald-600 flex items-center justify-end gap-1">
+                                                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                                            Sent
+                                                        </div>
+                                                        <div className="text-xs text-gray-400 mt-1">
+                                                            {new Date(item.date).toLocaleDateString()} • {new Date(item.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Actions */}
+                                                    <div className="flex items-center gap-1 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
+                                                        <button
+                                                            onClick={() => setViewItem(item)}
+                                                            className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                                            title="View Details"
+                                                        >
+                                                            <FaEye size={16} />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleDeleteHistory(item.id)}
+                                                            className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                                            title="Delete"
+                                                        >
+                                                            <FaTrash size={16} />
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </div>
+                )}
+
+                {/* View History Item Modal */}
+                {viewItem && (
+                    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-fadeIn">
+                            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+                                <h3 className="text-lg font-semibold text-gray-900">Notice Details</h3>
+                                <button
+                                    onClick={() => setViewItem(null)}
+                                    className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                                >
+                                    <FaTimes className="text-gray-400" size={16} />
+                                </button>
+                            </div>
+                            <div className="p-6 space-y-6">
+                                {/* Header Info */}
+                                <div className="flex items-start gap-4">
+                                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${viewItem.type === 'notice' ? 'bg-blue-100 text-blue-600' : 'bg-amber-100 text-amber-600'
+                                        }`}>
+                                        {viewItem.type === 'notice' ? <FaPaperPlane size={20} /> : <FaPaperclip size={20} />}
+                                    </div>
+                                    <div>
+                                        <h4 className="text-lg font-bold text-gray-900">{viewItem.title}</h4>
+                                        <div className="flex items-center gap-2 mt-1 text-sm text-gray-500">
+                                            <span>{new Date(viewItem.date).toLocaleDateString()}</span>
+                                            <span>•</span>
+                                            <span>{viewItem.sentTo}</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Message Body */}
+                                <div className="bg-gray-50 rounded-xl p-4 text-gray-700 text-sm leading-relaxed whitespace-pre-wrap">
+                                    {viewItem.message}
+                                </div>
+
+                                {/* Attachments */}
+                                {viewItem.attachments && viewItem.attachments.length > 0 && (
+                                    <div>
+                                        <h5 className="text-sm font-medium text-gray-900 mb-3">Attachments</h5>
+                                        <div className="space-y-2">
+                                            {viewItem.attachments.map((file, idx) => (
+                                                <div key={idx} className="flex items-center justify-between p-3 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-10 h-10 bg-white border border-gray-100 rounded-lg flex items-center justify-center">
+                                                            {getFileIcon(file.name)}
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-sm font-medium text-gray-900">{file.name}</p>
+                                                            <p className="text-xs text-gray-500">{(file.size / 1024).toFixed(1)} KB</p>
+                                                        </div>
+                                                    </div>
+                                                    <button className="p-2 text-gray-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-colors">
+                                                        <FaDownload size={14} />
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                <div className="pt-2">
+                                    <button
+                                        onClick={() => setViewItem(null)}
+                                        className="w-full py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-xl transition-colors"
+                                    >
+                                        Close
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
