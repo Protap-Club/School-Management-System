@@ -10,8 +10,29 @@ import StudentProfileModel from "../models/StudentProfile.model.js";
 import { USER_ROLES, canManageRole, getManageableRoles } from "../constants/userRoles.js";
 import { PROFILE_CONFIG } from "../constants/profileConfig.js";
 import { hashPassword, generatePassword } from "../utils/password.util.js";
+import { sendCredentialsEmail } from "./email.service.js";
 import { CustomError } from "../utils/customError.js"; // Import the centralized CustomError
 import logger from "../config/logger.js"; // Import the logger
+
+/**
+ * Helper function to check if a user can archive/restore another user.
+ * @param {object} currentUser - The user performing the action.
+ * @param {object} targetUser - The user being archived/restored.
+ * @returns {boolean} True if allowed, false otherwise.
+ */
+const canArchiveUser = (currentUser, targetUser) => {
+    // Super Admin can archive anyone except themselves.
+    if (currentUser.role === USER_ROLES.SUPER_ADMIN) {
+        return String(currentUser._id) !== String(targetUser._id);
+    }
+    
+    // Admin can archive teachers and students within their own school.
+    if (currentUser.role === USER_ROLES.ADMIN) {
+        return [USER_ROLES.TEACHER, USER_ROLES.STUDENT].includes(targetUser.role);
+    }
+
+    return false;
+};
 
 // ═══════════════════════════════════════════════════════════════
 // User Creation & Retrieval
@@ -177,18 +198,18 @@ export const getUsers = async (currentUser, filters, pagination) => {
 
             // Adjust query to only show these specific students.
             if (filterRole === USER_ROLES.STUDENT) {
-                query._id = { $in: studentUserIds };
+                query._id = studentUserIds.length > 0 ? { $in: studentUserIds } : { $in: [] };
             } else {
                 // If fetching 'all' roles, combine criteria: non-students OR matching students.
                 query.$or = [
                     { role: { $ne: USER_ROLES.STUDENT } },
-                    { _id: { $in: studentUserIds } }
+                    { _id: studentUserIds.length > 0 ? { $in: studentUserIds } : { $in: [] } }
                 ];
             }
         } else {
             logger.warn(`Teacher ${currentUser._id} does not have standard/section assigned, cannot filter students.`);
             // If teacher profile incomplete, they shouldn't see students.
-            query._id = null; // Return no students
+            query._id = { $in: [] }; // Correctly return no students
         }
     }
 
@@ -444,6 +465,98 @@ export const restoreUser = async (currentUser, userIds) => {
     
     const restored = usersToRestore.map(u => ({ _id: u._id, name: u.name, email: u.email }));
     return { restored, failed: [] };
+};
+
+/**
+ * Retrieves a list of archived users, with filtering and pagination.
+ * @param {object} currentUser - The user requesting the list.
+ * @param {object} filters - Filtering criteria (schoolId, role).
+ * @param {object} pagination - Pagination parameters (page, pageSize).
+ * @returns {Promise<{users: UserModel[], pagination: object}>} An object containing user list and pagination info.
+ */
+export const getArchivedUsers = async (currentUser, filters, pagination) => {
+    logger.info(`User ${currentUser._id} (${currentUser.role}) fetching archived users with filters: %o, pagination: %o`, filters, pagination);
+    
+    const { schoolId: filterSchoolId, role: filterRole } = filters;
+    const { page = 0, pageSize = 25 } = pagination;
+
+    // Determine which roles the current user is allowed to manage/view.
+    const allowedRoles = getManageableRoles(currentUser.role);
+    if (!allowedRoles || allowedRoles.length === 0) {
+        logger.warn(`User ${currentUser._id} is not allowed to view any users.`);
+        throw new CustomError("Not allowed to view users", 403);
+    }
+
+    // Build the query, specifically for archived users.
+    let query = { isArchived: true };
+
+    // Apply role filter if specified and allowed.
+    if (filterRole && filterRole !== 'all') {
+        if (allowedRoles.includes(filterRole)) {
+            query.role = filterRole;
+        } else {
+            logger.warn(`User ${currentUser._id} is not allowed to view role: ${filterRole}.`);
+            throw new CustomError("Not allowed to view this role", 403);
+        }
+    } else {
+        // If no specific role filter, show all manageable roles.
+        query.role = { $in: allowedRoles };
+    }
+
+    // Apply school ID filter based on current user's role and requested filter.
+    if (currentUser.role === USER_ROLES.SUPER_ADMIN) {
+        if (filterSchoolId) query.schoolId = filterSchoolId;
+    } else if (currentUser.schoolId) {
+        query.schoolId = currentUser.schoolId;
+    } else {
+        logger.warn(`Non-Super Admin user ${currentUser._id} without schoolId trying to fetch archived users.`);
+        throw new CustomError("User does not belong to a school.", 403);
+    }
+
+    // Special logic for teachers viewing students within their assigned standard/section.
+    if (currentUser.role === USER_ROLES.TEACHER && (filterRole === USER_ROLES.STUDENT || (!filterRole || filterRole === 'all'))) {
+        const teacherProfile = await TeacherProfileModel.findOne({ userId: currentUser._id });
+        if (teacherProfile?.standard && teacherProfile?.section) {
+            // Find student user IDs matching the teacher's standard/section.
+            const matchingStudents = await StudentProfileModel.find({
+                standard: teacherProfile.standard,
+                section: teacherProfile.section
+            }).select('userId');
+            const studentUserIds = matchingStudents.map(s => s.userId);
+
+            // Adjust query to only show these specific students.
+            if (filterRole === USER_ROLES.STUDENT) {
+                query._id = studentUserIds.length > 0 ? { $in: studentUserIds } : { $in: [] };
+            } else {
+                // If fetching 'all' roles, combine criteria: non-students OR matching students.
+                query.$or = [
+                    { role: { $ne: USER_ROLES.STUDENT } },
+                    { _id: studentUserIds.length > 0 ? { $in: studentUserIds } : { $in: [] } }
+                ];
+            }
+        } else {
+            logger.warn(`Teacher ${currentUser._id} does not have standard/section assigned, cannot filter archived students.`);
+            query._id = { $in: [] }; // Correctly return no students
+        }
+    }
+
+    const pageNum = parseInt(page) || 0;
+    const limit = parseInt(pageSize) || 25;
+    const skip = pageNum * limit;
+
+    const totalCount = await UserModel.countDocuments(query);
+    const users = await UserModel.find(query)
+        .select("-password")
+        .populate('schoolId', 'name code')
+        .sort({ archivedAt: -1 }) // Sort by most recently archived.
+        .skip(skip)
+        .limit(limit);
+
+    logger.info(`Found ${users.length} archived users (total: ${totalCount}) for user ${currentUser._id}.`);
+    return {
+        users,
+        pagination: { page: pageNum, pageSize: limit, totalCount, totalPages: Math.ceil(totalCount / limit) }
+    };
 };
 
 // export { ServiceError };

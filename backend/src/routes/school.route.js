@@ -2,7 +2,7 @@ import express from "express";
 import {
     createSchool, getSchools, getSchoolById, updateSchool,
     deleteSchool, getSchoolsList, uploadSchoolLogo, deleteSchoolLogo,
-    updateSchoolTheme, getMySchoolBranding,
+    updateSchoolTheme, getMySchoolBranding, getMySchoolFeatures,
     getSchoolFeatures, updateSchoolFeatures, toggleSchoolFeature, getAvailableFeatures
 } from "../controllers/school.controller.js";
 import { checkAuth } from "../middlewares/auth.middleware.js";
@@ -19,10 +19,15 @@ import {
 const router = express.Router();
 
 // --- Generic Branding & Feature routes ---
+router.get("/me/branding", checkAuth, extractSchoolId, getMySchoolBranding);
+router.get("/me/features", checkAuth, extractSchoolId, getMySchoolFeatures);
+
+// Keep old routes as aliases for compatibility (optional, but good for migration)
 router.get("/branding", checkAuth, extractSchoolId, getMySchoolBranding);
+router.get("/features", checkAuth, extractSchoolId, getMySchoolFeatures);
 
 // Logo Upload/Delete
-router.post("/logo", checkAuth, checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN]), validate(uploadLogoSchema), extractSchoolId, upload.single('logo'), uploadSchoolLogo);
+router.post("/logo", checkAuth, checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN]), extractSchoolId, upload.single('logo'), validate(uploadLogoSchema), uploadSchoolLogo);
 router.delete("/logo", checkAuth, checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN]), extractSchoolId, deleteSchoolLogo);
 
 // Theme Update

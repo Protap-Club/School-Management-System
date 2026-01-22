@@ -17,6 +17,7 @@ import {
 
 const Attendance = () => {
   const { user: currentUser } = useAuth();
+  const { hasFeature, loading: featuresLoading } = useFeatures();
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -33,10 +34,10 @@ const Attendance = () => {
   useEffect(() => {
     const fetchStudents = async () => {
       try {
-        // Admin needs profiles for filtering, Teachers get backend-filtered list via get-users
+        // Admin needs profiles for filtering, Teachers get backend-filtered list
         const endpoint = currentUser?.role === 'admin'
-          ? '/user/get-users-with-profiles?role=student'
-          : '/user/get-users?role=student&pageSize=100';
+          ? '/user/with-profiles?role=student'
+          : '/user?role=student&pageSize=100';
 
         const response = await api.get(endpoint);
         if (response.data.success) {
@@ -130,6 +131,31 @@ const Attendance = () => {
     month: 'long',
     day: 'numeric'
   });
+
+  // Access control
+  if (currentUser?.role === 'super_admin') {
+    return (
+      <DashboardLayout>
+        <div className="p-8 text-center bg-white rounded-2xl shadow-sm border border-gray-100">
+          <FaTimesCircle className="text-red-500 mx-auto mb-4" size={48} />
+          <h2 className="text-2xl font-bold text-gray-800">Access Denied</h2>
+          <p className="text-gray-500 mt-2">Super Admins do not have access to school-specific attendance pages.</p>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  if (!featuresLoading && !hasFeature('attendance')) {
+    return (
+      <DashboardLayout>
+        <div className="p-8 text-center bg-white rounded-2xl shadow-sm border border-gray-100">
+          <FaClipboardList className="text-gray-300 mx-auto mb-4" size={48} />
+          <h2 className="text-2xl font-bold text-gray-800">Feature Disabled</h2>
+          <p className="text-gray-500 mt-2">The Attendance feature is not enabled for your school.</p>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   const StatCard = ({ icon: Icon, label, value, color, bgColor }) => (
     <div className={`${bgColor} rounded-2xl p-5 border border-gray-100`}>

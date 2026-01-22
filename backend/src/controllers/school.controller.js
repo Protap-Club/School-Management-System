@@ -20,9 +20,9 @@ import logger from "../config/logger.js"; // Import the logger
  */
 export const createSchool = asyncHandler(async (req, res) => {
     logger.info(`Received request to create school by user: ${req.user._id}`);
-    
+
     const school = await schoolService.createSchool(req.user._id, req.body);
-    
+
     res.status(201).json({ success: true, message: "School created", data: school });
     logger.info(`School '${school.name}' (ID: ${school._id}) created successfully.`);
 });
@@ -34,9 +34,9 @@ export const createSchool = asyncHandler(async (req, res) => {
  */
 export const getSchools = asyncHandler(async (req, res) => {
     logger.info(`Received request to get schools by user: ${req.user._id} (${req.user.role})`);
-    
+
     const schools = await schoolService.getSchools(req.user.role, req.user.schoolId);
-    
+
     res.status(200).json({ success: true, count: schools.length, data: schools });
     logger.info(`Fetched ${schools.length} schools for user ${req.user._id}.`);
 });
@@ -48,9 +48,9 @@ export const getSchools = asyncHandler(async (req, res) => {
  */
 export const getSchoolById = asyncHandler(async (req, res) => {
     logger.info(`Received request to get school by ID: ${req.schoolId} by user: ${req.user._id}`);
-    
+
     const school = await schoolService.getSchoolById(req.schoolId, req.user.role, req.user.schoolId);
-    
+
     res.status(200).json({ success: true, data: school });
     logger.info(`Fetched school '${school.name}' (ID: ${school._id}) for user ${req.user._id}.`);
 });
@@ -62,9 +62,9 @@ export const getSchoolById = asyncHandler(async (req, res) => {
  */
 export const updateSchool = asyncHandler(async (req, res) => {
     logger.info(`Received request to update school ID: ${req.schoolId} by user: ${req.user._id}`);
-    
+
     const school = await schoolService.updateSchool(req.schoolId, req.body);
-    
+
     res.status(200).json({ success: true, message: "School updated", data: school });
     logger.info(`School '${school.name}' (ID: ${school._id}) updated successfully.`);
 });
@@ -76,9 +76,9 @@ export const updateSchool = asyncHandler(async (req, res) => {
  */
 export const deleteSchool = asyncHandler(async (req, res) => {
     logger.info(`Received request to delete school ID: ${req.schoolId} by user: ${req.user._id}`);
-    
+
     await schoolService.deleteSchool(req.schoolId);
-    
+
     res.status(200).json({ success: true, message: "School deleted" });
     logger.info(`School ID: ${req.schoolId} deleted successfully.`);
 });
@@ -89,9 +89,9 @@ export const deleteSchool = asyncHandler(async (req, res) => {
  */
 export const getSchoolsList = asyncHandler(async (req, res) => {
     logger.info(`Received request to get active schools list by user: ${req.user._id}`);
-    
+
     const schools = await schoolService.getSchoolsList();
-    
+
     res.status(200).json({ success: true, data: schools });
     logger.info(`Fetched ${schools.length} active schools for list display.`);
 });
@@ -108,7 +108,7 @@ export const getSchoolsList = asyncHandler(async (req, res) => {
  */
 export const uploadSchoolLogo = asyncHandler(async (req, res) => {
     logger.info(`Received request to upload logo for school ID: ${req.schoolId} by user: ${req.user._id}`);
-    
+
     if (!req.file) {
         logger.warn(`Logo upload failed for school ID: ${req.schoolId}: No file provided.`);
         return res.status(400).json({ success: false, message: "No file uploaded" });
@@ -139,7 +139,7 @@ export const uploadSchoolLogo = asyncHandler(async (req, res) => {
  */
 export const deleteSchoolLogo = asyncHandler(async (req, res) => {
     logger.info(`Received request to delete logo for school ID: ${req.schoolId} by user: ${req.user._id}`);
-    
+
     // Delegate to service to update database record and return old logo path for cleanup.
     const result = await schoolService.deleteLogo(req.schoolId, req.user);
 
@@ -164,11 +164,29 @@ export const deleteSchoolLogo = asyncHandler(async (req, res) => {
  */
 export const getMySchoolBranding = asyncHandler(async (req, res) => {
     logger.info(`Received request to get branding for school ID: ${req.schoolId || 'default'} by user: ${req.user._id}`);
-    
+
     const branding = await schoolService.getSchoolBranding(req.schoolId);
-    
+
     res.status(200).json({ success: true, data: branding });
     logger.info(`Branding fetched for school ID: ${req.schoolId || 'default'}.`);
+});
+
+/**
+ * Retrieves features for the current user's school.
+ * The `extractSchoolId` middleware populates `req.schoolId`.
+ * GET /api/v1/school/features
+ */
+export const getMySchoolFeatures = asyncHandler(async (req, res) => {
+    logger.info(`Received request to get features for school ID: ${req.schoolId || 'default'} by user: ${req.user._id}`);
+
+    if (!req.schoolId) {
+        return res.status(200).json({ success: true, data: { features: {} } });
+    }
+
+    const result = await schoolService.getSchoolFeatures(req.schoolId);
+
+    res.status(200).json({ success: true, data: result });
+    logger.info(`Features fetched for school ID: ${req.schoolId}.`);
 });
 
 /**
@@ -178,9 +196,9 @@ export const getMySchoolBranding = asyncHandler(async (req, res) => {
  */
 export const updateSchoolTheme = asyncHandler(async (req, res) => {
     logger.info(`Received request to update theme for school ID: ${req.schoolId} by user: ${req.user._id}`);
-    
+
     const branding = await schoolService.updateTheme(req.schoolId, req.body.theme || req.body, req.user);
-    
+
     res.status(200).json({ success: true, message: "Theme updated", data: branding });
     logger.info(`Theme updated successfully for school ID: ${req.schoolId}.`);
 });
@@ -196,9 +214,9 @@ export const updateSchoolTheme = asyncHandler(async (req, res) => {
  */
 export const getSchoolFeatures = asyncHandler(async (req, res) => {
     logger.info(`Received request to get features for school ID: ${req.schoolId} by user: ${req.user._id}`);
-    
+
     const result = await schoolService.getSchoolFeatures(req.schoolId);
-    
+
     res.status(200).json({ success: true, data: result });
     logger.info(`Features fetched for school ID: ${req.schoolId}.`);
 });
@@ -210,9 +228,9 @@ export const getSchoolFeatures = asyncHandler(async (req, res) => {
  */
 export const updateSchoolFeatures = asyncHandler(async (req, res) => {
     logger.info(`Received request to update features for school ID: ${req.schoolId} by user: ${req.user._id}`);
-    
+
     const result = await schoolService.updateSchoolFeatures(req.schoolId, req.body.features, req.user);
-    
+
     res.status(200).json({ success: true, message: "Features updated", data: result });
     logger.info(`Features updated successfully for school ID: ${req.schoolId}.`);
 });
@@ -226,14 +244,14 @@ export const toggleSchoolFeature = asyncHandler(async (req, res) => {
     const { featureKey } = req.params;
     const { enabled } = req.body;
     logger.info(`Received request to toggle feature '${featureKey}' to ${enabled} for school ID: ${req.schoolId} by user: ${req.user._id}`);
-    
+
     if (enabled === undefined) {
         logger.warn(`Toggle feature failed for school ID: ${req.schoolId}: 'enabled' field is required.`);
         return res.status(400).json({ success: false, message: "enabled field is required" });
     }
 
     const result = await schoolService.toggleSchoolFeature(req.schoolId, featureKey, enabled, req.user);
-    
+
     res.status(200).json({ success: true, message: `Feature ${featureKey} ${enabled ? 'enabled' : 'disabled'}`, data: result });
     logger.info(`Feature '${featureKey}' toggled to ${enabled} for school ID: ${req.schoolId}.`);
 });
@@ -244,9 +262,9 @@ export const toggleSchoolFeature = asyncHandler(async (req, res) => {
  */
 export const getAvailableFeatures = asyncHandler(async (req, res) => {
     logger.info(`Received request to get available features list by user: ${req.user._id}`);
-    
+
     const features = schoolService.getAvailableFeatures();
-    
+
     res.status(200).json({ success: true, data: features });
     logger.info(`Available features list fetched.`);
 });

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import DashboardLayout from '../layouts/DashboardLayout';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import { useFeatures } from '../context/FeatureContext';
 import api from '../api/axios';
 import { FaPalette, FaImage, FaCheck, FaUpload, FaToggleOn, FaToggleOff, FaBuilding } from 'react-icons/fa';
 
@@ -27,6 +28,7 @@ const FEATURE_META = {
 const Settings = () => {
     const { user: currentUser } = useAuth();
     const { updateTheme } = useTheme();
+    const { refreshFeatures } = useFeatures();
     const isSuperAdmin = currentUser?.role === 'super_admin';
 
     const [settings, setSettings] = useState({
@@ -60,7 +62,7 @@ const Settings = () => {
 
     const fetchSettings = async () => {
         try {
-            const response = await api.get('/school/my-branding');
+            const response = await api.get('/school/me/branding');
             if (response.data.success && response.data.data) {
                 setSettings({
                     logoUrl: response.data.data.logoUrl || '',
@@ -103,6 +105,8 @@ const Settings = () => {
 
             if (response.data.success) {
                 setFeatures(response.data.data.features);
+                // Refresh global features context so sidebar updates
+                refreshFeatures();
                 setMessage({
                     type: 'success',
                     text: `${FEATURE_META[featureKey]?.label || featureKey} ${newValue ? 'enabled' : 'disabled'}`

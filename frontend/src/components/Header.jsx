@@ -32,7 +32,7 @@ const Header = ({ onSearch, searchValue }) => {
         const fetchBranding = async () => {
             if (user) {
                 try {
-                    const response = await api.get('/school/my-branding');
+                    const response = await api.get('/school/branding');
                     if (response.data.success && response.data.data) {
                         setSchoolBranding(response.data.data);
                     }

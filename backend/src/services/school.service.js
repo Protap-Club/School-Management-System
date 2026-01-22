@@ -382,6 +382,7 @@ export const toggleSchoolFeature = async (schoolId, featureKey, enabled, current
     }
 
     school.features[featureKey] = Boolean(enabled);
+    school.markModified('features'); // Explicitly mark features as modified
     await school.save();
     logger.info(`Feature '${featureKey}' for school ${schoolId} set to ${enabled}.`);
 
@@ -421,6 +422,7 @@ export const updateSchoolFeatures = async (schoolId, featuresUpdate, currentUser
         }
     }
 
+    school.markModified('features'); // Explicitly mark features as modified
     await school.save();
     logger.info(`Features updated for school ID: ${school._id}.`);
     return { schoolId: school._id, name: school.name, features: school.features };

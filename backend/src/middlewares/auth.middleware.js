@@ -32,7 +32,7 @@ const checkAuth = async (req, res, next) => {
         // We explicitly exclude the password and populate schoolId for convenience.
         const user = await User.findById(decoded.id)
             .select("-password")
-            .populate('schoolId', 'name code');
+            .populate('schoolId', '_id name code');
 
         // If no user is found with the ID from the token, the token is invalid.
         if (!user) {

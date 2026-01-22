@@ -17,8 +17,8 @@ const Dashboard = () => {
           // So we fetch both, cross-reference to find ONE of our students, and grab the Standard/Section from them.
 
           const [filteredResponse, allProfilesResponse] = await Promise.all([
-            api.get('/user/get-users?role=student&pageSize=1'),
-            api.get('/user/get-users-with-profiles?role=student')
+            api.get('/user?role=student&pageSize=1'),
+            api.get('/user/with-profiles?role=student')
           ]);
 
           if (filteredResponse.data.success && allProfilesResponse.data.success) {

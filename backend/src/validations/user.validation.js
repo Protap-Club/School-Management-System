@@ -18,8 +18,8 @@ export const getUsersSchema = z.object({
     query: z.object({
         schoolId: objectIdSchema.optional(),
         role: z.enum(VALID_ROLES).optional(),
-        page: z.string().optional().default('0').transform(Number),
-        pageSize: z.string().optional().default('25').transform(Number),
+        page: z.union([z.string(), z.number()]).optional().default('0').transform(val => Number(val)),
+        pageSize: z.union([z.string(), z.number()]).optional().default('25').transform(val => Number(val)),
     }),
 });
 
