@@ -327,52 +327,8 @@ const UsersPage = () => {
                         </p>
                     </div>
 
-                    {/* Action Buttons */}
-                    <div className="flex items-center gap-2">
-                        {/* Archive Toggle */}
-                        {(currentUser?.role === 'super_admin' || currentUser?.role === 'admin') && !selectionMode && (
-                            <button
-                                onClick={() => {
-                                    setShowArchived(!showArchived);
-                                    setPage(0);
-                                }}
-                                className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-medium transition-all ${showArchived
-                                    ? 'bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100'
-                                    : 'bg-gray-50 text-gray-600 border border-gray-200 hover:bg-gray-100 hover:text-gray-700'
-                                    }`}
-                            >
-                                <FaArchive size={13} />
-                                <span className="hidden sm:inline">{showArchived ? 'View Active' : 'Archive'}</span>
-                            </button>
-                        )}
-
-                        {/* Add User Button */}
-                        {allowedRoles.length > 0 && !selectionMode && !showArchived && (
-                            <div className="relative group">
-                                <button className="flex items-center gap-2 bg-gray-900 text-white px-4 py-2 rounded-lg hover:bg-gray-800 transition-all text-sm font-medium">
-                                    <FaUserPlus size={13} />
-                                    <span>Add User</span>
-                                </button>
-
-                                <div className="absolute right-0 top-full mt-1.5 w-44 bg-white rounded-lg shadow-xl border border-gray-100 opacity-0 invisible group-hover:opacity-100 group-hover:visible transform translate-y-1 group-hover:translate-y-0 transition-all duration-150 z-20 py-1">
-                                    {allowedRoles.map((role) => {
-                                        const config = ROLE_LABELS[role];
-                                        const Icon = config.icon;
-                                        return (
-                                            <button
-                                                key={role}
-                                                onClick={() => setActiveModal(role)}
-                                                className="w-full text-left px-3.5 py-2 text-gray-700 hover:bg-gray-50 flex items-center gap-2.5 transition-colors text-sm"
-                                            >
-                                                <Icon size={13} className="text-gray-400" />
-                                                <span>Add {config.label}</span>
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-                        )}
-                    </div>
+                    {/* Action Buttons - Moved to Toolbar */}
+                    <div className="hidden sm:block"></div>
                 </div>
 
                 {/* Selection Mode Bar */}
@@ -422,17 +378,19 @@ const UsersPage = () => {
                     </div>
                 )}
 
-                {/* Filters Bar */}
+                {/* Filters & Actions Toolbar */}
                 {!selectionMode && allowedRoles.length > 0 && (
-                    <div className="flex items-center gap-3 w-full sm:w-auto">
-                        {allowedRoles.length > 1 && (
-                            <>
-                                <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-3 py-1.5">
-                                    <FaFilter className="text-gray-400" size={11} />
+                    <div className="relative flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full">
+                        {/* Left Group: Filters */}
+                        <div className="flex items-center gap-3 relative z-40 flex-shrink-0">
+                            {allowedRoles.length > 1 && (
+                                /* Roles Filter */
+                                <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-3 h-10 min-w-[140px]">
+                                    <FaFilter className="text-gray-400" size={12} />
                                     <select
                                         value={selectedRole}
                                         onChange={(e) => handleRoleChange(e.target.value)}
-                                        className="bg-transparent text-sm text-gray-700 outline-none cursor-pointer pr-2"
+                                        className="bg-transparent text-sm text-gray-700 outline-none cursor-pointer w-full"
                                     >
                                         <option value="all">Roles</option>
                                         {allowedRoles.map((role) => (
@@ -442,36 +400,91 @@ const UsersPage = () => {
                                         ))}
                                     </select>
                                 </div>
+                            )}
 
-                                {/* Sort Button */}
-                                <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-3 py-1.5 ">
-                                    <FaSort className="text-gray-400" size={11} />
-                                    <select
-                                        value={sortBy}
-                                        onChange={(e) => setSortBy(e.target.value)}
-                                        className="bg-transparent text-sm text-gray-700 outline-none cursor-pointer pr-2"
-                                    >
-                                        <option value="default">Sort</option>
-                                        <option value="name">Alphabetically</option>
-                                        <option value="role">Roles</option>
-                                        <option value="email">Email</option>
-                                    </select>
-                                </div>
-                            </>
-                        )}
+                            {/* Sort Button - Matched Size */}
+                            <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-3 h-10 min-w-[140px]">
+                                <FaSort className="text-gray-400" size={12} />
+                                <select
+                                    value={sortBy}
+                                    onChange={(e) => setSortBy(e.target.value)}
+                                    className="bg-transparent text-sm text-gray-700 outline-none cursor-pointer w-full"
+                                >
+                                    <option value="default"> Sort</option>
+                                    <option value="name">Name (A-Z)</option>
+                                    {allowedRoles.length > 1 && <option value="role">Role Priority</option>}
+                                    <option value="email">Email </option>
+                                </select>
+                            </div>
+                        </div>
 
-                        {/* Search Bar */}
-                        <div className="relative w-full sm:w-48">
-                            <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
+                        {/* Center: Search Bar */}
+                        <div className={`relative z-0 ${allowedRoles.length === 1
+                            ? 'w-full sm:w-64 sm:absolute sm:left-1/2 sm:-translate-x-1/2'
+                            : 'w-full sm:w-64 sm:mx-auto'
+                            }`}>
+                            <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 text-gray-400">
                                 <FaSearch size={14} />
                             </span>
                             <input
                                 type="text"
-                                placeholder="Search users..."
+                                placeholder="Search by name or email..."
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                className="w-full py-1.5 pl-9 pr-4 text-sm text-gray-700 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+                                className="w-full h-10 pl-10 pr-4 text-sm text-gray-700 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
                             />
+                        </div>
+
+                        {/* Right Group: Actions */}
+                        <div className="flex items-center gap-2 sm:ml-auto">
+                            {/* Archive Toggle */}
+                            {(currentUser?.role === 'super_admin' || currentUser?.role === 'admin') && (
+                                <button
+                                    onClick={() => {
+                                        setShowArchived(!showArchived);
+                                        setPage(0);
+                                    }}
+                                    className={`flex items-center justify-center gap-2 px-4 h-10 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${showArchived
+                                        ? 'bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100'
+                                        : 'bg-gray-50 text-gray-600 border border-gray-200 hover:bg-gray-100 hover:text-gray-700'
+                                        }`}
+                                    title={showArchived ? 'View Active Users' : 'View Archived Users'}
+                                >
+                                    <FaArchive size={14} />
+                                    <span className="hidden lg:inline">{showArchived ? 'Active' : 'Archive'}</span>
+                                </button>
+                            )}
+
+                            {/* Add User Button */}
+                            {!showArchived && (
+                                <div className="relative group">
+                                    <button className="flex items-center justify-center gap-2 bg-gray-900 text-white px-5 h-10 rounded-lg hover:bg-gray-800 transition-all text-sm font-medium whitespace-nowrap shadow-sm hover:shadow-md">
+                                        <FaUserPlus size={14} />
+                                        <span className="hidden sm:inline">Add User</span>
+                                        <span className="sm:hidden">Add</span>
+                                    </button>
+
+                                    {/* Dropdown copied from previous location */}
+                                    <div className="absolute right-0 top-full mt-1.5 w-48 bg-white rounded-xl shadow-xl border border-gray-100 opacity-0 invisible group-hover:opacity-100 group-hover:visible transform translate-y-1 group-hover:translate-y-0 transition-all duration-200 z-20 py-1.5 overflow-hidden">
+                                        {allowedRoles.map((role) => {
+                                            const config = ROLE_LABELS[role];
+                                            const Icon = config.icon;
+                                            return (
+                                                <button
+                                                    key={role}
+                                                    onClick={() => setActiveModal(role)}
+                                                    className="w-full text-left px-4 py-2.5 text-gray-700 hover:bg-gray-50 flex items-center gap-3 transition-colors text-sm"
+                                                >
+                                                    <div className={`w-8 h-8 rounded-full bg-${config.color}-50 text-${config.color}-600 flex items-center justify-center`}>
+                                                        <Icon size={14} />
+                                                    </div>
+                                                    <span>Add {config.label}</span>
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
                 )}
@@ -723,17 +736,21 @@ const UsersPage = () => {
                                     <FaUndo size={11} />
                                     Restore
                                 </button>
-                                <div className="h-px bg-gray-100 my-1"></div>
-                                <button
-                                    onClick={() => {
-                                        const user = filteredUsers.find(u => u._id === activeDropdown);
-                                        if (user) handleDelete(user);
-                                    }}
-                                    className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors"
-                                >
-                                    <FaTrash size={11} />
-                                    Delete
-                                </button>
+                                {!['super_admin', 'admin'].includes(currentUser?.role) && (
+                                    <>
+                                        <div className="h-px bg-gray-100 my-1"></div>
+                                        <button
+                                            onClick={() => {
+                                                const user = filteredUsers.find(u => u._id === activeDropdown);
+                                                if (user) handleDelete(user);
+                                            }}
+                                            className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors"
+                                        >
+                                            <FaTrash size={11} />
+                                            Delete
+                                        </button>
+                                    </>
+                                )}
                             </>
                         )}
                     </div>
