@@ -20,7 +20,8 @@ import {
     FaTimes,
     FaArchive,
     FaUndo,
-    FaSearch
+    FaSearch,
+    FaSort
 } from 'react-icons/fa';
 
 // Role hierarchy - what each role can view/create
@@ -68,6 +69,7 @@ const UsersPage = () => {
 
     // Search State
     const [searchQuery, setSearchQuery] = useState('');
+    const [sortBy, setSortBy] = useState('default'); // default, name, role, email
 
     // Message/Toast State
     const [message, setMessage] = useState({ type: '', text: '' });
@@ -119,7 +121,16 @@ const UsersPage = () => {
     const filteredUsers = users.filter(u =>
         u.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         u.email.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    ).sort((a, b) => {
+        if (sortBy === 'default') return 0;
+        if (sortBy === 'name') return a.name.localeCompare(b.name);
+        if (sortBy === 'email') return a.email.localeCompare(b.email);
+        if (sortBy === 'role') {
+            const roleOrder = { super_admin: 0, admin: 1, teacher: 2, student: 3 };
+            return (roleOrder[a.role] || 99) - (roleOrder[b.role] || 99);
+        }
+        return 0;
+    });
 
     // Reset selection when exiting selection mode
     useEffect(() => {
@@ -280,7 +291,7 @@ const UsersPage = () => {
     const isMultipleSelected = selectedUsers.length > 1;
 
     return (
-        <DashboardLayout onSearch={setSearchQuery} searchValue={searchQuery}>
+        <DashboardLayout>
             {/* Toast Notification */}
             {message.text && (
                 <div className={`fixed top-6 right-6 z-[100] px-5 py-3.5 rounded-lg shadow-lg flex items-center gap-3 animate-fadeIn backdrop-blur-sm ${message.type === 'success'
@@ -412,22 +423,55 @@ const UsersPage = () => {
                 )}
 
                 {/* Filters Bar */}
-                {!selectionMode && allowedRoles.length > 1 && (
-                    <div className="flex items-center gap-3">
-                        <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-3 py-1.5">
-                            <FaFilter className="text-gray-400" size={11} />
-                            <select
-                                value={selectedRole}
-                                onChange={(e) => handleRoleChange(e.target.value)}
-                                className="bg-transparent text-sm text-gray-700 outline-none cursor-pointer pr-2"
-                            >
-                                <option value="all">All Roles</option>
-                                {allowedRoles.map((role) => (
-                                    <option key={role} value={role}>
-                                        {ROLE_LABELS[role]?.label || role}
-                                    </option>
-                                ))}
-                            </select>
+                {!selectionMode && allowedRoles.length > 0 && (
+                    <div className="flex items-center gap-3 w-full sm:w-auto">
+                        {allowedRoles.length > 1 && (
+                            <>
+                                <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-3 py-1.5">
+                                    <FaFilter className="text-gray-400" size={11} />
+                                    <select
+                                        value={selectedRole}
+                                        onChange={(e) => handleRoleChange(e.target.value)}
+                                        className="bg-transparent text-sm text-gray-700 outline-none cursor-pointer pr-2"
+                                    >
+                                        <option value="all">Roles</option>
+                                        {allowedRoles.map((role) => (
+                                            <option key={role} value={role}>
+                                                {ROLE_LABELS[role]?.label || role}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                {/* Sort Button */}
+                                <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-3 py-1.5 ">
+                                    <FaSort className="text-gray-400" size={11} />
+                                    <select
+                                        value={sortBy}
+                                        onChange={(e) => setSortBy(e.target.value)}
+                                        className="bg-transparent text-sm text-gray-700 outline-none cursor-pointer pr-2"
+                                    >
+                                        <option value="default">Sort</option>
+                                        <option value="name">Alphabetically</option>
+                                        <option value="role">Roles</option>
+                                        <option value="email">Email</option>
+                                    </select>
+                                </div>
+                            </>
+                        )}
+
+                        {/* Search Bar */}
+                        <div className="relative w-full sm:w-48">
+                            <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
+                                <FaSearch size={14} />
+                            </span>
+                            <input
+                                type="text"
+                                placeholder="Search users..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="w-full py-1.5 pl-9 pr-4 text-sm text-gray-700 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+                            />
                         </div>
                     </div>
                 )}
