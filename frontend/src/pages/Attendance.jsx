@@ -190,32 +190,10 @@ const Attendance = () => {
             color="text-red-600"
             bgColor="bg-white shadow-sm"
           />
-          <StatCard
-            icon={FaClock}
-            label="Late Arrival"
-            value={stats.late}
-            color="text-orange-600"
-            bgColor="bg-white shadow-sm"
-          />
+
         </div>
 
-        {/* Attendance Rate Card */}
-        <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-2xl p-6 text-white">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-lg font-medium opacity-90">Today's Attendance Rate</h3>
-              <p className="text-4xl font-bold mt-2">
-                {stats.total > 0 ? ((stats.present / stats.total) * 100).toFixed(1) : 0}%
-              </p>
-              <p className="text-sm opacity-75 mt-1">
-                {stats.present} out of {stats.total} students present
-              </p>
-            </div>
-            <div className="hidden md:block">
-              <FaChartBar size={60} className="opacity-30" />
-            </div>
-          </div>
-        </div>
+
 
         {/* Student List */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
