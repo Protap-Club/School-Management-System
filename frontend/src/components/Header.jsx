@@ -113,22 +113,7 @@ const Header = ({ onSearch, searchValue }) => {
                 </div>
             </div>
 
-            {/* Search Bar */}
-            <div className="hidden md:flex items-center ml-auto mr-6 w-64">
-                <div className="relative w-full">
-                    <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
-                        <FaSearch />
-                    </span>
-                    <input
-                        type="text"
-                        placeholder="Search..."
-                        value={searchValue || ''}
-                        onChange={(e) => onSearch && onSearch(e.target.value)}
-                        disabled={!onSearch}
-                        className="w-full py-2 pl-10 pr-4 text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                    />
-                </div>
-            </div>
+
 
             {/* Right: User Profile */}
             <div className="relative" ref={dropdownRef}>

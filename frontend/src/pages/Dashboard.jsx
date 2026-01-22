@@ -1,21 +1,23 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import api from '../api/axios';
 import DashboardLayout from '../layouts/DashboardLayout';
+import { connectSocket, disconnectSocket } from '../api/socket';
+import { FaChartBar } from 'react-icons/fa';
 
 const Dashboard = () => {
   const { user } = useAuth();
-  const [teacherProfile, setTeacherProfile] = React.useState(null);
+  const [teacherProfile, setTeacherProfile] = useState(null);
+  const [stats, setStats] = useState({
+    total: 0,
+    present: 0
+  });
 
-  React.useEffect(() => {
+  // Fetch Teacher Details
+  useEffect(() => {
     const fetchTeacherDetails = async () => {
       if (user?.role === 'teacher') {
         try {
-          // Workaround: We can't fetch our own profile directly.
-          // But we know 'get-users' returns ONLY our students.
-          // And 'get-users-with-profiles' returns ALL students with profiles.
-          // So we fetch both, cross-reference to find ONE of our students, and grab the Standard/Section from them.
-
           const [filteredResponse, allProfilesResponse] = await Promise.all([
             api.get('/user/get-users?role=student&pageSize=1'),
             api.get('/user/get-users-with-profiles?role=student')
@@ -46,9 +48,55 @@ const Dashboard = () => {
     fetchTeacherDetails();
   }, [user]);
 
+  // Fetch Student Stats for Attendance Rate
+  useEffect(() => {
+    const fetchStudents = async () => {
+      if (user?.role === 'admin' || user?.role === 'teacher') {
+        try {
+          const endpoint = user?.role === 'admin'
+            ? '/user/get-users-with-profiles?role=student'
+            : '/user/get-users?role=student&pageSize=100';
+
+          const response = await api.get(endpoint);
+          if (response.data.success) {
+            setStats(prev => ({
+              ...prev,
+              total: response.data.data.length,
+              present: 0 // Reset present count on load as per existing logic
+            }));
+          }
+        } catch (error) {
+          console.error('Failed to fetch students for stats', error);
+        }
+      }
+    };
+
+    fetchStudents();
+  }, [user]);
+
+  // Socket Connection for Real-time Attendance
+  useEffect(() => {
+    if (user?.role !== 'admin' && user?.role !== 'teacher') return;
+
+    const socket = connectSocket(user?.schoolId);
+
+    // Listen for real-time attendance updates
+    socket.on('attendance-marked', (data) => {
+      setStats(prev => ({
+        ...prev,
+        present: prev.present + 1
+      }));
+    });
+
+    return () => {
+      disconnectSocket();
+    };
+  }, [user?.schoolId, user?.role]);
+
   return (
     <DashboardLayout>
       <div className="max-w-7xl mx-auto space-y-8">
+        {/* Welcome Section */}
         <div className="relative bg-white rounded-3xl p-10 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 overflow-hidden group hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] transition-all duration-500">
           {/* Elegant Background Decor */}
           <div className="absolute top-0 right-0 -mr-20 -mt-20 w-80 h-80 rounded-full bg-gradient-to-br from-primary/5 to-transparent blur-2xl"></div>
@@ -84,6 +132,26 @@ const Dashboard = () => {
             </div>
           </div>
         </div>
+
+        {/* Attendance Rate Section */}
+        {(user?.role === 'admin' || user?.role === 'teacher') && (
+          <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-3xl p-8 text-white shadow-lg shadow-indigo-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-xl font-medium opacity-90">Today's Attendance Rate</h3>
+                <p className="text-5xl font-bold mt-3 tracking-tight">
+                  {stats.total > 0 ? ((stats.present / stats.total) * 100).toFixed(1) : 0}%
+                </p>
+                <p className="text-base opacity-90 mt-2 font-medium">
+                  {stats.present} out of {stats.total} students present
+                </p>
+              </div>
+              <div className="hidden md:block bg-white/10 p-4 rounded-2xl backdrop-blur-sm">
+                <FaChartBar size={50} className="text-white/90" />
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </DashboardLayout>
   );
