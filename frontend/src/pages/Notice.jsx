@@ -15,7 +15,8 @@ import {
     FaImage,
     FaTrash,
     FaPlus,
-    FaUserFriends
+    FaUserFriends,
+    FaSearch
 } from 'react-icons/fa';
 
 // Mock data for frontend-only implementation
@@ -80,6 +81,7 @@ const Notice = () => {
     // Send modal state
     const [showSendModal, setShowSendModal] = useState(false);
     const [sendOption, setSendOption] = useState('');
+    const [searchTerm, setSearchTerm] = useState('');
     const [selectedClasses, setSelectedClasses] = useState([]);
     const [selectedUsers, setSelectedUsers] = useState([]);
     const [selectedStudents, setSelectedStudents] = useState([]);
@@ -520,9 +522,9 @@ const Notice = () => {
             {/* Send Modal */}
             {showSendModal && (
                 <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-fadeIn">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-fadeIn flex flex-col max-h-[90vh]">
                         {/* Modal Header */}
-                        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+                        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between flex-shrink-0">
                             <div className="flex items-center gap-3">
                                 <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center">
                                     <FaPaperPlane className="text-primary" size={16} />
@@ -538,7 +540,7 @@ const Notice = () => {
                         </div>
 
                         {/* Modal Body */}
-                        <div className="p-6 space-y-4">
+                        <div className="p-6 space-y-4 overflow-y-auto custom-scrollbar">
                             <p className="text-sm text-gray-500 mb-4">Choose who should receive this notice:</p>
 
                             {/* Admin Options */}
@@ -551,7 +553,10 @@ const Notice = () => {
                                             name="sendOption"
                                             value="school"
                                             checked={sendOption === 'school'}
-                                            onChange={(e) => setSendOption(e.target.value)}
+                                            onChange={(e) => {
+                                                setSendOption(e.target.value);
+                                                setSearchTerm('');
+                                            }}
                                             className="w-4 h-4 text-primary border-gray-300 focus:ring-primary"
                                         />
                                         <div>
@@ -567,25 +572,48 @@ const Notice = () => {
                                             name="sendOption"
                                             value="classes"
                                             checked={sendOption === 'classes'}
-                                            onChange={(e) => setSendOption(e.target.value)}
+                                            onChange={(e) => {
+                                                setSendOption(e.target.value);
+                                                setSearchTerm('');
+                                            }}
                                             className="w-4 h-4 text-primary border-gray-300 focus:ring-primary mt-0.5"
                                         />
                                         <div className="flex-1">
                                             <p className="text-sm font-medium text-gray-900">Specific Classes</p>
                                             <p className="text-xs text-gray-400 mb-2">Select one or more classes</p>
                                             {sendOption === 'classes' && (
-                                                <div className="border border-gray-200 rounded-lg max-h-32 overflow-y-auto">
-                                                    {MOCK_CLASSES.map(cls => (
-                                                        <label key={cls.value} className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 cursor-pointer text-sm">
-                                                            <input
-                                                                type="checkbox"
-                                                                checked={selectedClasses.includes(cls.value)}
-                                                                onChange={() => toggleSelection(selectedClasses, setSelectedClasses, cls.value)}
-                                                                className="w-3.5 h-3.5 text-primary border-gray-300 rounded focus:ring-primary"
-                                                            />
-                                                            {cls.label}
-                                                        </label>
-                                                    ))}
+                                                <div className="mt-3 space-y-3">
+                                                    <div className="relative">
+                                                        <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
+                                                        <input
+                                                            type="text"
+                                                            placeholder="Search classes..."
+                                                            value={searchTerm}
+                                                            onChange={(e) => setSearchTerm(e.target.value)}
+                                                            className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                                                            onClick={(e) => e.stopPropagation()}
+                                                        />
+                                                    </div>
+                                                    <div className="border border-gray-200 rounded-lg max-h-48 overflow-y-auto">
+                                                        {MOCK_CLASSES
+                                                            .filter(cls => cls.label.toLowerCase().includes(searchTerm.toLowerCase()))
+                                                            .map(cls => (
+                                                                <label key={cls.value} className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 cursor-pointer text-sm border-b border-gray-50 last:border-b-0">
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        checked={selectedClasses.includes(cls.value)}
+                                                                        onChange={() => toggleSelection(selectedClasses, setSelectedClasses, cls.value)}
+                                                                        className="w-3.5 h-3.5 text-primary border-gray-300 rounded focus:ring-primary"
+                                                                    />
+                                                                    {cls.label}
+                                                                </label>
+                                                            ))}
+                                                        {MOCK_CLASSES.filter(cls => cls.label.toLowerCase().includes(searchTerm.toLowerCase())).length === 0 && (
+                                                            <div className="px-3 py-4 text-center text-xs text-gray-400">
+                                                                No classes found
+                                                            </div>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             )}
                                         </div>
@@ -598,28 +626,57 @@ const Notice = () => {
                                             name="sendOption"
                                             value="users"
                                             checked={sendOption === 'users'}
-                                            onChange={(e) => setSendOption(e.target.value)}
+                                            onChange={(e) => {
+                                                setSendOption(e.target.value);
+                                                setSearchTerm('');
+                                            }}
                                             className="w-4 h-4 text-primary border-gray-300 focus:ring-primary mt-0.5"
                                         />
                                         <div className="flex-1">
                                             <p className="text-sm font-medium text-gray-900">Specific Users</p>
                                             <p className="text-xs text-gray-400 mb-2">Select individual users</p>
                                             {sendOption === 'users' && (
-                                                <div className="border border-gray-200 rounded-lg max-h-32 overflow-y-auto">
-                                                    {MOCK_USERS.map(user => (
-                                                        <label key={user._id} className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 cursor-pointer text-sm">
-                                                            <input
-                                                                type="checkbox"
-                                                                checked={selectedUsers.includes(user._id)}
-                                                                onChange={() => toggleSelection(selectedUsers, setSelectedUsers, user._id)}
-                                                                className="w-3.5 h-3.5 text-primary border-gray-300 rounded focus:ring-primary"
-                                                            />
-                                                            <span>{user.name}</span>
-                                                            <span className={`text-xs px-1.5 py-0.5 rounded ${user.role === 'teacher' ? 'bg-indigo-50 text-indigo-600' : 'bg-green-50 text-green-600'}`}>
-                                                                {user.role}
-                                                            </span>
-                                                        </label>
-                                                    ))}
+                                                <div className="mt-3 space-y-3">
+                                                    <div className="relative">
+                                                        <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
+                                                        <input
+                                                            type="text"
+                                                            placeholder="Search users..."
+                                                            value={searchTerm}
+                                                            onChange={(e) => setSearchTerm(e.target.value)}
+                                                            className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                                                            onClick={(e) => e.stopPropagation()}
+                                                        />
+                                                    </div>
+                                                    <div className="border border-gray-200 rounded-lg max-h-48 overflow-y-auto">
+                                                        {MOCK_USERS
+                                                            .filter(user =>
+                                                                user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                                                user.role.toLowerCase().includes(searchTerm.toLowerCase())
+                                                            )
+                                                            .map(user => (
+                                                                <label key={user._id} className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 cursor-pointer text-sm border-b border-gray-50 last:border-b-0">
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        checked={selectedUsers.includes(user._id)}
+                                                                        onChange={() => toggleSelection(selectedUsers, setSelectedUsers, user._id)}
+                                                                        className="w-3.5 h-3.5 text-primary border-gray-300 rounded focus:ring-primary"
+                                                                    />
+                                                                    <span className="flex-1 truncate">{user.name}</span>
+                                                                    <span className={`text-xs px-1.5 py-0.5 rounded flex-shrink-0 ${user.role === 'teacher' ? 'bg-indigo-50 text-indigo-600' : 'bg-green-50 text-green-600'}`}>
+                                                                        {user.role}
+                                                                    </span>
+                                                                </label>
+                                                            ))}
+                                                        {MOCK_USERS.filter(user =>
+                                                            user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                                            user.role.toLowerCase().includes(searchTerm.toLowerCase())
+                                                        ).length === 0 && (
+                                                                <div className="px-3 py-4 text-center text-xs text-gray-400">
+                                                                    No users found
+                                                                </div>
+                                                            )}
+                                                    </div>
                                                 </div>
                                             )}
                                         </div>
@@ -637,7 +694,10 @@ const Notice = () => {
                                             name="sendOption"
                                             value="allStudents"
                                             checked={sendOption === 'allStudents'}
-                                            onChange={(e) => setSendOption(e.target.value)}
+                                            onChange={(e) => {
+                                                setSendOption(e.target.value);
+                                                setSearchTerm('');
+                                            }}
                                             className="w-4 h-4 text-primary border-gray-300 focus:ring-primary"
                                         />
                                         <div>
@@ -653,25 +713,48 @@ const Notice = () => {
                                             name="sendOption"
                                             value="students"
                                             checked={sendOption === 'students'}
-                                            onChange={(e) => setSendOption(e.target.value)}
+                                            onChange={(e) => {
+                                                setSendOption(e.target.value);
+                                                setSearchTerm('');
+                                            }}
                                             className="w-4 h-4 text-primary border-gray-300 focus:ring-primary mt-0.5"
                                         />
                                         <div className="flex-1">
                                             <p className="text-sm font-medium text-gray-900">Specific Students</p>
                                             <p className="text-xs text-gray-400 mb-2">Select individual students</p>
                                             {sendOption === 'students' && (
-                                                <div className="border border-gray-200 rounded-lg max-h-32 overflow-y-auto">
-                                                    {MOCK_STUDENTS.map(student => (
-                                                        <label key={student._id} className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 cursor-pointer text-sm">
-                                                            <input
-                                                                type="checkbox"
-                                                                checked={selectedStudents.includes(student._id)}
-                                                                onChange={() => toggleSelection(selectedStudents, setSelectedStudents, student._id)}
-                                                                className="w-3.5 h-3.5 text-primary border-gray-300 rounded focus:ring-primary"
-                                                            />
-                                                            {student.name}
-                                                        </label>
-                                                    ))}
+                                                <div className="mt-3 space-y-3">
+                                                    <div className="relative">
+                                                        <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
+                                                        <input
+                                                            type="text"
+                                                            placeholder="Search students..."
+                                                            value={searchTerm}
+                                                            onChange={(e) => setSearchTerm(e.target.value)}
+                                                            className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                                                            onClick={(e) => e.stopPropagation()}
+                                                        />
+                                                    </div>
+                                                    <div className="border border-gray-200 rounded-lg max-h-48 overflow-y-auto">
+                                                        {MOCK_STUDENTS
+                                                            .filter(student => student.name.toLowerCase().includes(searchTerm.toLowerCase()))
+                                                            .map(student => (
+                                                                <label key={student._id} className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 cursor-pointer text-sm border-b border-gray-50 last:border-b-0">
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        checked={selectedStudents.includes(student._id)}
+                                                                        onChange={() => toggleSelection(selectedStudents, setSelectedStudents, student._id)}
+                                                                        className="w-3.5 h-3.5 text-primary border-gray-300 rounded focus:ring-primary"
+                                                                    />
+                                                                    {student.name}
+                                                                </label>
+                                                            ))}
+                                                        {MOCK_STUDENTS.filter(student => student.name.toLowerCase().includes(searchTerm.toLowerCase())).length === 0 && (
+                                                            <div className="px-3 py-4 text-center text-xs text-gray-400">
+                                                                No students found
+                                                            </div>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             )}
                                         </div>
@@ -685,26 +768,49 @@ const Notice = () => {
                                                 name="sendOption"
                                                 value="groups"
                                                 checked={sendOption === 'groups'}
-                                                onChange={(e) => setSendOption(e.target.value)}
+                                                onChange={(e) => {
+                                                    setSendOption(e.target.value);
+                                                    setSearchTerm('');
+                                                }}
                                                 className="w-4 h-4 text-primary border-gray-300 focus:ring-primary mt-0.5"
                                             />
                                             <div className="flex-1">
                                                 <p className="text-sm font-medium text-gray-900">Custom Groups</p>
                                                 <p className="text-xs text-gray-400 mb-2">Your created groups</p>
                                                 {sendOption === 'groups' && (
-                                                    <div className="border border-gray-200 rounded-lg max-h-32 overflow-y-auto">
-                                                        {groups.map(group => (
-                                                            <label key={group.id} className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 cursor-pointer text-sm">
-                                                                <input
-                                                                    type="checkbox"
-                                                                    checked={selectedGroups.includes(group.id)}
-                                                                    onChange={() => toggleSelection(selectedGroups, setSelectedGroups, group.id)}
-                                                                    className="w-3.5 h-3.5 text-primary border-gray-300 rounded focus:ring-primary"
-                                                                />
-                                                                <span>{group.name}</span>
-                                                                <span className="text-xs text-gray-400">({group.students.length})</span>
-                                                            </label>
-                                                        ))}
+                                                    <div className="mt-3 space-y-3">
+                                                        <div className="relative">
+                                                            <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
+                                                            <input
+                                                                type="text"
+                                                                placeholder="Search groups..."
+                                                                value={searchTerm}
+                                                                onChange={(e) => setSearchTerm(e.target.value)}
+                                                                className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                                                                onClick={(e) => e.stopPropagation()}
+                                                            />
+                                                        </div>
+                                                        <div className="border border-gray-200 rounded-lg max-h-48 overflow-y-auto">
+                                                            {groups
+                                                                .filter(group => group.name.toLowerCase().includes(searchTerm.toLowerCase()))
+                                                                .map(group => (
+                                                                    <label key={group.id} className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 cursor-pointer text-sm border-b border-gray-50 last:border-b-0">
+                                                                        <input
+                                                                            type="checkbox"
+                                                                            checked={selectedGroups.includes(group.id)}
+                                                                            onChange={() => toggleSelection(selectedGroups, setSelectedGroups, group.id)}
+                                                                            className="w-3.5 h-3.5 text-primary border-gray-300 rounded focus:ring-primary"
+                                                                        />
+                                                                        <span>{group.name}</span>
+                                                                        <span className="text-xs text-gray-400">({group.students.length})</span>
+                                                                    </label>
+                                                                ))}
+                                                            {groups.filter(group => group.name.toLowerCase().includes(searchTerm.toLowerCase())).length === 0 && (
+                                                                <div className="px-3 py-4 text-center text-xs text-gray-400">
+                                                                    No groups found
+                                                                </div>
+                                                            )}
+                                                        </div>
                                                     </div>
                                                 )}
                                             </div>
