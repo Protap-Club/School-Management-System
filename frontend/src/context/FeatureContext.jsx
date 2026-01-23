@@ -11,16 +11,19 @@ export const FeatureProvider = ({ children }) => {
 
     useEffect(() => {
         const fetchFeatures = async () => {
-            // Super admin has no school - skip feature fetch
-            if (!user || user.role === 'super_admin') {
+            // Get the current user's school ID
+            const currentSchoolId = user?.schoolId?._id || user?.schoolId;
+
+            // If no user or if it's a super admin without a school, skip feature fetch
+            if (!user || (user.role === 'super_admin' && !currentSchoolId)) {
                 setFeatures({});
                 setLoading(false);
                 return;
             }
 
             try {
-                // Use the /my-features endpoint that works for any authenticated user
-                const response = await api.get('/school/my-features');
+                // Use the /school/me/features endpoint for the current user's school
+                const response = await api.get('/school/me/features');
                 if (response.data.success) {
                     setFeatures(response.data.data.features || {});
                 }
@@ -37,11 +40,11 @@ export const FeatureProvider = ({ children }) => {
 
     /**
      * Check if a feature is enabled
-     * Super admin bypasses feature checks
+     * Super admin bypasses feature checks unless we want them to see what's enabled for the school
      */
     const hasFeature = (featureKey) => {
-        // Super admin always has access
-        if (user?.role === 'super_admin') return true;
+        // Super admin always has access but for sidebar visibility we might want to check the actual flag
+        // However, the user specifically wants to see features they "turned on", so we check the flag.
         return features[featureKey] === true;
     };
 
@@ -49,10 +52,11 @@ export const FeatureProvider = ({ children }) => {
      * Refresh features (call after toggling)
      */
     const refreshFeatures = async () => {
-        if (!user || user.role === 'super_admin') return;
+        const currentSchoolId = user?.schoolId?._id || user?.schoolId;
+        if (!user || (user.role === 'super_admin' && !currentSchoolId)) return;
 
         try {
-            const response = await api.get('/school/my-features');
+            const response = await api.get('/school/me/features');
             if (response.data.success) {
                 setFeatures(response.data.data.features || {});
             }

@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 
 const schoolSchema = new mongoose.Schema(
     {
-        name: { type: String, required: [true, "School name is required"], trim: true },
+        name: { type: String, required: [true, "School name is required"], trim: true, index: 'text' },
         code: { type: String, required: [true, "School code is required"], unique: true, uppercase: true, trim: true },
         address: { type: String, trim: true },
         contactEmail: { type: String, lowercase: true, trim: true },

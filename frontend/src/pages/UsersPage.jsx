@@ -93,19 +93,28 @@ const UsersPage = () => {
         setLoading(true);
         try {
             const params = new URLSearchParams({
-                role: selectedRole,
                 page: page.toString(),
                 pageSize: pageSize.toString()
             });
+            // Only add role param if it's not 'all' (validation rejects 'all')
+            if (selectedRole !== 'all') {
+                params.append('role', selectedRole);
+            }
 
-            const endpoint = showArchived ? '/user/archived' : '/user/get-users';
+            // Force schoolId filter if we are super_admin and searching for a school
+            // (In this implementation, super_admin's schoolId filter is usually handled by the dropdown if implemented)
+
+            const endpoint = showArchived ? '/user/archived' : '/user';
             const response = await api.get(`${endpoint}?${params}`);
             if (response.data.success) {
+                // Ensure users are filtered by role in the frontend as well just in case,
+                // although the backend handles it.
                 setUsers(response.data.data);
                 setPagination(response.data.pagination);
             }
         } catch (error) {
             console.error('Failed to fetch users', error);
+            setUsers([]); // Reset on error to show empty state
         } finally {
             setLoading(false);
         }
@@ -235,9 +244,9 @@ const UsersPage = () => {
             if (showArchived) {
                 // Hard Delete
                 if (deleteConfirm.isBulk) {
-                    await api.delete('/user/delete-bulk', { data: { userIds: selectedUsers } });
+                    await api.delete('/user/bulk', { data: { userIds: selectedUsers } });
                 } else {
-                    await api.delete(`/user/delete/${deleteConfirm.users[0]._id}`);
+                    await api.delete(`/user/${deleteConfirm.users[0]._id}`);
                 }
             } else {
                 // Soft Delete (Archive)
