@@ -17,19 +17,19 @@ const TimetableGrid = ({ timetableData, onCellClick, readOnly, showClass = false
   };
 
   return (
-    <div className="overflow-x-auto pb-4">
-      <div className="min-w-[1000px] border border-gray-200 rounded-xl overflow-hidden bg-white shadow-sm">
+    <div className="w-full">
+      <div className="w-full border border-gray-200 rounded-lg overflow-hidden bg-white shadow-sm">
         {/* Header Row */}
-        <div className="grid grid-cols-[100px_repeat(6,1fr)] bg-gray-50 border-b border-gray-200">
-          <div className="p-4 text-xs font-semibold text-gray-500 uppercase tracking-wider text-center flex items-center justify-center border-r border-gray-100">
+        <div className="grid grid-cols-[70px_repeat(6,1fr)] bg-gray-50 border-b border-gray-200">
+          <div className="py-2 px-1 text-[10px] font-semibold text-gray-500 uppercase tracking-wider text-center flex items-center justify-center border-r border-gray-100">
             Time
           </div>
           {daysOfWeek.map((day) => (
             <div
               key={day}
-              className="p-4 text-sm font-bold text-gray-700 text-center border-r border-gray-100 last:border-r-0"
+              className="py-2 px-1 text-xs font-bold text-gray-700 text-center border-r border-gray-100 last:border-r-0"
             >
-              {day}
+              {day.slice(0, 3)}
             </div>
           ))}
         </div>
@@ -38,24 +38,24 @@ const TimetableGrid = ({ timetableData, onCellClick, readOnly, showClass = false
         {timeSlots.map((slot) => (
           <div
             key={slot.id}
-            className={`grid grid-cols-[100px_repeat(6,1fr)] border-b border-gray-100 last:border-b-0 ${slot.type === 'break' ? 'bg-orange-50/50' : 'bg-white'
+            className={`grid grid-cols-[70px_repeat(6,1fr)] border-b border-gray-100 last:border-b-0 ${slot.type === 'break' ? 'bg-orange-50/50' : 'bg-white'
               }`}
           >
             {/* Time Column */}
-            <div className="p-3 text-xs font-medium text-gray-500 flex flex-col items-center justify-center border-r border-gray-100 text-center">
+            <div className="py-1.5 px-1 text-[10px] font-medium text-gray-500 flex flex-col items-center justify-center border-r border-gray-100 text-center leading-tight">
               <span>{slot.startTime}</span>
-              <span className="text-gray-300 my-1">|</span>
+              <span className="text-gray-300">-</span>
               <span>{slot.endTime}</span>
               {slot.label && (
-                <span className="mt-1 px-2 py-0.5 bg-orange-100 text-orange-600 rounded text-[10px] font-bold uppercase tracking-wide">
-                  {slot.label}
+                <span className="mt-0.5 px-1 py-0.5 bg-orange-100 text-orange-600 rounded text-[8px] font-bold uppercase">
+                  Break
                 </span>
               )}
             </div>
 
             {/* Days Columns */}
             {slot.type === 'break' ? (
-              <div className="col-span-6 p-4 text-center text-sm font-medium text-orange-400 italic flex items-center justify-center tracking-widest uppercase opacity-75">
+              <div className="col-span-6 py-2 text-center text-[10px] font-medium text-orange-400 italic flex items-center justify-center tracking-wide uppercase opacity-75">
                 {slot.label}
               </div>
             ) : (
@@ -66,26 +66,24 @@ const TimetableGrid = ({ timetableData, onCellClick, readOnly, showClass = false
                   <div
                     key={`${day}-${slot.id}`}
                     onClick={() => !readOnly && onCellClick(day, slot, entry)}
-                    className={`min-h-[120px] p-2 border-r border-gray-100 last:border-r-0 transition-all duration-200 relative group ${!readOnly ? 'cursor-pointer hover:bg-gray-50' : ''
+                    className={`min-h-[60px] p-1 border-r border-gray-100 last:border-r-0 transition-all duration-150 relative group ${!readOnly ? 'cursor-pointer hover:bg-blue-50/30' : ''
                       }`}
                   >
                     {entry ? (
-                      <div className={`h-full flex flex-col justify-between rounded-lg p-2 border shadow-sm transition-all ${showClass
-                        ? 'bg-purple-50 border-purple-100 hover:shadow-md'
-                        : 'bg-white border-blue-100 hover:shadow-md group-hover:border-blue-200'
+                      <div className={`h-full flex flex-col justify-between rounded p-1.5 border transition-all text-[10px] ${showClass
+                        ? 'bg-purple-50 border-purple-100'
+                        : 'bg-blue-50 border-blue-100'
                         }`}>
                         <div>
-                          <h4 className="font-bold text-gray-800 text-sm mb-1 line-clamp-2">
+                          <h4 className="font-semibold text-gray-800 leading-tight line-clamp-1">
                             {entry.subject}
                           </h4>
-                          <div className="flex items-center text-xs text-gray-500 mb-1">
+                          <div className="flex items-center text-gray-500 mt-0.5">
                             {showClass ? (
-                              <>
-                                <span className="font-semibold text-purple-600 truncate">{entry.classId}</span>
-                              </>
+                              <span className="font-medium text-purple-600 truncate">{entry.classId}</span>
                             ) : (
                               <>
-                                <FaChalkboardTeacher className="mr-1.5 text-blue-400" />
+                                <FaChalkboardTeacher className="mr-1 text-blue-400 text-[8px]" />
                                 <span className="truncate">{getTeacherName(entry.teacherEmail)}</span>
                               </>
                             )}
@@ -93,17 +91,17 @@ const TimetableGrid = ({ timetableData, onCellClick, readOnly, showClass = false
                         </div>
 
                         {entry.room && (
-                          <div className="flex items-center text-xs text-gray-400 bg-white/50 px-2 py-1 rounded w-fit">
-                            <FaMapMarkerAlt className="mr-1.5" />
-                            <span>Room {entry.room}</span>
+                          <div className="flex items-center text-gray-400 mt-0.5">
+                            <FaMapMarkerAlt className="mr-0.5 text-[8px]" />
+                            <span>{entry.room}</span>
                           </div>
                         )}
                       </div>
                     ) : (
                       !readOnly && (
                         <div className="h-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                          <div className="w-8 h-8 rounded-full bg-blue-50 text-blue-500 flex items-center justify-center shadow-sm">
-                            <FaPlus className="text-xs" />
+                          <div className="w-5 h-5 rounded-full bg-blue-100 text-blue-500 flex items-center justify-center">
+                            <FaPlus className="text-[8px]" />
                           </div>
                         </div>
                       )

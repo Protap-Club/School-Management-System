@@ -145,15 +145,15 @@ const TimetablePage = () => {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
+      <div className="space-y-4">
         {/* Header */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
           <div>
-            <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
+            <h1 className="text-xl font-bold text-gray-800 flex items-center gap-2">
               <FaCalendarAlt className="text-primary" />
               Timetable
             </h1>
-            <p className="text-gray-500 mt-1">
+            <p className="text-gray-500 text-sm mt-0.5">
               {isTeacher
                 ? 'View your schedule and class timetables.'
                 : 'Manage class schedules and periods.'}
@@ -253,7 +253,7 @@ const TimetablePage = () => {
         </div>
 
         {/* Timetable Grid */}
-        <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <div className="bg-white rounded-xl p-3 shadow-sm border border-gray-100">
           <TimetableGrid
             timetableData={currentTimetable}
             onCellClick={handleCellClick}
