@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { FaTimes } from 'react-icons/fa';
 
-const TimetableModal = ({ isOpen, onClose, onSave, onDelete, initialData, slotInfo, teachers = [] }) => {
+const TimetableModal = ({ isOpen, onClose, onSave, onDelete, initialData, slotInfo, teachers = [], showClassSelector = false, classes = [] }) => {
   const [formData, setFormData] = useState({
     subject: '',
     teacherEmail: '', // Changed ID to Email for mapping with demo data
     room: '',
+    classId: '', // Added for Admin Teacher View
   });
 
   useEffect(() => {
@@ -14,12 +15,14 @@ const TimetableModal = ({ isOpen, onClose, onSave, onDelete, initialData, slotIn
         subject: initialData.subject || '',
         teacherEmail: initialData.teacherEmail || '',
         room: initialData.room || '',
+        classId: initialData.classId || '',
       });
     } else {
       setFormData({
         subject: '',
-        teacherEmail: '',
+        teacherEmail: '', // We could pre-fill this if we passed 'selectedTeacher' prop, but for now user selects.
         room: '',
+        classId: '',
       });
     }
   }, [initialData, isOpen]);
@@ -92,6 +95,26 @@ const TimetableModal = ({ isOpen, onClose, onSave, onDelete, initialData, slotIn
                 ))}
               </select>
             </div>
+
+            {/* Class Selector (Only for Admin Teacher View) */}
+            {showClassSelector && (
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Class</label>
+                <select
+                  required
+                  value={formData.classId}
+                  onChange={(e) => setFormData({ ...formData, classId: e.target.value })}
+                  className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                >
+                  <option value="">Select Class</option>
+                  {classes.map((cls) => (
+                    <option key={cls.id} value={cls.id}>
+                      {cls.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Room (Optional)</label>

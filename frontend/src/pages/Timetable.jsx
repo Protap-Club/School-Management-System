@@ -52,52 +52,63 @@ const TimetablePage = () => {
 
   // State
   const [activeTab, setActiveTab] = useState('my-timetable'); // For teachers
+  const [adminViewMode, setAdminViewMode] = useState('class'); // 'class' or 'teacher' for Admin
 
   // Use Custom Hook for Data
   const { timetableData, addOrUpdateEntry, deleteEntry } = useTimetableData();
 
   const [selectedClass, setSelectedClass] = useState('');
+  const [selectedTeacher, setSelectedTeacher] = useState('');
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedCell, setSelectedCell] = useState(null); // { day, slot, entry }
 
-  // Set default selected class on load
+  // Set default selected items on load
   useEffect(() => {
-    if (classes.length > 0 && !selectedClass) {
-      setSelectedClass(classes[0].id);
+    if (isTeacher) {
+      // ... existing teacher logic ...
+      const myTeacherProfile = allTeachers.find(t => t.email === user?.email);
+      if (myTeacherProfile) {
+        const myClassId = `${myTeacherProfile.standard}-${myTeacherProfile.section}`;
+        if (selectedClass !== myClassId) setSelectedClass(myClassId);
+      } else if (classes.length > 0 && !selectedClass) {
+        setSelectedClass(classes[0].id);
+      }
+    } else {
+      // Admin Defaults
+      if (classes.length > 0 && !selectedClass) {
+        setSelectedClass(classes[0].id);
+      }
+      if (allTeachers.length > 0 && !selectedTeacher) {
+        setSelectedTeacher(allTeachers[0].email);
+      }
     }
-  }, [classes, selectedClass]);
+  }, [classes, selectedClass, isTeacher, user, allTeachers, selectedTeacher]);
 
   // Derive display data based on role/view
   const currentTimetable = useMemo(() => {
-    if (isTeacher && activeTab === 'my-timetable') {
-      // Check if logged in user is one of the demo teachers by email
-      // If not found, fall back to first teacher or empty
-      const myEmail = user?.email || allTeachers[0].email;
+    const isTeacherView = (isTeacher && activeTab === 'my-timetable') || (!isTeacher && adminViewMode === 'teacher');
 
-      console.log('TimetablePage: Filtering for Teacher View');
-      console.log('TimetablePage: My Email:', myEmail);
-      console.log('TimetablePage: My Role:', user?.role);
-      console.log('TimetablePage: Total Data:', timetableData.length);
+    if (isTeacherView) {
+      // Determined target email: Logged in teacher OR Admin's selected teacher
+      const targetEmail = isTeacher ? (user?.email || allTeachers[0].email) : selectedTeacher;
 
       return timetableData.filter(t => {
         // Strict email match first
-        if (t.teacherEmail === myEmail) return true;
+        if (t.teacherEmail === targetEmail) return true;
 
-        // Fallback: Check if user name is part of the teacherEmail string (mock simulation)
-        // e.g. user "Priya" matches "priya@dps.com"
-        const namePart = user?.name?.toLowerCase().split(' ')[0] || '';
-        if (namePart && t.teacherEmail.includes(namePart)) return true;
-
+        // Fallback checks (only for logged-in teacher context usually)
+        if (isTeacher) {
+          const namePart = user?.name?.toLowerCase().split(' ')[0] || '';
+          if (namePart && t.teacherEmail.includes(namePart)) return true;
+        }
         return false;
       });
     } else {
-      // Class View (Admin/SuperAdmin or Teacher viewing class)
-      console.log('TimetablePage: Filtering for Class View');
-      console.log('TimetablePage: Selected Class:', selectedClass);
-      console.log('TimetablePage: Total Data:', timetableData.length);
+      // Class View
       return timetableData.filter(t => t.classId === selectedClass);
     }
-  }, [timetableData, selectedClass, isTeacher, activeTab, user, allTeachers]);
+  }, [timetableData, selectedClass, isTeacher, activeTab, user, allTeachers, adminViewMode, selectedTeacher]);
 
   // Handlers
   const handleCellClick = (day, slot, entry) => {
@@ -108,7 +119,8 @@ const TimetablePage = () => {
   const handleSaveEntry = (formData) => {
     const newEntry = {
       id: selectedCell.entry ? selectedCell.entry.id : Date.now(),
-      classId: selectedClass,
+      // If admin is adding to Teacher view, use the class selected in modal. Otherwise use page-level selectedClass
+      classId: formData.classId || selectedClass,
       day: selectedCell.day,
       timeSlotId: selectedCell.slot.id,
       ...formData,
@@ -139,7 +151,7 @@ const TimetablePage = () => {
           <div>
             <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
               <FaCalendarAlt className="text-primary" />
-              Timetable Management
+              Timetable
             </h1>
             <p className="text-gray-500 mt-1">
               {isTeacher
@@ -179,17 +191,52 @@ const TimetablePage = () => {
                 </button>
               </div>
             ) : (
-              <div className="flex items-center gap-4 bg-white p-2 rounded-xl border border-gray-100 shadow-sm">
-                <label className="text-sm font-medium text-gray-600 pl-2">Select Class:</label>
-                <select
-                  value={selectedClass}
-                  onChange={(e) => setSelectedClass(e.target.value)}
-                  className="bg-gray-50 border border-gray-200 text-gray-800 text-sm rounded-lg focus:ring-primary focus:border-primary block p-2 min-w-[150px]"
-                >
-                  {classes.map(cls => (
-                    <option key={cls.id} value={cls.id}>{cls.name}</option>
-                  ))}
-                </select>
+              <div className="flex flex-wrap items-center gap-4 bg-white p-2 rounded-xl border border-gray-100 shadow-sm">
+
+                {/* Admin View Switcher */}
+                <div className="flex bg-gray-100 p-1 rounded-lg">
+                  <button
+                    onClick={() => setAdminViewMode('class')}
+                    className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${adminViewMode === 'class' ? 'bg-white text-primary shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                  >
+                    Class
+                  </button>
+                  <button
+                    onClick={() => setAdminViewMode('teacher')}
+                    className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${adminViewMode === 'teacher' ? 'bg-white text-primary shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                  >
+                    Teacher
+                  </button>
+                </div>
+
+                {/* Conditional Selectors */}
+                {adminViewMode === 'class' ? (
+                  <div className="flex items-center gap-2">
+                    <label className="text-sm font-medium text-gray-600 pl-2">Class:</label>
+                    <select
+                      value={selectedClass}
+                      onChange={(e) => setSelectedClass(e.target.value)}
+                      className="bg-gray-50 border border-gray-200 text-gray-800 text-sm rounded-lg focus:ring-primary focus:border-primary block p-2 min-w-[150px]"
+                    >
+                      {classes.map(cls => (
+                        <option key={cls.id} value={cls.id}>{cls.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <label className="text-sm font-medium text-gray-600 pl-2">Teacher:</label>
+                    <select
+                      value={selectedTeacher}
+                      onChange={(e) => setSelectedTeacher(e.target.value)}
+                      className="bg-gray-50 border border-gray-200 text-gray-800 text-sm rounded-lg focus:ring-primary focus:border-primary block p-2 min-w-[150px]"
+                    >
+                      {allTeachers.map(t => (
+                        <option key={t.email} value={t.email}>{t.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
               </div>
             )}
 
@@ -197,15 +244,9 @@ const TimetablePage = () => {
             {isTeacher && activeTab === 'class-timetable' && (
               <div className="flex items-center gap-4 bg-white p-2 rounded-xl border border-gray-100 shadow-sm">
                 <label className="text-sm font-medium text-gray-600 pl-2">Viewing:</label>
-                <select
-                  value={selectedClass}
-                  onChange={(e) => setSelectedClass(e.target.value)}
-                  className="bg-gray-50 border border-gray-200 text-gray-800 text-sm rounded-lg focus:ring-primary focus:border-primary block p-2 min-w-[150px]"
-                >
-                  {classes.map(cls => (
-                    <option key={cls.id} value={cls.id}>{cls.name}</option>
-                  ))}
-                </select>
+                <div className="px-3 py-2 bg-gray-50 text-gray-700 text-sm font-medium rounded-lg border border-gray-200">
+                  {classes.find(c => c.id === selectedClass)?.name || "Your Class"}
+                </div>
               </div>
             )}
           </div>
@@ -216,8 +257,11 @@ const TimetablePage = () => {
           <TimetableGrid
             timetableData={currentTimetable}
             onCellClick={handleCellClick}
-            readOnly={isTeacher} // Teacher is always read-only
-            showClass={isTeacher && activeTab === 'my-timetable'}
+            // ReadOnly if:
+            // 1. Teacher viewing Personal Timetable
+            // 2. Admin viewing Teacher Timetable (Strictly Read-Only as per spec)
+            readOnly={(isTeacher && activeTab === 'my-timetable') || (!isTeacher && adminViewMode === 'teacher')}
+            showClass={(isTeacher && activeTab === 'my-timetable') || (!isTeacher && adminViewMode === 'teacher')}
             timeSlots={TIME_SLOTS}
             teachers={allTeachers}
           />
@@ -232,6 +276,9 @@ const TimetablePage = () => {
           initialData={selectedCell?.entry}
           slotInfo={selectedCell ? { day: selectedCell.day, time: `${selectedCell.slot.startTime} - ${selectedCell.slot.endTime}` } : null}
           teachers={allTeachers}
+          // Show class selector if Admin is in Teacher View (since we need to know which class to assign)
+          showClassSelector={!isTeacher && adminViewMode === 'teacher'}
+          classes={classes} // Pass classes list for the selector
         />
       </div>
     </DashboardLayout>
