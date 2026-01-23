@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import DashboardLayout from '../layouts/DashboardLayout';
 import { useAuth } from '../context/AuthContext';
+import { useFeatures } from '../context/FeatureContext';
 import api from '../api/axios';
 import { connectSocket, disconnectSocket } from '../api/socket';
 import {
@@ -12,7 +13,8 @@ import {
   FaChartBar,
   FaUsers,
   FaSearch,
-  FaWifi
+  FaWifi,
+  FaClipboardList
 } from 'react-icons/fa';
 
 const Attendance = () => {
