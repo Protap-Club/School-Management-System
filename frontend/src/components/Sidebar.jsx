@@ -9,6 +9,7 @@ import {
     FaClipboardList,
     FaHome,
     FaBullhorn,
+    FaCalendarAlt,
 } from 'react-icons/fa';
 
 const Sidebar = () => {
@@ -24,6 +25,7 @@ const Sidebar = () => {
                 const superAdminLinks = [
                     dashboardLink,
                     { path: '/superadmin/users', label: 'Users', icon: <FaUserGraduate /> },
+                    // { path: '/superadmin/timetable', label: 'Timetable', icon: <FaCalendarAlt /> }, // Removed as per request
                 ];
 
                 superAdminLinks.push({ path: '/superadmin/settings', label: 'Settings', icon: <FaCog /> });
@@ -46,6 +48,10 @@ const Sidebar = () => {
                     adminLinks.push({ path: '/admin/notice', label: 'Notice', icon: <FaBullhorn /> });
                 }
 
+                if (hasFeature('timetable')) {
+                    adminLinks.push({ path: '/admin/timetable', label: 'Timetable', icon: <FaCalendarAlt /> });
+                }
+
                 // Settings always last
                 adminLinks.push({ path: '/admin/settings', label: 'Settings', icon: <FaCog /> });
 
@@ -65,6 +71,10 @@ const Sidebar = () => {
                 // Notice link (only if feature enabled)
                 if (hasFeature('notice')) {
                     teacherLinks.push({ path: '/teacher/notice', label: 'Notice', icon: <FaBullhorn /> });
+                }
+
+                if (hasFeature('timetable')) {
+                    teacherLinks.push({ path: '/teacher/timetable', label: 'Timetable', icon: <FaCalendarAlt /> });
                 }
 
                 return teacherLinks;
