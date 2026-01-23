@@ -49,7 +49,7 @@ export const ThemeProvider = ({ children }) => {
     // Fetch branding from API
     const fetchBranding = async () => {
         try {
-            const response = await api.get('/school/my-branding');
+            const response = await api.get('/school/me/branding');
             if (response.data.success && response.data.data) {
                 setBranding(response.data.data);
                 // Apply theme color

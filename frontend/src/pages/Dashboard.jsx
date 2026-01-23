@@ -19,8 +19,8 @@ const Dashboard = () => {
       if (user?.role === 'teacher') {
         try {
           const [filteredResponse, allProfilesResponse] = await Promise.all([
-            api.get('/user/get-users?role=student&pageSize=1'),
-            api.get('/user/get-users-with-profiles?role=student')
+            api.get('/user?role=student&pageSize=1'),
+            api.get('/user/with-profiles?role=student')
           ]);
 
           if (filteredResponse.data.success && allProfilesResponse.data.success) {

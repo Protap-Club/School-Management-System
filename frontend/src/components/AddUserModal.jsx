@@ -57,7 +57,7 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
             // Map "year" to number if present
             if (payload.year) payload.year = parseInt(payload.year);
 
-            await api.post('/user/create-user', payload);
+            await api.post('/user', payload);
             onSuccess();
             onClose();
             // Reset form

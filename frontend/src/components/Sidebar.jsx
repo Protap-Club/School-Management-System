@@ -21,11 +21,14 @@ const Sidebar = () => {
 
         switch (user?.role) {
             case 'super_admin':
-                return [
+                const superAdminLinks = [
                     dashboardLink,
                     { path: '/superadmin/users', label: 'Users', icon: <FaUserGraduate /> },
-                    { path: '/superadmin/settings', label: 'Settings', icon: <FaCog /> },
                 ];
+
+                superAdminLinks.push({ path: '/superadmin/settings', label: 'Settings', icon: <FaCog /> });
+
+                return superAdminLinks;
             case 'admin':
                 // Build links based on enabled features
                 const adminLinks = [
