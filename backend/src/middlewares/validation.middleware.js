@@ -22,12 +22,13 @@ export const validate = (schema) => (req, res, next) => {
     } catch (error) {
         // If a ZodError occurs, it means validation failed.
         if (error instanceof z.ZodError) {
-            logger.warn(`Validation failed: ${error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ')}`);
+            const errorList = error.errors || [{ path: [], message: error.message || "Validation error" }];
+            logger.warn(`Validation failed: ${errorList.map(e => `${e.path.join('.')}: ${e.message}`).join(', ')}`);
             return res.status(400).json({
                 success: false,
                 message: "Validation failed",
                 // Map Zod errors into a more client-friendly format.
-                errors: error.errors.map(e => ({ path: e.path.join('.'), message: e.message })),
+                errors: errorList.map(e => ({ path: e.path.join('.'), message: e.message })),
             });
         }
         // If it's not a ZodError, it's an unexpected error; forward it to the error handling middleware.
