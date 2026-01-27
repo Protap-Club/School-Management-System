@@ -14,6 +14,7 @@ import Settings from './pages/Settings';
 import Dashboard from './pages/Dashboard';
 import Attendance from './pages/Attendance';
 import Notice from './pages/Notice';
+import TimetablePage from './pages/Timetable';
 
 function App() {
   return (
@@ -91,6 +92,16 @@ function App() {
                     </ProtectedRoute>
                   }
                 />
+                <Route
+                  path="/admin/timetable"
+                  element={
+                    <ProtectedRoute allowedRoles={['admin']}>
+                      <RequireFeature feature="timetable">
+                        <TimetablePage />
+                      </RequireFeature>
+                    </ProtectedRoute>
+                  }
+                />
 
                 {/* Teacher Routes */}
                 <Route
@@ -117,6 +128,16 @@ function App() {
                     <ProtectedRoute allowedRoles={['teacher']}>
                       <RequireFeature feature="notice">
                         <Notice />
+                      </RequireFeature>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/teacher/timetable"
+                  element={
+                    <ProtectedRoute allowedRoles={['teacher']}>
+                      <RequireFeature feature="timetable">
+                        <TimetablePage />
                       </RequireFeature>
                     </ProtectedRoute>
                   }
