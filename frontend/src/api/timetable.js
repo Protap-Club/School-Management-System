@@ -112,7 +112,7 @@ export const getTeacherSchedule = async (teacherId, academicYear = null) => {
 // ═══════════════════════════════════════════════════════════════
 
 export const getTeachers = async () => {
-    const response = await api.get('/users?role=teacher&pageSize=100');
+    const response = await api.get('/user?role=teacher&pageSize=100');
     return response.data;
 };
 
@@ -150,3 +150,15 @@ export const DAY_MAP_REVERSE = {
     'Fri': 'Friday',
     'Sat': 'Saturday'
 };
+
+// Default time slots for 11AM-5PM school day matching reference design
+// Used when backend has no time slots configured
+export const DEFAULT_TIME_SLOTS = [
+    { slotNumber: 1, startTime: '11:00', endTime: '12:00', slotType: 'CLASS', label: 'Period 1' },
+    { slotNumber: 2, startTime: '12:00', endTime: '13:00', slotType: 'CLASS', label: 'Period 2' },
+    { slotNumber: 3, startTime: '13:00', endTime: '13:30', slotType: 'BREAK', label: 'Lunch Break' },
+    { slotNumber: 4, startTime: '13:30', endTime: '14:30', slotType: 'CLASS', label: 'Period 3' },
+    { slotNumber: 5, startTime: '14:30', endTime: '15:30', slotType: 'CLASS', label: 'Period 4' },
+    { slotNumber: 6, startTime: '15:30', endTime: '16:00', slotType: 'BREAK', label: 'Short Break' },
+    { slotNumber: 7, startTime: '16:00', endTime: '17:00', slotType: 'CLASS', label: 'Period 5' }
+];

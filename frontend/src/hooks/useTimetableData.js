@@ -1,11 +1,17 @@
 import { useState, useEffect, useCallback } from 'react';
 import * as timetableApi from '../api/timetable';
+import { DEFAULT_TIME_SLOTS } from '../api/timetable';
 
 /**
  * Custom hook for managing timetable data via backend API
- * Replaces localStorage-based approach with proper API integration
+ * Role-aware: Admins get full access, Teachers only get time slots and own schedule
+ * @param {string} userRole - 'admin', 'super_admin', or 'teacher'
+ * @param {string} userId - Current user's ID (for teacher schedule)
  */
-export const useTimetableData = () => {
+export const useTimetableData = (userRole = 'admin', userId = null) => {
+    // Determine if user is admin (can access all endpoints)
+    const isAdmin = ['admin', 'super_admin'].includes(userRole);
+    
     // State
     const [timeSlots, setTimeSlots] = useState([]);
     const [timetables, setTimetables] = useState([]);
@@ -22,12 +28,47 @@ export const useTimetableData = () => {
     const fetchTimeSlots = useCallback(async () => {
         try {
             const response = await timetableApi.getTimeSlots();
-            setTimeSlots(response.data || []);
+            let slots = response.data || [];
+            
+            // If no slots exist and user is admin, create default slots
+            if (slots.length === 0 && isAdmin) {
+                console.info('No time slots found, creating default 11AM-5PM schedule...');
+                
+                // Create each default slot in backend
+                for (const defaultSlot of DEFAULT_TIME_SLOTS) {
+                    try {
+                        await timetableApi.createTimeSlot({
+                            slotNumber: defaultSlot.slotNumber,
+                            startTime: defaultSlot.startTime,
+                            endTime: defaultSlot.endTime,
+                            slotType: defaultSlot.slotType,
+                            label: defaultSlot.label
+                        });
+                    } catch (createErr) {
+                        console.error('Failed to create slot:', defaultSlot.label, createErr);
+                    }
+                }
+                
+                // Fetch again to get slots with proper MongoDB IDs
+                const refreshResponse = await timetableApi.getTimeSlots();
+                slots = refreshResponse.data || [];
+                console.info('Created and fetched', slots.length, 'time slots');
+            }
+            
+            // Use fetched slots if available, otherwise fallback to defaults (for display only)
+            if (slots.length > 0) {
+                setTimeSlots(slots);
+            } else {
+                console.warn('No time slots available, using defaults for display (read-only)');
+                setTimeSlots(DEFAULT_TIME_SLOTS);
+            }
         } catch (err) {
             console.error('Failed to fetch time slots:', err);
+            // On error, fall back to default time slots for display
+            setTimeSlots(DEFAULT_TIME_SLOTS);
             setError(err.response?.data?.message || 'Failed to fetch time slots');
         }
-    }, []);
+    }, [isAdmin]);
 
     const fetchTimetables = useCallback(async (filters = {}) => {
         try {
@@ -42,9 +83,16 @@ export const useTimetableData = () => {
     const fetchTeachers = useCallback(async () => {
         try {
             const response = await timetableApi.getTeachers();
-            setTeachers(response.data || []);
+            // Backend returns { success: true, data: [...], pagination: {...} }
+            const teachersList = response.data || [];
+            setTeachers(teachersList);
+            if (teachersList.length === 0) {
+                console.warn('No teachers returned from backend');
+            }
         } catch (err) {
             console.error('Failed to fetch teachers:', err);
+            setError(err.response?.data?.message || 'Failed to fetch teachers');
+            setTeachers([]);
         }
     }, []);
 
@@ -63,15 +111,22 @@ export const useTimetableData = () => {
         }
     }, []);
 
-    // Initial fetch on mount
+    // Initial fetch on mount - role-aware
     useEffect(() => {
         const init = async () => {
             setLoading(true);
-            await Promise.all([fetchTimeSlots(), fetchTimetables(), fetchTeachers()]);
+            // Time slots are accessible to all authenticated users
+            await fetchTimeSlots();
+            
+            // Admin-only: fetch timetables list and teachers
+            if (isAdmin) {
+                await Promise.all([fetchTimetables(), fetchTeachers()]);
+            }
+            // Note: Teachers will fetch their own schedule via fetchTeacherSchedule
             setLoading(false);
         };
         init();
-    }, [fetchTimeSlots, fetchTimetables, fetchTeachers]);
+    }, [fetchTimeSlots, fetchTimetables, fetchTeachers, isAdmin]);
 
     // ═══════════════════════════════════════════════════════════════
     // TimeSlot Operations

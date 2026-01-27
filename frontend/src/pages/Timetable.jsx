@@ -1,114 +1,106 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { DEMO_USERS } from '../data/demo';
 import DashboardLayout from '../layouts/DashboardLayout';
 import TimetableGrid from '../components/timetable/TimetableGrid';
 import TimetableModal from '../components/timetable/TimetableModal';
-import { FaCalendarAlt, FaChalkboardTeacher, FaLayerGroup } from 'react-icons/fa';
+import { FaCalendarAlt, FaChalkboardTeacher, FaLayerGroup, FaPlus, FaSpinner, FaCog, FaToggleOn, FaToggleOff } from 'react-icons/fa';
 import { useTimetableData } from '../hooks/useTimetableData';
-
-const TIME_SLOTS = [
-  { id: 1, startTime: "11:00 AM", endTime: "12:00 PM", type: "period" },
-  { id: 2, startTime: "12:00 PM", endTime: "01:00 PM", type: "period" },
-  { id: 3, startTime: "01:00 PM", endTime: "01:30 PM", type: "break", label: "Lunch Break" },
-  { id: 4, startTime: "01:30 PM", endTime: "02:30 PM", type: "period" },
-  { id: 5, startTime: "02:30 PM", endTime: "03:30 PM", type: "period" },
-  { id: 6, startTime: "03:30 PM", endTime: "04:00 PM", type: "break", label: "Short Break" },
-  { id: 7, startTime: "04:00 PM", endTime: "05:00 PM", type: "period" },
-];
+import { TIMETABLE_STATUS } from '../api/timetable';
 
 const TimetablePage = () => {
   const { user } = useAuth();
   const isTeacher = user?.role === 'teacher';
-  // Explicitly check for admin/super_admin roles for clarity, though !isTeacher implies this in current logic
-  const isStaff = ['super_admin', 'admin'].includes(user?.role);
+  const isAdmin = ['super_admin', 'admin'].includes(user?.role);
 
-  // Debugging
-  useEffect(() => {
-    console.log('TimetablePage: Current User Role:', user?.role);
-  }, [user]);
+  // Hook for all timetable data and operations - pass role for permission-based fetching
+  const {
+    timeSlots,
+    timetables,
+    selectedTimetable,
+    entries,
+    teachers,
+    loading,
+    error,
+    addTimetable,
+    updateStatus,
+    removeTimetable,
+    selectTimetable,
+    addEntry,
+    editEntry,
+    removeEntry,
+    fetchTeacherSchedule,
+    clearError
+  } = useTimetableData(user?.role, user?._id);
 
-  // Data extraction constants
-  const SCHOOL_CODE = 'DPS'; // Default to DPS for demo
-  const allTeachers = DEMO_USERS[SCHOOL_CODE].teachers;
+  // UI State
+  const [activeTab, setActiveTab] = useState('class-timetable');
+  const [adminViewMode, setAdminViewMode] = useState('class'); // 'class' or 'teacher'
+  const [selectedTeacherId, setSelectedTeacherId] = useState('');
+  const [teacherScheduleData, setTeacherScheduleData] = useState(null);
 
-  // Extract classes from teachers list (Standard + Section)
-  const classes = useMemo(() => {
-    const classSet = new Set();
-    const classList = [];
-
-    allTeachers.forEach(t => {
-      const classId = `${t.standard}-${t.section}`;
-      if (!classSet.has(classId)) {
-        classSet.add(classId);
-        classList.push({
-          id: classId,
-          name: `Class ${t.standard} ${t.section}`
-        });
-      }
-    });
-    return classList.sort((a, b) => a.name.localeCompare(b.name));
-  }, [allTeachers]);
-
-  // State
-  const [activeTab, setActiveTab] = useState('my-timetable'); // For teachers
-  const [adminViewMode, setAdminViewMode] = useState('class'); // 'class' or 'teacher' for Admin
-
-  // Use Custom Hook for Data
-  const { timetableData, addOrUpdateEntry, deleteEntry } = useTimetableData();
-
-  const [selectedClass, setSelectedClass] = useState('');
-  const [selectedTeacher, setSelectedTeacher] = useState('');
-
+  // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedCell, setSelectedCell] = useState(null); // { day, slot, entry }
+  const [selectedCell, setSelectedCell] = useState(null);
+  const [saveLoading, setSaveLoading] = useState(false);
 
-  // Set default selected items on load
+  // Create Timetable Modal state
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [createForm, setCreateForm] = useState({ standard: '', section: '', academicYear: new Date().getFullYear() });
+  const [createLoading, setCreateLoading] = useState(false);
+
+  // Set default timetable when timetables load
   useEffect(() => {
-    if (isTeacher) {
-      // ... existing teacher logic ...
-      const myTeacherProfile = allTeachers.find(t => t.email === user?.email);
-      if (myTeacherProfile) {
-        const myClassId = `${myTeacherProfile.standard}-${myTeacherProfile.section}`;
-        if (selectedClass !== myClassId) setSelectedClass(myClassId);
-      } else if (classes.length > 0 && !selectedClass) {
-        setSelectedClass(classes[0].id);
-      }
-    } else {
-      // Admin Defaults
-      if (classes.length > 0 && !selectedClass) {
-        setSelectedClass(classes[0].id);
-      }
-      if (allTeachers.length > 0 && !selectedTeacher) {
-        setSelectedTeacher(allTeachers[0].email);
-      }
+    if (timetables.length > 0 && !selectedTimetable) {
+      selectTimetable(timetables[0]._id);
     }
-  }, [classes, selectedClass, isTeacher, user, allTeachers, selectedTeacher]);
+  }, [timetables, selectedTimetable, selectTimetable]);
 
-  // Derive display data based on role/view
-  const currentTimetable = useMemo(() => {
-    const isTeacherView = (isTeacher && activeTab === 'my-timetable') || (!isTeacher && adminViewMode === 'teacher');
+  // Set default teacher when teachers load (for teacher view)
+  useEffect(() => {
+    if (isTeacher && user?._id) {
+      setSelectedTeacherId(user._id);
+    } else if (teachers.length > 0 && !selectedTeacherId) {
+      setSelectedTeacherId(teachers[0]._id);
+    }
+  }, [teachers, selectedTeacherId, isTeacher, user]);
 
-    if (isTeacherView) {
-      // Determined target email: Logged in teacher OR Admin's selected teacher
-      const targetEmail = isTeacher ? (user?.email || allTeachers[0].email) : selectedTeacher;
-
-      return timetableData.filter(t => {
-        // Strict email match first
-        if (t.teacherEmail === targetEmail) return true;
-
-        // Fallback checks (only for logged-in teacher context usually)
-        if (isTeacher) {
-          const namePart = user?.name?.toLowerCase().split(' ')[0] || '';
-          if (namePart && t.teacherEmail.includes(namePart)) return true;
+  // Fetch teacher schedule when viewing teacher mode
+  useEffect(() => {
+    const fetchSchedule = async () => {
+      if ((isTeacher && activeTab === 'my-timetable') || (!isTeacher && adminViewMode === 'teacher')) {
+        const teacherId = isTeacher ? user?._id : selectedTeacherId;
+        if (teacherId) {
+          const result = await fetchTeacherSchedule(teacherId);
+          if (result.success) {
+            setTeacherScheduleData(result.data);
+          }
         }
-        return false;
+      }
+    };
+    fetchSchedule();
+  }, [isTeacher, activeTab, adminViewMode, selectedTeacherId, user, fetchTeacherSchedule]);
+
+  // Determine if we're in a read-only view
+  const isReadOnly = useMemo(() => {
+    if (isTeacher && activeTab === 'my-timetable') return true;
+    if (!isTeacher && adminViewMode === 'teacher') return true;
+    return false;
+  }, [isTeacher, activeTab, adminViewMode]);
+
+  // Get display entries based on current view mode
+  const displayEntries = useMemo(() => {
+    if ((isTeacher && activeTab === 'my-timetable') || (!isTeacher && adminViewMode === 'teacher')) {
+      // Teacher schedule view - flatten schedule object to array
+      if (!teacherScheduleData?.schedule) return [];
+      const allEntries = [];
+      Object.values(teacherScheduleData.schedule).forEach(dayEntries => {
+        allEntries.push(...dayEntries);
       });
-    } else {
-      // Class View
-      return timetableData.filter(t => t.classId === selectedClass);
+      return allEntries;
     }
-  }, [timetableData, selectedClass, isTeacher, activeTab, user, allTeachers, adminViewMode, selectedTeacher]);
+    // Class timetable view
+    return entries;
+  }, [isTeacher, activeTab, adminViewMode, entries, teacherScheduleData]);
 
   // Handlers
   const handleCellClick = (day, slot, entry) => {
@@ -116,36 +108,106 @@ const TimetablePage = () => {
     setIsModalOpen(true);
   };
 
-  const handleSaveEntry = (formData) => {
-    const newEntry = {
-      id: selectedCell.entry ? selectedCell.entry.id : Date.now(),
-      // If admin is adding to Teacher view, use the class selected in modal. Otherwise use page-level selectedClass
-      classId: formData.classId || selectedClass,
-      day: selectedCell.day,
-      timeSlotId: selectedCell.slot.id,
-      ...formData,
-    };
-    addOrUpdateEntry(newEntry);
+  const handleSaveEntry = async (entryData, existingEntryId) => {
+    if (!selectedTimetable) return;
+
+    setSaveLoading(true);
+    try {
+      let result;
+      if (existingEntryId) {
+        result = await editEntry(existingEntryId, entryData);
+      } else {
+        result = await addEntry(selectedTimetable._id, entryData);
+      }
+
+      if (result.success) {
+        setIsModalOpen(false);
+        setSelectedCell(null);
+      } else {
+        alert(result.error || 'Failed to save entry');
+      }
+    } finally {
+      setSaveLoading(false);
+    }
   };
 
-  const handleDeleteEntry = (entryToDelete) => {
-    deleteEntry(entryToDelete);
+  const handleDeleteEntry = async (entryId) => {
+    setSaveLoading(true);
+    try {
+      const result = await removeEntry(entryId);
+      if (result.success) {
+        setIsModalOpen(false);
+        setSelectedCell(null);
+      } else {
+        alert(result.error || 'Failed to delete entry');
+      }
+    } finally {
+      setSaveLoading(false);
+    }
   };
 
-  // Safe check if classes are loaded
-  if (classes.length === 0) {
+  const handleTimetableSelect = (e) => {
+    selectTimetable(e.target.value);
+  };
+
+  const handleTeacherSelect = (e) => {
+    setSelectedTeacherId(e.target.value);
+  };
+
+  const handleCreateTimetable = async (e) => {
+    e.preventDefault();
+    setCreateLoading(true);
+    try {
+      const result = await addTimetable({
+        standard: createForm.standard,
+        section: createForm.section,
+        academicYear: parseInt(createForm.academicYear)
+      });
+      if (result.success) {
+        setIsCreateModalOpen(false);
+        setCreateForm({ standard: '', section: '', academicYear: new Date().getFullYear() });
+        // Select the newly created timetable
+        if (result.data?._id) {
+          selectTimetable(result.data._id);
+        }
+      } else {
+        alert(result.error || 'Failed to create timetable');
+      }
+    } finally {
+      setCreateLoading(false);
+    }
+  };
+
+  const handleToggleStatus = async () => {
+    if (!selectedTimetable) return;
+    const newStatus = selectedTimetable.status === TIMETABLE_STATUS.PUBLISHED
+      ? TIMETABLE_STATUS.DRAFT
+      : TIMETABLE_STATUS.PUBLISHED;
+    await updateStatus(selectedTimetable._id, newStatus);
+  };
+
+  // Loading state
+  if (loading && timeSlots.length === 0) {
     return (
       <DashboardLayout>
-        <div className="p-8 text-center text-gray-500">
-          Loading data...
+        <div className="flex items-center justify-center h-64">
+          <FaSpinner className="animate-spin text-primary text-3xl" />
         </div>
       </DashboardLayout>
-    )
+    );
   }
 
   return (
     <DashboardLayout>
       <div className="space-y-4">
+        {/* Error Banner */}
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex justify-between items-center">
+            <span>{error}</span>
+            <button onClick={clearError} className="text-red-500 hover:text-red-700">&times;</button>
+          </div>
+        )}
+
         {/* Header */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
           <div>
@@ -174,7 +236,7 @@ const TimetablePage = () => {
                 >
                   <div className="flex items-center gap-2">
                     <FaChalkboardTeacher />
-                    Personal Timetable
+                    My Schedule
                   </div>
                 </button>
                 <button
@@ -192,18 +254,19 @@ const TimetablePage = () => {
               </div>
             ) : (
               <div className="flex flex-wrap items-center gap-4 bg-white p-2 rounded-xl border border-gray-100 shadow-sm">
-
                 {/* Admin View Switcher */}
                 <div className="flex bg-gray-100 p-1 rounded-lg">
                   <button
                     onClick={() => setAdminViewMode('class')}
-                    className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${adminViewMode === 'class' ? 'bg-white text-primary shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                    className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${adminViewMode === 'class' ? 'bg-white text-primary shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                      }`}
                   >
                     Class
                   </button>
                   <button
                     onClick={() => setAdminViewMode('teacher')}
-                    className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${adminViewMode === 'teacher' ? 'bg-white text-primary shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                    className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${adminViewMode === 'teacher' ? 'bg-white text-primary shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                      }`}
                   >
                     Teacher
                   </button>
@@ -214,25 +277,39 @@ const TimetablePage = () => {
                   <div className="flex items-center gap-2">
                     <label className="text-sm font-medium text-gray-600 pl-2">Class:</label>
                     <select
-                      value={selectedClass}
-                      onChange={(e) => setSelectedClass(e.target.value)}
-                      className="bg-gray-50 border border-gray-200 text-gray-800 text-sm rounded-lg focus:ring-primary focus:border-primary block p-2 min-w-[150px]"
+                      value={selectedTimetable?._id || ''}
+                      onChange={handleTimetableSelect}
+                      className="bg-gray-50 border border-gray-200 text-gray-800 text-sm rounded-lg focus:ring-primary focus:border-primary block p-2 min-w-[180px]"
                     >
-                      {classes.map(cls => (
-                        <option key={cls.id} value={cls.id}>{cls.name}</option>
+                      {timetables.length === 0 && (
+                        <option value="">No timetables</option>
+                      )}
+                      {timetables.map(tt => (
+                        <option key={tt._id} value={tt._id}>
+                          {tt.standard}-{tt.section} ({tt.academicYear})
+                        </option>
                       ))}
                     </select>
+
+                    {/* Create Button */}
+                    <button
+                      onClick={() => setIsCreateModalOpen(true)}
+                      className="p-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors"
+                      title="Create Timetable"
+                    >
+                      <FaPlus className="text-sm" />
+                    </button>
                   </div>
                 ) : (
                   <div className="flex items-center gap-2">
                     <label className="text-sm font-medium text-gray-600 pl-2">Teacher:</label>
                     <select
-                      value={selectedTeacher}
-                      onChange={(e) => setSelectedTeacher(e.target.value)}
-                      className="bg-gray-50 border border-gray-200 text-gray-800 text-sm rounded-lg focus:ring-primary focus:border-primary block p-2 min-w-[150px]"
+                      value={selectedTeacherId}
+                      onChange={handleTeacherSelect}
+                      className="bg-gray-50 border border-gray-200 text-gray-800 text-sm rounded-lg focus:ring-primary focus:border-primary block p-2 min-w-[180px]"
                     >
-                      {allTeachers.map(t => (
-                        <option key={t.email} value={t.email}>{t.name}</option>
+                      {teachers.map(t => (
+                        <option key={t._id} value={t._id}>{t.name}</option>
                       ))}
                     </select>
                   </div>
@@ -240,14 +317,27 @@ const TimetablePage = () => {
               </div>
             )}
 
-            {/* Teacher Class Selector (Only if viewing class timetable) */}
-            {isTeacher && activeTab === 'class-timetable' && (
-              <div className="flex items-center gap-4 bg-white p-2 rounded-xl border border-gray-100 shadow-sm">
-                <label className="text-sm font-medium text-gray-600 pl-2">Viewing:</label>
-                <div className="px-3 py-2 bg-gray-50 text-gray-700 text-sm font-medium rounded-lg border border-gray-200">
-                  {classes.find(c => c.id === selectedClass)?.name || "Your Class"}
-                </div>
-              </div>
+            {/* Status Toggle (Admin only, Class view) */}
+            {isAdmin && adminViewMode === 'class' && selectedTimetable && (
+              <button
+                onClick={handleToggleStatus}
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium transition-all ${selectedTimetable.status === TIMETABLE_STATUS.PUBLISHED
+                  ? 'bg-green-50 border-green-200 text-green-700'
+                  : 'bg-gray-50 border-gray-200 text-gray-600'
+                  }`}
+              >
+                {selectedTimetable.status === TIMETABLE_STATUS.PUBLISHED ? (
+                  <>
+                    <FaToggleOn className="text-green-500" />
+                    Published
+                  </>
+                ) : (
+                  <>
+                    <FaToggleOff className="text-gray-400" />
+                    Draft
+                  </>
+                )}
+              </button>
             )}
           </div>
         </div>
@@ -255,31 +345,94 @@ const TimetablePage = () => {
         {/* Timetable Grid */}
         <div className="bg-white rounded-xl p-3 shadow-sm border border-gray-100">
           <TimetableGrid
-            timetableData={currentTimetable}
+            entries={displayEntries}
+            timeSlots={timeSlots}
+            teachers={teachers}
             onCellClick={handleCellClick}
-            // ReadOnly if:
-            // 1. Teacher viewing Personal Timetable
-            // 2. Admin viewing Teacher Timetable (Strictly Read-Only as per spec)
-            readOnly={(isTeacher && activeTab === 'my-timetable') || (!isTeacher && adminViewMode === 'teacher')}
+            readOnly={isReadOnly}
             showClass={(isTeacher && activeTab === 'my-timetable') || (!isTeacher && adminViewMode === 'teacher')}
-            timeSlots={TIME_SLOTS}
-            teachers={allTeachers}
           />
         </div>
 
-        {/* Modal */}
+        {/* Entry Modal */}
         <TimetableModal
           isOpen={isModalOpen}
-          onClose={() => setIsModalOpen(false)}
+          onClose={() => {
+            setIsModalOpen(false);
+            setSelectedCell(null);
+          }}
           onSave={handleSaveEntry}
           onDelete={handleDeleteEntry}
           initialData={selectedCell?.entry}
-          slotInfo={selectedCell ? { day: selectedCell.day, time: `${selectedCell.slot.startTime} - ${selectedCell.slot.endTime}` } : null}
-          teachers={allTeachers}
-          // Show class selector if Admin is in Teacher View (since we need to know which class to assign)
-          showClassSelector={!isTeacher && adminViewMode === 'teacher'}
-          classes={classes} // Pass classes list for the selector
+          slotInfo={selectedCell ? { day: selectedCell.day, slot: selectedCell.slot } : null}
+          teachers={teachers}
+          loading={saveLoading}
         />
+
+        {/* Create Timetable Modal */}
+        {isCreateModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+            <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
+              <div className="bg-primary/5 px-6 py-4 border-b border-gray-100">
+                <h3 className="text-lg font-semibold text-gray-800">Create New Timetable</h3>
+              </div>
+              <form onSubmit={handleCreateTimetable} className="p-6 space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Standard *</label>
+                  <input
+                    type="text"
+                    required
+                    value={createForm.standard}
+                    onChange={(e) => setCreateForm({ ...createForm, standard: e.target.value })}
+                    className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    placeholder="e.g. 10th"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Section *</label>
+                  <input
+                    type="text"
+                    required
+                    value={createForm.section}
+                    onChange={(e) => setCreateForm({ ...createForm, section: e.target.value })}
+                    className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    placeholder="e.g. A"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Academic Year *</label>
+                  <input
+                    type="number"
+                    required
+                    min="2000"
+                    max="2100"
+                    value={createForm.academicYear}
+                    onChange={(e) => setCreateForm({ ...createForm, academicYear: e.target.value })}
+                    className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  />
+                </div>
+                <div className="flex gap-3 mt-6">
+                  <button
+                    type="button"
+                    onClick={() => setIsCreateModalOpen(false)}
+                    disabled={createLoading}
+                    className="flex-1 py-2.5 px-4 rounded-xl border border-gray-200 text-gray-600 font-medium hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={createLoading}
+                    className="flex-1 py-2.5 px-4 rounded-xl bg-primary text-white font-medium hover:bg-primary-dark flex items-center justify-center gap-2"
+                  >
+                    {createLoading && <FaSpinner className="animate-spin" />}
+                    Create
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
       </div>
     </DashboardLayout>
   );

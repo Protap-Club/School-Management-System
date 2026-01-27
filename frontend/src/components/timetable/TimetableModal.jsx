@@ -79,13 +79,14 @@ const TimetableModal = ({
     if (!validate()) return;
 
     // Build entry data matching backend schema
+    // Use undefined instead of null for optional fields (backend expects string | undefined)
     const entryData = {
       dayOfWeek: slotInfo.day, // Already in short form (Mon, Tue, etc.)
-      timeSlotId: slotInfo.slot._id,
+      timeSlotId: slotInfo.slot._id || slotInfo.slot.slotNumber, // Support default slots without _id
       subject: formData.subject.trim(),
       teacherId: formData.teacherId,
-      roomNumber: formData.roomNumber.trim() || null,
-      notes: formData.notes.trim() || null
+      ...(formData.roomNumber.trim() && { roomNumber: formData.roomNumber.trim() }),
+      ...(formData.notes.trim() && { notes: formData.notes.trim() })
     };
 
     onSave(entryData, initialData?._id);
