@@ -17,13 +17,13 @@ const checkAuth = async (req, res, next) => {
         // Optimization: .lean() returns a plain JS object instead of a heavy Mongoose document
         const user = await User.findById(decoded.id)
             .select("-password")
-            .populate("schoolId", "_id name code")
             .lean();
 
         if (!user) {
             logger.warn(`Auth check failed: User ID ${decoded.id} not found.`);
             return res.status(401).json({ success: false, message: "User not found" });
         }
+        user.schoolId = decoded.schoolId;
 
         req.user = user;
         next();

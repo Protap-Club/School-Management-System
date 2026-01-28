@@ -1,4 +1,4 @@
-import { nfcService } from "../services/nfc.service.js";
+import { nfcService } from "../services/attendence.service.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import logger from "../config/logger.js"; // Import the logger
 

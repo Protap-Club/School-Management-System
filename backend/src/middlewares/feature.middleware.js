@@ -7,11 +7,12 @@ export const requireFeature = (featureKey) => {
     return async (req, res, next) => {
         try {
             // Safe extraction of user data
-            const { role, schoolId: userSchoolObj } = req.user || {};
-            const schoolId = userSchoolObj?._id || userSchoolObj;
+            const user = req.user;
+            if (!user) {
+                return res.status(401).json({ success: false, message: "Authentication required" });
+            }
 
-            // Super Admins bypass all feature locks
-            if (role === 'super_admin') return next();
+            const schoolId = user.schoolId?._id || user.schoolId;
 
             // Non-admins must belong to a school
             if (!schoolId) {

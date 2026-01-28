@@ -12,11 +12,6 @@ const extractSchoolId = (req, res, next) => {
         // Default: Trust the logged-in user's assigned school
         let schoolId = req.user.schoolId?._id || req.user.schoolId;
 
-        // Super Admins can override context via query/body (e.g., viewing a specific school)
-        if (req.user.role === 'super_admin') {
-            schoolId = req.query.schoolId || req.body.schoolId || req.params.schoolId || schoolId;
-        }
-
         // Non-Super Admins MUST have a school context
         if (!schoolId && req.user.role !== 'super_admin') {
             logger.warn(`Context missing: User ${req.user._id} has no school assigned.`);
