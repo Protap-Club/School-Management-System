@@ -41,7 +41,7 @@ const extractSchoolId = (req, res, next) => {
         // If schoolId is an object (from population), we take its _id.
         const resolvedId = schoolId?._id || schoolId;
         req.schoolId = resolvedId ? String(resolvedId) : undefined;
-        
+
         if (req.schoolId) {
             logger.debug(`School ID '${req.schoolId}' extracted and attached to request.`);
         }

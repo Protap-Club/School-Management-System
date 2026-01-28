@@ -1,27 +1,52 @@
-/**
- * Feature Flags - Available school features
- */
+// Feature Flags - Available modules that can be enabled/disabled per school.
+// Each key corresponds to a boolean field in the School schema 'features' object.
+ 
+export const SCHOOL_FEATURES = Object.freeze({
+  ATTENDANCE: {
+    key: "attendance",
+    label: "Attendance Management",
+    description: "Track student attendance via NFC",
+  },
+  FEES: {
+    key: "fees",
+    label: "Fee Management",
+    description: "Manage student fees and payments",
+  },
+  TIMETABLE: {
+    key: "timetable",
+    label: "Timetable",
+    description: "Class and exam schedules",
+  },
+  LIBRARY: {
+    key: "library",
+    label: "Library Management",
+    description: "Book inventory and borrowing",
+  },
+  TRANSPORT: {
+    key: "transport",
+    label: "Transport Management",
+    description: "Bus routes and tracking",
+  },
+  NOTICE: {
+    key: "notice",
+    label: "Notice Board",
+    description: "School announcements and notifications",
+  },
+});
 
-export const SCHOOL_FEATURES = {
-    ATTENDANCE: { key: 'attendance', label: 'Attendance Management', description: 'Track student attendance via NFC' },
-    FEES: { key: 'fees', label: 'Fee Management', description: 'Manage student fees and payments' },
-    TIMETABLE: { key: 'timetable', label: 'Timetable', description: 'Class and exam schedules' },
-    LIBRARY: { key: 'library', label: 'Library Management', description: 'Book inventory and borrowing' },
-    TRANSPORT: { key: 'transport', label: 'Transport Management', description: 'Bus routes and tracking' },
-    NOTICE: { key: 'notice', label: 'Notice Board', description: 'School announcements and notifications' },
-};
+// Pre-computed array of feature keys for validation and schema mapping.
+export const VALID_FEATURE_KEYS = Object.freeze(
+  Object.values(SCHOOL_FEATURES).map((f) => f.key)
+);
 
-/**
- * Get all feature keys as array
- */
-export const getFeatureKeys = () => Object.values(SCHOOL_FEATURES).map(f => f.key);
+// Helper Functions 
 
-/**
- * Get feature by key
- */
-export const getFeatureByKey = (key) => Object.values(SCHOOL_FEATURES).find(f => f.key === key);
+// Get all feature keys (e.g., ['attendance', 'fees', ...])
+export const getFeatureKeys = () => VALID_FEATURE_KEYS;
 
-/**
- * Check if a feature key is valid
- */
-export const isValidFeatureKey = (key) => getFeatureKeys().includes(key);
+// Find the full feature object (label/description) by its key string
+export const getFeatureByKey = (key) =>
+  Object.values(SCHOOL_FEATURES).find((f) => f.key === key);
+
+// Validates if a string is a recognized system feature
+export const isValidFeatureKey = (key) => VALID_FEATURE_KEYS.includes(key);
