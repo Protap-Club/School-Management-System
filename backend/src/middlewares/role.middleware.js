@@ -1,30 +1,23 @@
-import logger from "../config/logger.js"; // Import the logger
+import logger from "../config/logger.js";
 
-/**
- * Middleware factory to check if the authenticated user has one of the allowed roles.
- *
- * @param {string[]} allowedRoles - An array of role strings that are permitted to access the route.
- * @returns {Function} An Express middleware function.
- */
+// Middleware to restrict access based on user roles.
+
 const checkRole = (allowedRoles) => {
     return (req, res, next) => {
-        // Ensure authentication has already occurred and `req.user` is populated.
+
+        // Ensure user is authenticated (populated by auth middleware)
         if (!req.user) {
-            logger.warn("Role check failed: Authentication required but req.user is missing.");
+            logger.warn("Role check failed: Missing user context.");
             return res.status(401).json({ success: false, message: "Authentication required" });
         }
 
-        const userRole = req.user.role.toLowerCase();
-        // Check if the user's role is present in the list of allowed roles.
-        const authorized = allowedRoles.some(role => role.toLowerCase() === userRole);
-
-        if (!authorized) {
-            logger.warn(`Role check failed: User ${req.user._id} with role '${req.user.role}' is not authorized. Allowed roles: [${allowedRoles.join(', ')}].`);
-            return res.status(403).json({ success: false, message: `Role ${req.user.role} not authorized` });
+        // Check if user's role exists in the allowed list (assumes DB roles are lowercase)
+        if (!allowedRoles.includes(req.user.role)) {
+            logger.warn(`Access denied: User ${req.user._id} (${req.user.role}) is not authorized.`);
+            return res.status(403).json({ success: false, message: "Access denied" });
         }
-
-        logger.debug(`Role check passed for user ${req.user._id} with role '${req.user.role}'.`);
-        next(); // User has an authorized role, proceed.
+        
+        next();
     };
 };
 

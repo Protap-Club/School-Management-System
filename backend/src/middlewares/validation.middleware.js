@@ -1,38 +1,34 @@
 import { z } from 'zod';
-import logger from "../config/logger.js"; // Import the logger
+import logger from "../config/logger.js";
 
-/**
- * Middleware factory to validate incoming request data (body, query, params) against a Zod schema.
- * This helps ensure data integrity and provides clear error messages for invalid requests.
- *
- * @param {z.ZodObject<any>} schema - The Zod schema to validate against. This schema should define
- *                                    the expected structure of `body`, `query`, and `params` properties.
- * @returns {Function} An Express middleware function that performs the validation.
- */
+// Middleware to validate request data against Zod schema.
+
 export const validate = (schema) => (req, res, next) => {
     try {
-        // Attempt to parse and validate the relevant parts of the request against the schema.
+        // Validate all inputs strictly
         schema.parse({
             body: req.body,
             query: req.query,
             params: req.params,
         });
-        logger.debug("Request data validated successfully by Zod schema.");
-        next(); // If validation passes, proceed to the next middleware or route handler.
+        next();
     } catch (error) {
-        // If a ZodError occurs, it means validation failed.
+        // Handle Zod errors immediately to ensure consistent 400 format
         if (error instanceof z.ZodError) {
-            const errorList = error.errors || [{ path: [], message: error.message || "Validation error" }];
-            logger.warn(`Validation failed: ${errorList.map(e => `${e.path.join('.')}: ${e.message}`).join(', ')}`);
+            const errors = error.errors.map(e => ({
+                path: e.path.join('.'),
+                message: e.message
+            }));
+
+            logger.warn(`Validation Failed: ${errors.map(e => e.message).join(", ")}`);
+            
             return res.status(400).json({
                 success: false,
                 message: "Validation failed",
-                // Map Zod errors into a more client-friendly format.
-                errors: errorList.map(e => ({ path: e.path.join('.'), message: e.message })),
+                errors
             });
         }
-        // If it's not a ZodError, it's an unexpected error; forward it to the error handling middleware.
-        logger.error(`Unexpected error during validation: ${error.message}`);
+        // Pass unexpected errors to global handler
         next(error);
     }
 };
