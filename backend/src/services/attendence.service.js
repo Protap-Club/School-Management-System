@@ -7,7 +7,7 @@ import logger from "../config/logger.js";
 
 // LINK NFC TAG
 // Associates a physical card with a student account.
- 
+
 export const linkNfcTag = async (studentId, nfcUid) => {
     if (!studentId || !nfcUid) throw new CustomError("Missing required fields", 400);
 
@@ -31,8 +31,16 @@ export const linkNfcTag = async (studentId, nfcUid) => {
         throw new CustomError("Student not found or user is not a student", 404);
     }
 
+    const data = {
+        name : updatedStudent.name,
+        nfcUid : cleanUid,
+        schoolId : updatedStudent.schoolId,
+        role : updatedStudent.role,
+        _id : updatedStudent._id,
+    }
+
     logger.info(`NFC linked: ${updatedStudent.name} -> ${cleanUid}`);
-    return updatedStudent;
+    return { student: data };
 };
 
 // MARK ATTENDANCE (Via NFC)
@@ -42,10 +50,10 @@ export const markAttendanceByNfc = async (nfcUid, schoolId ) => {
     if (!nfcUid) throw new CustomError("NFC UID required", 400);
 
     // Step 1: Find Student (Fast read)
-    const student = await User.findOne({ 
+    const student = await User.findOne({
         nfcUid: nfcUid.trim(),
         schoolId : schoolId
-        })
+    })
         .select("_id name schoolId role")
         .lean();
 
@@ -56,15 +64,15 @@ export const markAttendanceByNfc = async (nfcUid, schoolId ) => {
     startOfDay.setHours(0, 0, 0, 0);
 
     // Step 3: Check if already present (Prevent double tapping)
-    const existing = await Attendance.findOne({ 
-        studentId: student._id, 
+    const existing = await Attendance.findOne({
+        studentId: student._id,
         date: { $gte: startOfDay } // Matches anything from today onwards
     }).lean();
 
     if (existing) {
-        throw new CustomError("Attendance already marked", 409, { 
-            studentName: student.name, 
-            time: existing.checkInTime 
+        throw new CustomError("Attendance already marked", 409, {
+            studentName: student.name,
+            time: existing.checkInTime
         });
     }
 
@@ -91,9 +99,11 @@ export const markAttendanceByNfc = async (nfcUid, schoolId ) => {
         logger.warn(`Socket emit failed: ${err.message}`);
     }
 
-    return { 
-        student: student.name, 
-        status: "Present", 
-        time: newRecord.checkInTime 
+    return {
+        attendance: {
+            student: student.name,
+            status: "Present",
+            time: newRecord.checkInTime
+        }
     };
 };

@@ -16,8 +16,16 @@ export const createSchool = async (creatorId, schoolData) => {
         createdBy: creatorId
     });
 
+    const data = {
+        name : newSchool.name,
+        isActive : newSchool.isActive,
+        code : newSchool.code,
+        schoolId : newSchool._id,
+        _id : newSchool._id,
+    }
+
     logger.info(`School Created: ${newSchool.name}`);
-    return newSchool;
+    return { school: data };
 };
 
 
@@ -33,8 +41,16 @@ export const updateSchool = async (schoolId, updateData) => {
 
     const updated = await School.findByIdAndUpdate(schoolId, allowedUpdates, { new: true, runValidators: true });
     if (!updated) throw new CustomError("School not found", 404);
-    
-    return updated;
+
+    const data = {
+        name : updated.name,
+        isActive : updated.isActive,
+        code : updated.code,
+        schoolId : updated._id,
+        _id : updated._id,
+    }
+
+    return { school: data };
 };
 
 // Gets the "Profile" of the school. 
@@ -44,18 +60,26 @@ export const getSchoolProfile = async (schoolId) => {
 
     const school = await School.findById(schoolId).lean();
     if (!school) throw new CustomError("School not found", 404);
-    
-    return school;
+
+    const data = {
+        name : school.name,
+        isActive : school.isActive,
+        code : school.code,
+        schoolId : school._id,
+        _id : school._id,
+    }
+
+    return { school: data };
 };
 
 // BRANDING (Logo)
 export const getSchoolBranding = async (schoolId) => {
     // If no context , return default
     const defaultBranding = { name: "Protap Club", logoUrl: null, theme: { accentColor: "#2563eb" } };
-    if (!schoolId) return defaultBranding;
+    if (!schoolId) return { branding: defaultBranding };
 
     const school = await School.findById(schoolId).select('name logoUrl theme').lean();
-    return school || defaultBranding;
+    return { branding: school || defaultBranding };
 };
 
 export const updateLogo = async (schoolId, filePath) => {
@@ -68,14 +92,14 @@ export const updateLogo = async (schoolId, filePath) => {
 
     if (oldLogo) await deleteFile(oldLogo);
 
-    return school;
+    return { logoUrl: school.logoUrl };
 };
 
 // FEATURE MANAGEMENT 
 export const getAvailableFeatures = () => Object.values(SCHOOL_FEATURES);
 
 // The Super Admin calls this to turn on/off features for THEIR school.
- export const updateSchoolFeatures = async (schoolId, featureUpdates) => {
+export const updateSchoolFeatures = async (schoolId, featureUpdates) => {
     const school = await School.findById(schoolId);
     if (!school) throw new CustomError("School not found", 404);
 
@@ -87,7 +111,7 @@ export const getAvailableFeatures = () => Object.values(SCHOOL_FEATURES);
 
     school.markModified('features');
     await school.save();
-    return school.features;
+    return { features: school.features };
 };
 
 export const hasFeature = async (schoolId, featureKey) => {

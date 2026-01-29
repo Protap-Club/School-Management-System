@@ -16,7 +16,7 @@ export const login = async (email, password) => {
 
     // Check account status
     if (!user.isActive) throw new CustomError("Account is deactivated", 403);
-    
+
     // Restriction: Students cannot access the admin dashboard
     if (user.role === USER_ROLES.STUDENT) throw new CustomError("Access denied for students", 403);
 
@@ -29,14 +29,21 @@ export const login = async (email, password) => {
 
     // Generate Token (Payload includes Role/School to save frontend requests)
     const token = jwt.sign(
-        { id: user._id, role: user.role, schoolId: user.schoolId?._id }, 
-        conf.JWT_SECRET, 
+        { id: user._id, role: user.role, schoolId: user.schoolId?._id },
+        conf.JWT_SECRET,
         { expiresIn: "7d" }
     );
 
     // Prepare clean response (Exclude password)
-    const userResponse = user.toObject(); 
-    delete userResponse.password;
+    // Prepare restricted response
+    const userResponse = {
+        name: user.name,
+        userid: user._id,
+        schoolId: user.schoolId?._id,
+        schoolName: user.schoolId?.name,
+        email: user.email,
+        role: user.role
+    };
 
     return { user: userResponse, token };
 };

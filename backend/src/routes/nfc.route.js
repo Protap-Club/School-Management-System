@@ -1,7 +1,7 @@
 import express from "express";
 import { checkAuth } from "../middlewares/auth.middleware.js";
 import { checkRole } from "../middlewares/role.middleware.js";
-import { linkTag, markAttendance } from "../controllers/nfc.controller.js";
+import { linkTag, markAttendance } from "../controllers/attendence.controller.js";
 import { validate } from "../middlewares/validation.middleware.js";
 import { linkTagSchema, markAttendanceSchema } from "../validations/nfc.validation.js";
 

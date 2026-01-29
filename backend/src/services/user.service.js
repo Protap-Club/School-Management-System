@@ -7,11 +7,12 @@ import CustomError from "../utils/CustomError.js";
 // Helper to build a query based on who is asking (The Filter Factory)
 const buildAccessQuery = (creator, filters = {}) => {
     const { name, isArchived, role, ...otherFilters } = filters;
-    const query = { 
-        ...filters, 
-        isArchived: isArchived || false };
-        schoolId = creator.schoolId;
-    
+    const query = {
+        ...filters,
+        isArchived: isArchived || false
+    };
+    schoolId = creator.schoolId;
+
     // Teachers can only manage/see Students
     if (creator.role === 'teacher') {
         query.role = 'student';
@@ -33,7 +34,7 @@ export const createUser = async (creator, userData) => {
 
         // Determine correct school context
         const targetSchoolId = creator.schoolId;
-        
+
         // Safety check: Check if user exists within the session
         const existing = await User.findOne({ email }).session(session);
         if (existing) throw new CustomError("Email already registered", 409);
@@ -65,7 +66,16 @@ export const createUser = async (creator, userData) => {
         // Send email AFTER successful DB commit
         sendCredentialsEmail(email, plainPassword).catch(err => console.error("Email failed", err));
 
-        return newUser;
+        const data = {
+            _id: newUser._id,
+            name: newUser.name,
+            email: newUser.email,
+            role: newUser.role,
+            schoolId: newUser.schoolId,
+            createdBy: newUser.createdBy
+        }
+
+        return { user: data };
     } catch (error) {
         await session.abortTransaction();
         throw error;
@@ -78,12 +88,22 @@ export const createUser = async (creator, userData) => {
 export const getUsers = async (creator, filters = {}) => {
     const query = buildAccessQuery(creator, filters);
 
-    // .lean() makes it fast. .populate() grabs the linked profile data automatically.
-    return await User.find(query)
+    const users = await User.find(query)
         .select("-password")
         .populate("schoolId", "name code")
         .sort({ createdAt: -1 })
         .lean();
+
+    return {
+        users: users.map(u => ({
+            _id: u._id,
+            name: u.name,
+            email: u.email,
+            role: u.role,
+            schoolId: u.schoolId,
+            isActive: u.isActive
+        }))
+    };
 };
 
 // TOGGLE ARCHIVE STATUS 
@@ -97,7 +117,7 @@ export const toggleUserStatus = async (creator, userIds, isArchived) => {
         throw new CustomError("No accessible users found to update", 404);
     }
 
-    return result;
+    return { updateResult: result };
 };
 
 // PERMANENT DELETE 
@@ -108,7 +128,7 @@ export const hardDeleteUsers = async (creator, userIds) => {
     try {
         const ids = Array.isArray(userIds) ? userIds : [userIds];
         const query = buildAccessQuery(creator, { _id: { $in: ids }, isArchived: true });
-        
+
         const usersToDelete = await User.find(query).session(session);
         if (usersToDelete.length === 0) throw new CustomError("Users must be archived before permanent deletion", 400);
 
@@ -119,11 +139,11 @@ export const hardDeleteUsers = async (creator, userIds) => {
             const config = PROFILE_CONFIG[user.role];
             if (config) await config.model.deleteMany({ userId: user._id }, { session });
         }
-        
+
         await User.deleteMany({ _id: { $in: deleteIds } }, { session });
 
         await session.commitTransaction();
-        return { deletedCount: deleteIds.length };
+        return { deleteResult: { deletedCount: deleteIds.length } };
     } catch (error) {
         await session.abortTransaction();
         throw error;
