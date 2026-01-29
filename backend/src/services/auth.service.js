@@ -3,7 +3,7 @@ import jwt from "jsonwebtoken";
 import User from "../models/User.model.js";
 import { conf } from "../config/index.js";
 import { USER_ROLES } from "../constants/userRoles.js";
-import CustomError from "../utils/CustomError.js";
+import { CustomError } from "../utils/customError.js";
 
 // LOGIN
 export const login = async (email, password) => {

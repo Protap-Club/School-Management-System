@@ -1,6 +1,6 @@
 import School from "../models/School.model.js";
 import { isValidFeatureKey, SCHOOL_FEATURES } from "../constants/featureFlags.js";
-import CustomError from "../utils/CustomError.js";
+import { CustomError } from "../utils/customError.js";
 import logger from "../config/logger.js";
 import { deleteFile } from "../middlewares/upload.middleware.js";
 

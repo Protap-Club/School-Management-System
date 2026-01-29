@@ -82,9 +82,24 @@ export const deleteTimetable = asyncHandler(async (req, res) => {
     });
 });
 
+// Update Timetable Status
+export const updateTimetableStatus = asyncHandler(async (req, res) => {
+    const result = await timetableService.manageTimetables(req.schoolId, 'update_status', { 
+        id: req.params.id, 
+        status: req.body.status 
+    });
+    res.status(200).json({ 
+        success: true, 
+        message: "Timetable status updated", 
+        data: result 
+    });
+});
+
 // Sync entries in bulk
-export const syncEntries = asyncHandler(async (req, res) => {
-    const result = await timetableService.syncEntries(req.schoolId, req.params.id, req.body.entries);
+export const syncTimetableEntries = asyncHandler(async (req, res) => {
+    // Determine timetableId: param > body > query? Usually param for hierarchy
+    const timetableId = req.params.id; 
+    const result = await timetableService.syncEntries(req.schoolId, timetableId, req.body.entries);
     res.status(200).json({ 
         success: true, 
         message: "Entries synced", 
@@ -94,10 +109,20 @@ export const syncEntries = asyncHandler(async (req, res) => {
 
 // Update a single entry
 export const updateEntry = asyncHandler(async (req, res) => {
-    const result = await timetableService.updateEntry(req.schoolId, req.params.id, req.body);
+    const result = await timetableService.updateEntry(req.schoolId, req.params.entryId, req.body);
     res.status(200).json({ 
         success: true, 
         message: "Entry updated", 
+        data: result 
+    });
+});
+
+// Delete a single entry
+export const deleteEntry = asyncHandler(async (req, res) => {
+    const result = await timetableService.deleteEntry(req.schoolId, req.params.entryId);
+    res.status(200).json({ 
+        success: true, 
+        message: "Entry deleted", 
         data: result 
     });
 });
@@ -113,6 +138,18 @@ export const getTeacherSchedule = asyncHandler(async (req, res) => {
         });
     }
 
+    const result = await timetableService.getTeacherSchedule(req.schoolId, teacherId, req.query.academicYear);
+    res.status(200).json({ 
+        success: true, 
+        data: result 
+    });
+});
+
+// Get my (logged-in teacher/student/user) schedule
+export const getMySchedule = asyncHandler(async (req, res) => {
+    // Assuming teacher for now, but could be extended for students based on role
+    // Service expects teacherId
+    const teacherId = req.user._id; 
     const result = await timetableService.getTeacherSchedule(req.schoolId, teacherId, req.query.academicYear);
     res.status(200).json({ 
         success: true, 

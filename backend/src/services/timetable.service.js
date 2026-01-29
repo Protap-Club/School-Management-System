@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 import { TimeSlot, Timetable, TimetableEntry, DAYS_OF_WEEK } from "../models/Timetable.model.js";
-import { CustomError } from "../utils/CustomError.js";
+import { CustomError } from "../utils/customError.js";
 import logger from "../config/logger.js";
 
 // Manage TimeSlots (get, create, update, delete)
@@ -129,6 +129,23 @@ export const manageTimetables = async (schoolId, action, data = {}) => {
             };
         } catch (e) { await session.abortTransaction(); throw e; } finally { session.endSession(); }
     }
+
+    // Update Timetable Status (Publish/Draft)
+    if (action === 'update_status') {
+        const { id, status } = data;
+        const timetable = await Timetable.findOneAndUpdate(
+            { _id: id, schoolId, isActive: true }, 
+            { status }, 
+            { new: true }
+        ).lean();
+
+        if (!timetable) throw new CustomError("Timetable not found", 404);
+        logger.info(`Timetable ${id} status updated to ${status}`);
+        return { timetable: { _id: timetable._id, status: timetable.status } };
+    }
+    
+    // Default fallback if action not found
+    throw new CustomError("Invalid action", 400);
 };
 
 // Sync entries in bulk

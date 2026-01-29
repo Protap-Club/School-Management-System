@@ -7,9 +7,12 @@ import { linkTagSchema, markAttendanceSchema } from "../validations/nfc.validati
 
 const router = express.Router();
 
+// Route: /api/v1/attendance
+
 // Link NFC tag to student (Admin/Teacher only)
+// POST /api/v1/attendance/nfc/link
 router.post(
-    "/link",
+    "/nfc/link",
     checkAuth,
     checkRole(["super_admin", "admin", "teacher"]),
     validate(linkTagSchema),
@@ -17,9 +20,10 @@ router.post(
 );
 
 // Mark attendance via NFC scan
+// POST /api/v1/attendance/nfc
 // Supports both: authenticated users OR device key for NFC readers
 router.post(
-    "/attendance",
+    "/nfc",
     validate(markAttendanceSchema),
     (req, res, next) => {
         // Check for device key (for NFC reader devices)

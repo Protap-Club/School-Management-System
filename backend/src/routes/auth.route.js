@@ -6,7 +6,10 @@ import { loginSchema } from "../validations/auth.validation.js";
 
 const router = express.Router();
 
+// POST /api/v1/auth/login
 router.post("/login", validate(loginSchema), login);
-router.get("/check", checkAuth, checkAuthStatus);
+
+// GET /api/v1/auth/me
+router.get("/me", checkAuth, checkAuthStatus);
 
 export default router;
