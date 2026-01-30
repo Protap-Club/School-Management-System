@@ -1,6 +1,5 @@
 import React, { useEffect } from 'react';
-import Sidebar from '../components/Sidebar';
-import Header from '../components/Header';
+import { Sidebar, Header } from '../components/layout';
 import { useSidebar } from '../context/SidebarContext';
 import api from '../api/axios';
 

@@ -1,7 +1,4 @@
-
-//Axios Instance Configuration
-//Centralized HTTP client with authentication and error handling
-
+// Axios Instance Configuration
 import axios from 'axios';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1';
@@ -11,10 +8,10 @@ const api = axios.create({
     headers: {
         'Content-Type': 'application/json',
     },
-    timeout: 10000, // 10 second timeout
+    timeout: 10000,
 });
 
-// Request interceptor - add auth token to every request
+// Request interceptor - add auth token
 api.interceptors.request.use(
     (config) => {
         const token = localStorage.getItem('token');
@@ -26,14 +23,12 @@ api.interceptors.request.use(
     (error) => Promise.reject(error)
 );
 
-// Response interceptor - handle common errors
+// Response interceptor - handle 401 errors
 api.interceptors.response.use(
     (response) => response,
     (error) => {
-        // Handle 401 Unauthorized - redirect to login
         if (error.response?.status === 401) {
             localStorage.removeItem('token');
-            // Only redirect if not already on login page
             if (window.location.pathname !== '/login') {
                 window.location.href = '/login';
             }

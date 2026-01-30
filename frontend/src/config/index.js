@@ -1,8 +1,6 @@
-//Global Configuration
-//Centralized environment variables and application constants
+// Global Configuration
 
-
-// Environment Variables
+// Environment
 export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1';
 export const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000';
 
@@ -13,13 +11,14 @@ export const ROLES = {
     TEACHER: 'teacher',
     STUDENT: 'student',
 };
-// Pagination Defaults
+
+// Pagination
 export const PAGINATION = {
     DEFAULT_PAGE_SIZE: 10,
     MAX_PAGE_SIZE: 100,
 };
 
-// Feature Flags (for feature gating)
+// Feature Keys
 export const FEATURES = {
     ATTENDANCE: 'attendance',
     TIMETABLE: 'timetable',
