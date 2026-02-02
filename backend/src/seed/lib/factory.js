@@ -99,9 +99,10 @@ export const createUser = async ({
             schoolId,
             password, // Pass plain password, service will hash it
             mustChangePassword,
+            skipEmail: true, // Prevent sending real emails during seeding
             ...profileData // Pass other profile-specific data to the service
         });
-        
+
         return { success: true, user: result.user };
     } catch (error) {
         logger.error(`Failed to create user ${email}: ${error.message}`);
@@ -144,7 +145,8 @@ export const createSchool = async ({ name, code, address, contactPhone, superAdm
 
     let school;
     try {
-        school = await createSchoolService(SYSTEM_USER_ID, schoolData);
+        const result = await createSchoolService(SYSTEM_USER_ID, schoolData);
+        school = result.school;
         logger.info(`School '${school.name}' created successfully.`);
     } catch (error) {
         logger.error(`Failed to create school ${name}: ${error.message}`);
@@ -168,14 +170,14 @@ export const createSchool = async ({ name, code, address, contactPhone, superAdm
         await SchoolModel.findByIdAndDelete(school._id);
         return { success: false, error: `Failed to create Super Admin: ${superAdminResult.error}` };
     }
-    
+
     // Link createdBy on school to the Super Admin.
     if (superAdminResult.success && superAdminResult.user?._id) {
         await SchoolModel.findByIdAndUpdate(school._id, { createdBy: superAdminResult.user._id });
         logger.info(`School ${school.name} linked to Super Admin ${superAdminResult.user.email}`);
     } else if (superAdminResult.existing) {
-         await SchoolModel.findByIdAndUpdate(school._id, { createdBy: superAdminResult.existing._id });
-         logger.info(`School ${school.name} linked to existing Super Admin ${superAdminResult.existing.email}`);
+        await SchoolModel.findByIdAndUpdate(school._id, { createdBy: superAdminResult.existing._id });
+        logger.info(`School ${school.name} linked to existing Super Admin ${superAdminResult.existing.email}`);
     }
 
 
@@ -197,7 +199,7 @@ export const createSchool = async ({ name, code, address, contactPhone, superAdm
  */
 export const addUsers = async (schoolCode, usersData, role) => {
     logger.info(`Adding ${usersData.length} ${role}s to school with code: ${schoolCode}`);
-    
+
     const school = await findSchoolByCode(schoolCode);
     if (!school) {
         logger.error(`Failed to add users: School ${schoolCode} not found.`);
@@ -247,7 +249,7 @@ export const cleanup = async (schoolCodes = []) => {
     logger.info("Starting demo data cleanup...");
 
     // Define default school codes to clean if none are specified.
-    const defaultCleanupCodes = ["DPS", "DAV", "TEST"]; 
+    const defaultCleanupCodes = ["DPS", "DAV", "TEST"];
     const codesToClean = schoolCodes.length > 0
         ? schoolCodes.map(c => c.toUpperCase())
         : defaultCleanupCodes;
@@ -275,7 +277,7 @@ export const cleanup = async (schoolCodes = []) => {
             const adminProfilesResult = await AdminProfileModel.deleteMany({ userId: { $in: userIds } });
             const teacherProfilesResult = await TeacherProfileModel.deleteMany({ userId: { $in: userIds } });
             const studentProfilesResult = await StudentProfileModel.deleteMany({ userId: { $in: userIds } });
-            
+
             totalDeleted.profiles += adminProfilesResult.deletedCount + teacherProfilesResult.deletedCount + studentProfilesResult.deletedCount;
             logger.info(`Deleted ${totalDeleted.profiles} profiles for school ${school.code}.`);
 

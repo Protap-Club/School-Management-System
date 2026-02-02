@@ -9,9 +9,9 @@ const buildAccessQuery = (creator, filters = {}) => {
     const { name, isArchived, role, ...otherFilters } = filters;
     const query = {
         ...filters,
-        isArchived: isArchived || false
+        isArchived: isArchived || false,
+        schoolId: creator.schoolId  // Scope users to creator's school
     };
-    schoolId = creator.schoolId;
 
     // Teachers can only manage/see Students
     if (creator.role === 'teacher') {
@@ -27,20 +27,20 @@ export const createUser = async (creator, userData) => {
     session.startTransaction();
 
     try {
-        const { name, email, role } = userData;
+        const { name, email, role, skipEmail } = userData;
 
         // Ensure name is present
         if (!name) throw new CustomError("Name is required", 400);
 
-        // Determine correct school context
-        const targetSchoolId = creator.schoolId;
+        // Determine correct school context - use provided schoolId or fallback to creator's schoolId
+        const targetSchoolId = userData.schoolId || creator.schoolId;
 
         // Safety check: Check if user exists within the session
         const existing = await User.findOne({ email }).session(session);
         if (existing) throw new CustomError("Email already registered", 409);
 
         // Generate credentials
-        const plainPassword = Math.random().toString(36).slice(-8); // simple temp pass
+        const plainPassword = userData.password || Math.random().toString(36).slice(-8); // simple temp pass
         const config = PROFILE_CONFIG[role];
 
         // Step 1: Create User
@@ -63,8 +63,15 @@ export const createUser = async (creator, userData) => {
         // Commit all changes
         await session.commitTransaction();
 
-        // Send email AFTER successful DB commit
-        sendCredentialsEmail(email, plainPassword).catch(err => console.error("Email failed", err));
+        // Send email AFTER successful DB commit (Only if not skipped)
+        if (!skipEmail) {
+            sendCredentialsEmail({
+                to: email,
+                name,
+                role,
+                password: plainPassword
+            }).catch(err => console.error("Email failed", err));
+        }
 
         const data = {
             _id: newUser._id,

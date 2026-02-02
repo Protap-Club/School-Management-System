@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import bcrypt from "bcryptjs";
 import { VALID_ROLES } from "../constants/userRoles.js";
 
 const userSchema = new mongoose.Schema(
@@ -49,9 +50,9 @@ const userSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
-    avatarUrl: { 
-      type: String, 
-      trim: true 
+    avatarUrl: {
+      type: String,
+      trim: true
     }, // Optional: Useful for UI/Profiles
 
     // Status & Security 
@@ -87,6 +88,21 @@ const userSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+// --- Hooks ---
+// Hash password before saving if it's new or modified
+userSchema.pre("save", async function () {
+  if (!this.isModified("password")) return;
+
+  const salt = await bcrypt.genSalt(10);
+  this.password = await bcrypt.hash(this.password, salt);
+});
+
+// --- Methods ---
+// Method to compare candidate password with hashed password in database
+userSchema.methods.comparePassword = async function (candidatePassword) {
+  return bcrypt.compare(candidatePassword, this.password);
+};
 
 //  Virtuals 
 // Links User to their specific profile based on role

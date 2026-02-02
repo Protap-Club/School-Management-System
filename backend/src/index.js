@@ -9,7 +9,6 @@ import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { createServer } from 'http';
-import { createServer } from 'http';
 import { initSocket } from './socket.js';
 
 // --- Local Imports ---
@@ -84,7 +83,7 @@ logger.info("Connecting to MongoDB...");
 mongoose.connect(conf.MONGO_URI, { dbName: "Protap" })
     .then(() => {
         logger.info("MongoDB connected successfully.");
-        
+
         // Start the server now that we have a database connection.
         server.listen(PORT, () => {
             logger.info(`Server is running on port ${PORT}`);
