@@ -2,7 +2,7 @@
 // These provide the same API as the old useXxx() hooks for gradual migration
 
 import { useSelector, useDispatch } from 'react-redux';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { useEffect } from 'react';
 
 // ==== Sidebar Hook ====
@@ -21,17 +21,29 @@ export const useSidebar = () => {
 
 // ==== Theme Hook ====
 import { selectBranding, selectAccentColor, setBranding, setAccentColor, applyThemeToDOM } from './themeSlice';
-import { useBranding } from '../features/settings';
-import { selectUser } from '../features/auth';
+import api from '../lib/axios';
+
+// Theme query keys
+const themeKeys = {
+    branding: () => ['branding'],
+};
 
 export const useTheme = () => {
     const dispatch = useDispatch();
     const branding = useSelector(selectBranding);
     const accentColor = useSelector(selectAccentColor);
-    const user = useSelector(selectUser);
+    const hasToken = !!localStorage.getItem('token');
 
-    // Fetch branding using TanStack Query when user exists
-    const { data: brandingData, isLoading: loading, refetch: fetchBranding } = useBranding();
+    // Fetch branding using TanStack Query
+    const { data: brandingData, isLoading: loading, refetch: fetchBranding } = useQuery({
+        queryKey: themeKeys.branding(),
+        queryFn: async () => {
+            const response = await api.get('/school/branding');
+            return response.data;
+        },
+        enabled: hasToken,
+        staleTime: 5 * 60 * 1000,
+    });
 
     // Sync TanStack Query data to Redux store
     useEffect(() => {
@@ -46,13 +58,13 @@ export const useTheme = () => {
     // Listen for settings updates
     useEffect(() => {
         const handleSettingsUpdate = () => {
-            if (user) {
+            if (hasToken) {
                 fetchBranding();
             }
         };
         window.addEventListener('settingsUpdated', handleSettingsUpdate);
         return () => window.removeEventListener('settingsUpdated', handleSettingsUpdate);
-    }, [user, fetchBranding]);
+    }, [hasToken, fetchBranding]);
 
     // Update theme (for immediate UI feedback)
     const updateTheme = (color) => {
@@ -64,11 +76,25 @@ export const useTheme = () => {
 };
 
 // ==== Features Hook ====
-import { useSchoolFeatures, featuresKeys } from './features';
+// Features query keys
+const featuresKeys = {
+    all: ['features'],
+    school: () => [...featuresKeys.all, 'school'],
+};
 
 export const useFeatures = () => {
     const queryClient = useQueryClient();
-    const { data, isLoading: loading } = useSchoolFeatures();
+    const hasToken = !!localStorage.getItem('token');
+
+    const { data, isLoading: loading } = useQuery({
+        queryKey: featuresKeys.school(),
+        queryFn: async () => {
+            const response = await api.get('/school/me/features');
+            return response.data;
+        },
+        enabled: hasToken,
+        staleTime: 5 * 60 * 1000,
+    });
 
     const features = data?.data?.features || {};
 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../features/auth';
 import api from '../api/axios';
 import DashboardLayout from '../layouts/DashboardLayout';
 import { connectSocket, disconnectSocket } from '../api/socket';

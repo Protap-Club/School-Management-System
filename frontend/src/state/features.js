@@ -1,6 +1,6 @@
 // Features API & Hooks - TanStack Query for school features
 import { useQuery } from '@tanstack/react-query';
-import api from '../../lib/axios';
+import api from '../lib/axios';
 
 // API function
 export const fetchSchoolFeatures = async () => {

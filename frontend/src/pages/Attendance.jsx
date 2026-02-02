@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import DashboardLayout from '../layouts/DashboardLayout';
-import { useAuth } from '../context/AuthContext';
-import { useFeatures } from '../context/FeatureContext';
+import { useAuth } from '../features/auth';
+import { useFeatures } from '../state';
 import api from '../api/axios';
 import { connectSocket, disconnectSocket } from '../api/socket';
 import {
@@ -47,7 +47,7 @@ const Attendance = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        
+
         const isAdmin = currentUser?.role === 'admin';
 
         // Admin needs profiles for filtering, Teachers get backend-filtered list

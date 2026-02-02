@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../features/auth';
 import DashboardLayout from '../layouts/DashboardLayout';
 import TimetableGrid from '../components/timetable/TimetableGrid';
 import TimetableModal from '../components/timetable/TimetableModal';

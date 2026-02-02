@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import DashboardLayout from '../layouts/DashboardLayout';
-import { useAuth } from '../context/AuthContext';
-import { useTheme } from '../context/ThemeContext';
-import { useFeatures } from '../context/FeatureContext';
+import { useAuth } from '../features/auth';
+import { useTheme, useFeatures } from '../state';
 import api from '../api/axios';
 import { FaPalette, FaImage, FaCheck, FaUpload, FaToggleOn, FaToggleOff, FaBuilding } from 'react-icons/fa';
 

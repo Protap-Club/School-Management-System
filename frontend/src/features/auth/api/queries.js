@@ -1,36 +1,54 @@
-// Auth TanStack Query Hooks
+// Auth TanStack Query Hooks - v5 Compatible
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useDispatch } from 'react-redux';
-import { authApi } from './api';
+import { useEffect } from 'react';
+import { authApi, authKeys } from './api';
 import { setUser, clearUser, setLoading } from '../authSlice';
 
-export const authKeys = {
-    all: ['auth'],
-    user: () => [...authKeys.all, 'user'],
-};
+// Re-export authKeys for convenience
+export { authKeys };
 
 // Hook to check current user authentication
 export const useCurrentUser = () => {
     const dispatch = useDispatch();
+    const hasToken = !!localStorage.getItem('token');
 
-    return useQuery({
+    const query = useQuery({
         queryKey: authKeys.user(),
         queryFn: authApi.checkAuth,
-        enabled: !!localStorage.getItem('token'),
+        enabled: hasToken,
         retry: false,
-        onSuccess: (data) => {
-            if (data.success) {
-                dispatch(setUser(data.user));
-            }
-        },
-        onError: () => {
+        staleTime: 5 * 60 * 1000, // 5 minutes
+    });
+
+    // Handle side effects with useEffect (v5 pattern)
+    useEffect(() => {
+        if (query.isSuccess && query.data?.success) {
+            dispatch(setUser(query.data.user));
+        }
+    }, [query.isSuccess, query.data, dispatch]);
+
+    useEffect(() => {
+        if (query.isError) {
             localStorage.removeItem('token');
             dispatch(clearUser());
-        },
-        onSettled: () => {
+        }
+    }, [query.isError, dispatch]);
+
+    useEffect(() => {
+        if (!query.isLoading && !query.isFetching) {
             dispatch(setLoading(false));
-        },
-    });
+        }
+    }, [query.isLoading, query.isFetching, dispatch]);
+
+    // Set initial loading false if no token
+    useEffect(() => {
+        if (!hasToken) {
+            dispatch(setLoading(false));
+        }
+    }, [hasToken, dispatch]);
+
+    return query;
 };
 
 // Hook for login mutation

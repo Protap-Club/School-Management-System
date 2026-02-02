@@ -1,8 +1,7 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
-import { useSidebar } from '../../context/SidebarContext';
-import { useFeatures } from '../../context/FeatureContext';
+import { useAuth } from '../../features/auth';
+import { useSidebar, useFeatures } from '../../state';
 import {
     FaUserGraduate,
     FaCog,

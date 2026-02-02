@@ -1,6 +1,11 @@
 // Auth API Functions
 import api from '../../../lib/axios';
 
+export const authKeys = {
+    all: ['auth'],
+    user: () => [...authKeys.all, 'user'],
+};
+
 export const authApi = {
     // Login user and get token
     login: async ({ email, password }) => {

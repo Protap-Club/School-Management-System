@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import DashboardLayout from '../layouts/DashboardLayout';
 import AddUserModal from '../components/AddUserModal';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../features/auth';
 import api from '../api/axios';
 import {
     FaUserPlus,
