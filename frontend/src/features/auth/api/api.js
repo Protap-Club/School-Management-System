@@ -15,7 +15,7 @@ export const authApi = {
 
     // Check if current token is valid
     checkAuth: async () => {
-        const response = await api.get('/auth/check');
+        const response = await api.get('/auth/me');
         return response.data;
     },
 

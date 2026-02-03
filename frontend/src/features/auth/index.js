@@ -1,8 +1,5 @@
 // Auth Feature - Public API
-// API Hooks
-export { useCurrentUser, useLogin, useLogout } from './api/queries';
-
-// Bridge Hook (same API as old AuthContext)
+// Main auth hook used by all components
 export { useAuth } from './useAuth';
 
 // Redux Slice & Selectors
