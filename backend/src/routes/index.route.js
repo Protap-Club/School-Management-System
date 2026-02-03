@@ -10,10 +10,10 @@ import attendanceRoutes from "./attendance.route.js"; // Keeping existing functi
 const router = express.Router();
 
 router.use("/auth", authRoutes);
-router.use("/users", userRoutes);
+router.use(["/user", "/users"], userRoutes);
 router.use("/school", schoolRoutes);
-router.use("/timeslots", timeSlotRoutes);
-router.use("/timetables", timetableRoutes);
+router.use(["/timeslot", "/timeslots", "/timetable/time-slots"], timeSlotRoutes);
+router.use(["/timetable", "/timetables"], timetableRoutes);
 router.use("/schedule", scheduleRoutes);
 router.use("/attendance", attendanceRoutes); // For NFC/Attendance
 

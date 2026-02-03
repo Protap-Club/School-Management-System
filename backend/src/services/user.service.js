@@ -1,4 +1,4 @@
-import mongoose from "mongoose";
+
 import User from "../models/User.model.js";
 import { PROFILE_CONFIG } from "../config/profiles.js";
 import { sendCredentialsEmail } from "../utils/email.util.js";
@@ -28,72 +28,59 @@ const buildAccessQuery = (creator, filters = {}) => {
 
 // CREATE USER 
 export const createUser = async (creator, userData) => {
-    const session = await mongoose.startSession();
-    session.startTransaction();
+    const { name, email, role, skipEmail } = userData;
 
-    try {
-        const { name, email, role, skipEmail } = userData;
+    // Ensure name is present
+    if (!name) throw new CustomError("Name is required", 400);
 
-        // Ensure name is present
-        if (!name) throw new CustomError("Name is required", 400);
+    // Determine correct school context - use provided schoolId or fallback to creator's schoolId
+    const targetSchoolId = userData.schoolId || creator.schoolId;
 
-        // Determine correct school context - use provided schoolId or fallback to creator's schoolId
-        const targetSchoolId = userData.schoolId || creator.schoolId;
+    // Check if user already exists
+    const existing = await User.findOne({ email });
+    if (existing) throw new CustomError("Email already registered", 409);
 
-        // Safety check: Check if user exists within the session
-        const existing = await User.findOne({ email }).session(session);
-        if (existing) throw new CustomError("Email already registered", 409);
+    // Generate credentials
+    const plainPassword = userData.password || Math.random().toString(36).slice(-8);
+    const config = PROFILE_CONFIG[role];
 
-        // Generate credentials
-        const plainPassword = userData.password || Math.random().toString(36).slice(-8); // simple temp pass
-        const config = PROFILE_CONFIG[role];
+    // Step 1: Create User
+    const newUser = await User.create({
+        ...userData,
+        password: plainPassword, // User model has a .pre('save') hook to hash this
+        schoolId: targetSchoolId,
+        createdBy: creator._id
+    });
 
-        // Step 1: Create User
-        const [newUser] = await User.create([{
-            ...userData,
-            password: plainPassword, //  User model has a .pre('save') hook to hash this
+    // Step 2: Create Profile 
+    if (config) {
+        await config.model.create({
+            userId: newUser._id,
             schoolId: targetSchoolId,
-            createdBy: creator._id
-        }], { session });
-
-        // Step 2: Create Profile 
-        if (config) {
-            await config.model.create([{
-                userId: newUser._id,
-                schoolId: targetSchoolId,
-                ...config.extractFields(userData)
-            }], { session });
-        }
-
-        // Commit all changes
-        await session.commitTransaction();
-
-        // Send email AFTER successful DB commit (Only if not skipped)
-        if (!skipEmail) {
-            sendCredentialsEmail({
-                to: email,
-                name,
-                role,
-                password: plainPassword
-            }).catch(err => console.error("Email failed", err));
-        }
-
-        const data = {
-            _id: newUser._id,
-            name: newUser.name,
-            email: newUser.email,
-            role: newUser.role,
-            schoolId: newUser.schoolId,
-            createdBy: newUser.createdBy
-        }
-
-        return { user: data };
-    } catch (error) {
-        await session.abortTransaction();
-        throw error;
-    } finally {
-        session.endSession();
+            ...config.extractFields(userData)
+        });
     }
+
+    // Send email AFTER successful DB operations (Only if not skipped)
+    if (!skipEmail) {
+        sendCredentialsEmail({
+            to: email,
+            name,
+            role,
+            password: plainPassword
+        }).catch(err => console.error("Email failed", err));
+    }
+
+    const data = {
+        _id: newUser._id,
+        name: newUser.name,
+        email: newUser.email,
+        role: newUser.role,
+        schoolId: newUser.schoolId,
+        createdBy: newUser.createdBy
+    }
+
+    return { user: data };
 };
 
 // GET USERS 

@@ -8,12 +8,12 @@ export const manageTimeSlots = async (schoolId, action, data = {}) => {
     // Get all slots
     if (action === 'get') {
         const result = await TimeSlot.find({ schoolId, isActive: true }).sort({ slotNumber: 1 }).lean();
-        const slots = result.map(s => ({ 
-            _id: s._id, 
-            slotNumber: s.slotNumber, 
-            startTime: s.startTime, 
-            endTime: s.endTime, 
-            slotType: s.slotType 
+        const slots = result.map(s => ({
+            _id: s._id,
+            slotNumber: s.slotNumber,
+            startTime: s.startTime,
+            endTime: s.endTime,
+            slotType: s.slotType
         }));
         return { slots };
     }
@@ -23,14 +23,15 @@ export const manageTimeSlots = async (schoolId, action, data = {}) => {
         if (await TimeSlot.exists({ schoolId, slotNumber: data.slotNumber, isActive: true })) throw new CustomError(`Slot #${data.slotNumber} exists`, 409);
         logger.info(`Creating TimeSlot #${data.slotNumber} for school ${schoolId}`);
         const slot = await TimeSlot.create({ schoolId, ...data });
-        return { 
-            slot: { 
-                _id: slot._id, 
-                slotNumber: slot.slotNumber, 
-                startTime: slot.startTime, 
-                endTime: slot.endTime, 
-                slotType: slot.slotType 
-        } };
+        return {
+            slot: {
+                _id: slot._id,
+                slotNumber: slot.slotNumber,
+                startTime: slot.startTime,
+                endTime: slot.endTime,
+                slotType: slot.slotType
+            }
+        };
     }
 
     // Update a slot
@@ -39,14 +40,15 @@ export const manageTimeSlots = async (schoolId, action, data = {}) => {
         logger.info(`Updating TimeSlot ${data.id} for school ${schoolId}`);
         const updated = await TimeSlot.findOneAndUpdate({ _id: data.id, schoolId }, data, { new: true }).lean();
         if (!updated) throw new CustomError("Slot not found", 404);
-        return { 
-            slot: { 
-                _id: updated._id, 
-                slotNumber: updated.slotNumber, 
-                startTime: updated.startTime, 
-                endTime: updated.endTime, 
-                slotType: updated.slotType 
-        } };
+        return {
+            slot: {
+                _id: updated._id,
+                slotNumber: updated.slotNumber,
+                startTime: updated.startTime,
+                endTime: updated.endTime,
+                slotType: updated.slotType
+            }
+        };
     }
 
     // Delete a slot
@@ -54,11 +56,11 @@ export const manageTimeSlots = async (schoolId, action, data = {}) => {
         if (await TimetableEntry.countDocuments({ timeSlotId: data.id, isActive: true }) > 0) throw new CustomError("Slot is currently in use", 400);
         logger.warn(`Soft-deleting TimeSlot ${data.id} for school ${schoolId}`);
         const deleted = await TimeSlot.findOneAndUpdate({ _id: data.id, schoolId }, { isActive: false }, { new: true }).lean();
-        return { 
-            deletedSlot: { 
-                _id: deleted?._id, 
-                isActive: false 
-            } 
+        return {
+            deletedSlot: {
+                _id: deleted?._id,
+                isActive: false
+            }
         };
     }
 };
@@ -70,13 +72,13 @@ export const manageTimetables = async (schoolId, action, data = {}) => {
         if (await Timetable.exists({ schoolId, standard: data.standard, section: data.section, academicYear: data.academicYear, isActive: true })) throw new CustomError("Timetable exists", 409);
         logger.info(`Creating Timetable ${data.standard}-${data.section} for school ${schoolId}`);
         const timetable = await Timetable.create({ schoolId, ...data });
-        return { 
-            timetable: { 
-                _id: timetable._id, 
-                standard: timetable.standard, 
-                section: timetable.section, 
-                academicYear: timetable.academicYear 
-            } 
+        return {
+            timetable: {
+                _id: timetable._id,
+                standard: timetable.standard,
+                section: timetable.section,
+                academicYear: timetable.academicYear
+            }
         };
     }
 
@@ -95,11 +97,11 @@ export const manageTimetables = async (schoolId, action, data = {}) => {
 
         return {
             timetableDetails: {
-                timetable: { 
-                    _id: timetable._id, 
-                    standard: timetable.standard, 
-                    section: timetable.section, 
-                    academicYear: timetable.academicYear 
+                timetabl: {
+                    _id: timetable.id,
+                    standard: timetable.standrd,
+                    section: timetable.secton,
+                    academicYear: timetable.academicYear
                 },
                 entries: entries.map(e => ({
                     _id: e._id,
@@ -121,11 +123,11 @@ export const manageTimetables = async (schoolId, action, data = {}) => {
             await Timetable.findByIdAndUpdate(data.id, { isActive: false }, { session });
             await session.commitTransaction();
             logger.warn(`Deleted Timetable ${data.id}`);
-            return {    
-                deletedTimetable: { 
-                    _id: data.id, 
-                    isActive: false 
-                } 
+            return {
+                deletedTimetable: {
+                    _id: data.id,
+                    isActive: false
+                }
             };
         } catch (e) { await session.abortTransaction(); throw e; } finally { session.endSession(); }
     }
@@ -134,8 +136,8 @@ export const manageTimetables = async (schoolId, action, data = {}) => {
     if (action === 'update_status') {
         const { id, status } = data;
         const timetable = await Timetable.findOneAndUpdate(
-            { _id: id, schoolId, isActive: true }, 
-            { status }, 
+            { _id: id, schoolId, isActive: true },
+            { status },
             { new: true }
         ).lean();
 
@@ -143,7 +145,7 @@ export const manageTimetables = async (schoolId, action, data = {}) => {
         logger.info(`Timetable ${id} status updated to ${status}`);
         return { timetable: { _id: timetable._id, status: timetable.status } };
     }
-    
+
     // Default fallback if action not found
     throw new CustomError("Invalid action", 400);
 };
@@ -176,11 +178,11 @@ export const syncEntries = async (schoolId, timetableId, entriesData) => {
         if (valid.length) await TimetableEntry.insertMany(valid, { session });
         await session.commitTransaction();
         logger.info(`Synced entries for ${timetableId}: ${valid.length} created, ${failed.length} failed`);
-        return { 
-            syncResult: { 
-                createdCount: valid.length, 
-                failedEntries: failed 
-            } 
+        return {
+            syncResult: {
+                createdCount: valid.length,
+                failedEntries: failed
+            }
         };
     } catch (e) { await session.abortTransaction(); logger.error(`Sync error: ${e.message}`); throw e; } finally { session.endSession(); }
 };
@@ -201,14 +203,14 @@ export const updateEntry = async (schoolId, id, updates) => {
 
     logger.info(`Updating Entry ${id} for school ${schoolId}`);
     const updated = await TimetableEntry.findByIdAndUpdate(id, updates, { new: true }).lean();
-    return { 
-        entry: { 
-            _id: updated._id, 
-            subject: updated.subject, 
-            teacherId: updated.teacherId, 
-            timeSlotId: updated.timeSlotId, 
-            dayOfWeek: updated.dayOfWeek 
-        } 
+    return {
+        entry: {
+            _id: updated._id,
+            subject: updated.subject,
+            teacherId: updated.teacherId,
+            timeSlotId: updated.timeSlotId,
+            dayOfWeek: updated.dayOfWeek
+        }
     };
 };
 
@@ -228,7 +230,7 @@ export const getTeacherSchedule = async (schoolId, teacherId, academicYear = nul
 
     const structured = {};
     DAYS_OF_WEEK.forEach(day => { structured[day] = raw.filter(e => e.day === day); });
-    return { 
-        teacherSchedule: structured 
+    return {
+        teacherSchedule: structured
     };
 };

@@ -11,7 +11,7 @@ import { DEFAULT_TIME_SLOTS } from '../api/timetable';
 export const useTimetableData = (userRole = 'admin', userId = null) => {
     // Determine if user is admin (can access all endpoints)
     const isAdmin = ['admin', 'super_admin'].includes(userRole);
-    
+
     // State
     const [timeSlots, setTimeSlots] = useState([]);
     const [timetables, setTimetables] = useState([]);
@@ -29,11 +29,11 @@ export const useTimetableData = (userRole = 'admin', userId = null) => {
         try {
             const response = await timetableApi.getTimeSlots();
             let slots = response.data || [];
-            
+
             // If no slots exist and user is admin, create default slots
             if (slots.length === 0 && isAdmin) {
                 console.info('No time slots found, creating default 11AM-5PM schedule...');
-                
+
                 // Create each default slot in backend
                 for (const defaultSlot of DEFAULT_TIME_SLOTS) {
                     try {
@@ -48,13 +48,13 @@ export const useTimetableData = (userRole = 'admin', userId = null) => {
                         console.error('Failed to create slot:', defaultSlot.label, createErr);
                     }
                 }
-                
+
                 // Fetch again to get slots with proper MongoDB IDs
                 const refreshResponse = await timetableApi.getTimeSlots();
                 slots = refreshResponse.data || [];
                 console.info('Created and fetched', slots.length, 'time slots');
             }
-            
+
             // Use fetched slots if available, otherwise fallback to defaults (for display only)
             if (slots.length > 0) {
                 setTimeSlots(slots);
@@ -117,7 +117,7 @@ export const useTimetableData = (userRole = 'admin', userId = null) => {
             setLoading(true);
             // Time slots are accessible to all authenticated users
             await fetchTimeSlots();
-            
+
             // Admin-only: fetch timetables list and teachers
             if (isAdmin) {
                 await Promise.all([fetchTimetables(), fetchTeachers()]);

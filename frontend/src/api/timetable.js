@@ -40,7 +40,7 @@ export const getTimetables = async (filters = {}) => {
     if (filters.standard) params.append('standard', filters.standard);
     if (filters.section) params.append('section', filters.section);
     if (filters.academicYear) params.append('academicYear', filters.academicYear);
-    
+
     const response = await api.get(`/timetable/timetables?${params.toString()}`);
     return response.data;
 };
