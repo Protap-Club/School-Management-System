@@ -50,10 +50,11 @@ export const markAttendanceByNfc = async (nfcUid, schoolId ) => {
     if (!nfcUid) throw new CustomError("NFC UID required", 400);
 
     // Step 1: Find Student (Fast read)
-    const student = await User.findOne({
-        nfcUid: nfcUid.trim(),
-        schoolId : schoolId
-    })
+    // Step 1: Find Student (Fast read)
+    const query = { nfcUid: nfcUid.trim() };
+    if (schoolId) query.schoolId = schoolId;
+
+    const student = await User.findOne(query)
         .select("_id name schoolId role")
         .lean();
 
@@ -89,11 +90,11 @@ export const markAttendanceByNfc = async (nfcUid, schoolId ) => {
     // Step 5: Real-time Update (Socket.io)
     try {
         const io = getIO();
-        io.to(`school-${student.schoolId}`).emit("attendance-update", {
+        io.to(`school-${student.schoolId}`).emit("attendance-marked", {
             studentId: student._id,
             name: student.name,
             status: "Present",
-            time: newRecord.checkInTime
+            checkInTime: newRecord.checkInTime
         });
     } catch (err) {
         logger.warn(`Socket emit failed: ${err.message}`);
@@ -103,7 +104,20 @@ export const markAttendanceByNfc = async (nfcUid, schoolId ) => {
         attendance: {
             student: student.name,
             status: "Present",
-            time: newRecord.checkInTime
+            checkInTime: newRecord.checkInTime
         }
     };
+};
+
+// GET TODAY'S ATTENDANCE
+export const getTodayAttendance = async (schoolId) => {
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+
+    const records = await Attendance.find({
+        schoolId,
+        date: { $gte: startOfDay }
+    }).select("studentId status checkInTime").lean();
+
+    return records; // Returns array of { studentId, status, checkInTime }
 };

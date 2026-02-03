@@ -19,20 +19,27 @@ const TimetableGrid = ({
   const getSlotId = (slot) => slot._id || slot.slotNumber;
 
   // Helper to find entry for a specific day and time slot
+  // Handles both 'dayOfWeek' (class timetable) and 'day' (teacher schedule) properties
   const getEntry = (dayOfWeek, slot) => {
     const slotId = getSlotId(slot);
     return entries.find(
-      (entry) => entry.dayOfWeek === dayOfWeek &&
-        (entry.timeSlotId?._id || entry.timeSlotId || entry.timeSlotId?.slotNumber) === slotId
+      (entry) => {
+        const entryDay = entry.dayOfWeek || entry.day; // Handle both property names
+        const entrySlotId = entry.timeSlotId?._id || entry.timeSlotId || entry.timeSlot?._id;
+        return entryDay === dayOfWeek && entrySlotId === slotId;
+      }
     );
   };
 
-  // Get teacher name by ID
+  // Get teacher name - use embedded name if available, fallback to array lookup
   const getTeacherName = (teacherId) => {
     if (!teacherId) return 'Unassigned';
+    // If teacherId has embedded name (from populated response), use it directly
+    if (teacherId?.name) return teacherId.name;
+    // Fallback: lookup in teachers array
     const id = teacherId?._id || teacherId;
     const teacher = teachers.find((t) => t._id === id);
-    return teacher ? teacher.name : 'Unknown';
+    return teacher ? teacher.name : 'Unassigned';
   };
 
   // Get class display from timetable
@@ -80,8 +87,8 @@ const TimetableGrid = ({
             <div
               key={slotId}
               className={`grid border-b border-gray-100 last:border-b-0 ${isBreak
-                  ? 'grid-cols-[100px_1fr] bg-amber-50/60'
-                  : 'grid-cols-[100px_repeat(6,1fr)]'
+                ? 'grid-cols-[100px_1fr] bg-amber-50/60'
+                : 'grid-cols-[100px_repeat(6,1fr)]'
                 }`}
             >
               {/* Time Column */}
@@ -121,8 +128,8 @@ const TimetableGrid = ({
                     >
                       {entry ? (
                         <div className={`h-full flex flex-col justify-between rounded-lg p-2 border transition-all ${showClass
-                            ? 'bg-purple-50 border-purple-200'
-                            : 'bg-blue-50 border-blue-200'
+                          ? 'bg-purple-50 border-purple-200'
+                          : 'bg-blue-50 border-blue-200'
                           }`}>
                           <div>
                             <h4 className="text-sm font-semibold text-gray-800 leading-tight line-clamp-1">

@@ -47,24 +47,19 @@ const Attendance = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-
         const isAdmin = currentUser?.role === 'admin';
 
-        // Admin needs profiles for filtering, Teachers get backend-filtered list
-        const studentEndpoint = isAdmin
-          ? '/user/with-profiles?role=student'
-          : '/user?role=student&pageSize=100';
-
+        // 1. Fetch Students
+        const studentEndpoint = '/user?role=student&pageSize=500';
         const studentRes = await api.get(studentEndpoint);
-
 
         // 2. Fetch Teachers (Only for Admin)
         let teacherData = [];
         if (isAdmin) {
           try {
-            const teacherRes = await api.get('/user/get-users-with-profiles?role=teacher');
+            const teacherRes = await api.get('/user?role=teacher&pageSize=100');
             if (teacherRes.data.success) {
-              teacherData = teacherRes.data.data;
+              teacherData = teacherRes.data.data.users || [];
               setTeachers(teacherData);
             }
           } catch (err) {
@@ -72,16 +67,40 @@ const Attendance = () => {
           }
         }
 
+        // 3. Fetch Today's Attendance
+        let attendanceData = [];
+        try {
+          const attRes = await api.get('/attendance/today');
+          if (attRes.data.success) {
+            attendanceData = attRes.data.data;
+          }
+        } catch (err) {
+          console.error('Failed to fetch today attendance', err);
+        }
+
         if (studentRes.data.success) {
-          const studentData = studentRes.data.data;
+          const studentData = studentRes.data.data.users || [];
           setStudents(studentData);
+
+          // Build Attendance Map from backend data
+          const initialMap = {};
+          let presentCount = 0;
+
+          attendanceData.forEach(record => {
+            initialMap[record.studentId] = {
+              status: record.status.toLowerCase(),
+              checkInTime: record.checkInTime
+            };
+            if (record.status === 'Present') presentCount++;
+          });
+          setAttendanceMap(initialMap);
 
           // Update Stats
           const total = studentData.length;
           setStats({
             total,
-            present: 0,
-            absent: total
+            present: presentCount,
+            absent: Math.max(0, total - presentCount)
           });
 
           // Group Data for Admin

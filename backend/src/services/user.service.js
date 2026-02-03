@@ -21,7 +21,8 @@ const buildAccessQuery = (creator, filters = {}) => {
 
     if (name) query.name = { $regex: name, $options: "i" };
     if (role && role !== 'all') query.role = role;
-    if (creator.role === 'teacher') query.role = 'student';
+    // Only default to students for teachers if no explicit role was requested
+    else if (creator.role === 'teacher') query.role = 'student';
 
     return query;
 };
@@ -95,6 +96,8 @@ export const getUsers = async (creator, filters = {}) => {
     const users = await User.find(query)
         .select("-password")
         .populate("schoolId", "name code")
+        .populate("studentProfile")
+        .populate("teacherProfile")
         .sort({ createdAt: -1 })
         .skip(Number(page) * Number(pageSize))
         .limit(Number(pageSize))
@@ -107,7 +110,8 @@ export const getUsers = async (creator, filters = {}) => {
             email: u.email,
             role: u.role,
             schoolId: u.schoolId,
-            isActive: u.isActive
+            isActive: u.isActive,
+            profile: u.studentProfile || u.teacherProfile
         })),
         pagination: {
             totalCount,

@@ -15,12 +15,14 @@ export const validate = (schema) => (req, res, next) => {
     } catch (error) {
         // Handle Zod errors immediately to ensure consistent 400 format
         if (error instanceof z.ZodError) {
-            const errors = error.errors.map(e => ({
+            // Zod uses 'issues' not 'errors'
+            const errors = (error.issues || []).map(e => ({
                 path: e.path.join('.'),
                 message: e.message
             }));
 
-            logger.warn(`Validation Failed: ${errors.map(e => e.message).join(", ")}`);
+            // Log full details for debugging
+            logger.warn(`Validation Failed: ${JSON.stringify(errors)}`);
 
             return res.status(400).json({
                 success: false,

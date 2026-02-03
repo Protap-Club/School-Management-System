@@ -121,7 +121,7 @@ export const createBulkEntriesSchema = z.object({
 
 export const updateEntrySchema = z.object({
     params: z.object({
-        id: objectIdSchema // entryId
+        entryId: objectIdSchema // entryId parameter name
     }),
     body: z.object({
         dayOfWeek: z.enum(DAYS_OF_WEEK).optional(),
@@ -135,7 +135,7 @@ export const updateEntrySchema = z.object({
 
 export const entryIdParamsSchema = z.object({
     params: z.object({
-        id: objectIdSchema
+        entryId: objectIdSchema
     })
 });
 

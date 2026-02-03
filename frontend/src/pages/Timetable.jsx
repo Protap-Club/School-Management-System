@@ -71,7 +71,9 @@ const TimetablePage = () => {
         const teacherId = isTeacher ? user?._id : selectedTeacherId;
         if (teacherId) {
           const result = await fetchTeacherSchedule(teacherId);
+          console.log('DEBUG fetchTeacherSchedule result:', result);
           if (result.success) {
+            console.log('DEBUG setting teacherScheduleData:', result.data);
             setTeacherScheduleData(result.data);
           }
         }
@@ -91,11 +93,13 @@ const TimetablePage = () => {
   const displayEntries = useMemo(() => {
     if ((isTeacher && activeTab === 'my-timetable') || (!isTeacher && adminViewMode === 'teacher')) {
       // Teacher schedule view - flatten schedule object to array
-      if (!teacherScheduleData?.schedule) return [];
+      // Backend returns { teacherSchedule: { Mon: [], Tue: [], ... } }
+      if (!teacherScheduleData?.teacherSchedule) return [];
       const allEntries = [];
-      Object.values(teacherScheduleData.schedule).forEach(dayEntries => {
+      Object.values(teacherScheduleData.teacherSchedule).forEach(dayEntries => {
         allEntries.push(...dayEntries);
       });
+      console.log('DEBUG displayEntries (teacher schedule):', allEntries);
       return allEntries;
     }
     // Class timetable view
@@ -167,8 +171,9 @@ const TimetablePage = () => {
         setIsCreateModalOpen(false);
         setCreateForm({ standard: '', section: '', academicYear: new Date().getFullYear() });
         // Select the newly created timetable
-        if (result.data?._id) {
-          selectTimetable(result.data._id);
+        const newId = result.data?.timetable?._id || result.data?._id;
+        if (newId) {
+          selectTimetable(newId);
         }
       } else {
         alert(result.error || 'Failed to create timetable');
@@ -226,32 +231,44 @@ const TimetablePage = () => {
           <div className="flex flex-col md:flex-row gap-4 justify-between items-start md:items-center">
             {/* Role-Specific Controls */}
             {isTeacher ? (
-              <div className="flex bg-gray-100 p-1 rounded-xl">
-                <button
-                  onClick={() => setActiveTab('my-timetable')}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'my-timetable'
-                    ? 'bg-white text-primary shadow-sm'
-                    : 'text-gray-500 hover:text-gray-700'
-                    }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <FaChalkboardTeacher />
-                    My Schedule
+              <>
+                <div className="flex bg-gray-100 p-1 rounded-xl">
+                  <button
+                    onClick={() => setActiveTab('my-timetable')}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'my-timetable'
+                      ? 'bg-white text-primary shadow-sm'
+                      : 'text-gray-500 hover:text-gray-700'
+                      }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <FaChalkboardTeacher />
+                      My Schedule
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('class-timetable')}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'class-timetable'
+                      ? 'bg-white text-primary shadow-sm'
+                      : 'text-gray-500 hover:text-gray-700'
+                      }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <FaLayerGroup />
+                      Class Timetable
+                    </div>
+                  </button>
+                </div>
+
+                {/* Class Label for Teacher (when on Class Timetable tab) - no switching */}
+                {activeTab === 'class-timetable' && selectedTimetable && (
+                  <div className="flex items-center gap-2 ml-4 bg-gray-50 px-3 py-2 rounded-lg border border-gray-200">
+                    <span className="text-sm font-medium text-gray-600">Class:</span>
+                    <span className="text-sm font-semibold text-gray-800">
+                      {selectedTimetable.standard}-{selectedTimetable.section} ({selectedTimetable.academicYear})
+                    </span>
                   </div>
-                </button>
-                <button
-                  onClick={() => setActiveTab('class-timetable')}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'class-timetable'
-                    ? 'bg-white text-primary shadow-sm'
-                    : 'text-gray-500 hover:text-gray-700'
-                    }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <FaLayerGroup />
-                    Class Timetable
-                  </div>
-                </button>
-              </div>
+                )}
+              </>
             ) : (
               <div className="flex flex-wrap items-center gap-4 bg-white p-2 rounded-xl border border-gray-100 shadow-sm">
                 {/* Admin View Switcher */}
@@ -434,7 +451,7 @@ const TimetablePage = () => {
           </div>
         )}
       </div>
-    </DashboardLayout>
+    </DashboardLayout >
   );
 };
 

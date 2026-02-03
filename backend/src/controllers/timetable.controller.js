@@ -95,6 +95,29 @@ export const updateTimetableStatus = asyncHandler(async (req, res) => {
     });
 });
 
+// Add a single entry
+export const addEntry = asyncHandler(async (req, res) => {
+    const timetableId = req.params.id;
+    // Reuse sync logic for single entry (wrap in array)
+    const result = await timetableService.syncEntries(req.schoolId, timetableId, [req.body]);
+    
+    // Check for failure
+    if (result.syncResult.failedEntries.length > 0) {
+        const failure = result.syncResult.failedEntries[0];
+        return res.status(400).json({
+            success: false,
+            message: failure.reason || "Failed to create entry",
+            error: failure.reason
+        });
+    }
+
+    res.status(201).json({
+        success: true,
+        message: "Entry created",
+        data: result
+    });
+});
+
 // Sync entries in bulk
 export const syncTimetableEntries = asyncHandler(async (req, res) => {
     // Determine timetableId: param > body > query? Usually param for hierarchy
@@ -107,9 +130,14 @@ export const syncTimetableEntries = asyncHandler(async (req, res) => {
     });
 });
 
-// Update a single entry
+// Update a single entry (Teachers can only edit their own entries)
 export const updateEntry = asyncHandler(async (req, res) => {
-    const result = await timetableService.updateEntry(req.schoolId, req.params.entryId, req.body);
+    const result = await timetableService.updateEntry(
+        req.schoolId, 
+        req.params.entryId, 
+        req.body,
+        req.user // Pass user for permission check
+    );
     res.status(200).json({
         success: true,
         message: "Entry updated",

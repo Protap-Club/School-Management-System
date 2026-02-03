@@ -22,7 +22,8 @@ export const markAttendance = asyncHandler(async (req, res) => {
     const nfcUid = req.body.nfcUid || req.query.nfcUid;
 
     // Mark attendance in service
-    const result = await nfcService.markAttendanceByNfc(nfcUid, req.user.schoolId);
+    const schoolId = req.user ? req.user.schoolId : undefined;
+    const result = await nfcService.markAttendanceByNfc(nfcUid, schoolId);
 
     res.status(201).json({ 
         success: true, 
@@ -30,4 +31,14 @@ export const markAttendance = asyncHandler(async (req, res) => {
         data: result 
     });
     logger.info(`Attendance marked: ${result.attendance.student}`);
+});
+
+// Get Today's Attendance
+export const getTodayAttendance = asyncHandler(async (req, res) => {
+    const records = await nfcService.getTodayAttendance(req.user.schoolId);
+
+    res.status(200).json({
+        success: true,
+        data: records
+    });
 });

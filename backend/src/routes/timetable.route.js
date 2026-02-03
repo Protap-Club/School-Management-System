@@ -5,9 +5,11 @@ import {
     getTimetableById,
     updateTimetableStatus,
     deleteTimetable,
+    addEntry,
     syncTimetableEntries,
     updateEntry,
-    deleteEntry
+    deleteEntry,
+    getTeacherSchedule
 } from "../controllers/timetable.controller.js";
 import { checkAuth } from "../middlewares/auth.middleware.js";
 import { checkRole } from "../middlewares/role.middleware.js";
@@ -19,7 +21,8 @@ import {
     createTimetableSchema,
     timetableIdParamsSchema,
     updateTimetableStatusSchema,
-    createBulkEntriesSchema, // renamed to sync in implementation? Or check validation naming?
+    createEntrySchema,
+    createBulkEntriesSchema,
     updateEntrySchema,
     entryIdParamsSchema
 } from "../validations/timetable.validation.js";
@@ -32,10 +35,10 @@ router.use(requireFeature('timetable'));
 
 // --- Management ---
 
-// GET /api/v1/timetables
+// GET /api/v1/timetables (Admin + Teacher can view)
 router.get(
     "/", 
-    checkRole([USER_ROLES.ADMIN]), 
+    checkRole([USER_ROLES.ADMIN, USER_ROLES.TEACHER]), 
     getTimetables
 );
 
@@ -47,10 +50,10 @@ router.post(
     createTimetable
 );
 
-// GET /api/v1/timetables/:id
+// GET /api/v1/timetables/:id (Admin + Teacher can view)
 router.get(
     "/:id", 
-    checkRole([USER_ROLES.ADMIN]), 
+    checkRole([USER_ROLES.ADMIN, USER_ROLES.TEACHER]), 
     validate(timetableIdParamsSchema), 
     getTimetableById
 );
@@ -71,7 +74,24 @@ router.delete(
     deleteTimetable
 );
 
+// --- Teacher Schedule ---
+
+// GET /api/v1/timetables/teacher-schedule/:teacherId
+router.get(
+    "/teacher-schedule/:teacherId",
+    checkRole([USER_ROLES.ADMIN, USER_ROLES.TEACHER]),
+    getTeacherSchedule
+);
+
 // --- Entries ---
+
+// POST /api/v1/timetables/:id/entries (Single Entry)
+router.post(
+    "/:id/entries",
+    checkRole([USER_ROLES.ADMIN]),
+    validate(createEntrySchema),
+    addEntry
+);
 
 // POST /api/v1/timetables/:id/entries/sync (Bulk Sync)
 router.post(
@@ -81,12 +101,10 @@ router.post(
     syncTimetableEntries
 );
 
-// PATCH /api/v1/timetables/entries/:entryId (Update Single)
-// Note: User specified /api/v1/timetables/entries/:entryId
-// But express router mounted at /timetables. So path is /entries/:entryId
+// PATCH /api/v1/timetables/entries/:entryId (Admin + Teacher can edit)
 router.patch(
     "/entries/:entryId", 
-    checkRole([USER_ROLES.ADMIN]), 
+    checkRole([USER_ROLES.ADMIN, USER_ROLES.TEACHER]), 
     validate(updateEntrySchema), 
     updateEntry
 );

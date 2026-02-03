@@ -82,9 +82,26 @@ export const manageTimetables = async (schoolId, action, data = {}) => {
         };
     }
 
-    // Get all active timetables
+    // Get all active timetables (optionally filter by teacher assignment)
     if (action === 'get_all') {
-        const result = await Timetable.find({ schoolId, isActive: true, ...data }).sort({ standard: 1, section: 1 }).lean();
+        let timetableIds = null;
+        
+        // If teacherId is provided, only return timetables where teacher has entries
+        if (data.teacherId) {
+            const teacherEntries = await TimetableEntry.find({
+                schoolId,
+                teacherId: data.teacherId,
+                isActive: true
+            }).distinct('timetableId');
+            timetableIds = teacherEntries;
+        }
+        
+        const query = { schoolId, isActive: true };
+        if (timetableIds) {
+            query._id = { $in: timetableIds };
+        }
+        
+        const result = await Timetable.find(query).sort({ standard: 1, section: 1 }).lean();
         const timetables = result.map(t => ({ _id: t._id, standard: t.standard, section: t.section, academicYear: t.academicYear }));
         return { timetables };
     }
@@ -96,21 +113,19 @@ export const manageTimetables = async (schoolId, action, data = {}) => {
         const entries = await TimetableEntry.find({ timetableId: data.id, isActive: true }).populate("timeSlotId teacherId").sort({ dayOfWeek: 1 }).lean();
 
         return {
-            timetableDetails: {
-                timetabl: {
-                    _id: timetable.id,
-                    standard: timetable.standrd,
-                    section: timetable.secton,
-                    academicYear: timetable.academicYear
-                },
-                entries: entries.map(e => ({
-                    _id: e._id,
-                    dayOfWeek: e.dayOfWeek,
-                    subject: e.subject,
-                    timeSlot: e.timeSlotId ? { _id: e.timeSlotId._id, slotNumber: e.timeSlotId.slotNumber } : null,
-                    teacher: e.teacherId ? { _id: e.teacherId._id, name: e.teacherId.name } : null
-                }))
-            }
+            timetable: {
+                _id: timetable._id,
+                standard: timetable.standard,
+                section: timetable.section,
+                academicYear: timetable.academicYear
+            },
+            entries: entries.map(e => ({
+                _id: e._id,
+                dayOfWeek: e.dayOfWeek,
+                subject: e.subject,
+                timeSlotId: e.timeSlotId ? { _id: e.timeSlotId._id, slotNumber: e.timeSlotId.slotNumber } : null,
+                teacherId: e.teacherId ? { _id: e.teacherId._id, name: e.teacherId.name } : null
+            }))
         };
     }
 
@@ -187,10 +202,23 @@ export const syncEntries = async (schoolId, timetableId, entriesData) => {
     } catch (e) { await session.abortTransaction(); logger.error(`Sync error: ${e.message}`); throw e; } finally { session.endSession(); }
 };
 
-// Update a specific entry
-export const updateEntry = async (schoolId, id, updates) => {
+// Update a specific entry (with teacher permission check)
+export const updateEntry = async (schoolId, id, updates, user = null) => {
     const entry = await TimetableEntry.findOne({ _id: id, schoolId, isActive: true }).lean();
     if (!entry) throw new CustomError("Entry not found", 404);
+
+    // Permission check: Teachers can edit any entry in a timetable they're assigned to
+    if (user && user.role === 'teacher') {
+        // Check if teacher has any assignment in this timetable
+        const hasAssignment = await TimetableEntry.exists({
+            timetableId: entry.timetableId,
+            teacherId: user._id,
+            isActive: true
+        });
+        if (!hasAssignment) {
+            throw new CustomError("You can only edit entries in classes you're assigned to", 403);
+        }
+    }
 
     const tId = updates.teacherId || entry.teacherId;
     const day = updates.dayOfWeek || entry.dayOfWeek;
@@ -216,7 +244,7 @@ export const updateEntry = async (schoolId, id, updates) => {
 
 // Get teacher's schedule
 export const getTeacherSchedule = async (schoolId, teacherId, academicYear = null) => {
-    logger.info(`Fetching schedule for teacher ${teacherId}`);
+    logger.info(`Fetching schedule for teacher ${teacherId} in school ${schoolId}`);
     const raw = await TimetableEntry.aggregate([
         { $match: { schoolId: new mongoose.Types.ObjectId(schoolId), teacherId: new mongoose.Types.ObjectId(teacherId), isActive: true } },
         { $lookup: { from: "timetables", localField: "timetableId", foreignField: "_id", as: "tt" } },
@@ -225,8 +253,10 @@ export const getTeacherSchedule = async (schoolId, teacherId, academicYear = nul
         { $lookup: { from: "timeslots", localField: "timeSlotId", foreignField: "_id", as: "slot" } },
         { $unwind: "$slot" },
         { $sort: { "slot.slotNumber": 1 } },
-        { $project: { _id: 1, day: "$dayOfWeek", class: { $concat: ["$tt.standard", "-", "$tt.section"] }, startTime: "$slot.startTime", endTime: "$slot.endTime", subject: 1, roomNumber: 1 } }
+        { $project: { _id: 1, day: "$dayOfWeek", class: { $concat: ["$tt.standard", "-", "$tt.section"] }, startTime: "$slot.startTime", endTime: "$slot.endTime", subject: 1, roomNumber: 1, timeSlotId: "$slot._id" } }
     ]);
+
+    logger.info(`Teacher schedule raw results: ${raw.length} entries for ${teacherId}`);
 
     const structured = {};
     DAYS_OF_WEEK.forEach(day => { structured[day] = raw.filter(e => e.day === day); });

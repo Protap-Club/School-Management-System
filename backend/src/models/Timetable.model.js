@@ -94,11 +94,10 @@ const timetableEntrySchema = new mongoose.Schema(
       ref: "TimeSlot",
       required: true,
     },
-    // Optimized: Now links to Subject model instead of raw string
-    subjectId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Subject",
-      required: true,
+    // Subject as string (simpler than ObjectId reference)
+    subject: {
+      type: String,
+      trim: true,
     },
     teacherId: {
       type: mongoose.Schema.Types.ObjectId,
