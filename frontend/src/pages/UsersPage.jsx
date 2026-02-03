@@ -104,7 +104,7 @@ const UsersPage = () => {
             // Force schoolId filter if we are super_admin and searching for a school
             // (In this implementation, super_admin's schoolId filter is usually handled by the dropdown if implemented)
 
-            if (showArchived) params.append('archived', 'true');
+            if (showArchived) params.append('isArchived', 'true');
             const response = await api.get(`/users?${params}`);
             if (response.data.success) {
                 // Backend returns { users: [...] } - extract the array
@@ -262,7 +262,7 @@ const UsersPage = () => {
             setTimeout(() => setMessage({ type: '', text: '' }), 3000);
         } catch (error) {
             console.error('Delete failed', error);
-            setMessage({ type: 'error', text: 'Internal Server Error' });
+            setMessage({ type: 'error', text: error.response?.data?.message || 'Internal Server Error' });
         } finally {
             setDeleteConfirm({ open: false, users: [], isBulk: false });
         }
@@ -271,7 +271,7 @@ const UsersPage = () => {
     // Restore User (uses same toggle endpoint as archive)
     const handleRestore = async (userId) => {
         try {
-            await api.patch('/users/archive', { userIds: [userId] });
+            await api.patch('/users/archive', { userIds: [userId], isArchived: false });
             setMessage({ type: 'success', text: 'User restored successfully' });
             // Optimistic update
             setUsers(prev => prev.filter(u => u._id !== userId));
@@ -281,7 +281,7 @@ const UsersPage = () => {
             setTimeout(() => setMessage({ type: '', text: '' }), 3000);
         } catch (error) {
             console.error('Restore failed', error);
-            setMessage({ type: 'error', text: 'Internal Server Error' });
+            setMessage({ type: 'error', text: error.response?.data?.message || 'Internal Server Error' });
         }
     };
 
@@ -739,7 +739,7 @@ const UsersPage = () => {
                                     <FaUndo size={11} />
                                     Restore
                                 </button>
-                                {!['super_admin', 'admin'].includes(currentUser?.role) && (
+                                {['super_admin', 'admin'].includes(currentUser?.role) && (
                                     <>
                                         <div className="h-px bg-gray-100 my-1"></div>
                                         <button

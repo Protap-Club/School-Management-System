@@ -2,9 +2,9 @@
 import { useQuery } from '@tanstack/react-query';
 import api from '../lib/axios';
 
-// API function
+// API function - features are part of school profile
 export const fetchSchoolFeatures = async () => {
-    const response = await api.get('/school/features');
+    const response = await api.get('/school/profile');
     return response.data;
 };
 

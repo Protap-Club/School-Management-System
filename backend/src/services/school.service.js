@@ -62,12 +62,15 @@ export const getSchoolProfile = async (schoolId) => {
     if (!school) throw new CustomError("School not found", 404);
 
     const data = {
-        name : school.name,
-        isActive : school.isActive,
-        code : school.code,
-        schoolId : school._id,
-        _id : school._id,
-    }
+        name: school.name,
+        isActive: school.isActive,
+        code: school.code,
+        logoUrl: school.logoUrl,
+        theme: school.theme,
+        features: school.features,
+        schoolId: school._id,
+        _id: school._id,
+    };
 
     return { school: data };
 };

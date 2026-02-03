@@ -6,17 +6,22 @@ import { CustomError } from "../utils/customError.js";
 
 // Helper to build a query based on who is asking (The Filter Factory)
 const buildAccessQuery = (creator, filters = {}) => {
-    const { name, isArchived, role, ...otherFilters } = filters;
+    const { name, isArchived, role, userIds, ...otherFilters } = filters;
     const query = {
-        ...filters,
-        isArchived: isArchived || false,
-        schoolId: creator.schoolId  // Scope users to creator's school
+        schoolId: creator.schoolId,
+        ...otherFilters
     };
 
-    // Teachers can only manage/see Students
-    if (creator.role === 'teacher') {
-        query.role = 'student';
+    // Handle userIds -> _id conversion
+    if (userIds) {
+        query._id = { $in: Array.isArray(userIds) ? userIds : [userIds] };
     }
+
+    query.isArchived = isArchived !== undefined ? isArchived : false;
+
+    if (name) query.name = { $regex: name, $options: "i" };
+    if (role && role !== 'all') query.role = role;
+    if (creator.role === 'teacher') query.role = 'student';
 
     return query;
 };
@@ -128,46 +133,39 @@ export const getUsers = async (creator, filters = {}) => {
 
 // TOGGLE ARCHIVE STATUS 
 export const toggleUserStatus = async (creator, userIds, isArchived) => {
-    const query = buildAccessQuery(creator, { _id: { $in: userIds } });
+    const query = buildAccessQuery(creator, {
+        userIds,
+        isArchived: !isArchived
+    });
 
-    // This updates multiple users at once safely
     const result = await User.updateMany(query, { $set: { isArchived } });
 
     if (result.matchedCount === 0) {
-        throw new CustomError("No accessible users found to update", 404);
+        throw new CustomError(`No ${!isArchived ? 'archived' : 'active'} users found to update`, 404);
     }
 
     return { updateResult: result };
 };
 
-// PERMANENT DELETE 
+// PERMANENT DELETE (without transactions for standalone MongoDB)
 export const hardDeleteUsers = async (creator, userIds) => {
-    const session = await mongoose.startSession();
-    session.startTransaction();
+    const ids = Array.isArray(userIds) ? userIds : [userIds];
+    const query = buildAccessQuery(creator, { userIds: ids, isArchived: true });
 
-    try {
-        const ids = Array.isArray(userIds) ? userIds : [userIds];
-        const query = buildAccessQuery(creator, { _id: { $in: ids }, isArchived: true });
-
-        const usersToDelete = await User.find(query).session(session);
-        if (usersToDelete.length === 0) throw new CustomError("Users must be archived before permanent deletion", 400);
-
-        const deleteIds = usersToDelete.map(u => u._id);
-
-        // Delete Profiles & Users together
-        for (const user of usersToDelete) {
-            const config = PROFILE_CONFIG[user.role];
-            if (config) await config.model.deleteMany({ userId: user._id }, { session });
-        }
-
-        await User.deleteMany({ _id: { $in: deleteIds } }, { session });
-
-        await session.commitTransaction();
-        return { deleteResult: { deletedCount: deleteIds.length } };
-    } catch (error) {
-        await session.abortTransaction();
-        throw error;
-    } finally {
-        session.endSession();
+    const usersToDelete = await User.find(query);
+    if (usersToDelete.length === 0) {
+        throw new CustomError("Users must be archived before permanent deletion", 400);
     }
+
+    const deleteIds = usersToDelete.map(u => u._id);
+
+    // Delete Profiles first, then Users
+    for (const user of usersToDelete) {
+        const config = PROFILE_CONFIG[user.role];
+        if (config) await config.model.deleteMany({ userId: user._id });
+    }
+
+    const result = await User.deleteMany({ _id: { $in: deleteIds } });
+
+    return { deleteResult: { deletedCount: result.deletedCount } };
 };

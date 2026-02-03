@@ -62,10 +62,11 @@ const Settings = () => {
     const fetchSettings = async () => {
         try {
             const response = await api.get('/school/profile');
-            if (response.data.success && response.data.data) {
+            if (response.data.success && response.data.data?.school) {
+                const school = response.data.data.school;
                 setSettings({
-                    logoUrl: response.data.data.logoUrl || '',
-                    theme: response.data.data.theme || { accentColor: '#2563eb' }
+                    logoUrl: school.logoUrl || '',
+                    theme: school.theme || { accentColor: '#2563eb' }
                 });
             }
         } catch (error) {
@@ -82,8 +83,8 @@ const Settings = () => {
         try {
             // Get features from the profile endpoint - features are part of school data
             const response = await api.get('/school/profile');
-            if (response.data.success) {
-                setFeatures(response.data.data.features || {});
+            if (response.data.success && response.data.data?.school) {
+                setFeatures(response.data.data.school.features || {});
             }
         } catch (error) {
             console.error('Failed to fetch features', error);
