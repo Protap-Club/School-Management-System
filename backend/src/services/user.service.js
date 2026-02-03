@@ -93,12 +93,19 @@ export const createUser = async (creator, userData) => {
 
 // GET USERS 
 export const getUsers = async (creator, filters = {}) => {
-    const query = buildAccessQuery(creator, filters);
+    // Extract pagination from filters before building query
+    const { page = 0, pageSize = 25, ...queryFilters } = filters;
+    const query = buildAccessQuery(creator, queryFilters);
+
+    // Get total count for pagination
+    const totalCount = await User.countDocuments(query);
 
     const users = await User.find(query)
         .select("-password")
         .populate("schoolId", "name code")
         .sort({ createdAt: -1 })
+        .skip(Number(page) * Number(pageSize))
+        .limit(Number(pageSize))
         .lean();
 
     return {
@@ -109,7 +116,13 @@ export const getUsers = async (creator, filters = {}) => {
             role: u.role,
             schoolId: u.schoolId,
             isActive: u.isActive
-        }))
+        })),
+        pagination: {
+            totalCount,
+            page: Number(page),
+            pageSize: Number(pageSize),
+            totalPages: Math.ceil(totalCount / Number(pageSize))
+        }
     };
 };
 

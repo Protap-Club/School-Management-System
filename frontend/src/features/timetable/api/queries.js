@@ -8,7 +8,7 @@ export const timetableKeys = {
     timetables: () => [...timetableKeys.all, 'timetables'],
     timetable: (id) => [...timetableKeys.timetables(), id],
     timetableFilters: (filters) => [...timetableKeys.timetables(), filters],
-    teacherSchedule: (teacherId) => [...timetableKeys.all, 'teacher', teacherId],
+    mySchedule: () => [...timetableKeys.all, 'mySchedule'],
     teachers: () => [...timetableKeys.all, 'teachers'],
 };
 
@@ -85,20 +85,10 @@ export const useDeleteTimetable = () => {
 };
 
 // Entry Hooks
-export const useCreateEntry = () => {
+export const useSyncTimetableEntries = () => {
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: timetableApi.createEntry,
-        onSuccess: (_, variables) => {
-            queryClient.invalidateQueries({ queryKey: timetableKeys.timetable(variables.timetableId) });
-        },
-    });
-};
-
-export const useCreateBulkEntries = () => {
-    const queryClient = useQueryClient();
-    return useMutation({
-        mutationFn: timetableApi.createBulkEntries,
+        mutationFn: timetableApi.syncTimetableEntries,
         onSuccess: (_, variables) => {
             queryClient.invalidateQueries({ queryKey: timetableKeys.timetable(variables.timetableId) });
         },
@@ -121,12 +111,11 @@ export const useDeleteEntry = () => {
     });
 };
 
-// Teacher Schedule Hook
-export const useTeacherSchedule = (teacherId, academicYear) => {
+// My Schedule Hook (for current logged-in teacher)
+export const useMySchedule = () => {
     return useQuery({
-        queryKey: timetableKeys.teacherSchedule(teacherId),
-        queryFn: () => timetableApi.getTeacherSchedule({ teacherId, academicYear }),
-        enabled: !!teacherId,
+        queryKey: timetableKeys.mySchedule(),
+        queryFn: timetableApi.getMySchedule,
     });
 };
 

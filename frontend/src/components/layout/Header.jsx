@@ -32,7 +32,7 @@ const Header = ({ onSearch, searchValue }) => {
         const fetchBranding = async () => {
             if (user) {
                 try {
-                    const response = await api.get('/school/branding');
+                    const response = await api.get('/school/profile');
                     if (response.data.success && response.data.data) {
                         setSchoolBranding(response.data.data);
                     }
@@ -56,10 +56,10 @@ const Header = ({ onSearch, searchValue }) => {
 
     // Get Header Content
     const getHeaderContent = () => {
-        if (schoolBranding) {
+        if (schoolBranding?.school) {
             return {
-                title: schoolBranding.name,
-                logo: schoolBranding.logoUrl
+                title: schoolBranding.school.name || 'SMS Portal',
+                logo: schoolBranding.school.logoUrl
             };
         }
         // Fallback if no branding loaded yet
@@ -104,7 +104,7 @@ const Header = ({ onSearch, searchValue }) => {
                         />
                     ) : (
                         <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white shadow-sm">
-                            <span className="font-bold text-lg">{headerContent.title.substring(0, 2).toUpperCase()}</span>
+                            <span className="font-bold text-lg">{(headerContent.title || 'SM').substring(0, 2).toUpperCase()}</span>
                         </div>
                     )}
                     <span className="font-bold text-gray-800 text-lg hidden md:block">

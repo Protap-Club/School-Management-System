@@ -3,13 +3,10 @@
 // Query Hooks
 export {
     attendanceKeys,
-    useStudentsWithProfiles,
     useStudents,
-    useTeachersWithProfiles,
-    useAttendanceByDate,
-    useAttendanceSummary,
-    useMarkAttendance,
-    useMarkBulkAttendance,
+    useTeachers,
+    useLinkNfcTag,
+    useMarkNfcAttendance,
 } from './api/queries';
 
 // Constants

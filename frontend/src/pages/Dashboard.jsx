@@ -19,13 +19,13 @@ const Dashboard = () => {
       if (user?.role === 'teacher') {
         try {
           const [filteredResponse, allProfilesResponse] = await Promise.all([
-            api.get('/user?role=student&pageSize=1'),
-            api.get('/user/with-profiles?role=student')
+            api.get('/users?role=student&pageSize=1'),
+            api.get('/users?role=student')
           ]);
 
           if (filteredResponse.data.success && allProfilesResponse.data.success) {
-            const myStudents = filteredResponse.data.data;
-            const allProfiles = allProfilesResponse.data.data;
+            const myStudents = filteredResponse.data.data?.users || filteredResponse.data.data || [];
+            const allProfiles = allProfilesResponse.data.data?.users || allProfilesResponse.data.data || [];
 
             if (myStudents.length > 0) {
               const firstStudentId = myStudents[0]._id;
@@ -54,14 +54,14 @@ const Dashboard = () => {
       if (user?.role === 'admin' || user?.role === 'teacher') {
         try {
           const endpoint = user?.role === 'admin'
-            ? '/user/get-users-with-profiles?role=student'
-            : '/user/get-users?role=student&pageSize=100';
+            ? '/users?role=student'
+            : '/users?role=student&pageSize=100';
 
           const response = await api.get(endpoint);
           if (response.data.success) {
             setStats(prev => ({
               ...prev,
-              total: response.data.data.length,
+              total: (response.data.data?.users || response.data.data || []).length,
               present: 0 // Reset present count on load as per existing logic
             }));
           }

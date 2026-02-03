@@ -2,45 +2,31 @@
 import api from '../../../lib/axios';
 
 export const attendanceApi = {
-    // Get students with profiles (for admin view)
-    getStudentsWithProfiles: async () => {
-        const response = await api.get('/user/with-profiles?role=student');
-        return response.data;
-    },
-
-    // Get students (for teacher view - backend filtered)
+    // Get students
+    // GET /api/v1/users?role=student
     getStudents: async () => {
-        const response = await api.get('/user?role=student&pageSize=100');
+        const response = await api.get('/users?role=student&pageSize=100');
         return response.data;
     },
 
-    // Get teachers with profiles (admin only)
-    getTeachersWithProfiles: async () => {
-        const response = await api.get('/user/get-users-with-profiles?role=teacher');
+    // Get teachers
+    // GET /api/v1/users?role=teacher
+    getTeachers: async () => {
+        const response = await api.get('/users?role=teacher&pageSize=100');
         return response.data;
     },
 
-    // Mark attendance
-    markAttendance: async ({ studentId, status, date }) => {
-        const response = await api.post('/attendance/mark', { studentId, status, date });
+    // Link NFC tag to student
+    // POST /api/v1/attendance/nfc/link
+    linkNfcTag: async ({ userId, tagId }) => {
+        const response = await api.post('/attendance/nfc/link', { userId, tagId });
         return response.data;
     },
 
-    // Mark bulk attendance
-    markBulkAttendance: async ({ entries, date }) => {
-        const response = await api.post('/attendance/mark-bulk', { entries, date });
-        return response.data;
-    },
-
-    // Get attendance records for date
-    getAttendanceByDate: async (date) => {
-        const response = await api.get(`/attendance?date=${date}`);
-        return response.data;
-    },
-
-    // Get attendance summary
-    getAttendanceSummary: async ({ startDate, endDate }) => {
-        const response = await api.get(`/attendance/summary?startDate=${startDate}&endDate=${endDate}`);
+    // Mark attendance via NFC scan
+    // POST /api/v1/attendance/nfc
+    markNfcAttendance: async ({ tagId }) => {
+        const response = await api.post('/attendance/nfc', { tagId });
         return response.data;
     },
 };

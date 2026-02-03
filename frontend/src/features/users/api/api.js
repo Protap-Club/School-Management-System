@@ -3,53 +3,50 @@ import api from '../../../lib/axios';
 
 export const usersApi = {
     // Get users with filters and pagination
+    // GET /api/v1/users
     getUsers: async ({ role, page = 0, pageSize = 25, archived = false }) => {
-        const params = new URLSearchParams({ page: page.toString(), pageSize: pageSize.toString() });
+        const params = new URLSearchParams({
+            page: page.toString(),
+            pageSize: pageSize.toString()
+        });
         if (role && role !== 'all') params.append('role', role);
-        const endpoint = archived ? '/user/archived' : '/user';
-        const response = await api.get(`${endpoint}?${params}`);
+        if (archived) params.append('archived', 'true');
+        const response = await api.get(`/users?${params}`);
         return response.data;
     },
 
     // Create new user
+    // POST /api/v1/users
     createUser: async (userData) => {
-        const response = await api.post('/user', userData);
+        const response = await api.post('/users', userData);
         return response.data;
     },
 
-    // Update user
-    updateUser: async ({ id, data }) => {
-        const response = await api.put(`/user/${id}`, data);
+    // Archive/Restore user (toggle) - single user
+    // PATCH /api/v1/users/archive
+    toggleUserStatus: async (userId) => {
+        const response = await api.patch('/users/archive', { userIds: [userId] });
         return response.data;
     },
 
-    // Archive user (soft delete)
-    archiveUser: async (userId) => {
-        const response = await api.put(`/user/archive/${userId}`);
+    // Archive/Restore users (toggle) - bulk
+    // PATCH /api/v1/users/archive
+    toggleUsersStatus: async (userIds) => {
+        const response = await api.patch('/users/archive', { userIds });
         return response.data;
     },
 
-    // Bulk archive users
-    archiveUsers: async (userIds) => {
-        const response = await api.put('/user/archive-bulk', { userIds });
-        return response.data;
-    },
-
-    // Restore archived user
-    restoreUser: async (userId) => {
-        const response = await api.put(`/user/restore/${userId}`);
-        return response.data;
-    },
-
-    // Delete user permanently
+    // Hard delete user permanently - single
+    // DELETE /api/v1/users
     deleteUser: async (userId) => {
-        const response = await api.delete(`/user/${userId}`);
+        const response = await api.delete('/users', { data: { userIds: [userId] } });
         return response.data;
     },
 
-    // Bulk delete users
+    // Hard delete users permanently - bulk
+    // DELETE /api/v1/users
     deleteUsers: async (userIds) => {
-        const response = await api.delete('/user/bulk', { data: { userIds } });
+        const response = await api.delete('/users', { data: { userIds } });
         return response.data;
     },
 };

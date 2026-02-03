@@ -3,11 +3,10 @@
 // Query Hooks
 export {
     settingsKeys,
-    useBranding,
-    useUpdateTheme,
+    useSchoolProfile,
+    useUpdateSchoolProfile,
     useUploadLogo,
-    useSchoolFeatures,
-    useToggleFeature,
+    useUpdateSchoolFeatures,
 } from './api/queries';
 
 // Constants

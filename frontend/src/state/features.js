@@ -4,7 +4,7 @@ import api from '../lib/axios';
 
 // API function
 export const fetchSchoolFeatures = async () => {
-    const response = await api.get('/school/me/features');
+    const response = await api.get('/school/features');
     return response.data;
 };
 
@@ -26,5 +26,6 @@ export const useSchoolFeatures = (options = {}) => {
 // Helper hook to check if a feature is enabled
 export const useHasFeature = (featureKey) => {
     const { data } = useSchoolFeatures();
-    return data?.data?.features?.[featureKey] === true;
+    const features = data?.data?.school?.features || data?.data?.features || {};
+    return features[featureKey] === true;
 };

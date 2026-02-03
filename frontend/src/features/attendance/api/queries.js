@@ -5,21 +5,10 @@ import { attendanceApi } from './api';
 export const attendanceKeys = {
     all: ['attendance'],
     students: () => [...attendanceKeys.all, 'students'],
-    studentsWithProfiles: () => [...attendanceKeys.all, 'studentsWithProfiles'],
     teachers: () => [...attendanceKeys.all, 'teachers'],
-    byDate: (date) => [...attendanceKeys.all, 'date', date],
-    summary: (startDate, endDate) => [...attendanceKeys.all, 'summary', startDate, endDate],
 };
 
-// Get students with profiles (admin)
-export const useStudentsWithProfiles = () => {
-    return useQuery({
-        queryKey: attendanceKeys.studentsWithProfiles(),
-        queryFn: attendanceApi.getStudentsWithProfiles,
-    });
-};
-
-// Get students (teacher)
+// Get students
 export const useStudents = () => {
     return useQuery({
         queryKey: attendanceKeys.students(),
@@ -27,48 +16,30 @@ export const useStudents = () => {
     });
 };
 
-// Get teachers with profiles (admin)
-export const useTeachersWithProfiles = () => {
+// Get teachers
+export const useTeachers = () => {
     return useQuery({
         queryKey: attendanceKeys.teachers(),
-        queryFn: attendanceApi.getTeachersWithProfiles,
+        queryFn: attendanceApi.getTeachers,
     });
 };
 
-// Get attendance by date
-export const useAttendanceByDate = (date) => {
-    return useQuery({
-        queryKey: attendanceKeys.byDate(date),
-        queryFn: () => attendanceApi.getAttendanceByDate(date),
-        enabled: !!date,
-    });
-};
-
-// Get attendance summary
-export const useAttendanceSummary = (startDate, endDate) => {
-    return useQuery({
-        queryKey: attendanceKeys.summary(startDate, endDate),
-        queryFn: () => attendanceApi.getAttendanceSummary({ startDate, endDate }),
-        enabled: !!startDate && !!endDate,
-    });
-};
-
-// Mark single attendance
-export const useMarkAttendance = () => {
+// Link NFC tag to student
+export const useLinkNfcTag = () => {
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: attendanceApi.markAttendance,
+        mutationFn: attendanceApi.linkNfcTag,
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: attendanceKeys.all });
         },
     });
 };
 
-// Mark bulk attendance
-export const useMarkBulkAttendance = () => {
+// Mark attendance via NFC
+export const useMarkNfcAttendance = () => {
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: attendanceApi.markBulkAttendance,
+        mutationFn: attendanceApi.markNfcAttendance,
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: attendanceKeys.all });
         },

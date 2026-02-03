@@ -3,9 +3,7 @@
 // Query Hooks
 export {
     dashboardKeys,
-    useStudentsStats,
-    useAllStudentsWithProfiles,
-    useStudentsWithProfiles,
-    useFirstStudent,
-    useDashboardStats,
+    useStudents,
+    useTeachers,
+    useAllUsers,
 } from './api/queries';

@@ -104,12 +104,12 @@ const UsersPage = () => {
             // Force schoolId filter if we are super_admin and searching for a school
             // (In this implementation, super_admin's schoolId filter is usually handled by the dropdown if implemented)
 
-            const endpoint = showArchived ? '/user/archived' : '/user';
-            const response = await api.get(`${endpoint}?${params}`);
+            if (showArchived) params.append('archived', 'true');
+            const response = await api.get(`/users?${params}`);
             if (response.data.success) {
-                // Ensure users are filtered by role in the frontend as well just in case,
-                // although the backend handles it.
-                setUsers(response.data.data);
+                // Backend returns { users: [...] } - extract the array
+                const usersData = response.data.data?.users || response.data.data || [];
+                setUsers(Array.isArray(usersData) ? usersData : []);
                 setPagination(response.data.pagination);
             }
         } catch (error) {
@@ -241,20 +241,13 @@ const UsersPage = () => {
     // Confirm Delete (Archive or Hard Delete)
     const confirmDelete = async () => {
         try {
+            const userIdsToProcess = deleteConfirm.isBulk ? selectedUsers : [deleteConfirm.users[0]._id];
             if (showArchived) {
-                // Hard Delete
-                if (deleteConfirm.isBulk) {
-                    await api.delete('/user/bulk', { data: { userIds: selectedUsers } });
-                } else {
-                    await api.delete(`/user/${deleteConfirm.users[0]._id}`);
-                }
+                // Hard Delete - DELETE /users with body
+                await api.delete('/users', { data: { userIds: userIdsToProcess } });
             } else {
-                // Soft Delete (Archive)
-                if (deleteConfirm.isBulk) {
-                    await api.put('/user/archive-bulk', { userIds: selectedUsers });
-                } else {
-                    await api.put(`/user/archive/${deleteConfirm.users[0]._id}`);
-                }
+                // Soft Delete (Archive) - PATCH /users/archive (toggle)
+                await api.patch('/users/archive', { userIds: userIdsToProcess });
             }
             // Optimistic update
             if (deleteConfirm.isBulk) {
@@ -275,10 +268,10 @@ const UsersPage = () => {
         }
     };
 
-    // Restore User
+    // Restore User (uses same toggle endpoint as archive)
     const handleRestore = async (userId) => {
         try {
-            await api.put(`/user/restore/${userId}`);
+            await api.patch('/users/archive', { userIds: [userId] });
             setMessage({ type: 'success', text: 'User restored successfully' });
             // Optimistic update
             setUsers(prev => prev.filter(u => u._id !== userId));
@@ -293,8 +286,8 @@ const UsersPage = () => {
     };
 
     // Calculate showing range
-    const showingStart = pagination.totalCount > 0 ? page * pageSize + 1 : 0;
-    const showingEnd = Math.min((page + 1) * pageSize, pagination.totalCount);
+    const showingStart = (pagination?.totalCount || 0) > 0 ? page * pageSize + 1 : 0;
+    const showingEnd = Math.min((page + 1) * pageSize, pagination?.totalCount || 0);
 
     // Check if multiple selected
     const isMultipleSelected = selectedUsers.length > 1;
@@ -613,10 +606,10 @@ const UsersPage = () => {
                             </div>
 
                             {/* Pagination */}
-                            {pagination.totalCount > 0 && (
+                            {(pagination?.totalCount || 0) > 0 && (
                                 <div className="px-4 py-3 border-t border-gray-100 flex flex-col sm:flex-row justify-between items-center gap-3 bg-gray-50/50">
                                     <div className="text-xs text-gray-500">
-                                        Showing <span className="font-medium text-gray-700">{showingStart}</span> to <span className="font-medium text-gray-700">{showingEnd}</span> of <span className="font-medium text-gray-700">{pagination.totalCount}</span>
+                                        Showing <span className="font-medium text-gray-700">{showingStart}</span> to <span className="font-medium text-gray-700">{showingEnd}</span> of <span className="font-medium text-gray-700">{pagination?.totalCount || 0}</span>
                                     </div>
 
                                     <div className="flex items-center gap-1">
@@ -628,18 +621,19 @@ const UsersPage = () => {
                                             <FaChevronLeft size={10} />
                                         </button>
 
-                                        {[...Array(Math.min(5, pagination.totalPages))].map((_, i) => {
+                                        {[...Array(Math.min(5, pagination?.totalPages || 0))].map((_, i) => {
                                             let pageNum;
-                                            if (pagination.totalPages <= 5) {
+                                            const totalPages = pagination?.totalPages || 0;
+                                            if (totalPages <= 5) {
                                                 pageNum = i;
                                             } else if (page < 3) {
                                                 pageNum = i;
-                                            } else if (page > pagination.totalPages - 4) {
-                                                pageNum = pagination.totalPages - 5 + i;
+                                            } else if (page > totalPages - 4) {
+                                                pageNum = totalPages - 5 + i;
                                             } else {
                                                 pageNum = page - 2 + i;
                                             }
-                                            if (pageNum >= pagination.totalPages) return null;
+                                            if (pageNum >= totalPages) return null;
                                             return (
                                                 <button
                                                     key={pageNum}
@@ -655,8 +649,8 @@ const UsersPage = () => {
                                         })}
 
                                         <button
-                                            onClick={() => setPage(p => Math.min(pagination.totalPages - 1, p + 1))}
-                                            disabled={page >= pagination.totalPages - 1}
+                                            onClick={() => setPage(p => Math.min((pagination?.totalPages || 1) - 1, p + 1))}
+                                            disabled={page >= (pagination?.totalPages || 1) - 1}
                                             className="px-2.5 py-1.5 text-xs text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:hover:bg-transparent rounded-md transition-colors font-medium"
                                         >
                                             <FaChevronRight size={10} />

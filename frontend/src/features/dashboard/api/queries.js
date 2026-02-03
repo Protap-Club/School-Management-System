@@ -4,54 +4,34 @@ import { dashboardApi } from './api';
 
 export const dashboardKeys = {
     all: ['dashboard'],
-    stats: () => [...dashboardKeys.all, 'stats'],
     students: () => [...dashboardKeys.all, 'students'],
-    studentsWithProfiles: () => [...dashboardKeys.all, 'studentsWithProfiles'],
-    allStudentsWithProfiles: () => [...dashboardKeys.all, 'allStudentsWithProfiles'],
-    firstStudent: () => [...dashboardKeys.all, 'firstStudent'],
+    teachers: () => [...dashboardKeys.all, 'teachers'],
+    allUsers: () => [...dashboardKeys.all, 'allUsers'],
 };
 
-// Get students for stats (teacher view)
-export const useStudentsStats = (options = {}) => {
+// Get students
+export const useStudents = (options = {}) => {
     return useQuery({
         queryKey: dashboardKeys.students(),
-        queryFn: dashboardApi.getStudentsStats,
+        queryFn: dashboardApi.getStudents,
         ...options,
     });
 };
 
-// Get all students with profiles (admin view)
-export const useAllStudentsWithProfiles = (options = {}) => {
+// Get teachers
+export const useTeachers = (options = {}) => {
     return useQuery({
-        queryKey: dashboardKeys.allStudentsWithProfiles(),
-        queryFn: dashboardApi.getAllStudentsWithProfiles,
+        queryKey: dashboardKeys.teachers(),
+        queryFn: dashboardApi.getTeachers,
         ...options,
     });
 };
 
-// Get students with profiles (for teacher inference)
-export const useStudentsWithProfiles = (options = {}) => {
+// Get all users (for admin stats)
+export const useAllUsers = (options = {}) => {
     return useQuery({
-        queryKey: dashboardKeys.studentsWithProfiles(),
-        queryFn: dashboardApi.getStudentsWithProfiles,
-        ...options,
-    });
-};
-
-// Get first student (for teacher profile inference)
-export const useFirstStudent = (options = {}) => {
-    return useQuery({
-        queryKey: dashboardKeys.firstStudent(),
-        queryFn: dashboardApi.getFirstStudent,
-        ...options,
-    });
-};
-
-// Get dashboard stats
-export const useDashboardStats = (options = {}) => {
-    return useQuery({
-        queryKey: dashboardKeys.stats(),
-        queryFn: dashboardApi.getDashboardStats,
+        queryKey: dashboardKeys.allUsers(),
+        queryFn: dashboardApi.getAllUsers,
         ...options,
     });
 };

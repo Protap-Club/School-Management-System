@@ -38,7 +38,7 @@ export const useTheme = () => {
     const { data: brandingData, isLoading: loading, refetch: fetchBranding } = useQuery({
         queryKey: themeKeys.branding(),
         queryFn: async () => {
-            const response = await api.get('/school/branding');
+            const response = await api.get('/school/profile');
             return response.data;
         },
         enabled: hasToken,
@@ -89,14 +89,14 @@ export const useFeatures = () => {
     const { data, isLoading: loading } = useQuery({
         queryKey: featuresKeys.school(),
         queryFn: async () => {
-            const response = await api.get('/school/me/features');
+            const response = await api.get('/school/profile');
             return response.data;
         },
         enabled: hasToken,
         staleTime: 5 * 60 * 1000,
     });
 
-    const features = data?.data?.features || {};
+    const features = data?.data?.school?.features || data?.data?.features || {};
 
     const hasFeature = (featureKey) => {
         return features[featureKey] === true;

@@ -4,25 +4,25 @@ import { settingsApi } from './api';
 
 export const settingsKeys = {
     all: ['settings'],
-    branding: () => [...settingsKeys.all, 'branding'],
-    features: (schoolId) => [...settingsKeys.all, 'features', schoolId],
+    profile: () => [...settingsKeys.all, 'profile'],
 };
 
-// Get branding settings
-export const useBranding = () => {
+// Get school profile (includes branding and features)
+export const useSchoolProfile = () => {
     return useQuery({
-        queryKey: settingsKeys.branding(),
-        queryFn: settingsApi.getBranding,
+        queryKey: settingsKeys.profile(),
+        queryFn: settingsApi.getSchoolProfile,
     });
 };
 
-// Update theme color
-export const useUpdateTheme = () => {
+// Update school profile
+export const useUpdateSchoolProfile = () => {
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: settingsApi.updateTheme,
+        mutationFn: settingsApi.updateSchoolProfile,
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: settingsKeys.branding() });
+            queryClient.invalidateQueries({ queryKey: settingsKeys.profile() });
+            window.dispatchEvent(new Event('settingsUpdated'));
         },
     });
 };
@@ -33,28 +33,19 @@ export const useUploadLogo = () => {
     return useMutation({
         mutationFn: settingsApi.uploadLogo,
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: settingsKeys.branding() });
+            queryClient.invalidateQueries({ queryKey: settingsKeys.profile() });
             window.dispatchEvent(new Event('settingsUpdated'));
         },
     });
 };
 
-// Get school features (super_admin)
-export const useSchoolFeatures = (schoolId) => {
-    return useQuery({
-        queryKey: settingsKeys.features(schoolId),
-        queryFn: () => settingsApi.getSchoolFeatures(schoolId),
-        enabled: !!schoolId,
-    });
-};
-
-// Toggle feature (super_admin)
-export const useToggleFeature = () => {
+// Update school features (admin only)
+export const useUpdateSchoolFeatures = () => {
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: settingsApi.toggleFeature,
-        onSuccess: (_, variables) => {
-            queryClient.invalidateQueries({ queryKey: settingsKeys.features(variables.schoolId) });
+        mutationFn: settingsApi.updateSchoolFeatures,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: settingsKeys.profile() });
         },
     });
 };

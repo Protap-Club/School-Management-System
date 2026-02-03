@@ -38,51 +38,29 @@ export const useCreateUser = () => {
     });
 };
 
-// Update user mutation
-export const useUpdateUser = () => {
+// Toggle user status (archive/restore) - single user
+export const useToggleUserStatus = () => {
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: usersApi.updateUser,
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: userKeys.lists() });
-        },
-    });
-};
-
-// Archive user mutation
-export const useArchiveUser = () => {
-    const queryClient = useQueryClient();
-    return useMutation({
-        mutationFn: usersApi.archiveUser,
+        mutationFn: usersApi.toggleUserStatus,
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: userKeys.all });
         },
     });
 };
 
-// Bulk archive mutation
-export const useArchiveUsers = () => {
+// Toggle user status (archive/restore) - bulk
+export const useToggleUsersStatus = () => {
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: usersApi.archiveUsers,
+        mutationFn: usersApi.toggleUsersStatus,
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: userKeys.all });
         },
     });
 };
 
-// Restore user mutation
-export const useRestoreUser = () => {
-    const queryClient = useQueryClient();
-    return useMutation({
-        mutationFn: usersApi.restoreUser,
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: userKeys.all });
-        },
-    });
-};
-
-// Delete user mutation
+// Delete user permanently - single
 export const useDeleteUser = () => {
     const queryClient = useQueryClient();
     return useMutation({
@@ -93,7 +71,7 @@ export const useDeleteUser = () => {
     });
 };
 
-// Bulk delete mutation
+// Delete users permanently - bulk
 export const useDeleteUsers = () => {
     const queryClient = useQueryClient();
     return useMutation({

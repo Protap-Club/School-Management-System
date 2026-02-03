@@ -15,12 +15,11 @@ export {
     useUpdateTimetableStatus,
     useDeleteTimetable,
     // Entries
-    useCreateEntry,
-    useCreateBulkEntries,
+    useSyncTimetableEntries,
     useUpdateEntry,
     useDeleteEntry,
-    // Teacher
-    useTeacherSchedule,
+    // Schedule
+    useMySchedule,
     useTeachers,
 } from './api/queries';
 
