@@ -19,7 +19,10 @@ import {
     FaSearch,
     FaHistory,
     FaEye,
-    FaDownload
+    FaDownload,
+    FaFileVideo,
+    FaFileCode,
+    FaFileCsv
 } from 'react-icons/fa';
 
 // Mock data for frontend-only implementation
@@ -110,18 +113,25 @@ const MOCK_HISTORY_DATA = [
 ];
 
 // Allowed file extensions
-const ALLOWED_EXTENSIONS = ['pdf', 'doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx', 'png', 'jpg', 'jpeg'];
+const ALLOWED_EXTENSIONS = [
+    'pdf', 'doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx', 'txt', 'csv', 'iti', // Documents
+    'png', 'jpg', 'jpeg', // Images
+    'mp4', 'mov', 'avi'   // Videos
+];
 const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg'];
+const VIDEO_EXTENSIONS = ['mp4', 'mov', 'avi'];
 
 // Get file icon based on extension
 const getFileIcon = (filename) => {
     const ext = filename.split('.').pop().toLowerCase();
-    if (IMAGE_EXTENSIONS.includes(ext)) return <FaImage className="text-green-500" size={24} />;
+    if (IMAGE_EXTENSIONS.includes(ext)) return <FaImage className="text-purple-500" size={24} />;
+    if (VIDEO_EXTENSIONS.includes(ext)) return <FaFileVideo className="text-rose-500" size={24} />;
     if (ext === 'pdf') return <FaFilePdf className="text-red-500" size={24} />;
     if (['doc', 'docx'].includes(ext)) return <FaFileWord className="text-blue-500" size={24} />;
     if (['ppt', 'pptx'].includes(ext)) return <FaFilePowerpoint className="text-orange-500" size={24} />;
-    if (['xls', 'xlsx'].includes(ext)) return <FaFileExcel className="text-green-600" size={24} />;
-    return <FaFileAlt className="text-gray-500" size={24} />;
+    if (['xls', 'xlsx', 'csv'].includes(ext)) return <FaFileExcel className="text-green-600" size={24} />;
+    if (['txt', 'iti'].includes(ext)) return <FaFileAlt className="text-gray-500" size={24} />;
+    return <FaFileAlt className="text-gray-400" size={24} />;
 };
 
 const Notice = () => {
@@ -440,7 +450,7 @@ const Notice = () => {
                                     </div>
                                     <div>
                                         <h2 className="text-lg font-semibold text-gray-900">Attachment</h2>
-                                        <p className="text-sm text-gray-500">PDF, DOC, PPT, XLS, PNG, JPG (optional)</p>
+                                        <p className="text-sm text-gray-500">Docs, Images, Videos supported (optional)</p>
                                     </div>
                                 </div>
                                 <div className="p-6">
@@ -448,7 +458,7 @@ const Notice = () => {
                                         type="file"
                                         ref={fileInputRef}
                                         onChange={handleFileUpload}
-                                        accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.png,.jpg,.jpeg"
+                                        accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.csv,.iti,.png,.jpg,.jpeg,.mp4,.mov,.avi"
                                         className="hidden"
                                     />
 
