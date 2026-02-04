@@ -1,9 +1,9 @@
 import express from "express";
 import {
-    createSchool, getSchools, getSchoolById, updateSchool,
-    deleteSchool, getSchoolsList, uploadSchoolLogo, deleteSchoolLogo,
-    updateSchoolTheme, getMySchoolBranding, getMySchoolFeatures,
-    getSchoolFeatures, updateSchoolFeatures, toggleSchoolFeature, getAvailableFeatures
+    getSchoolById, // Mapped to getSchoolProfile
+    updateSchool,
+    uploadSchoolLogo,
+    updateSchoolFeatures
 } from "../controllers/school.controller.js";
 import { checkAuth } from "../middlewares/auth.middleware.js";
 import { checkRole } from "../middlewares/role.middleware.js";
@@ -12,41 +12,46 @@ import { upload } from "../middlewares/upload.middleware.js";
 import extractSchoolId from "../middlewares/school.middleware.js";
 import { validate } from "../middlewares/validation.middleware.js";
 import {
-    createSchoolSchema, updateSchoolSchema, schoolIdParamsSchema,
-    uploadLogoSchema, updateThemeSchema, updateFeaturesSchema, toggleFeatureSchema
+    updateSchoolSchema,
+    uploadLogoSchema,
+    updateFeaturesSchema
 } from "../validations/school.validation.js";
 
 const router = express.Router();
 
-// --- Generic Branding & Feature routes ---
-router.get("/me/branding", checkAuth, extractSchoolId, getMySchoolBranding);
-router.get("/me/features", checkAuth, extractSchoolId, getMySchoolFeatures);
+router.use(checkAuth);
+router.use(extractSchoolId);
 
-// Keep old routes as aliases for compatibility (optional, but good for migration)
-router.get("/branding", checkAuth, extractSchoolId, getMySchoolBranding);
-router.get("/features", checkAuth, extractSchoolId, getMySchoolFeatures);
+// Only Super Admin / Admin (Principal) can manage school settings
+// router.use(checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN])); 
+// Note: Some read ops might be open to teachers? adhering to "Principals only see their own staff" mostly.
 
-// Logo Upload/Delete
-router.post("/logo", checkAuth, checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN]), extractSchoolId, upload.single('logo'), validate(uploadLogoSchema), uploadSchoolLogo);
-router.delete("/logo", checkAuth, checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN]), extractSchoolId, deleteSchoolLogo);
+// GET /api/v1/school/profile
+router.get("/profile", getSchoolById);
 
-// Theme Update
-router.put("/theme", checkAuth, checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN]), validate(updateThemeSchema), extractSchoolId, updateSchoolTheme);
+// PUT /api/v1/school/profile
+router.put(
+    "/profile", 
+    checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN]), 
+    validate(updateSchoolSchema), 
+    updateSchool
+);
 
-// --- Schools CRUD (parameterized routes last) ---
-router.get("/", checkAuth, checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN]), getSchools);
-router.post("/", checkAuth, checkRole([USER_ROLES.SUPER_ADMIN]), validate(createSchoolSchema), createSchool);
-router.get("/list", checkAuth, checkRole([USER_ROLES.SUPER_ADMIN]), getSchoolsList);
-router.get("/:id", checkAuth, checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN]), validate(schoolIdParamsSchema), extractSchoolId, getSchoolById);
-router.put("/:id", checkAuth, checkRole([USER_ROLES.SUPER_ADMIN]), validate(updateSchoolSchema), extractSchoolId, updateSchool);
-router.delete("/:id", checkAuth, checkRole([USER_ROLES.SUPER_ADMIN]), validate(schoolIdParamsSchema), extractSchoolId, deleteSchool);
+// PUT /api/v1/school/logo
+router.put(
+    "/logo", 
+    checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN]), 
+    upload.single('logo'), 
+    validate(uploadLogoSchema), 
+    uploadSchoolLogo
+);
 
-// Available features list (for UI dropdowns)
-router.get("/features/list", checkAuth, checkRole([USER_ROLES.SUPER_ADMIN]), getAvailableFeatures);
-
-// --- School Features (super_admin only) ---
-router.get("/:id/features", checkAuth, checkRole([USER_ROLES.SUPER_ADMIN]), validate(schoolIdParamsSchema), extractSchoolId, getSchoolFeatures);
-router.put("/:id/features", checkAuth, checkRole([USER_ROLES.SUPER_ADMIN]), validate(updateFeaturesSchema), extractSchoolId, updateSchoolFeatures);
-router.patch("/:id/features/:featureKey", checkAuth, checkRole([USER_ROLES.SUPER_ADMIN]), validate(toggleFeatureSchema), extractSchoolId, toggleSchoolFeature);
+// PATCH /api/v1/school/features
+router.patch(
+    "/features", 
+    checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN]), 
+    validate(updateFeaturesSchema), 
+    updateSchoolFeatures
+);
 
 export default router;

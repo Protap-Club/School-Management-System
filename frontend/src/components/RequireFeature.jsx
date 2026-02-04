@@ -1,6 +1,6 @@
 import React from 'react';
 import { Navigate } from 'react-router-dom';
-import { useFeatures } from '../context/FeatureContext';
+import { useFeatures } from '../state';
 
 const RequireFeature = ({ feature, children }) => {
     const { hasFeature, loading } = useFeatures();

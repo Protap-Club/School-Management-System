@@ -11,7 +11,8 @@ import { DEFAULT_TIME_SLOTS } from '../api/timetable';
 export const useTimetableData = (userRole = 'admin', userId = null) => {
     // Determine if user is admin (can access all endpoints)
     const isAdmin = ['admin', 'super_admin'].includes(userRole);
-    
+    const isTeacher = userRole === 'teacher';
+
     // State
     const [timeSlots, setTimeSlots] = useState([]);
     const [timetables, setTimetables] = useState([]);
@@ -28,12 +29,12 @@ export const useTimetableData = (userRole = 'admin', userId = null) => {
     const fetchTimeSlots = useCallback(async () => {
         try {
             const response = await timetableApi.getTimeSlots();
-            let slots = response.data || [];
-            
+            let slots = response.data?.slots || [];
+
             // If no slots exist and user is admin, create default slots
             if (slots.length === 0 && isAdmin) {
                 console.info('No time slots found, creating default 11AM-5PM schedule...');
-                
+
                 // Create each default slot in backend
                 for (const defaultSlot of DEFAULT_TIME_SLOTS) {
                     try {
@@ -48,13 +49,13 @@ export const useTimetableData = (userRole = 'admin', userId = null) => {
                         console.error('Failed to create slot:', defaultSlot.label, createErr);
                     }
                 }
-                
+
                 // Fetch again to get slots with proper MongoDB IDs
                 const refreshResponse = await timetableApi.getTimeSlots();
-                slots = refreshResponse.data || [];
+                slots = refreshResponse.data?.slots || [];
                 console.info('Created and fetched', slots.length, 'time slots');
             }
-            
+
             // Use fetched slots if available, otherwise fallback to defaults (for display only)
             if (slots.length > 0) {
                 setTimeSlots(slots);
@@ -73,7 +74,7 @@ export const useTimetableData = (userRole = 'admin', userId = null) => {
     const fetchTimetables = useCallback(async (filters = {}) => {
         try {
             const response = await timetableApi.getTimetables(filters);
-            setTimetables(response.data || []);
+            setTimetables(response.data?.timetables || []);
         } catch (err) {
             console.error('Failed to fetch timetables:', err);
             setError(err.response?.data?.message || 'Failed to fetch timetables');
@@ -83,8 +84,11 @@ export const useTimetableData = (userRole = 'admin', userId = null) => {
     const fetchTeachers = useCallback(async () => {
         try {
             const response = await timetableApi.getTeachers();
-            // Backend returns { success: true, data: [...], pagination: {...} }
-            const teachersList = response.data || [];
+            console.log('DEBUG fetchTeachers response:', response);
+            // Backend returns { success: true, data: { users: [...], pagination: {...} } }
+            // So response is { success, data: { users } }, so response.data is { users: [...] }
+            const teachersList = response.data?.users || response?.users || [];
+            console.log('DEBUG teachers extracted:', teachersList);
             setTeachers(teachersList);
             if (teachersList.length === 0) {
                 console.warn('No teachers returned from backend');
@@ -101,8 +105,14 @@ export const useTimetableData = (userRole = 'admin', userId = null) => {
         try {
             setLoading(true);
             const response = await timetableApi.getTimetableById(id);
-            setSelectedTimetable(response.data?.timetable || null);
-            setEntries(response.data?.entries || []);
+            console.log('DEBUG fetchTimetableById response:', response);
+            // Response is { success, data: { timetable, entries } } from backend
+            // API returns response.data, so response here = { success, data: { timetable, entries } }
+            const timetable = response?.data?.timetable || response?.timetable || null;
+            const entriesData = response?.data?.entries || response?.entries || [];
+            console.log('DEBUG extracted timetable:', timetable, 'entries:', entriesData);
+            setSelectedTimetable(timetable);
+            setEntries(entriesData);
         } catch (err) {
             console.error('Failed to fetch timetable:', err);
             setError(err.response?.data?.message || 'Failed to fetch timetable');
@@ -117,16 +127,19 @@ export const useTimetableData = (userRole = 'admin', userId = null) => {
             setLoading(true);
             // Time slots are accessible to all authenticated users
             await fetchTimeSlots();
-            
-            // Admin-only: fetch timetables list and teachers
+
+            // Admin and Teachers: fetch timetables list and teachers
+            // Teachers only see classes they're assigned to
             if (isAdmin) {
                 await Promise.all([fetchTimetables(), fetchTeachers()]);
+            } else if (isTeacher && userId) {
+                // Pass userId as teacherId filter so teacher only sees their assigned classes
+                await Promise.all([fetchTimetables({ teacherId: userId }), fetchTeachers()]);
             }
-            // Note: Teachers will fetch their own schedule via fetchTeacherSchedule
             setLoading(false);
         };
         init();
-    }, [fetchTimeSlots, fetchTimetables, fetchTeachers, isAdmin]);
+    }, [fetchTimeSlots, fetchTimetables, fetchTeachers, isAdmin, isTeacher, userId]);
 
     // ═══════════════════════════════════════════════════════════════
     // TimeSlot Operations

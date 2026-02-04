@@ -1,7 +1,6 @@
 import React, { useEffect } from 'react';
-import Sidebar from '../components/Sidebar';
-import Header from '../components/Header';
-import { useSidebar } from '../context/SidebarContext';
+import { Sidebar, Header } from '../components/layout';
+import { useSidebar } from '../state';
 import api from '../api/axios';
 
 const DashboardLayout = ({ children, onSearch, searchValue }) => {
@@ -29,9 +28,9 @@ const DashboardLayout = ({ children, onSearch, searchValue }) => {
                 const token = localStorage.getItem('token');
                 if (!token) return;
 
-                const response = await api.get('/school/branding');
-                if (response.data.success && response.data.data?.theme) {
-                    const { accentColor } = response.data.data.theme;
+                const response = await api.get('/school/profile');
+                if (response.data.success && response.data.data?.school?.theme) {
+                    const { accentColor } = response.data.data.school.theme;
 
                     // Set both Hex and RGB variables
                     document.documentElement.style.setProperty('--primary-color', accentColor);

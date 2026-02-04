@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import DashboardLayout from '../layouts/DashboardLayout';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../features/auth';
 import {
     FaPaperPlane,
     FaUsers,

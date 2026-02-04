@@ -9,16 +9,12 @@ import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { createServer } from 'http';
-import { Server } from 'socket.io';
+import { initSocket } from './socket.js';
 
 // --- Local Imports ---
 import { conf } from './config/index.js';
 import logger from './config/logger.js'; // Import our configured logger
-import authRoutes from './routes/auth.route.js';
-import userRouter from './routes/user.route.js';
-import schoolRouter from './routes/school.route.js';
-import nfcRouter from './routes/nfc.route.js';
-import timetableRouter from './routes/timetable.route.js';
+import apiRoutes from './routes/index.route.js';
 import errorHandler from './middlewares/error.middleware.js';
 
 // --- Constants & Setup ---
@@ -42,30 +38,11 @@ const corsOptions = {
 
 // --- WebSocket (Socket.io) Setup ---
 // Setting up real-time communication for things like live attendance updates.
-const io = new Server(server, {
-    cors: corsOptions
-});
+// --- WebSocket (Socket.io) Setup ---
+const io = initSocket(server, corsOptions);
 
-// Main connection handler for Socket.io
-io.on('connection', (socket) => {
-    logger.info(`New client connected: ${socket.id}`);
-
-    // Each school gets its own "room" to broadcast events to.
-    // This keeps data isolated and private.
-    socket.on('join-school', (schoolId) => {
-        if (schoolId) {
-            logger.info(`Client ${socket.id} joined school room: ${schoolId}`);
-            socket.join(`school-${schoolId}`);
-        }
-    });
-
-    socket.on('disconnect', () => {
-        logger.info(`Client disconnected: ${socket.id}`);
-    });
-});
-
-// A neat way to make the 'io' instance available in other files if needed.
-export const getIO = () => io;
+// Store io instance on the app object
+app.set('io', io);
 
 
 // --- Core Middleware ---
@@ -85,11 +62,8 @@ app.use('/resource', express.static(path.join(__dirname, '../resource')));
 
 // --- API Routes ---
 // This is where we define the main endpoints for our API.
-app.use('/api/v1/auth', authRoutes);
-app.use("/api/v1/user", userRouter);
-app.use("/api/v1/school", schoolRouter);
-app.use("/api/v1/nfc", nfcRouter);
-app.use("/api/v1/timetable", timetableRouter);
+// Mount all API routes via the central router
+app.use('/api/v1', apiRoutes);
 
 // A simple health check endpoint.
 app.get('/', (req, res) => {
@@ -109,7 +83,7 @@ logger.info("Connecting to MongoDB...");
 mongoose.connect(conf.MONGO_URI, { dbName: "Protap" })
     .then(() => {
         logger.info("MongoDB connected successfully.");
-        
+
         // Start the server now that we have a database connection.
         server.listen(PORT, () => {
             logger.info(`Server is running on port ${PORT}`);

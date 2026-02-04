@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import DashboardLayout from '../layouts/DashboardLayout';
-import { useAuth } from '../context/AuthContext';
-import { useTheme } from '../context/ThemeContext';
-import { useFeatures } from '../context/FeatureContext';
+import { useAuth } from '../features/auth';
+import { useTheme, useFeatures } from '../state';
 import api from '../api/axios';
 import { FaPalette, FaImage, FaCheck, FaUpload, FaToggleOn, FaToggleOff, FaBuilding } from 'react-icons/fa';
 
@@ -62,11 +61,12 @@ const Settings = () => {
 
     const fetchSettings = async () => {
         try {
-            const response = await api.get('/school/me/branding');
-            if (response.data.success && response.data.data) {
+            const response = await api.get('/school/profile');
+            if (response.data.success && response.data.data?.school) {
+                const school = response.data.data.school;
                 setSettings({
-                    logoUrl: response.data.data.logoUrl || '',
-                    theme: response.data.data.theme || { accentColor: '#2563eb' }
+                    logoUrl: school.logoUrl || '',
+                    theme: school.theme || { accentColor: '#2563eb' }
                 });
             }
         } catch (error) {
@@ -81,9 +81,10 @@ const Settings = () => {
     const fetchSchoolFeatures = async (schoolId) => {
         setFeaturesLoading(true);
         try {
-            const response = await api.get(`/school/${schoolId}/features`);
-            if (response.data.success) {
-                setFeatures(response.data.data.features || {});
+            // Get features from the profile endpoint - features are part of school data
+            const response = await api.get('/school/profile');
+            if (response.data.success && response.data.data?.school) {
+                setFeatures(response.data.data.school.features || {});
             }
         } catch (error) {
             console.error('Failed to fetch features', error);
@@ -99,9 +100,9 @@ const Settings = () => {
         const newValue = !features[featureKey];
 
         try {
-            const response = await api.patch(`/school/${currentSchoolId}/features/${featureKey}`, {
-                enabled: newValue
-            });
+            // Update all features at once using PATCH /school/features
+            const updatedFeatures = { ...features, [featureKey]: newValue };
+            const response = await api.patch('/school/features', { features: updatedFeatures });
 
             if (response.data.success) {
                 setFeatures(response.data.data.features);
@@ -129,7 +130,8 @@ const Settings = () => {
         updateTheme(colorValue);
 
         try {
-            await api.put('/school/theme', { accentColor: colorValue });
+            // Update theme via profile endpoint
+            await api.put('/school/profile', { theme: { accentColor: colorValue } });
             setMessage({ type: 'success', text: 'Theme updated!' });
             setTimeout(() => setMessage({ type: '', text: '' }), 2000);
         } catch (error) {
@@ -158,7 +160,7 @@ const Settings = () => {
             const formData = new FormData();
             formData.append('logo', file);
 
-            const response = await api.post('/school/logo', formData, {
+            const response = await api.put('/school/logo', formData, {
                 headers: {
                     'Content-Type': 'multipart/form-data'
                 }

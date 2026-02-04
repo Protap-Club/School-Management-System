@@ -49,9 +49,6 @@ export const updateThemeSchema = z.object({
 });
 
 export const updateFeaturesSchema = z.object({
-    params: z.object({
-        id: objectIdSchema,
-    }),
     body: z.object({
         features: z.object({
             attendance: z.boolean().optional(),

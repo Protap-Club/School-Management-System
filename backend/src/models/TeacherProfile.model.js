@@ -1,16 +1,61 @@
 import mongoose from "mongoose";
 
 const teacherProfileSchema = new mongoose.Schema(
-    {
-        userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, unique: true, index: true },
-        employeeId: { type: String, trim: true },
-        standard: { type: String, required: true, trim: true }, // e.g., "9th", "10th"
-        section: { type: String, required: true, trim: true },  // e.g., "A", "B"
-        qualification: { type: String, trim: true },
-        joiningDate: { type: Date }
+  {
+    // Core Relationships 
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+      unique: true,
+      index: true,
     },
-    { timestamps: true }
+    schoolId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "School",
+      required: true,
+      index: true,  // Optimized for "Get all teachers in this school"
+    },
+
+    // Employment Details 
+    employeeId: {
+      type: String,
+      trim: true,
+    },
+    qualification: {
+      type: String,
+      trim: true,
+    },
+    joiningDate: {
+      type: Date,
+    },
+
+    // Academic Responsibilities 
+    // Example: [{ standard: "9th", section: "A", subjects: ["Math", "Physics"] }]
+    assignedClasses: [
+      {
+        standard: {
+          type: String,
+          required: true,
+          trim: true,
+        },
+        section: {
+          type: String,
+          required: true,
+          trim: true,
+        },
+        subjects: [
+          {
+            type: String,
+            trim: true,
+          },
+        ],
+      },
+    ],
+  },
+  {
+    timestamps: true,
+  }
 );
 
 export default mongoose.model("TeacherProfile", teacherProfileSchema);
-

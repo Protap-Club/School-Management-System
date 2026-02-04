@@ -1,429 +1,266 @@
-/**
- * Timetable Service - Consolidated business logic for Timetable feature.
- * Handles TimeSlot, Timetable, and TimetableEntry operations.
- */
-
+import mongoose from "mongoose";
 import { TimeSlot, Timetable, TimetableEntry, DAYS_OF_WEEK } from "../models/Timetable.model.js";
 import { CustomError } from "../utils/customError.js";
 import logger from "../config/logger.js";
 
-// ═══════════════════════════════════════════════════════════════
-// TimeSlot Operations
-// ═══════════════════════════════════════════════════════════════
-
-export const createTimeSlot = async (schoolId, slotData) => {
-    logger.info(`Creating time slot for school ${schoolId}: Slot #${slotData.slotNumber}`);
-
-    const existing = await TimeSlot.findOne({
-        schoolId,
-        slotNumber: slotData.slotNumber,
-        isActive: true
-    });
-
-    if (existing) {
-        throw new CustomError(`Slot number ${slotData.slotNumber} already exists for this school`, 409);
+// Manage TimeSlots (get, create, update, delete)
+export const manageTimeSlots = async (schoolId, action, data = {}) => {
+    // Get all slots
+    if (action === 'get') {
+        const result = await TimeSlot.find({ schoolId, isActive: true }).sort({ slotNumber: 1 }).lean();
+        const slots = result.map(s => ({
+            _id: s._id,
+            slotNumber: s.slotNumber,
+            startTime: s.startTime,
+            endTime: s.endTime,
+            slotType: s.slotType
+        }));
+        return { slots };
     }
 
-    const timeSlot = await TimeSlot.create({
-        schoolId,
-        ...slotData
-    });
-
-    logger.info(`Time slot #${timeSlot.slotNumber} created for school ${schoolId}`);
-    return timeSlot;
-};
-
-export const getTimeSlots = async (schoolId) => {
-    logger.debug(`Fetching time slots for school ${schoolId}`);
-    
-    const slots = await TimeSlot.find({ schoolId, isActive: true })
-        .sort({ slotNumber: 1 });
-    
-    return slots;
-};
-
-export const updateTimeSlot = async (schoolId, slotId, updateData) => {
-    logger.info(`Updating time slot ${slotId} for school ${schoolId}`);
-
-    const slot = await TimeSlot.findOne({ _id: slotId, schoolId });
-    if (!slot) {
-        throw new CustomError("Time slot not found", 404);
-    }
-
-    // If updating slotNumber, check for conflicts
-    if (updateData.slotNumber && updateData.slotNumber !== slot.slotNumber) {
-        const existing = await TimeSlot.findOne({
-            schoolId,
-            slotNumber: updateData.slotNumber,
-            isActive: true,
-            _id: { $ne: slotId }
-        });
-        if (existing) {
-            throw new CustomError(`Slot number ${updateData.slotNumber} already exists`, 409);
-        }
-    }
-
-    Object.assign(slot, updateData);
-    await slot.save();
-
-    logger.info(`Time slot ${slotId} updated successfully`);
-    return slot;
-};
-
-export const deleteTimeSlot = async (schoolId, slotId) => {
-    logger.info(`Deleting time slot ${slotId} for school ${schoolId}`);
-
-    const slot = await TimeSlot.findOne({ _id: slotId, schoolId });
-    if (!slot) {
-        throw new CustomError("Time slot not found", 404);
-    }
-
-    // Check if slot is used in any timetable entries
-    const entryCount = await TimetableEntry.countDocuments({ timeSlotId: slotId, isActive: true });
-    if (entryCount > 0) {
-        throw new CustomError(`Cannot delete: ${entryCount} timetable entries use this slot`, 400);
-    }
-
-    slot.isActive = false;
-    await slot.save();
-
-    logger.info(`Time slot ${slotId} soft-deleted`);
-    return { message: "Time slot deleted successfully" };
-};
-
-// ═══════════════════════════════════════════════════════════════
-// Timetable Operations
-// ═══════════════════════════════════════════════════════════════
-
-export const createTimetable = async (schoolId, timetableData) => {
-    const { standard, section, academicYear } = timetableData;
-    logger.info(`Creating timetable for school ${schoolId}: ${standard}-${section} (${academicYear})`);
-
-    const existing = await Timetable.findOne({
-        schoolId,
-        standard,
-        section,
-        academicYear,
-        isActive: true
-    });
-
-    if (existing) {
-        throw new CustomError(
-            `Timetable for ${standard}-${section} (${academicYear}) already exists`,
-            409
-        );
-    }
-
-    const timetable = await Timetable.create({
-        schoolId,
-        standard,
-        section,
-        academicYear
-    });
-
-    logger.info(`Timetable created: ${timetable._id}`);
-    return timetable;
-};
-
-export const getTimetables = async (schoolId, filters = {}) => {
-    logger.debug(`Fetching timetables for school ${schoolId}`);
-
-    const query = { schoolId, isActive: true };
-    if (filters.standard) query.standard = filters.standard;
-    if (filters.section) query.section = filters.section;
-    if (filters.academicYear) query.academicYear = filters.academicYear;
-
-    const timetables = await Timetable.find(query).sort({ standard: 1, section: 1 });
-    return timetables;
-};
-
-export const getTimetableById = async (schoolId, timetableId) => {
-    logger.debug(`Fetching timetable ${timetableId} for school ${schoolId}`);
-
-    const timetable = await Timetable.findOne({ _id: timetableId, schoolId, isActive: true });
-    if (!timetable) {
-        throw new CustomError("Timetable not found", 404);
-    }
-
-    // Fetch all entries for this timetable
-    const entries = await TimetableEntry.find({ timetableId, isActive: true })
-        .populate("timeSlotId", "slotNumber startTime endTime slotType label")
-        .populate("teacherId", "name email")
-        .sort({ dayOfWeek: 1 });
-
-    return { timetable, entries };
-};
-
-export const updateTimetableStatus = async (schoolId, timetableId, status) => {
-    logger.info(`Updating timetable ${timetableId} status to ${status}`);
-
-    const timetable = await Timetable.findOne({ _id: timetableId, schoolId, isActive: true });
-    if (!timetable) {
-        throw new CustomError("Timetable not found", 404);
-    }
-
-    timetable.status = status;
-    await timetable.save();
-
-    logger.info(`Timetable ${timetableId} status updated to ${status}`);
-    return timetable;
-};
-
-export const deleteTimetable = async (schoolId, timetableId) => {
-    logger.info(`Deleting timetable ${timetableId} for school ${schoolId}`);
-
-    const timetable = await Timetable.findOne({ _id: timetableId, schoolId });
-    if (!timetable) {
-        throw new CustomError("Timetable not found", 404);
-    }
-
-    // Soft delete all entries
-    await TimetableEntry.updateMany(
-        { timetableId, isActive: true },
-        { isActive: false }
-    );
-
-    timetable.isActive = false;
-    await timetable.save();
-
-    logger.info(`Timetable ${timetableId} and its entries soft-deleted`);
-    return { message: "Timetable deleted successfully" };
-};
-
-// ═══════════════════════════════════════════════════════════════
-// TimetableEntry Operations (with Conflict Detection)
-// ═══════════════════════════════════════════════════════════════
-
-/**
- * Rule B: Check if teacher has a conflict at the given time
- */
-const checkTeacherConflict = async (teacherId, dayOfWeek, timeSlotId, excludeEntryId = null) => {
-    if (!teacherId) return null; // No conflict for break slots
-
-    const query = {
-        teacherId,
-        dayOfWeek,
-        timeSlotId,
-        isActive: true
-    };
-
-    if (excludeEntryId) {
-        query._id = { $ne: excludeEntryId };
-    }
-
-    const conflict = await TimetableEntry.findOne(query)
-        .populate("timetableId", "standard section");
-
-    return conflict;
-};
-
-/**
- * Rule C: Validate entry based on slot type
- */
-const validateEntryForSlotType = async (timeSlotId, entryData) => {
-    const timeSlot = await TimeSlot.findById(timeSlotId);
-    if (!timeSlot) {
-        throw new CustomError("Time slot not found", 404);
-    }
-
-    // For CLASS slots, subject and teacherId are required
-    if (timeSlot.slotType === "CLASS") {
-        if (!entryData.subject || !entryData.teacherId) {
-            throw new CustomError("Subject and teacher are required for class slots", 400);
-        }
-    }
-
-    return timeSlot;
-};
-
-export const createEntry = async (schoolId, timetableId, entryData) => {
-    const { dayOfWeek, timeSlotId, subject, teacherId, roomNumber, notes } = entryData;
-    logger.info(`Creating entry for timetable ${timetableId}: ${dayOfWeek} - Slot ${timeSlotId}`);
-
-    // Verify timetable exists
-    const timetable = await Timetable.findOne({ _id: timetableId, schoolId, isActive: true });
-    if (!timetable) {
-        throw new CustomError("Timetable not found", 404);
-    }
-
-    // Rule C: Validate based on slot type
-    const timeSlot = await validateEntryForSlotType(timeSlotId, entryData);
-
-    // Rule B: Check teacher conflict (only for CLASS slots)
-    if (timeSlot.slotType === "CLASS" && teacherId) {
-        const conflict = await checkTeacherConflict(teacherId, dayOfWeek, timeSlotId);
-        if (conflict) {
-            throw new CustomError(
-                `Teacher already assigned to ${conflict.timetableId.standard}-${conflict.timetableId.section} at this time`,
-                409
-            );
-        }
-    }
-
-    const entry = await TimetableEntry.create({
-        schoolId,
-        timetableId,
-        dayOfWeek,
-        timeSlotId,
-        subject: timeSlot.slotType === "CLASS" ? subject : null,
-        teacherId: timeSlot.slotType === "CLASS" ? teacherId : null,
-        roomNumber,
-        notes
-    });
-
-    logger.info(`Entry created: ${entry._id}`);
-    return entry;
-};
-
-export const createBulkEntries = async (schoolId, timetableId, entries) => {
-    logger.info(`Creating ${entries.length} bulk entries for timetable ${timetableId}`);
-
-    // Verify timetable exists
-    const timetable = await Timetable.findOne({ _id: timetableId, schoolId, isActive: true });
-    if (!timetable) {
-        throw new CustomError("Timetable not found", 404);
-    }
-
-    const results = { created: [], failed: [] };
-
-    for (const entryData of entries) {
-        try {
-            // Rule C: Validate based on slot type
-            const timeSlot = await validateEntryForSlotType(entryData.timeSlotId, entryData);
-
-            // Rule B: Check teacher conflict (only for CLASS slots)
-            if (timeSlot.slotType === "CLASS" && entryData.teacherId) {
-                const conflict = await checkTeacherConflict(
-                    entryData.teacherId,
-                    entryData.dayOfWeek,
-                    entryData.timeSlotId
-                );
-                if (conflict) {
-                    results.failed.push({
-                        entry: entryData,
-                        reason: `Teacher conflict with ${conflict.timetableId.standard}-${conflict.timetableId.section}`
-                    });
-                    continue;
-                }
+    // Create a new slot
+    if (action === 'create') {
+        if (await TimeSlot.exists({ schoolId, slotNumber: data.slotNumber, isActive: true })) throw new CustomError(`Slot #${data.slotNumber} exists`, 409);
+        logger.info(`Creating TimeSlot #${data.slotNumber} for school ${schoolId}`);
+        const slot = await TimeSlot.create({ schoolId, ...data });
+        return {
+            slot: {
+                _id: slot._id,
+                slotNumber: slot.slotNumber,
+                startTime: slot.startTime,
+                endTime: slot.endTime,
+                slotType: slot.slotType
             }
+        };
+    }
 
-            const entry = await TimetableEntry.create({
+    // Update a slot
+    if (action === 'update') {
+        if (data.slotNumber && await TimeSlot.exists({ schoolId, slotNumber: data.slotNumber, isActive: true, _id: { $ne: data.id } })) throw new CustomError(`Slot #${data.slotNumber} taken`, 409);
+        logger.info(`Updating TimeSlot ${data.id} for school ${schoolId}`);
+        const updated = await TimeSlot.findOneAndUpdate({ _id: data.id, schoolId }, data, { new: true }).lean();
+        if (!updated) throw new CustomError("Slot not found", 404);
+        return {
+            slot: {
+                _id: updated._id,
+                slotNumber: updated.slotNumber,
+                startTime: updated.startTime,
+                endTime: updated.endTime,
+                slotType: updated.slotType
+            }
+        };
+    }
+
+    // Delete a slot
+    if (action === 'delete') {
+        if (await TimetableEntry.countDocuments({ timeSlotId: data.id, isActive: true }) > 0) throw new CustomError("Slot is currently in use", 400);
+        logger.warn(`Soft-deleting TimeSlot ${data.id} for school ${schoolId}`);
+        const deleted = await TimeSlot.findOneAndUpdate({ _id: data.id, schoolId }, { isActive: false }, { new: true }).lean();
+        return {
+            deletedSlot: {
+                _id: deleted?._id,
+                isActive: false
+            }
+        };
+    }
+};
+
+// Manage Timetables (create, get_all, get_one, delete)
+export const manageTimetables = async (schoolId, action, data = {}) => {
+    // Create a new timetable
+    if (action === 'create') {
+        if (await Timetable.exists({ schoolId, standard: data.standard, section: data.section, academicYear: data.academicYear, isActive: true })) throw new CustomError("Timetable exists", 409);
+        logger.info(`Creating Timetable ${data.standard}-${data.section} for school ${schoolId}`);
+        const timetable = await Timetable.create({ schoolId, ...data });
+        return {
+            timetable: {
+                _id: timetable._id,
+                standard: timetable.standard,
+                section: timetable.section,
+                academicYear: timetable.academicYear
+            }
+        };
+    }
+
+    // Get all active timetables (optionally filter by teacher assignment)
+    if (action === 'get_all') {
+        let timetableIds = null;
+        
+        // If teacherId is provided, only return timetables where teacher has entries
+        if (data.teacherId) {
+            const teacherEntries = await TimetableEntry.find({
                 schoolId,
-                timetableId,
-                dayOfWeek: entryData.dayOfWeek,
-                timeSlotId: entryData.timeSlotId,
-                subject: timeSlot.slotType === "CLASS" ? entryData.subject : null,
-                teacherId: timeSlot.slotType === "CLASS" ? entryData.teacherId : null,
-                roomNumber: entryData.roomNumber,
-                notes: entryData.notes
-            });
+                teacherId: data.teacherId,
+                isActive: true
+            }).distinct('timetableId');
+            timetableIds = teacherEntries;
+        }
+        
+        const query = { schoolId, isActive: true };
+        if (timetableIds) {
+            query._id = { $in: timetableIds };
+        }
+        
+        const result = await Timetable.find(query).sort({ standard: 1, section: 1 }).lean();
+        const timetables = result.map(t => ({ _id: t._id, standard: t.standard, section: t.section, academicYear: t.academicYear }));
+        return { timetables };
+    }
 
-            results.created.push(entry);
-        } catch (error) {
-            results.failed.push({
-                entry: entryData,
-                reason: error.message
-            });
+    // Get a specific timetable with entries
+    if (action === 'get_one') {
+        const timetable = await Timetable.findOne({ _id: data.id, schoolId, isActive: true }).lean();
+        if (!timetable) throw new CustomError("Timetable not found", 404);
+        const entries = await TimetableEntry.find({ timetableId: data.id, isActive: true }).populate("timeSlotId teacherId").sort({ dayOfWeek: 1 }).lean();
+
+        return {
+            timetable: {
+                _id: timetable._id,
+                standard: timetable.standard,
+                section: timetable.section,
+                academicYear: timetable.academicYear
+            },
+            entries: entries.map(e => ({
+                _id: e._id,
+                dayOfWeek: e.dayOfWeek,
+                subject: e.subject,
+                timeSlotId: e.timeSlotId ? { _id: e.timeSlotId._id, slotNumber: e.timeSlotId.slotNumber } : null,
+                teacherId: e.teacherId ? { _id: e.teacherId._id, name: e.teacherId.name } : null
+            }))
+        };
+    }
+
+    // Delete a timetable
+    if (action === 'delete') {
+        const session = await mongoose.startSession();
+        session.startTransaction();
+        try {
+            await TimetableEntry.updateMany({ timetableId: data.id }, { isActive: false }, { session });
+            await Timetable.findByIdAndUpdate(data.id, { isActive: false }, { session });
+            await session.commitTransaction();
+            logger.warn(`Deleted Timetable ${data.id}`);
+            return {
+                deletedTimetable: {
+                    _id: data.id,
+                    isActive: false
+                }
+            };
+        } catch (e) { await session.abortTransaction(); throw e; } finally { session.endSession(); }
+    }
+
+    // Update Timetable Status (Publish/Draft)
+    if (action === 'update_status') {
+        const { id, status } = data;
+        const timetable = await Timetable.findOneAndUpdate(
+            { _id: id, schoolId, isActive: true },
+            { status },
+            { new: true }
+        ).lean();
+
+        if (!timetable) throw new CustomError("Timetable not found", 404);
+        logger.info(`Timetable ${id} status updated to ${status}`);
+        return { timetable: { _id: timetable._id, status: timetable.status } };
+    }
+
+    // Default fallback if action not found
+    throw new CustomError("Invalid action", 400);
+};
+
+// Sync entries in bulk
+export const syncEntries = async (schoolId, timetableId, entriesData) => {
+    const session = await mongoose.startSession();
+    session.startTransaction(); // Use transaction to prevent partial data entry during bulk creation
+    try {
+        const entries = Array.isArray(entriesData) ? entriesData : [entriesData];
+        const slotIds = [...new Set(entries.map(e => e.timeSlotId))];
+        const slots = new Map((await TimeSlot.find({ _id: { $in: slotIds }, schoolId }).lean()).map(s => [s._id.toString(), s]));
+
+        const teacherIds = [...new Set(entries.map(e => e.teacherId).filter(Boolean))];
+        const days = [...new Set(entries.map(e => e.dayOfWeek))];
+        const conflicts = await TimetableEntry.find({ schoolId, isActive: true, teacherId: { $in: teacherIds }, dayOfWeek: { $in: days }, timeSlotId: { $in: slotIds } }).populate('timetableId').lean();
+
+        const valid = [], failed = [];
+        for (const entry of entries) {
+            const slot = slots.get(entry.timeSlotId);
+            if (!slot) { failed.push({ ...entry, reason: "Invalid Slot" }); continue; }
+            if (slot.slotType === "CLASS" && (!entry.teacherId || !entry.subject)) { failed.push({ ...entry, reason: "Missing Teacher/Subject" }); continue; }
+
+            const hasConflict = conflicts.find(c => c.teacherId.toString() === entry.teacherId && c.dayOfWeek === entry.dayOfWeek && c.timeSlotId.toString() === entry.timeSlotId);
+            if (hasConflict) { failed.push({ ...entry, reason: `Teacher busy in ${hasConflict.timetableId.standard}-${hasConflict.timetableId.section}` }); continue; }
+
+            valid.push({ ...entry, schoolId, timetableId });
+        }
+
+        if (valid.length) await TimetableEntry.insertMany(valid, { session });
+        await session.commitTransaction();
+        logger.info(`Synced entries for ${timetableId}: ${valid.length} created, ${failed.length} failed`);
+        return {
+            syncResult: {
+                createdCount: valid.length,
+                failedEntries: failed
+            }
+        };
+    } catch (e) { await session.abortTransaction(); logger.error(`Sync error: ${e.message}`); throw e; } finally { session.endSession(); }
+};
+
+// Update a specific entry (with teacher permission check)
+export const updateEntry = async (schoolId, id, updates, user = null) => {
+    const entry = await TimetableEntry.findOne({ _id: id, schoolId, isActive: true }).lean();
+    if (!entry) throw new CustomError("Entry not found", 404);
+
+    // Permission check: Teachers can edit any entry in a timetable they're assigned to
+    if (user && user.role === 'teacher') {
+        // Check if teacher has any assignment in this timetable
+        const hasAssignment = await TimetableEntry.exists({
+            timetableId: entry.timetableId,
+            teacherId: user._id,
+            isActive: true
+        });
+        if (!hasAssignment) {
+            throw new CustomError("You can only edit entries in classes you're assigned to", 403);
         }
     }
 
-    logger.info(`Bulk entries: ${results.created.length} created, ${results.failed.length} failed`);
-    return results;
-};
+    const tId = updates.teacherId || entry.teacherId;
+    const day = updates.dayOfWeek || entry.dayOfWeek;
+    const slotId = updates.timeSlotId || entry.timeSlotId;
 
-export const updateEntry = async (schoolId, entryId, updateData) => {
-    logger.info(`Updating entry ${entryId}`);
-
-    const entry = await TimetableEntry.findOne({ _id: entryId, schoolId, isActive: true });
-    if (!entry) {
-        throw new CustomError("Entry not found", 404);
+    if (tId && (updates.teacherId || updates.timeSlotId || updates.dayOfWeek)) {
+        const conflict = await TimetableEntry.findOne({ schoolId, teacherId: tId, dayOfWeek: day, timeSlotId: slotId, isActive: true, _id: { $ne: id } }).populate('timetableId');
+        if (conflict) throw new CustomError(`Teacher busy in ${conflict.timetableId.standard}-${conflict.timetableId.section}`, 409);
     }
 
-    // Get the time slot type
-    const timeSlotId = updateData.timeSlotId || entry.timeSlotId;
-    const timeSlot = await TimeSlot.findById(timeSlotId);
-    if (!timeSlot) {
-        throw new CustomError("Time slot not found", 404);
-    }
-
-    // Rule B: Check teacher conflict if teacher or time is changing
-    const newTeacherId = updateData.teacherId !== undefined ? updateData.teacherId : entry.teacherId;
-    const newDayOfWeek = updateData.dayOfWeek || entry.dayOfWeek;
-    const newTimeSlotId = updateData.timeSlotId || entry.timeSlotId;
-
-    if (timeSlot.slotType === "CLASS" && newTeacherId) {
-        const conflict = await checkTeacherConflict(newTeacherId, newDayOfWeek, newTimeSlotId, entryId);
-        if (conflict) {
-            throw new CustomError(
-                `Teacher already assigned to ${conflict.timetableId.standard}-${conflict.timetableId.section} at this time`,
-                409
-            );
+    logger.info(`Updating Entry ${id} for school ${schoolId}`);
+    const updated = await TimetableEntry.findByIdAndUpdate(id, updates, { new: true }).lean();
+    return {
+        entry: {
+            _id: updated._id,
+            subject: updated.subject,
+            teacherId: updated.teacherId,
+            timeSlotId: updated.timeSlotId,
+            dayOfWeek: updated.dayOfWeek
         }
-    }
-
-    // Apply updates
-    if (updateData.dayOfWeek) entry.dayOfWeek = updateData.dayOfWeek;
-    if (updateData.timeSlotId) entry.timeSlotId = updateData.timeSlotId;
-    if (timeSlot.slotType === "CLASS") {
-        if (updateData.subject !== undefined) entry.subject = updateData.subject;
-        if (updateData.teacherId !== undefined) entry.teacherId = updateData.teacherId;
-    }
-    if (updateData.roomNumber !== undefined) entry.roomNumber = updateData.roomNumber;
-    if (updateData.notes !== undefined) entry.notes = updateData.notes;
-
-    await entry.save();
-
-    logger.info(`Entry ${entryId} updated`);
-    return entry;
+    };
 };
 
-export const deleteEntry = async (schoolId, entryId) => {
-    logger.info(`Deleting entry ${entryId}`);
-
-    const entry = await TimetableEntry.findOne({ _id: entryId, schoolId });
-    if (!entry) {
-        throw new CustomError("Entry not found", 404);
-    }
-
-    entry.isActive = false;
-    await entry.save();
-
-    logger.info(`Entry ${entryId} soft-deleted`);
-    return { message: "Entry deleted successfully" };
-};
-
-// ═══════════════════════════════════════════════════════════════
-// Teacher Schedule
-// ═══════════════════════════════════════════════════════════════
-
+// Get teacher's schedule
 export const getTeacherSchedule = async (schoolId, teacherId, academicYear = null) => {
     logger.info(`Fetching schedule for teacher ${teacherId} in school ${schoolId}`);
+    const raw = await TimetableEntry.aggregate([
+        { $match: { schoolId: new mongoose.Types.ObjectId(schoolId), teacherId: new mongoose.Types.ObjectId(teacherId), isActive: true } },
+        { $lookup: { from: "timetables", localField: "timetableId", foreignField: "_id", as: "tt" } },
+        { $unwind: "$tt" },
+        { $match: academicYear ? { "tt.academicYear": academicYear, "tt.isActive": true } : { "tt.isActive": true } },
+        { $lookup: { from: "timeslots", localField: "timeSlotId", foreignField: "_id", as: "slot" } },
+        { $unwind: "$slot" },
+        { $sort: { "slot.slotNumber": 1 } },
+        { $project: { _id: 1, day: "$dayOfWeek", class: { $concat: ["$tt.standard", "-", "$tt.section"] }, startTime: "$slot.startTime", endTime: "$slot.endTime", subject: 1, roomNumber: 1, timeSlotId: "$slot._id" } }
+    ]);
 
-    const query = {
-        schoolId,
-        teacherId,
-        isActive: true
+    logger.info(`Teacher schedule raw results: ${raw.length} entries for ${teacherId}`);
+
+    const structured = {};
+    DAYS_OF_WEEK.forEach(day => { structured[day] = raw.filter(e => e.day === day); });
+    return {
+        teacherSchedule: structured
     };
-
-    // Build aggregation to filter by academic year if provided
-    const entries = await TimetableEntry.find(query)
-        .populate({
-            path: "timetableId",
-            match: academicYear ? { academicYear, isActive: true } : { isActive: true },
-            select: "standard section academicYear status"
-        })
-        .populate("timeSlotId", "slotNumber startTime endTime slotType label")
-        .sort({ dayOfWeek: 1 });
-
-    // Filter out entries where timetable didn't match (null from populate)
-    const filteredEntries = entries.filter(e => e.timetableId !== null);
-
-    // Group by day for easier consumption
-    const schedule = {};
-    for (const day of DAYS_OF_WEEK) {
-        schedule[day] = filteredEntries.filter(e => e.dayOfWeek === day);
-    }
-
-    logger.info(`Found ${filteredEntries.length} schedule entries for teacher ${teacherId}`);
-    return { teacherId, schedule, totalEntries: filteredEntries.length };
 };

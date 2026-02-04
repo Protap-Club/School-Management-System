@@ -35,36 +35,37 @@ export const deleteTimeSlot = async (id) => {
 // ═══════════════════════════════════════════════════════════════
 
 export const getTimetables = async (filters = {}) => {
-    // filters: { standard?, section?, academicYear? }
+    // filters: { standard?, section?, academicYear?, teacherId? }
     const params = new URLSearchParams();
     if (filters.standard) params.append('standard', filters.standard);
     if (filters.section) params.append('section', filters.section);
     if (filters.academicYear) params.append('academicYear', filters.academicYear);
-    
-    const response = await api.get(`/timetable/timetables?${params.toString()}`);
+    if (filters.teacherId) params.append('teacherId', filters.teacherId);
+
+    const response = await api.get(`/timetable?${params.toString()}`);
     return response.data;
 };
 
 export const getTimetableById = async (id) => {
     // Returns { timetable, entries }
-    const response = await api.get(`/timetable/timetables/${id}`);
+    const response = await api.get(`/timetable/${id}`);
     return response.data;
 };
 
 export const createTimetable = async (data) => {
     // data: { standard, section, academicYear }
-    const response = await api.post('/timetable/timetables', data);
+    const response = await api.post('/timetable', data);
     return response.data;
 };
 
 export const updateTimetableStatus = async (id, status) => {
     // status: "DRAFT" | "PUBLISHED"
-    const response = await api.patch(`/timetable/timetables/${id}/status`, { status });
+    const response = await api.patch(`/timetable/${id}/status`, { status });
     return response.data;
 };
 
 export const deleteTimetable = async (id) => {
-    const response = await api.delete(`/timetable/timetables/${id}`);
+    const response = await api.delete(`/timetable/${id}`);
     return response.data;
 };
 
@@ -74,18 +75,18 @@ export const deleteTimetable = async (id) => {
 
 export const createEntry = async (timetableId, data) => {
     // data: { dayOfWeek, timeSlotId, subject?, teacherId?, roomNumber?, notes? }
-    const response = await api.post(`/timetable/timetables/${timetableId}/entries`, data);
+    const response = await api.post(`/timetable/${timetableId}/entries`, data);
     return response.data;
 };
 
 export const createBulkEntries = async (timetableId, entries) => {
     // entries: Array<{ dayOfWeek, timeSlotId, subject?, teacherId?, roomNumber?, notes? }>
-    const response = await api.post(`/timetable/timetables/${timetableId}/entries/bulk`, { entries });
+    const response = await api.post(`/timetable/${timetableId}/entries/sync`, { entries });
     return response.data;
 };
 
 export const updateEntry = async (entryId, data) => {
-    const response = await api.put(`/timetable/entries/${entryId}`, data);
+    const response = await api.patch(`/timetable/entries/${entryId}`, data);
     return response.data;
 };
 

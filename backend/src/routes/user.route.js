@@ -2,14 +2,8 @@ import express from "express";
 import {
     createUser,
     getUsers,
-    getUsersWithProfiles,
-    archiveUser,
-    archiveUsers,
-    deleteUser,
-    deleteUsers,
-    restoreUser,
-    restoreUsers, // Imported the new restoreUsers controller
-    getArchivedUsers
+    toggleUserStatus,
+    hardDeleteUsers
 } from "../controllers/user.controller.js";
 import { checkAuth } from "../middlewares/auth.middleware.js";
 import { checkRole } from "../middlewares/role.middleware.js";
@@ -18,30 +12,39 @@ import { validate } from "../middlewares/validation.middleware.js";
 import {
     createUserSchema,
     getUsersSchema,
-    userIdParamsSchema,
     userIdsBodySchema
 } from "../validations/user.validation.js";
 
 const router = express.Router();
 
-// User CRUD
-router.post("/", checkAuth, validate(createUserSchema), createUser);
-router.get("/", checkAuth, validate(getUsersSchema), getUsers);
-router.get("/with-profiles", checkAuth, checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN, USER_ROLES.TEACHER]), getUsersWithProfiles);
+// Base Middleware
+router.use(checkAuth);
 
-// Archive (Soft Delete)
-router.put("/archive/:id", checkAuth, checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN]), validate(userIdParamsSchema), archiveUser);
-router.put("/archive-bulk", checkAuth, checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN]), validate(userIdsBodySchema), archiveUsers);
+// GET /api/v1/users - List users
+router.get("/", validate(getUsersSchema), getUsers);
 
-// Delete (Hard Delete - only archived users)
-router.delete("/:id", checkAuth, checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN]), validate(userIdParamsSchema), deleteUser);
-router.delete("/bulk", checkAuth, checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN]), validate(userIdsBodySchema), deleteUsers);
+// POST /api/v1/users - Create user
+router.post(
+    "/", 
+    // checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN]), // Assuming RBAC needed? User didn't specify but implies "Principals only"
+    validate(createUserSchema), 
+    createUser
+);
 
-// Restore
-router.put("/restore/:id", checkAuth, checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN]), validate(userIdParamsSchema), restoreUser);
-router.put("/restore-bulk", checkAuth, checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN]), validate(userIdsBodySchema), restoreUsers); // New route for bulk restore
+// PATCH /api/v1/users/archive - Bulk archive
+router.patch(
+    "/archive", 
+    checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN]), 
+    validate(userIdsBodySchema), 
+    toggleUserStatus
+);
 
-// Get Archived Users
-router.get("/archived", checkAuth, checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN]), validate(getUsersSchema), getArchivedUsers);
+// DELETE /api/v1/users - Bulk hard delete
+router.delete(
+    "/", 
+    checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN]), 
+    validate(userIdsBodySchema), 
+    hardDeleteUsers
+);
 
 export default router;

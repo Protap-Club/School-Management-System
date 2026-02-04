@@ -1,0 +1,89 @@
+// Notices TanStack Query Hooks
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { noticesApi } from './api';
+
+export const noticeKeys = {
+    all: ['notices'],
+    lists: () => [...noticeKeys.all, 'list'],
+    list: (filters) => [...noticeKeys.lists(), filters],
+    detail: (id) => [...noticeKeys.all, 'detail', id],
+    groups: () => [...noticeKeys.all, 'groups'],
+    classes: () => [...noticeKeys.all, 'classes'],
+};
+
+// Get notices with filters
+export const useNotices = (filters = {}) => {
+    return useQuery({
+        queryKey: noticeKeys.list(filters),
+        queryFn: () => noticesApi.getNotices(filters),
+    });
+};
+
+// Get notice by ID
+export const useNotice = (id) => {
+    return useQuery({
+        queryKey: noticeKeys.detail(id),
+        queryFn: () => noticesApi.getNoticeById(id),
+        enabled: !!id,
+    });
+};
+
+// Create notice mutation
+export const useCreateNotice = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: noticesApi.createNotice,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: noticeKeys.lists() });
+        },
+    });
+};
+
+// Delete notice mutation
+export const useDeleteNotice = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: noticesApi.deleteNotice,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: noticeKeys.lists() });
+        },
+    });
+};
+
+// Get classes
+export const useClasses = () => {
+    return useQuery({
+        queryKey: noticeKeys.classes(),
+        queryFn: noticesApi.getClasses,
+    });
+};
+
+// Get groups
+export const useGroups = () => {
+    return useQuery({
+        queryKey: noticeKeys.groups(),
+        queryFn: noticesApi.getGroups,
+    });
+};
+
+// Create group mutation
+export const useCreateGroup = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: noticesApi.createGroup,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: noticeKeys.groups() });
+        },
+    });
+};
+
+// Delete group mutation
+export const useDeleteGroup = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: noticesApi.deleteGroup,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: noticeKeys.groups() });
+        },
+    });
+};

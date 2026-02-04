@@ -1,13 +1,14 @@
-/**
- * Timetable Routes - API endpoints for Timetable feature.
- * Access: Admin (full) | Teacher (read-only, own schedule)
- */
-
 import express from "express";
 import {
-    createTimeSlot, getTimeSlots, updateTimeSlot, deleteTimeSlot,
-    createTimetable, getTimetables, getTimetableById, updateTimetableStatus, deleteTimetable,
-    createEntry, createBulkEntries, updateEntry, deleteEntry,
+    createTimetable,
+    getTimetables,
+    getTimetableById,
+    updateTimetableStatus,
+    deleteTimetable,
+    addEntry,
+    syncTimetableEntries,
+    updateEntry,
+    deleteEntry,
     getTeacherSchedule
 } from "../controllers/timetable.controller.js";
 import { checkAuth } from "../middlewares/auth.middleware.js";
@@ -17,143 +18,103 @@ import { USER_ROLES } from "../constants/userRoles.js";
 import extractSchoolId from "../middlewares/school.middleware.js";
 import { validate } from "../middlewares/validation.middleware.js";
 import {
-    createTimeSlotSchema, updateTimeSlotSchema, timeSlotIdParamsSchema,
-    createTimetableSchema, timetableIdParamsSchema, updateTimetableStatusSchema,
-    createEntrySchema, createBulkEntriesSchema, updateEntrySchema, entryIdParamsSchema,
-    teacherScheduleParamsSchema
+    createTimetableSchema,
+    timetableIdParamsSchema,
+    updateTimetableStatusSchema,
+    createEntrySchema,
+    createBulkEntriesSchema,
+    updateEntrySchema,
+    entryIdParamsSchema
 } from "../validations/timetable.validation.js";
 
 const router = express.Router();
 
-// All routes require authentication, school context, and timetable feature enabled
 router.use(checkAuth);
 router.use(extractSchoolId);
 router.use(requireFeature('timetable'));
 
-// ═══════════════════════════════════════════════════════════════
-// TimeSlot Routes
-// ═══════════════════════════════════════════════════════════════
+// --- Management ---
 
-// GET /time-slots - Admin + Teacher can view
+// GET /api/v1/timetables (Admin + Teacher can view)
 router.get(
-    "/time-slots",
-    checkRole([USER_ROLES.ADMIN, USER_ROLES.TEACHER]),
-    getTimeSlots
-);
-
-// POST /time-slots - Admin only
-router.post(
-    "/time-slots",
-    checkRole([USER_ROLES.ADMIN]),
-    validate(createTimeSlotSchema),
-    createTimeSlot
-);
-
-// PUT /time-slots/:id - Admin only
-router.put(
-    "/time-slots/:id",
-    checkRole([USER_ROLES.ADMIN]),
-    validate(updateTimeSlotSchema),
-    updateTimeSlot
-);
-
-// DELETE /time-slots/:id - Admin only
-router.delete(
-    "/time-slots/:id",
-    checkRole([USER_ROLES.ADMIN]),
-    validate(timeSlotIdParamsSchema),
-    deleteTimeSlot
-);
-
-// ═══════════════════════════════════════════════════════════════
-// Timetable Routes
-// ═══════════════════════════════════════════════════════════════
-
-// GET /timetables - Admin only
-router.get(
-    "/timetables",
-    checkRole([USER_ROLES.ADMIN]),
+    "/", 
+    checkRole([USER_ROLES.ADMIN, USER_ROLES.TEACHER]), 
     getTimetables
 );
 
-// GET /timetables/:id - Admin only
-router.get(
-    "/timetables/:id",
-    checkRole([USER_ROLES.ADMIN]),
-    validate(timetableIdParamsSchema),
-    getTimetableById
-);
-
-// POST /timetables - Admin only
+// POST /api/v1/timetables
 router.post(
-    "/timetables",
-    checkRole([USER_ROLES.ADMIN]),
-    validate(createTimetableSchema),
+    "/", 
+    checkRole([USER_ROLES.ADMIN]), 
+    validate(createTimetableSchema), 
     createTimetable
 );
 
-// PATCH /timetables/:id/status - Admin only (publish/draft)
+// GET /api/v1/timetables/:id (Admin + Teacher can view)
+router.get(
+    "/:id", 
+    checkRole([USER_ROLES.ADMIN, USER_ROLES.TEACHER]), 
+    validate(timetableIdParamsSchema), 
+    getTimetableById
+);
+
+// PATCH /api/v1/timetables/:id/status
 router.patch(
-    "/timetables/:id/status",
-    checkRole([USER_ROLES.ADMIN]),
-    validate(updateTimetableStatusSchema),
+    "/:id/status", 
+    checkRole([USER_ROLES.ADMIN]), 
+    validate(updateTimetableStatusSchema), 
     updateTimetableStatus
 );
 
-// DELETE /timetables/:id - Admin only
+// DELETE /api/v1/timetables/:id
 router.delete(
-    "/timetables/:id",
-    checkRole([USER_ROLES.ADMIN]),
-    validate(timetableIdParamsSchema),
+    "/:id", 
+    checkRole([USER_ROLES.ADMIN]), 
+    validate(timetableIdParamsSchema), 
     deleteTimetable
 );
 
-// ═══════════════════════════════════════════════════════════════
-// TimetableEntry Routes
-// ═══════════════════════════════════════════════════════════════
+// --- Teacher Schedule ---
 
-// POST /timetables/:id/entries - Admin only
-router.post(
-    "/timetables/:id/entries",
-    checkRole([USER_ROLES.ADMIN]),
-    validate(createEntrySchema),
-    createEntry
-);
-
-// POST /timetables/:id/entries/bulk - Admin only
-router.post(
-    "/timetables/:id/entries/bulk",
-    checkRole([USER_ROLES.ADMIN]),
-    validate(createBulkEntriesSchema),
-    createBulkEntries
-);
-
-// PUT /entries/:id - Admin only
-router.put(
-    "/entries/:id",
-    checkRole([USER_ROLES.ADMIN]),
-    validate(updateEntrySchema),
-    updateEntry
-);
-
-// DELETE /entries/:id - Admin only
-router.delete(
-    "/entries/:id",
-    checkRole([USER_ROLES.ADMIN]),
-    validate(entryIdParamsSchema),
-    deleteEntry
-);
-
-// ═══════════════════════════════════════════════════════════════
-// Teacher Schedule Route
-// ═══════════════════════════════════════════════════════════════
-
-// GET /teacher-schedule/:teacherId - Admin (any) | Teacher (self only)
+// GET /api/v1/timetables/teacher-schedule/:teacherId
 router.get(
     "/teacher-schedule/:teacherId",
     checkRole([USER_ROLES.ADMIN, USER_ROLES.TEACHER]),
-    validate(teacherScheduleParamsSchema),
     getTeacherSchedule
+);
+
+// --- Entries ---
+
+// POST /api/v1/timetables/:id/entries (Single Entry)
+router.post(
+    "/:id/entries",
+    checkRole([USER_ROLES.ADMIN]),
+    validate(createEntrySchema),
+    addEntry
+);
+
+// POST /api/v1/timetables/:id/entries/sync (Bulk Sync)
+router.post(
+    "/:id/entries/sync", 
+    checkRole([USER_ROLES.ADMIN]), 
+    validate(createBulkEntriesSchema), 
+    syncTimetableEntries
+);
+
+// PATCH /api/v1/timetables/entries/:entryId (Admin + Teacher can edit)
+router.patch(
+    "/entries/:entryId", 
+    checkRole([USER_ROLES.ADMIN, USER_ROLES.TEACHER]), 
+    validate(updateEntrySchema), 
+    updateEntry
+);
+
+// DELETE /api/v1/timetables/entries/:entryId (Clear Single)
+router.delete(
+    "/entries/:entryId", 
+    checkRole([USER_ROLES.ADMIN]), 
+    validate(entryIdParamsSchema), 
+    deleteEntry
 );
 
 export default router;

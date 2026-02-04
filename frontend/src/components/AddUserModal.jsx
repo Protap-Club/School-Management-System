@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { FaTimes, FaUserPlus, FaBuilding } from 'react-icons/fa';
 import api from '../api/axios';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../features/auth';
 
 const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
     const { user } = useAuth();
@@ -21,20 +21,33 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
-    // Set school data from user context (already populated from backend)
+    // Set school data from user context or fetch if needed
     useEffect(() => {
-        if (isOpen && user?.schoolId) {
-            // If schoolId is populated object with name
-            if (typeof user.schoolId === 'object' && user.schoolId.name) {
-                setSchoolName(user.schoolId.name);
-                setFormData(prev => ({ ...prev, schoolId: user.schoolId._id }));
+        const fetchSchoolDetails = async () => {
+            if (isOpen && user?.schoolId) {
+                // Case 1: schoolId is already a populated object with name
+                if (typeof user.schoolId === 'object' && user.schoolId.name) {
+                    setSchoolName(user.schoolId.name);
+                    setFormData(prev => ({ ...prev, schoolId: user.schoolId._id }));
+                }
+                // Case 2: schoolId is just an ID string - fetch the name
+                else {
+                    setFormData(prev => ({ ...prev, schoolId: user.schoolId }));
+                    try {
+                        const response = await api.get('/school/profile');
+                        if (response.data.success && response.data.data?.school?.name) {
+                            setSchoolName(response.data.data.school.name);
+                        } else {
+                            setSchoolName('School');
+                        }
+                    } catch (err) {
+                        console.error('Failed to fetch school name', err);
+                        setSchoolName('School');
+                    }
+                }
             }
-            // If schoolId is just an ID (fallback)
-            else {
-                setFormData(prev => ({ ...prev, schoolId: user.schoolId }));
-                setSchoolName('School');
-            }
-        }
+        };
+        fetchSchoolDetails();
     }, [isOpen, user]);
 
     if (!isOpen) return null;
@@ -51,13 +64,13 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
         try {
             const payload = {
                 ...formData,
-                targetRole: roleToAdd
+                role: roleToAdd
             };
 
             // Map "year" to number if present
             if (payload.year) payload.year = parseInt(payload.year);
 
-            await api.post('/user', payload);
+            await api.post('/users', payload);
             onSuccess();
             onClose();
             // Reset form
@@ -66,7 +79,8 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
                 rollNumber: '', course: '', year: '', contactNo: '', schoolId: user?.schoolId || ''
             });
         } catch (err) {
-            setError('Internal Server Error');
+            const errorMessage = err.response?.data?.message || err.response?.data?.errors?.[0]?.message || 'Failed to create user';
+            setError(errorMessage);
         } finally {
             setLoading(false);
         }
@@ -222,8 +236,8 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
                                     </div><div className="space-y-1">
                                         <label className="text-sm font-medium text-gray-700">Class *</label>
                                         <input
-                                            name="Class"
-                                            value={formData.Class}
+                                            name="standard"
+                                            value={formData.standard}
                                             onChange={handleChange}
                                             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
                                             required
@@ -232,8 +246,8 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
                                     <div className="space-y-1">
                                         <label className="text-sm font-medium text-gray-700">Section *</label>
                                         <input
-                                            name="Section"
-                                            value={formData.Section}
+                                            name="section"
+                                            value={formData.section}
                                             onChange={handleChange}
                                             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
                                             required
