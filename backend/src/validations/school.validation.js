@@ -57,6 +57,7 @@ export const updateFeaturesSchema = z.object({
             library: z.boolean().optional(),
             transport: z.boolean().optional(),
             notice: z.boolean().optional(),
+            calendar: z.boolean().optional(),
         }),
     }),
 });

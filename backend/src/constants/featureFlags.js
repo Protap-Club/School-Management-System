@@ -1,6 +1,6 @@
 // Feature Flags - Available modules that can be enabled/disabled per school.
 // Each key corresponds to a boolean field in the School schema 'features' object.
- 
+
 export const SCHOOL_FEATURES = Object.freeze({
   ATTENDANCE: {
     key: "attendance",
@@ -31,6 +31,11 @@ export const SCHOOL_FEATURES = Object.freeze({
     key: "notice",
     label: "Notice Board",
     description: "School announcements and notifications",
+  },
+  CALENDAR: {
+    key: "calendar",
+    label: "Calendar",
+    description: "calendar events",
   },
 });
 

@@ -11,6 +11,7 @@ const Settings = lazy(() => import('../pages/Settings'));
 const Attendance = lazy(() => import('../pages/Attendance'));
 const Notice = lazy(() => import('../pages/Notice'));
 const TimetablePage = lazy(() => import('../pages/Timetable'));
+const Calendar = lazy(() => import('../pages/Calendar'));
 
 // Loading fallback component
 const PageLoader = () => (
@@ -46,7 +47,9 @@ export const routes = {
         settings: '/admin/settings',
         attendance: '/admin/attendance',
         notice: '/admin/notice',
+        notice: '/admin/notice',
         timetable: '/admin/timetable',
+        calendar: '/admin/calendar',
     },
 
     // Teacher
@@ -54,7 +57,9 @@ export const routes = {
         users: '/teacher/users',
         attendance: '/teacher/attendance',
         notice: '/teacher/notice',
+        notice: '/teacher/notice',
         timetable: '/teacher/timetable',
+        calendar: '/teacher/calendar',
     },
 };
 
@@ -67,6 +72,7 @@ export const pages = {
     Attendance,
     Notice,
     TimetablePage,
+    Calendar,
 };
 
 // Export utilities

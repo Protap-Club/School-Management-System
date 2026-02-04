@@ -9,6 +9,7 @@ import {
     FaHome,
     FaBullhorn,
     FaCalendarAlt,
+    FaCalendarDay,
 } from 'react-icons/fa';
 
 const Sidebar = () => {
@@ -53,6 +54,11 @@ const Sidebar = () => {
                     adminLinks.push({ path: '/admin/notice', label: 'Notice', icon: <FaBullhorn /> });
                 }
 
+                // 6. Calendar
+                if (hasFeature('calendar')) {
+                    adminLinks.push({ path: '/admin/calendar', label: 'Calendar', icon: <FaCalendarDay /> });
+                }
+
                 // Settings always last
                 adminLinks.push({ path: '/admin/settings', label: 'Settings', icon: <FaCog /> });
 
@@ -78,6 +84,11 @@ const Sidebar = () => {
                 // 5. Notice
                 if (hasFeature('notice')) {
                     teacherLinks.push({ path: '/teacher/notice', label: 'Notice', icon: <FaBullhorn /> });
+                }
+
+                // 6. Calendar
+                if (hasFeature('calendar')) {
+                    teacherLinks.push({ path: '/teacher/calendar', label: 'Calendar', icon: <FaCalendarDay /> });
                 }
 
                 return teacherLinks;
