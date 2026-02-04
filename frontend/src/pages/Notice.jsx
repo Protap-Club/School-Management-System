@@ -372,7 +372,7 @@ const Notice = () => {
                         <FaPaperPlane className="inline mr-2" size={12} />
                         Compose
                     </button>
-                    {isTeacher && (
+                    {(isTeacher || isAdmin) && (
                         <button
                             onClick={() => setActiveTab('groups')}
                             className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'groups'
@@ -533,8 +533,8 @@ const Notice = () => {
                     </div>
                 )}
 
-                {/* Groups Tab (Teacher Only) */}
-                {isTeacher && activeTab === 'groups' && (
+                {/* Groups Tab (Teacher & Admin) */}
+                {(isTeacher || isAdmin) && activeTab === 'groups' && (
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                         {/* Create Group */}
                         <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
@@ -1030,6 +1030,63 @@ const Notice = () => {
                                             )}
                                         </div>
                                     </label>
+
+                                    {/* Custom Groups */}
+                                    {groups.length > 0 && (
+                                        <label className="flex items-start gap-3 p-3 border border-gray-200 rounded-xl cursor-pointer hover:bg-gray-50 transition-colors">
+                                            <input
+                                                type="radio"
+                                                name="sendOption"
+                                                value="groups"
+                                                checked={sendOption === 'groups'}
+                                                onChange={(e) => {
+                                                    setSendOption(e.target.value);
+                                                    setSearchTerm('');
+                                                }}
+                                                className="w-4 h-4 text-primary border-gray-300 focus:ring-primary mt-0.5"
+                                            />
+                                            <div className="flex-1">
+                                                <p className="text-sm font-medium text-gray-900">Custom Groups</p>
+                                                <p className="text-xs text-gray-400 mb-2">Your created groups</p>
+                                                {sendOption === 'groups' && (
+                                                    <div className="mt-3 space-y-3">
+                                                        <div className="relative">
+                                                            <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
+                                                            <input
+                                                                type="text"
+                                                                placeholder="Search groups..."
+                                                                value={searchTerm}
+                                                                onChange={(e) => setSearchTerm(e.target.value)}
+                                                                className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                                                                onClick={(e) => e.stopPropagation()}
+                                                            />
+                                                        </div>
+                                                        <div className="border border-gray-200 rounded-lg max-h-48 overflow-y-auto">
+                                                            {groups
+                                                                .filter(group => group.name.toLowerCase().includes(searchTerm.toLowerCase()))
+                                                                .map(group => (
+                                                                    <label key={group.id} className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 cursor-pointer text-sm border-b border-gray-50 last:border-b-0">
+                                                                        <input
+                                                                            type="checkbox"
+                                                                            checked={selectedGroups.includes(group.id)}
+                                                                            onChange={() => toggleSelection(selectedGroups, setSelectedGroups, group.id)}
+                                                                            className="w-3.5 h-3.5 text-primary border-gray-300 rounded focus:ring-primary"
+                                                                        />
+                                                                        <span>{group.name}</span>
+                                                                        <span className="text-xs text-gray-400">({group.students.length})</span>
+                                                                    </label>
+                                                                ))}
+                                                            {groups.filter(group => group.name.toLowerCase().includes(searchTerm.toLowerCase())).length === 0 && (
+                                                                <div className="px-3 py-4 text-center text-xs text-gray-400">
+                                                                    No groups found
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </label>
+                                    )}
                                 </div>
                             )}
 
@@ -1187,8 +1244,9 @@ const Notice = () => {
                         </div>
                     </div>
                 </div>
-            )}
-        </DashboardLayout>
+            )
+            }
+        </DashboardLayout >
     );
 };
 
