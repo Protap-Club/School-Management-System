@@ -119,6 +119,7 @@ const Header = ({ onSearch, searchValue }) => {
             <div className="flex items-center gap-3">
                 {/* Notification Bell */}
                 <button
+                    onClick={() => navigate('/notifications')}
                     className="p-2 lg:p-2.5 rounded-full text-gray-500 hover:bg-gray-100 hover:text-blue-600 transition-all focus:outline-none focus:ring-2 focus:ring-blue-100 relative group"
                     title="Notifications"
                 >

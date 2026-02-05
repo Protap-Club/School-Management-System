@@ -36,27 +36,27 @@ const Sidebar = () => {
                 // Requested Order: Dashboard, Attendance, Timetable, Users, Notice
                 const adminLinks = [dashboardLink];
 
-                // 2. Attendance
+                // 2. Calendar
+                if (hasFeature('calendar')) {
+                    adminLinks.push({ path: '/admin/calendar', label: 'Calendar', icon: <FaCalendarDay /> });
+                }
+
+                // 3. Attendance
                 if (hasFeature('attendance')) {
                     adminLinks.push({ path: '/admin/attendance', label: 'Attendance', icon: <FaClipboardList /> });
                 }
 
-                // 3. Timetable
+                // 4. Timetable
                 if (hasFeature('timetable')) {
                     adminLinks.push({ path: '/admin/timetable', label: 'Timetable', icon: <FaCalendarAlt /> });
                 }
 
-                // 4. Users
+                // 5. Users
                 adminLinks.push({ path: '/admin/users', label: 'Users', icon: <FaUserGraduate /> });
 
-                // 5. Notice
+                // 6. Notice
                 if (hasFeature('notice')) {
                     adminLinks.push({ path: '/admin/notice', label: 'Notice', icon: <FaBullhorn /> });
-                }
-
-                // 6. Calendar
-                if (hasFeature('calendar')) {
-                    adminLinks.push({ path: '/admin/calendar', label: 'Calendar', icon: <FaCalendarDay /> });
                 }
 
                 // Settings always last
@@ -65,30 +65,30 @@ const Sidebar = () => {
                 return adminLinks;
             case 'teacher':
                 // Build links based on enabled features
-                // Requested Order: Dashboard, Attendance, Timetable, Users, Notice
+                // Requested Order: Dashboard, Calendar, Attendance, Timetable, Users, Notice
                 const teacherLinks = [dashboardLink];
 
-                // 2. Attendance
+                // 2. Calendar
+                if (hasFeature('calendar')) {
+                    teacherLinks.push({ path: '/teacher/calendar', label: 'Calendar', icon: <FaCalendarDay /> });
+                }
+
+                // 3. Attendance
                 if (hasFeature('attendance')) {
                     teacherLinks.push({ path: '/teacher/attendance', label: 'Attendance', icon: <FaClipboardList /> });
                 }
 
-                // 3. Timetable
+                // 4. Timetable
                 if (hasFeature('timetable')) {
                     teacherLinks.push({ path: '/teacher/timetable', label: 'Timetable', icon: <FaCalendarAlt /> });
                 }
 
-                // 4. Users
+                // 5. Users
                 teacherLinks.push({ path: '/teacher/users', label: 'Users', icon: <FaUserGraduate /> });
 
-                // 5. Notice
+                // 6. Notice
                 if (hasFeature('notice')) {
                     teacherLinks.push({ path: '/teacher/notice', label: 'Notice', icon: <FaBullhorn /> });
-                }
-
-                // 6. Calendar
-                if (hasFeature('calendar')) {
-                    teacherLinks.push({ path: '/teacher/calendar', label: 'Calendar', icon: <FaCalendarDay /> });
                 }
 
                 return teacherLinks;

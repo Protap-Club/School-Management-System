@@ -54,6 +54,13 @@ const MOCK_USERS = [
     { _id: '5', name: 'Amit Kumar', role: 'student', email: 'amit@student.com' },
 ];
 
+const MOCK_TEACHERS = [
+    { _id: 't-1', name: 'Mr. John Smith', email: 'john@school.com', role: 'teacher' },
+    { _id: 't-2', name: 'Ms. Sarah Johnson', email: 'sarah@school.com', role: 'teacher' },
+    { _id: 't-3', name: 'Mrs. Emily Davis', email: 'emily@school.com', role: 'teacher' },
+    { _id: 't-4', name: 'Mr. Robert Wilson', email: 'robert@school.com', role: 'teacher' },
+];
+
 const MOCK_HISTORY_DATA = [
     {
         id: '1',
@@ -165,6 +172,7 @@ const Notice = () => {
     ]);
     const [newGroupName, setNewGroupName] = useState('');
     const [newGroupStudents, setNewGroupStudents] = useState([]);
+    const [newGroupTeachers, setNewGroupTeachers] = useState([]);
 
     // History state
     const [historySearch, setHistorySearch] = useState('');
@@ -306,14 +314,15 @@ const Notice = () => {
     };
 
     // Handle create group
+    // Handle create group
     const handleCreateGroup = () => {
         if (!newGroupName.trim()) {
             setToast({ type: 'error', text: 'Group name is required' });
             setTimeout(() => setToast({ type: '', text: '' }), 3000);
             return;
         }
-        if (newGroupStudents.length === 0) {
-            setToast({ type: 'error', text: 'Select at least one student' });
+        if (newGroupStudents.length === 0 && newGroupTeachers.length === 0) {
+            setToast({ type: 'error', text: 'Select at least one student or teacher' });
             setTimeout(() => setToast({ type: '', text: '' }), 3000);
             return;
         }
@@ -321,11 +330,12 @@ const Notice = () => {
         const newGroup = {
             id: Date.now().toString(),
             name: newGroupName,
-            students: newGroupStudents
+            students: [...newGroupStudents, ...newGroupTeachers] // Combined list
         };
         setGroups([...groups, newGroup]);
         setNewGroupName('');
         setNewGroupStudents([]);
+        setNewGroupTeachers([]);
         setToast({ type: 'success', text: 'Group created successfully!' });
         setTimeout(() => setToast({ type: '', text: '' }), 3000);
     };
@@ -587,6 +597,30 @@ const Notice = () => {
                                         ))}
                                     </div>
                                 </div>
+
+                                {/* Select Teachers (Admin Only) */}
+                                {isAdmin && (
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">Select Teachers</label>
+                                        <div className="border border-gray-200 rounded-xl max-h-48 overflow-y-auto">
+                                            {MOCK_TEACHERS.map(teacher => (
+                                                <label
+                                                    key={teacher._id}
+                                                    className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-b-0"
+                                                >
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={newGroupTeachers.includes(teacher._id)}
+                                                        onChange={() => toggleSelection(newGroupTeachers, setNewGroupTeachers, teacher._id)}
+                                                        className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"
+                                                    />
+                                                    <span className="text-sm text-gray-700">{teacher.name}</span>
+                                                </label>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
                                 <button
                                     onClick={handleCreateGroup}
                                     className="w-full flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2.5 px-4 rounded-xl transition-colors"

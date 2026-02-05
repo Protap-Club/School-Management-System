@@ -99,7 +99,7 @@ const Calendar = () => {
 
   // Empty cells for previous month
   for (let i = 0; i < firstDay; i++) {
-    days.push(<div key={`empty-${i}`} className="h-24 sm:h-32 bg-gray-50/50 border border-gray-100"></div>);
+    days.push(<div key={`empty-${i}`} className="h-14 sm:h-20 bg-gray-50/50 border border-gray-100"></div>);
   }
 
   // Day cells
@@ -113,7 +113,7 @@ const Calendar = () => {
       <div
         key={day}
         onClick={() => handleDayClick(day)}
-        className={`relative h-24 sm:h-32 border border-gray-100 p-2 transition-all group ${isAdmin ? 'cursor-pointer hover:bg-gray-50' : ''
+        className={`relative h-14 sm:h-20 border border-gray-100 p-1 transition-all group ${isAdmin ? 'cursor-pointer hover:bg-gray-50' : ''
           } ${isToday ? 'bg-indigo-50/30' : 'bg-white'}`}
       >
         <span className={`text-sm font-medium w-7 h-7 flex items-center justify-center rounded-full ${isToday ? 'bg-indigo-600 text-white shadow-sm' : 'text-gray-700'
@@ -123,8 +123,8 @@ const Calendar = () => {
 
         {holiday && (
           <div className={`mt-2 p-1.5 rounded-md text-xs font-medium truncate ${holiday.type === 'national' ? 'bg-rose-100 text-rose-700' :
-              holiday.type === 'gazetted' ? 'bg-amber-100 text-amber-800' :
-                'bg-emerald-100 text-emerald-800'
+            holiday.type === 'gazetted' ? 'bg-amber-100 text-amber-800' :
+              'bg-emerald-100 text-emerald-800'
             }`}>
             {holiday.name}
           </div>
@@ -149,24 +149,31 @@ const Calendar = () => {
       )}
 
       <div className="space-y-6">
-        <div className="flex justify-between items-center">
+        {/* Header */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Academic Calendar</h1>
-            <p className="text-gray-500 text-sm mt-1">
+            <h1 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+              <FaCalendarAlt className="text-primary" />
+              Academic Calendar
+            </h1>
+            <p className="text-gray-500 text-sm mt-0.5">
               {isAdmin ? 'Manage holidays and events' : 'View holidays and academic events'}
             </p>
           </div>
+
           {/* Month Navigation */}
-          <div className="flex items-center gap-4 bg-white px-4 py-2 rounded-xl shadow-sm border border-gray-200">
-            <button onClick={prevMonth} className="p-2 hover:bg-gray-100 rounded-lg text-gray-600 transition-colors">
-              <FaChevronLeft size={14} />
-            </button>
-            <span className="text-lg font-semibold text-gray-900 min-w-[140px] text-center">
-              {currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
-            </span>
-            <button onClick={nextMonth} className="p-2 hover:bg-gray-100 rounded-lg text-gray-600 transition-colors">
-              <FaChevronRight size={14} />
-            </button>
+          <div className="flex flex-col md:flex-row gap-4 justify-between items-start md:items-center">
+            <div className="flex items-center gap-4 bg-white px-4 py-2 rounded-xl shadow-sm border border-gray-200">
+              <button onClick={prevMonth} className="p-2 hover:bg-gray-100 rounded-lg text-gray-600 transition-colors">
+                <FaChevronLeft size={14} />
+              </button>
+              <span className="text-lg font-semibold text-gray-900 min-w-[140px] text-center">
+                {currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+              </span>
+              <button onClick={nextMonth} className="p-2 hover:bg-gray-100 rounded-lg text-gray-600 transition-colors">
+                <FaChevronRight size={14} />
+              </button>
+            </div>
           </div>
         </div>
 

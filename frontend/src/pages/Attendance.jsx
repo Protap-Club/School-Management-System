@@ -22,6 +22,8 @@ import {
 } from 'react-icons/fa';
 
 
+import StudentHistoryModal from '../components/attendance/StudentHistoryModal';
+
 const Attendance = () => {
   const { user: currentUser } = useAuth();
   const { hasFeature, loading: featuresLoading } = useFeatures();
@@ -36,6 +38,9 @@ const Attendance = () => {
   const [groupedClasses, setGroupedClasses] = useState({});
   const [expandedClasses, setExpandedClasses] = useState({});
   const [teacherAttendance, setTeacherAttendance] = useState({}); // Local state for teacher attendance
+
+  // Student History Modal State
+  const [selectedStudent, setSelectedStudent] = useState(null);
 
   const [stats, setStats] = useState({
     total: 0,
@@ -196,6 +201,10 @@ const Attendance = () => {
       ...prev,
       [teacherId]: !prev[teacherId]
     }));
+  };
+
+  const handleStudentClick = (student) => {
+    setSelectedStudent(student);
   };
 
   // Get status for a student
@@ -392,7 +401,11 @@ const Attendance = () => {
                                   const isUnmarked = status === 'unmarked';
 
                                   return (
-                                    <tr key={student._id} className="hover:bg-gray-50 transition-colors">
+                                    <tr
+                                      key={student._id}
+                                      className="hover:bg-gray-50 transition-colors cursor-pointer"
+                                      onClick={() => handleStudentClick(student)}
+                                    >
                                       <td className="px-6 py-3">
                                         <div className="flex items-center gap-3">
                                           <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs ${isPresent ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
@@ -455,7 +468,11 @@ const Attendance = () => {
                         const status = getStudentStatus(student._id);
                         const isPresent = status === 'present';
                         return (
-                          <tr key={student._id} className="hover:bg-gray-50">
+                          <tr
+                            key={student._id}
+                            className="hover:bg-gray-50 cursor-pointer"
+                            onClick={() => handleStudentClick(student)}
+                          >
                             <td className="px-6 py-4">
                               <div className="flex items-center gap-3">
                                 <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center text-xs font-bold text-gray-600">
@@ -480,6 +497,12 @@ const Attendance = () => {
             )}
           </>
         )}
+
+        {/* Student History Modal */}
+        <StudentHistoryModal
+          student={selectedStudent}
+          onClose={() => setSelectedStudent(null)}
+        />
       </div>
     </DashboardLayout>
   );
