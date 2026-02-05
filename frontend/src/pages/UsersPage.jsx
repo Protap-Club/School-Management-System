@@ -23,6 +23,7 @@ import {
     FaSearch,
     FaSort
 } from 'react-icons/fa';
+import UserDetailModal from '../components/users/UserDetailModal';
 
 // Role hierarchy - what each role can view/create
 const ROLE_PERMISSIONS = {
@@ -40,6 +41,7 @@ const ROLE_LABELS = {
 const UsersPage = () => {
     const { user: currentUser } = useAuth();
     const [activeModal, setActiveModal] = useState(null);
+    const [selectedUser, setSelectedUser] = useState(null);
 
     // Filters & Pagination
     const [selectedRole, setSelectedRole] = useState('all');
@@ -553,7 +555,8 @@ const UsersPage = () => {
                                                 return (
                                                     <tr
                                                         key={u._id}
-                                                        className={`group transition-colors ${isSelected ? 'bg-indigo-50/60' : 'hover:bg-gray-50/50'}`}
+                                                        onClick={() => setSelectedUser(u)}
+                                                        className={`group transition-colors cursor-pointer ${isSelected ? 'bg-indigo-50/60' : 'hover:bg-gray-50/50'}`}
                                                     >
                                                         {selectionMode && (
                                                             <td className="px-4 py-3">
@@ -781,6 +784,12 @@ const UsersPage = () => {
                 onClose={() => setActiveModal(null)}
                 roleToAdd={activeModal}
                 onSuccess={handleUserCreated}
+            />
+
+            {/* User Detail Modal */}
+            <UserDetailModal
+                user={selectedUser}
+                onClose={() => setSelectedUser(null)}
             />
 
             {/* Delete/Archive Confirmation Modal */}
