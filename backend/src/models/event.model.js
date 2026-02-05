@@ -48,4 +48,4 @@ EventSchema.pre('validate', function(next) {
   }
 });
 
-module.exports = mongoose.model('Event', EventSchema);
+export const eventModel = mongoose.model('Event', EventSchema);
