@@ -3,7 +3,7 @@ import logger from "../config/logger";
 import { CustomError } from "../utils/customError";
 
 //  Create Event
-export const createEvent = async (eventData) => {
+export const createEvent = async (eventData, id) => {
   const { title, start, end, allDay, category, description } = eventData;
 
   // Edge Case: Check if an exact duplicate event already exists to prevent spam
@@ -24,7 +24,8 @@ export const createEvent = async (eventData) => {
     end: new Date(end),
     allDay,
     category,
-    description
+    description,
+    createdBy : id
   });
 
   return newEvent;
