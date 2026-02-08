@@ -11,12 +11,12 @@ import {
     deleteEntry,
     getTeacherSchedule
 } from "../controllers/timetable.controller.js";
-import { checkAuth } from "../middlewares/auth.middleware.js";
-import { checkRole } from "../middlewares/role.middleware.js";
-import { requireFeature } from "../middlewares/feature.middleware.js";
-import { USER_ROLES } from "../constants/userRoles.js";
-import extractSchoolId from "../middlewares/school.middleware.js";
-import { validate } from "../middlewares/validation.middleware.js";
+import { checkAuth } from "../../middlewares/auth.middleware.js";
+import { checkRole } from "../../middlewares/role.middleware.js";
+import { requireFeature } from "../../middlewares/feature.middleware.js";
+import { USER_ROLES } from "../../constants/userRoles.js";
+import extractSchoolId from "../../middlewares/school.middleware.js";
+import { validate } from "../../middlewares/validation.middleware.js";
 import {
     createTimetableSchema,
     timetableIdParamsSchema,
@@ -25,7 +25,7 @@ import {
     createBulkEntriesSchema,
     updateEntrySchema,
     entryIdParamsSchema
-} from "../validations/timetable.validation.js";
+} from "../../validations/timetable.validation.js";
 
 const router = express.Router();
 

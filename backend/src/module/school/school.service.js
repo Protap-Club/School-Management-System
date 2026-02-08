@@ -1,8 +1,8 @@
-import School from "../models/School.model.js";
-import { isValidFeatureKey, SCHOOL_FEATURES } from "../constants/featureFlags.js";
-import { CustomError } from "../utils/customError.js";
-import logger from "../config/logger.js";
-import { deleteFile } from "../middlewares/upload.middleware.js";
+import School from "./School.model.js";
+import { isValidFeatureKey, SCHOOL_FEATURES } from "../../constants/featureFlags.js";
+import { CustomError } from "../../utils/customError.js";
+import logger from "../../config/logger.js";
+import { deleteFile } from "../../middlewares/upload.middleware.js";
 
 
 // Creates a school. 

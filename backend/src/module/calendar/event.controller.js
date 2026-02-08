@@ -1,6 +1,6 @@
-import logger from "../config/logger";
+import logger from "../../config/logger";
 import { createEvent } from "../services/event.service";
-import asyncHandler from "../utils/asyncHandler";
+import asyncHandler from "../../utils/asyncHandler";
 
 export const creatEvent = asyncHandler( async(req, res) => {
     const id = req.user._id;

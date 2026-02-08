@@ -1,6 +1,6 @@
 import * as nfcService from "../services/attendence.service.js";
-import asyncHandler from "../utils/asyncHandler.js";
-import logger from "../config/logger.js";
+import asyncHandler from "../../utils/asyncHandler.js";
+import logger from "../../config/logger.js";
 
 // Link NFC tag to student
 export const linkTag = asyncHandler(async (req, res) => {

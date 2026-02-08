@@ -1,6 +1,6 @@
 import * as schoolService from "../services/school.service.js";
-import asyncHandler from "../utils/asyncHandler.js";
-import logger from "../config/logger.js";
+import asyncHandler from "../../utils/asyncHandler.js";
+import logger from "../../config/logger.js";
 
 // Create a new school
 export const createSchool = asyncHandler(async (req, res) => {

@@ -1,6 +1,6 @@
-import { eventModel } from "../models/event.model.js";
-import logger from "../config/logger";
-import { CustomError } from "../utils/customError";
+import { eventModel } from "./event.model.js";
+import logger from "../../config/logger.js";
+import { CustomError } from "../../utils/customError.js";
 
 //  Create Event
 export const createEvent = async (eventData, id) => {

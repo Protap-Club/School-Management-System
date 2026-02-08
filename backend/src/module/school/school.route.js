@@ -5,17 +5,17 @@ import {
     uploadSchoolLogo,
     updateSchoolFeatures
 } from "../controllers/school.controller.js";
-import { checkAuth } from "../middlewares/auth.middleware.js";
-import { checkRole } from "../middlewares/role.middleware.js";
-import { USER_ROLES } from "../constants/userRoles.js";
-import { upload } from "../middlewares/upload.middleware.js";
-import extractSchoolId from "../middlewares/school.middleware.js";
-import { validate } from "../middlewares/validation.middleware.js";
+import { checkAuth } from "../../middlewares/auth.middleware.js";
+import { checkRole } from "../../middlewares/role.middleware.js";
+import { USER_ROLES } from "../../constants/userRoles.js";
+import { upload } from "../../middlewares/upload.middleware.js";
+import extractSchoolId from "../../middlewares/school.middleware.js";
+import { validate } from "../../middlewares/validation.middleware.js";
 import {
     updateSchoolSchema,
     uploadLogoSchema,
     updateFeaturesSchema
-} from "../validations/school.validation.js";
+} from "../../validations/school.validation.js";
 
 const router = express.Router();
 
