@@ -5,7 +5,7 @@ import logger from "../../config/logger.js";
  * Create a new calendar event
  */
 export const createCalendarEvent = async (eventData, userId, schoolId) => {
-    const { title, start, end, allDay, category, type, description } = eventData;
+    const { title, start, end, allDay, type, description } = eventData;
 
     // Edge Case: Check if an exact duplicate event already exists to prevent spam
     const existingEvent = await CalendarEvent.findOne({
@@ -27,8 +27,7 @@ export const createCalendarEvent = async (eventData, userId, schoolId) => {
         start: new Date(start),
         end: new Date(end),
         allDay: allDay !== undefined ? allDay : true,
-        category: category || 'event',
-        type: type || 'custom',
+        type: type || 'event',
         description,
         createdBy: userId,
         schoolId
@@ -42,7 +41,7 @@ export const createCalendarEvent = async (eventData, userId, schoolId) => {
  * Fetch calendar events with optional date range filter
  */
 export const fetchCalendarEvents = async (queryData, schoolId) => {
-    const { start, end, category, type } = queryData;
+    const { start, end, type } = queryData;
     let query = {};
 
     // Filter by school if provided
@@ -60,11 +59,6 @@ export const fetchCalendarEvents = async (queryData, schoolId) => {
             // Events that span the entire range
             { start: { $lte: new Date(start) }, end: { $gte: new Date(end) } }
         ];
-    }
-
-    // Filter by category if provided
-    if (category) {
-        query.category = category;
     }
 
     // Filter by type if provided

@@ -22,17 +22,12 @@ const CalendarEventSchema = new mongoose.Schema({
         type: Boolean,
         default: true
     },
-    // Category helps you color-code on the frontend (e.g., Holidays = Red, Exams = Yellow)
-    category: {
-        type: String,
-        enum: ['holiday', 'exam', 'meeting', 'event', 'national', 'gazetted', 'custom'],
-        default: 'event'
-    },
-    // Holiday type for frontend styling
+    // Event type: national (holidays), exam, custom, event
+    // Colors: national=Green, exam=Blue, custom=Yellow, event=Purple
     type: {
         type: String,
-        enum: ['national', 'gazetted', 'custom', 'event'],
-        default: 'custom'
+        enum: ['national', 'exam', 'custom', 'event'],
+        default: 'event'
     },
     // Add specific details for the admin panel
     description: {
