@@ -1,247 +1,526 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import DashboardLayout from '../layouts/DashboardLayout';
 import { useAuth } from '../features/auth';
-import { FaChevronLeft, FaChevronRight, FaCalendarAlt, FaPlus, FaTrash, FaTimes } from 'react-icons/fa';
-
-// Mock Holidays Data
-const MOCK_HOLIDAYS = [
-  { date: '2024-01-26', name: 'Republic Day', type: 'national' },
-  { date: '2024-03-25', name: 'Holi', type: 'gazetted' },
-  { date: '2024-08-15', name: 'Independence Day', type: 'national' },
-  { date: '2024-10-02', name: 'Gandhi Jayanti', type: 'national' },
-  { date: '2024-12-25', name: 'Christmas', type: 'gazetted' }
-];
+import { FaChevronLeft, FaChevronRight, FaCalendarAlt, FaPlus, FaTrash, FaTimes, FaSpinner, FaClock, FaTag, FaUmbrellaBeach } from 'react-icons/fa';
+import api from '../lib/axios';
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+// Event type colors: National=Green, Exam=Blue, Custom=Yellow, Event=Purple
+const getTypeColors = (type) => {
+  switch (type) {
+    case 'national':
+      return { bg: 'bg-emerald-500', text: 'text-white', light: 'bg-emerald-100 text-emerald-700 border-emerald-200' };
+    case 'exam':
+      return { bg: 'bg-blue-500', text: 'text-white', light: 'bg-blue-100 text-blue-700 border-blue-200' };
+    case 'custom':
+      return { bg: 'bg-amber-400', text: 'text-amber-900', light: 'bg-amber-100 text-amber-700 border-amber-200' };
+    case 'event':
+    default:
+      return { bg: 'bg-purple-500', text: 'text-white', light: 'bg-purple-100 text-purple-700 border-purple-200' };
+  }
+};
+
+const TYPE_LABELS = {
+  national: 'National Holiday',
+  exam: 'Examination',
+  custom: 'Custom',
+  event: 'Event'
+};
 
 const Calendar = () => {
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
-  const isTeacher = user?.role === 'teacher';
 
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [holidays, setHolidays] = useState(MOCK_HOLIDAYS);
-  const [selectedDate, setSelectedDate] = useState(null);
+  const [events, setEvents] = useState([]);
   const [showModal, setShowModal] = useState(false);
-  const [newHolidayName, setNewHolidayName] = useState('');
-  const [message, setMessage] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState({ text: '', type: '' });
+  const [hoveredEvent, setHoveredEvent] = useState(null);
+  const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
+  const [expandedDescription, setExpandedDescription] = useState(false);
 
-  // Calendar Logic
-  const getDaysInMonth = (date) => {
-    return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
-  };
+  // Form state
+  const [formData, setFormData] = useState({
+    title: '',
+    startDate: '',
+    endDate: '',
+    type: 'event',
+    description: '',
+    allDay: true
+  });
 
-  const getFirstDayOfMonth = (date) => {
-    return new Date(date.getFullYear(), date.getMonth(), 1).getDay();
-  };
-
-  const nextMonth = () => {
-    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
-  };
-
-  const prevMonth = () => {
-    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
-  };
-
-  const formatDate = (date) => { // format YYYY-MM-DD
+  const formatDate = (date) => {
     const y = date.getFullYear();
     const m = String(date.getMonth() + 1).padStart(2, '0');
     const d = String(date.getDate()).padStart(2, '0');
     return `${y}-${m}-${d}`;
   };
 
-  // Interaction Handlers
+  const fetchEvents = useCallback(async () => {
+    try {
+      setLoading(true);
+      const startOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+      const endOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
+
+      const response = await api.get('/calendar', {
+        params: { start: startOfMonth.toISOString(), end: endOfMonth.toISOString() }
+      });
+
+      if (response.data.success) {
+        setEvents(response.data.data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch events:', error);
+      showMessage('Failed to load events', 'error');
+    } finally {
+      setLoading(false);
+    }
+  }, [currentDate]);
+
+  useEffect(() => { fetchEvents(); }, [fetchEvents]);
+
+  const showMessage = (text, type = 'success') => {
+    setMessage({ text, type });
+    setTimeout(() => setMessage({ text: '', type: '' }), 3000);
+  };
+
+  const getDaysInMonth = (date) => new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+  const getFirstDayOfMonth = (date) => new Date(date.getFullYear(), date.getMonth(), 1).getDay();
+  const nextMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
+  const prevMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
+
+  // Events mapped by date
+  const getEventsForDate = useMemo(() => {
+    const map = {};
+    events.forEach(event => {
+      const start = new Date(event.start);
+      const end = new Date(event.end);
+      start.setHours(0, 0, 0, 0);
+      end.setHours(0, 0, 0, 0);
+
+      const current = new Date(start);
+      while (current <= end) {
+        const dateStr = formatDate(current);
+        if (!map[dateStr]) map[dateStr] = [];
+        map[dateStr].push(event);
+        current.setDate(current.getDate() + 1);
+      }
+    });
+    return map;
+  }, [events]);
+
+  // Holiday count (national type)
+  const holidayCount = useMemo(() => {
+    const uniqueDays = new Set();
+    const monthStart = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+    const monthEnd = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
+
+    events.forEach(event => {
+      if (event.type === 'national') {
+        const start = new Date(event.start);
+        const end = new Date(event.end);
+        start.setHours(0, 0, 0, 0);
+        end.setHours(0, 0, 0, 0);
+
+        const current = new Date(start);
+        while (current <= end) {
+          if (current >= monthStart && current <= monthEnd) {
+            uniqueDays.add(formatDate(current));
+          }
+          current.setDate(current.getDate() + 1);
+        }
+      }
+    });
+    return uniqueDays.size;
+  }, [events, currentDate]);
+
   const handleDayClick = (day) => {
-    if (!isAdmin) return; // Only Admin can edit
+    if (!isAdmin) return;
 
     const clickedDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
     const dateStr = formatDate(clickedDate);
-    setSelectedDate(dateStr);
+    const existingEvents = getEventsForDate[dateStr];
 
-    // Check if holiday exists
-    const holiday = holidays.find(h => h.date === dateStr);
-    if (holiday) {
-      setNewHolidayName(holiday.name); // Pre-fill for potential edit/delete
+    if (existingEvents?.length > 0) {
+      const event = existingEvents[0];
+      setFormData({
+        _id: event._id,
+        title: event.title,
+        startDate: formatDate(new Date(event.start)),
+        endDate: formatDate(new Date(event.end)),
+        type: event.type || 'event',
+        description: event.description || '',
+        allDay: event.allDay !== false
+      });
     } else {
-      setNewHolidayName('');
+      setFormData({
+        title: '',
+        startDate: dateStr,
+        endDate: dateStr,
+        type: 'event',
+        description: '',
+        allDay: true
+      });
     }
     setShowModal(true);
   };
 
-  const handleSaveHoliday = () => {
-    if (!newHolidayName.trim()) return;
+  const handleEventHover = (event, e) => {
+    if (event) {
+      const rect = e.currentTarget.getBoundingClientRect();
+      setTooltipPosition({ x: rect.left + rect.width / 2, y: rect.bottom + 8 });
+      setHoveredEvent(event);
+      setExpandedDescription(false);
+    } else {
+      setHoveredEvent(null);
+      setExpandedDescription(false);
+    }
+  };
 
-    // Add or Update
-    setHolidays(prev => {
-      const exists = prev.find(h => h.date === selectedDate);
-      if (exists) {
-        return prev.map(h => h.date === selectedDate ? { ...h, name: newHolidayName } : h);
+  const handleSaveEvent = async () => {
+    if (!formData.title.trim()) return;
+
+    try {
+      setSaving(true);
+      const eventPayload = {
+        title: formData.title.trim(),
+        start: new Date(formData.startDate).toISOString(),
+        end: new Date(formData.endDate).toISOString(),
+        allDay: formData.allDay,
+        type: formData.type,
+        description: formData.description
+      };
+
+      if (formData._id) {
+        await api.put(`/calendar/${formData._id}`, eventPayload);
+        showMessage('Event updated!');
+      } else {
+        await api.post('/calendar', eventPayload);
+        showMessage('Event created!');
       }
-      return [...prev, { date: selectedDate, name: newHolidayName, type: 'custom' }];
-    });
 
-    setShowModal(false);
-    setMessage('Holiday updated successfully!');
-    setTimeout(() => setMessage(''), 3000);
+      setShowModal(false);
+      fetchEvents();
+    } catch (error) {
+      showMessage(error.response?.data?.message || 'Failed to save event', 'error');
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleDeleteHoliday = () => {
-    setHolidays(prev => prev.filter(h => h.date !== selectedDate));
-    setShowModal(false);
-    setMessage('Holiday removed successfully!');
-    setTimeout(() => setMessage(''), 3000);
+  const handleDeleteEvent = async () => {
+    if (!formData._id) return;
+    try {
+      setSaving(true);
+      await api.delete(`/calendar/${formData._id}`);
+      showMessage('Event deleted!');
+      setShowModal(false);
+      fetchEvents();
+    } catch (error) {
+      showMessage('Failed to delete event', 'error');
+    } finally {
+      setSaving(false);
+    }
   };
 
-  // Render Generation
+  // Render calendar grid
   const daysInMonth = getDaysInMonth(currentDate);
   const firstDay = getFirstDayOfMonth(currentDate);
   const days = [];
 
-  // Empty cells for previous month
   for (let i = 0; i < firstDay; i++) {
-    days.push(<div key={`empty-${i}`} className="h-14 sm:h-20 bg-gray-50/50 border border-gray-100"></div>);
+    days.push(<div key={`empty-${i}`} className="h-24 bg-gray-50/30 border-b border-r border-gray-100"></div>);
   }
 
-  // Day cells
   for (let day = 1; day <= daysInMonth; day++) {
     const dateObj = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
     const dateStr = formatDate(dateObj);
-    const holiday = holidays.find(h => h.date === dateStr);
+    const dayEvents = getEventsForDate[dateStr] || [];
     const isToday = dateStr === formatDate(new Date());
 
     days.push(
       <div
         key={day}
         onClick={() => handleDayClick(day)}
-        className={`relative h-14 sm:h-20 border border-gray-100 p-1 transition-all group ${isAdmin ? 'cursor-pointer hover:bg-gray-50' : ''
-          } ${isToday ? 'bg-indigo-50/30' : 'bg-white'}`}
+        className={`h-24 border-b border-r border-gray-100 p-1.5 transition-all group relative overflow-hidden
+          ${isAdmin ? 'cursor-pointer hover:bg-gray-50' : ''}
+          ${isToday ? 'bg-indigo-50/40' : 'bg-white'}`}
       >
-        <span className={`text-sm font-medium w-7 h-7 flex items-center justify-center rounded-full ${isToday ? 'bg-indigo-600 text-white shadow-sm' : 'text-gray-700'
-          }`}>
-          {day}
-        </span>
+        <div className="flex items-center justify-between mb-1">
+          <span className={`text-xs font-semibold w-6 h-6 flex items-center justify-center rounded-full
+            ${isToday ? 'bg-indigo-600 text-white' : 'text-gray-600'}`}>
+            {day}
+          </span>
+          {isAdmin && dayEvents.length === 0 && (
+            <FaPlus className="text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity text-xs" />
+          )}
+        </div>
 
-        {holiday && (
-          <div className={`mt-2 p-1.5 rounded-md text-xs font-medium truncate ${holiday.type === 'national' ? 'bg-rose-100 text-rose-700' :
-            holiday.type === 'gazetted' ? 'bg-amber-100 text-amber-800' :
-              'bg-emerald-100 text-emerald-800'
-            }`}>
-            {holiday.name}
-          </div>
-        )}
-
-        {/* Visual cue for admin hover */}
-        {isAdmin && !holiday && (
-          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 pointer-events-none">
-            <FaPlus className="text-gray-300" />
-          </div>
-        )}
+        <div className="space-y-0.5 overflow-hidden">
+          {dayEvents.slice(0, 2).map((event, idx) => {
+            const colors = getTypeColors(event.type);
+            return (
+              <div
+                key={event._id || idx}
+                onMouseEnter={(e) => handleEventHover(event, e)}
+                onMouseLeave={() => handleEventHover(null)}
+                className={`text-[10px] font-medium px-1.5 py-0.5 rounded truncate cursor-pointer transition-all hover:scale-[1.02] ${colors.bg} ${colors.text}`}
+              >
+                {event.title}
+              </div>
+            );
+          })}
+          {dayEvents.length > 2 && (
+            <div className="text-[10px] text-gray-400 font-medium pl-1">+{dayEvents.length - 2} more</div>
+          )}
+        </div>
       </div>
     );
   }
 
   return (
     <DashboardLayout>
-      {message && (
-        <div className="fixed top-6 right-6 z-50 bg-gray-900 text-white px-4 py-2 rounded-lg shadow-lg text-sm animate-fadeIn">
-          {message}
+      {/* Toast */}
+      {message.text && (
+        <div className={`fixed top-6 right-6 z-50 px-4 py-2.5 rounded-xl shadow-lg text-sm font-medium flex items-center gap-2 animate-fadeIn
+          ${message.type === 'error' ? 'bg-red-600 text-white' : 'bg-gray-900 text-white'}`}>
+          {message.type === 'error' ? <FaTimes /> : <FaCalendarAlt />}
+          {message.text}
         </div>
       )}
 
-      <div className="space-y-6">
+      {/* Hover Tooltip */}
+      {hoveredEvent && (
+        <div
+          className="fixed z-50 bg-white rounded-xl shadow-2xl border border-gray-100 p-4 min-w-[260px] max-w-[340px] animate-fadeIn"
+          style={{
+            left: `${Math.min(tooltipPosition.x, window.innerWidth - 360)}px`,
+            top: `${tooltipPosition.y}px`,
+            transform: 'translateX(-50%)'
+          }}
+        >
+          <div className="flex items-start gap-3">
+            <div className={`w-1.5 rounded-full flex-shrink-0 ${getTypeColors(hoveredEvent.type).bg}`} style={{ minHeight: '50px' }}></div>
+            <div className="flex-1 min-w-0">
+              <h4 className="font-semibold text-gray-900 text-sm mb-2">{hoveredEvent.title}</h4>
+              <div className="space-y-2 text-xs text-gray-500">
+                <div className="flex items-center gap-2">
+                  <FaTag className="text-gray-400" />
+                  <span className={`px-2 py-0.5 rounded text-[10px] font-medium ${getTypeColors(hoveredEvent.type).light}`}>
+                    {TYPE_LABELS[hoveredEvent.type] || 'Event'}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <FaClock className="text-gray-400" />
+                  <span>
+                    {new Date(hoveredEvent.start).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    {hoveredEvent.start !== hoveredEvent.end && ` - ${new Date(hoveredEvent.end).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`}
+                  </span>
+                </div>
+                {hoveredEvent.description && (
+                  <div className="pt-1 border-t border-gray-100">
+                    <p className={expandedDescription ? '' : 'line-clamp-2'}>
+                      {hoveredEvent.description}
+                    </p>
+                    {hoveredEvent.description.length > 80 && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setExpandedDescription(!expandedDescription); }}
+                        className="text-indigo-600 hover:text-indigo-700 font-medium mt-1"
+                      >
+                        {expandedDescription ? 'Show less' : 'Read more...'}
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="space-y-4">
         {/* Header */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
           <div>
-            <h1 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-              <FaCalendarAlt className="text-primary" />
+            <h1 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+              <FaCalendarAlt className="text-indigo-600" />
               Academic Calendar
             </h1>
-            <p className="text-gray-500 text-sm mt-0.5">
-              {isAdmin ? 'Manage holidays and events' : 'View holidays and academic events'}
+            <p className="text-gray-500 text-xs mt-0.5">
+              {isAdmin ? 'Click on any day to manage events' : 'Hover on events to see details'}
             </p>
           </div>
 
-          {/* Month Navigation */}
-          <div className="flex flex-col md:flex-row gap-4 justify-between items-start md:items-center">
-            <div className="flex items-center gap-4 bg-white px-4 py-2 rounded-xl shadow-sm border border-gray-200">
-              <button onClick={prevMonth} className="p-2 hover:bg-gray-100 rounded-lg text-gray-600 transition-colors">
-                <FaChevronLeft size={14} />
+          <div className="flex items-center gap-3">
+            {/* Holiday Count */}
+            <div className="flex items-center gap-2 bg-gradient-to-r from-emerald-50 to-green-50 px-4 py-2 rounded-xl border border-emerald-100">
+              <FaUmbrellaBeach className="text-emerald-500" />
+              <div className="text-sm">
+                <span className="font-bold text-emerald-600">{holidayCount}</span>
+                <span className="text-gray-500 ml-1">{holidayCount === 1 ? 'Holiday' : 'Holidays'}</span>
+              </div>
+            </div>
+
+            {/* Month Navigator */}
+            <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg shadow-sm border border-gray-200">
+              <button onClick={prevMonth} className="p-1.5 hover:bg-gray-100 rounded-md text-gray-500 transition-colors">
+                <FaChevronLeft size={12} />
               </button>
-              <span className="text-lg font-semibold text-gray-900 min-w-[140px] text-center">
+              <span className="text-sm font-semibold text-gray-800 min-w-[120px] text-center">
                 {currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
               </span>
-              <button onClick={nextMonth} className="p-2 hover:bg-gray-100 rounded-lg text-gray-600 transition-colors">
-                <FaChevronRight size={14} />
+              <button onClick={nextMonth} className="p-1.5 hover:bg-gray-100 rounded-md text-gray-500 transition-colors">
+                <FaChevronRight size={12} />
               </button>
             </div>
+          </div>
+        </div>
+
+        {/* Legend */}
+        <div className="flex flex-wrap items-center gap-4 text-xs">
+          <span className="text-gray-400 font-medium">Legend:</span>
+          <div className="flex items-center gap-1.5">
+            <div className="w-3 h-3 rounded bg-emerald-500"></div>
+            <span className="text-gray-600">National Holiday</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="w-3 h-3 rounded bg-blue-500"></div>
+            <span className="text-gray-600">Exam</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="w-3 h-3 rounded bg-amber-400"></div>
+            <span className="text-gray-600">Custom</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="w-3 h-3 rounded bg-purple-500"></div>
+            <span className="text-gray-600">Event</span>
           </div>
         </div>
 
         {/* Calendar Grid */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
-          {/* Header Row */}
-          <div className="grid grid-cols-7 border-b border-gray-200 bg-gray-50">
-            {WEEKDAYS.map(day => (
-              <div key={day} className="py-3 text-center text-sm font-semibold text-gray-500 uppercase tracking-wider">
-                {day}
-              </div>
-            ))}
+        {loading ? (
+          <div className="flex items-center justify-center h-64 bg-white rounded-xl shadow-sm border border-gray-100">
+            <FaSpinner className="animate-spin text-2xl text-indigo-600" />
           </div>
-          {/* Days Grid */}
-          <div className="grid grid-cols-7">
-            {days}
+        ) : (
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+            <div className="grid grid-cols-7 bg-gray-50 border-b border-gray-100">
+              {WEEKDAYS.map(day => (
+                <div key={day} className="py-2.5 text-center text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+                  {day}
+                </div>
+              ))}
+            </div>
+            <div className="grid grid-cols-7">{days}</div>
           </div>
-        </div>
+        )}
       </div>
 
-      {/* Modal for Admin */}
+      {/* Admin Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
-          <div className="bg-white rounded-xl shadow-2xl max-w-sm w-full p-6">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">
-                {holidays.find(h => h.date === selectedDate) ? 'Edit Holiday' : 'Add Holiday'}
-              </h3>
-              <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600">
-                <FaTimes />
-              </button>
-            </div>
-
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
-              <div className="px-3 py-2 bg-gray-50 rounded-lg text-gray-600 text-sm border border-gray-200">
-                {new Date(selectedDate).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden">
+            <div className="bg-gradient-to-r from-indigo-600 to-purple-600 px-5 py-4 text-white">
+              <div className="flex justify-between items-center">
+                <h3 className="text-lg font-semibold">{formData._id ? 'Edit Event' : 'Create Event'}</h3>
+                <button onClick={() => setShowModal(false)} className="p-1.5 hover:bg-white/10 rounded-lg transition-colors">
+                  <FaTimes size={16} />
+                </button>
               </div>
             </div>
 
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Holiday Name</label>
-              <input
-                type="text"
-                value={newHolidayName}
-                onChange={(e) => setNewHolidayName(e.target.value)}
-                placeholder="e.g. Annual Sports Day"
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-sm"
-                autoFocus
-              />
+            <div className="p-5 space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Event Title</label>
+                <input
+                  type="text"
+                  value={formData.title}
+                  onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
+                  placeholder="e.g., Annual Sports Day"
+                  className="w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-sm"
+                  autoFocus
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Start Date</label>
+                  <input
+                    type="date"
+                    value={formData.startDate}
+                    onChange={(e) => setFormData(prev => ({
+                      ...prev,
+                      startDate: e.target.value,
+                      endDate: prev.endDate < e.target.value ? e.target.value : prev.endDate
+                    }))}
+                    className="w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">End Date</label>
+                  <input
+                    type="date"
+                    value={formData.endDate}
+                    min={formData.startDate}
+                    onChange={(e) => setFormData(prev => ({ ...prev, endDate: e.target.value }))}
+                    className="w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-sm"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Event Type</label>
+                <select
+                  value={formData.type}
+                  onChange={(e) => setFormData(prev => ({ ...prev, type: e.target.value }))}
+                  className="w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-sm bg-white"
+                >
+                  <option value="national">National Holiday</option>
+                  <option value="exam">Exam</option>
+                  <option value="custom">Custom</option>
+                  <option value="event">Event</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Description</label>
+                <textarea
+                  value={formData.description}
+                  onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                  placeholder="Add event details..."
+                  rows={3}
+                  className="w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-sm resize-none"
+                />
+              </div>
             </div>
 
-            <div className="flex gap-3">
-              {holidays.find(h => h.date === selectedDate) && (
+            <div className="px-5 py-4 bg-gray-50 border-t border-gray-100 flex gap-3">
+              {formData._id && (
                 <button
-                  onClick={handleDeleteHoliday}
-                  className="p-2.5 text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors"
-                  title="Delete Holiday"
+                  onClick={handleDeleteEvent}
+                  disabled={saving}
+                  className="px-4 py-2.5 text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors disabled:opacity-50 text-sm font-medium flex items-center gap-2"
                 >
-                  <FaTrash size={16} />
+                  {saving ? <FaSpinner className="animate-spin" /> : <FaTrash size={14} />}
+                  Delete
                 </button>
               )}
               <button
-                onClick={handleSaveHoliday}
-                disabled={!newHolidayName.trim()}
-                className="flex-1 bg-gray-900 text-white py-2.5 rounded-lg font-medium hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={() => setShowModal(false)}
+                className="flex-1 px-4 py-2.5 text-gray-600 bg-white border border-gray-200 hover:bg-gray-50 rounded-lg transition-colors text-sm font-medium"
               >
-                Save
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveEvent}
+                disabled={!formData.title.trim() || saving}
+                className="flex-1 bg-indigo-600 text-white py-2.5 rounded-lg font-medium hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm"
+              >
+                {saving && <FaSpinner className="animate-spin" />}
+                {formData._id ? 'Update' : 'Create'}
               </button>
             </div>
           </div>

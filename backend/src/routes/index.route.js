@@ -6,6 +6,7 @@ import timetableRoutes from "../module/timetable/timetable.route.js"; // Will ha
 import timeSlotRoutes from "../module/timetable/timeslot.route.js"; // User listed them separately
 import scheduleRoutes from "../module/school/schedule.route.js";
 import attendanceRoutes from "../module/attendence/attendance.route.js"; // Keeping existing functionality
+import calendarRoutes from "../module/calendar/calendar.route.js"; // Calendar events
 
 const router = express.Router();
 
@@ -16,5 +17,6 @@ router.use(["/timeslot", "/timeslots", "/timetable/time-slots"], timeSlotRoutes)
 router.use(["/timetable", "/timetables"], timetableRoutes);
 router.use("/schedule", scheduleRoutes);
 router.use("/attendance", attendanceRoutes); // For NFC/Attendance
+router.use(["/calendar", "/events"], calendarRoutes); // Calendar & Events
 
 export default router;

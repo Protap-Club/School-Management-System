@@ -34,6 +34,7 @@ const commands = {
     "demo": () => import("./commands/demo.js"),
     "quick": () => import("./commands/quick.js"),
     "cleanup": () => import("./commands/cleanup.js"),
+    "holidays": () => import("./commands/holidays.js"),
 
     // Utility commands
     "clear-attendance": () => import("./commands/clearAttendance.js"),
@@ -91,7 +92,7 @@ const main = async () => {
     try {
         // Connect to the database before executing any command.
         await connectDB();
-        
+
         // Dynamically import and execute the command module.
         const commandModule = await commands[commandName]();
         if (typeof commandModule.default === 'function') {
@@ -99,7 +100,7 @@ const main = async () => {
         } else {
             logger.error(`Command module for "${commandName}" did not export a default function.`);
         }
-        
+
     } catch (error) {
         logger.error({ err: error }, `Error executing command "${commandName}": ${error.message}`);
         // Ensure process exits with a non-zero code on error.
