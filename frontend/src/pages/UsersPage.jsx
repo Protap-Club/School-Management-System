@@ -60,6 +60,10 @@ const UsersPage = () => {
     const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 });
     const dropdownRef = useRef(null);
 
+    // Sort Menu State
+    const [showSortMenu, setShowSortMenu] = useState(false);
+    const sortMenuRef = useRef(null);
+
     // Edit Modal State
     const [editModal, setEditModal] = useState({ open: false, user: null });
     const [editName, setEditName] = useState('');
@@ -85,6 +89,9 @@ const UsersPage = () => {
         const handleClickOutside = (event) => {
             if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
                 setActiveDropdown(null);
+            }
+            if (sortMenuRef.current && !sortMenuRef.current.contains(event.target)) {
+                setShowSortMenu(false);
             }
         };
         document.addEventListener('mousedown', handleClickOutside);
@@ -421,19 +428,7 @@ const UsersPage = () => {
                             )}
 
                             {/* Sort Button - Matched Size */}
-                            <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-3 h-10 min-w-[140px]">
-                                <FaSort className="text-gray-400" size={12} />
-                                <select
-                                    value={sortBy}
-                                    onChange={(e) => setSortBy(e.target.value)}
-                                    className="bg-transparent text-sm text-gray-700 outline-none cursor-pointer w-full"
-                                >
-                                    <option value="default"> Sort</option>
-                                    <option value="name">Name (A-Z)</option>
-                                    {allowedRoles.length > 1 && <option value="role">Role Priority</option>}
-                                    <option value="email">Email </option>
-                                </select>
-                            </div>
+
                         </div>
 
                         {/* Center: Search Bar */}
@@ -540,7 +535,62 @@ const UsersPage = () => {
                                                     />
                                                 </th>
                                             )}
-                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
+                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                <div className="flex items-center gap-2 relative">
+                                                    <span>User</span>
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setShowSortMenu(!showSortMenu);
+                                                        }}
+                                                        className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors focus:outline-none"
+                                                        title="Sort Users"
+                                                    >
+                                                        <FaSort size={12} />
+                                                    </button>
+
+                                                    {/* Sort Dropdown Menu */}
+                                                    {showSortMenu && (
+                                                        <div
+                                                            ref={sortMenuRef}
+                                                            className="absolute top-full left-0 mt-1 w-32 bg-white rounded-lg shadow-xl border border-gray-100 py-1 z-50 animate-fadeIn"
+                                                        >
+                                                            <div className="px-3 py-1.5 text-xs font-semibold text-gray-400 border-b border-gray-50">Sort By</div>
+                                                            <button
+                                                                onClick={() => { setSortBy('name'); setShowSortMenu(false); }}
+                                                                className={`w-full text-left px-3 py-2 text-xs flex items-center justify-between hover:bg-gray-50 ${sortBy === 'name' ? 'text-indigo-600 font-medium' : 'text-gray-700'}`}
+                                                            >
+                                                                Name {sortBy === 'name' && <FaCheck size={10} />}
+                                                            </button>
+                                                            {allowedRoles.length > 1 && (
+                                                                <button
+                                                                    onClick={() => { setSortBy('role'); setShowSortMenu(false); }}
+                                                                    className={`w-full text-left px-3 py-2 text-xs flex items-center justify-between hover:bg-gray-50 ${sortBy === 'role' ? 'text-indigo-600 font-medium' : 'text-gray-700'}`}
+                                                                >
+                                                                    Role {sortBy === 'role' && <FaCheck size={10} />}
+                                                                </button>
+                                                            )}
+                                                            <button
+                                                                onClick={() => { setSortBy('email'); setShowSortMenu(false); }}
+                                                                className={`w-full text-left px-3 py-2 text-xs flex items-center justify-between hover:bg-gray-50 ${sortBy === 'email' ? 'text-indigo-600 font-medium' : 'text-gray-700'}`}
+                                                            >
+                                                                Email {sortBy === 'email' && <FaCheck size={10} />}
+                                                            </button>
+                                                            {sortBy !== 'default' && (
+                                                                <>
+                                                                    <div className="h-px bg-gray-50 my-1"></div>
+                                                                    <button
+                                                                        onClick={() => { setSortBy('default'); setShowSortMenu(false); }}
+                                                                        className="w-full text-left px-3 py-2 text-xs text-red-500 hover:bg-red-50"
+                                                                    >
+                                                                        Reset Sort
+                                                                    </button>
+                                                                </>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </th>
                                             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
                                             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">Email</th>
                                             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
@@ -579,6 +629,7 @@ const UsersPage = () => {
                                                                 </div>
                                                             </div>
                                                         </td>
+
                                                         <td className="px-4 py-3">
                                                             <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-${roleConfig?.color || 'gray'}-50 text-${roleConfig?.color || 'gray'}-600 capitalize`}>
                                                                 {u.role}
