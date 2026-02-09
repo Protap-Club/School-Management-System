@@ -1,4 +1,4 @@
-import * as schoolService from "../services/school.service.js";
+import * as schoolService from "./school.service.js";
 import asyncHandler from "../../utils/asyncHandler.js";
 import logger from "../../config/logger.js";
 

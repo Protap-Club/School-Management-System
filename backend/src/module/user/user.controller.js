@@ -1,4 +1,4 @@
-import * as userService from "../services/user.service.js";
+import * as userService from "./user.service.js";
 import asyncHandler from "../../utils/asyncHandler.js"; // Wrapper for async route handlers
 import logger from "../../config/logger.js"; // Import the logger
 

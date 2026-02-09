@@ -4,7 +4,7 @@ import {
     getTimeSlots,
     updateTimeSlot,
     deleteTimeSlot
-} from "../controllers/timetable.controller.js";
+} from "./timetable.controller.js";
 import { checkAuth } from "../../middlewares/auth.middleware.js";
 import { checkRole } from "../../middlewares/role.middleware.js";
 import { requireFeature } from "../../middlewares/feature.middleware.js";
@@ -15,7 +15,7 @@ import {
     createTimeSlotSchema,
     updateTimeSlotSchema,
     timeSlotIdParamsSchema
-} from "../../validations/timetable.validation.js";
+} from "./timetable.validation.js";
 
 const router = express.Router();
 

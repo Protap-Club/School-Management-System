@@ -10,7 +10,7 @@ import {
     updateEntry,
     deleteEntry,
     getTeacherSchedule
-} from "../controllers/timetable.controller.js";
+} from "./timetable.controller.js";
 import { checkAuth } from "../../middlewares/auth.middleware.js";
 import { checkRole } from "../../middlewares/role.middleware.js";
 import { requireFeature } from "../../middlewares/feature.middleware.js";
@@ -25,7 +25,7 @@ import {
     createBulkEntriesSchema,
     updateEntrySchema,
     entryIdParamsSchema
-} from "../../validations/timetable.validation.js";
+} from "./timetable.validation.js";
 
 const router = express.Router();
 

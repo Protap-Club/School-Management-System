@@ -4,7 +4,7 @@ import {
     getUsers,
     toggleUserStatus,
     hardDeleteUsers
-} from "../controllers/user.controller.js";
+} from "./user.controller.js";
 import { checkAuth } from "../../middlewares/auth.middleware.js";
 import { checkRole } from "../../middlewares/role.middleware.js";
 import { USER_ROLES } from "../../constants/userRoles.js";
@@ -13,7 +13,7 @@ import {
     createUserSchema,
     getUsersSchema,
     userIdsBodySchema
-} from "../../validations/user.validation.js";
+} from "./user.validation.js";
 
 const router = express.Router();
 

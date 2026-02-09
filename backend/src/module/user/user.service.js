@@ -1,5 +1,5 @@
 
-import User from "../../models/User.model.js";
+import User from "./model/User.model.js";
 import { PROFILE_CONFIG } from "../../config/profiles.js";
 import { sendCredentialsEmail } from "../../utils/email.util.js";
 import { CustomError } from "../../utils/customError.js";

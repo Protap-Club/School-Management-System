@@ -1,6 +1,6 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import User from "../../models/User.model.js";
+import User from "../user/model/User.model.js";
 import { conf } from "../../config/index.js";
 import { USER_ROLES } from "../../constants/userRoles.js";
 import { CustomError } from "../../utils/customError.js";

@@ -4,7 +4,7 @@ import {
     updateSchool,
     uploadSchoolLogo,
     updateSchoolFeatures
-} from "../controllers/school.controller.js";
+} from "./school.controller.js";
 import { checkAuth } from "../../middlewares/auth.middleware.js";
 import { checkRole } from "../../middlewares/role.middleware.js";
 import { USER_ROLES } from "../../constants/userRoles.js";
@@ -15,7 +15,7 @@ import {
     updateSchoolSchema,
     uploadLogoSchema,
     updateFeaturesSchema
-} from "../../validations/school.validation.js";
+} from "./school.validation.js";
 
 const router = express.Router();
 

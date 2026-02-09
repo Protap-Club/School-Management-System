@@ -1,5 +1,5 @@
 import express from "express";
-import { getMySchedule } from "../controllers/timetable.controller.js";
+import { getMySchedule } from "../timetable/timetable.controller.js";
 import { checkAuth } from "../../middlewares/auth.middleware.js";
 import extractSchoolId from "../../middlewares/school.middleware.js";
 import { requireFeature } from "../../middlewares/feature.middleware.js";
