@@ -6,7 +6,9 @@ import { useAuth } from '../features/auth';
 const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
     const { user } = useAuth();
     const [formData, setFormData] = useState({
-        name: '',
+        firstName: '',
+        middleName: '',
+        lastName: '',
         email: '',
         department: '',
         standard: '',
@@ -62,10 +64,19 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
         setError('');
 
         try {
+            // Concatenate names
+            const fullName = `${formData.firstName} ${formData.middleName ? formData.middleName + ' ' : ''}${formData.lastName}`.trim();
+
             const payload = {
                 ...formData,
+                name: fullName,
                 role: roleToAdd
             };
+
+            // Remove temporary name fields from payload
+            delete payload.firstName;
+            delete payload.middleName;
+            delete payload.lastName;
 
             // Map "year" to number if present
             if (payload.year) payload.year = parseInt(payload.year);
@@ -75,7 +86,8 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
             onClose();
             // Reset form
             setFormData({
-                name: '', email: '', department: '', standard: '', section: '',
+                firstName: '', middleName: '', lastName: '',
+                email: '', department: '', standard: '', section: '',
                 rollNumber: '', course: '', year: '', contactNo: '', schoolId: user?.schoolId || ''
             });
         } catch (err) {
@@ -125,13 +137,46 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
                             />
                         </div>
 
-                        {/* Common Fields */}
+                        {/* Name Fields */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div className="space-y-1">
+                                <label className="text-sm font-medium text-gray-700">First Name *</label>
+                                <input
+                                    name="firstName"
+                                    value={formData.firstName}
+                                    onChange={handleChange}
+                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
+                                    required
+                                />
+                            </div>
+                            <div className="space-y-1">
+                                <label className="text-sm font-medium text-gray-700">Middle Name</label>
+                                <input
+                                    name="middleName"
+                                    value={formData.middleName}
+                                    onChange={handleChange}
+                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
+                                />
+                            </div>
+                            <div className="space-y-1">
+                                <label className="text-sm font-medium text-gray-700">Last Name *</label>
+                                <input
+                                    name="lastName"
+                                    value={formData.lastName}
+                                    onChange={handleChange}
+                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
+                                    required
+                                />
+                            </div>
+                        </div>
+
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="space-y-1">
-                                <label className="text-sm font-medium text-gray-700">Full Name *</label>
+                                <label className="text-sm font-medium text-gray-700">Email Address *</label>
                                 <input
-                                    name="name"
-                                    value={formData.name}
+                                    type="email"
+                                    name="email"
+                                    value={formData.email}
                                     onChange={handleChange}
                                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
                                     required
@@ -146,18 +191,6 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
                                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
                                 />
                             </div>
-                        </div>
-
-                        <div className="space-y-1">
-                            <label className="text-sm font-medium text-gray-700">Email Address *</label>
-                            <input
-                                type="email"
-                                name="email"
-                                value={formData.email}
-                                onChange={handleChange}
-                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
-                                required
-                            />
                         </div>
 
                         {/* Info about auto-generated password */}
