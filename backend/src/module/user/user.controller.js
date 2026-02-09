@@ -1,6 +1,6 @@
-import * as userService from "../services/user.service.js";
-import asyncHandler from "../utils/asyncHandler.js"; // Wrapper for async route handlers
-import logger from "../config/logger.js"; // Import the logger
+import * as userService from "./user.service.js";
+import asyncHandler from "../../utils/asyncHandler.js"; // Wrapper for async route handlers
+import logger from "../../config/logger.js"; // Import the logger
 
 // Create a new user with associated profile
 export const createUser = asyncHandler(async (req, res) => {

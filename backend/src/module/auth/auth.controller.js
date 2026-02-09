@@ -1,6 +1,6 @@
-import * as authService from "../services/auth.service.js";
-import asyncHandler from "../utils/asyncHandler.js";
-import logger from "../config/logger.js"; // Import the logger
+import * as authService from "./auth.service.js";
+import asyncHandler from "../../utils/asyncHandler.js";
+import logger from "../../config/logger.js"; // Import the logger
 
 // Handle user login
 export const login = asyncHandler(async (req, res) => {

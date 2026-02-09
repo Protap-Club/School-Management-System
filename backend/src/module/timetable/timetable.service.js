@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
-import { TimeSlot, Timetable, TimetableEntry, DAYS_OF_WEEK } from "../models/Timetable.model.js";
-import { CustomError } from "../utils/customError.js";
-import logger from "../config/logger.js";
+import { TimeSlot, Timetable, TimetableEntry, DAYS_OF_WEEK } from "./Timetable.model.js";
+import { CustomError } from "../../utils/customError.js";
+import logger from "../../config/logger.js";
 
 // Manage TimeSlots (get, create, update, delete)
 export const manageTimeSlots = async (schoolId, action, data = {}) => {

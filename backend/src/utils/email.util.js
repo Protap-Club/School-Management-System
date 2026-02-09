@@ -33,6 +33,12 @@ const parseTemplate = (html, data) => {
 // Sends credentials email with School Branding
 export const sendCredentialsEmail = async ({ to, name, role, password, schoolName }) => {
     try {
+
+        if(conf.NODE_ENV !== 'production'){
+            logger.info(`Email skipped (non -prod) :${to}`);
+            return { success : true, skipped : true};
+        }
+
         if (!conf.SMTP_USER) {
             logger.warn("SMTP not configured. Email skipped.");
             return { success: false };

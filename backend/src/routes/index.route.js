@@ -1,11 +1,11 @@
 import express from "express";
-import authRoutes from "./auth.route.js";
-import userRoutes from "./user.route.js";
-import schoolRoutes from "./school.route.js";
-import timetableRoutes from "./timetable.route.js"; // Will handle timeslots routes too?
-import timeSlotRoutes from "./timeslot.route.js"; // User listed them separately
-import scheduleRoutes from "./schedule.route.js";
-import attendanceRoutes from "./attendance.route.js"; // Keeping existing functionality
+import authRoutes from "../module/auth/auth.route.js";
+import userRoutes from "../module/user/user.route.js";
+import schoolRoutes from "../module/school/school.route.js";
+import timetableRoutes from "../module/timetable/timetable.route.js"; // Will handle timeslots routes too?
+import timeSlotRoutes from "../module/timetable/timeslot.route.js"; // User listed them separately
+import scheduleRoutes from "../module/school/schedule.route.js";
+import attendanceRoutes from "../module/attendence/attendance.route.js"; // Keeping existing functionality
 
 const router = express.Router();
 

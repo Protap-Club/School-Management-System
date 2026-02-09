@@ -1,8 +1,8 @@
-import User from "../models/User.model.js";
-import Attendance from "../models/Attendance.model.js";
-import { getIO } from "../socket.js";
-import { CustomError } from "../utils/customError.js";
-import logger from "../config/logger.js";
+import User from "../user/model/User.model.js";
+import Attendance from "./Attendance.model.js";
+import { getIO } from "../../socket.js";
+import { CustomError } from "../../utils/customError.js";
+import logger from "../../config/logger.js";
 
 
 // LINK NFC TAG

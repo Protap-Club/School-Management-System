@@ -4,18 +4,18 @@ import {
     getTimeSlots,
     updateTimeSlot,
     deleteTimeSlot
-} from "../controllers/timetable.controller.js";
-import { checkAuth } from "../middlewares/auth.middleware.js";
-import { checkRole } from "../middlewares/role.middleware.js";
-import { requireFeature } from "../middlewares/feature.middleware.js";
-import { USER_ROLES } from "../constants/userRoles.js";
-import extractSchoolId from "../middlewares/school.middleware.js";
-import { validate } from "../middlewares/validation.middleware.js";
+} from "./timetable.controller.js";
+import { checkAuth } from "../../middlewares/auth.middleware.js";
+import { checkRole } from "../../middlewares/role.middleware.js";
+import { requireFeature } from "../../middlewares/feature.middleware.js";
+import { USER_ROLES } from "../../constants/userRoles.js";
+import extractSchoolId from "../../middlewares/school.middleware.js";
+import { validate } from "../../middlewares/validation.middleware.js";
 import {
     createTimeSlotSchema,
     updateTimeSlotSchema,
     timeSlotIdParamsSchema
-} from "../validations/timetable.validation.js";
+} from "./timetable.validation.js";
 
 const router = express.Router();
 

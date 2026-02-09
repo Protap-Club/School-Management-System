@@ -1,6 +1,6 @@
-import StudentProfile from "../models/StudentProfile.model.js";
-import TeacherProfile from "../models/TeacherProfile.model.js";
-import AdminProfile from "../models/AdminProfile.model.js";
+import StudentProfile from "../module/user/model/StudentProfile.model.js";
+import TeacherProfile from "../module/user/model/TeacherProfile.model.js";
+import AdminProfile from "../module/user/model/AdminProfile.model.js";
 
 export const PROFILE_CONFIG = {
     student: {

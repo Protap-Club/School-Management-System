@@ -1,7 +1,7 @@
-import * as timetableService from "../services/timetable.service.js";
-import asyncHandler from "../utils/asyncHandler.js";
-import logger from "../config/logger.js";
-import { USER_ROLES } from "../constants/userRoles.js";
+import * as timetableService from "./timetable.service.js";
+import asyncHandler from "../../utils/asyncHandler.js";
+import logger from "../../config/logger.js";
+import { USER_ROLES } from "../../constants/userRoles.js";
 
 // Create a new time slot
 export const createTimeSlot = asyncHandler(async (req, res) => {

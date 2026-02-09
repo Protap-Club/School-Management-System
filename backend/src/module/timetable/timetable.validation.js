@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { DAYS_OF_WEEK } from '../models/Timetable.model.js';
+import { DAYS_OF_WEEK } from './Timetable.model.js';
 
 const objectIdSchema = z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid ObjectId');
 
