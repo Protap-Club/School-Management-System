@@ -3,6 +3,24 @@ import { FaTimes, FaUserPlus, FaBuilding } from 'react-icons/fa';
 import api from '../api/axios';
 import { useAuth } from '../features/auth';
 
+// Reusable Field Component defined outside to prevent re-renders losing focus
+const InputField = ({ label, name, value, onChange, type = "text", required = false, ...props }) => (
+    <div className="space-y-1">
+        <label className="text-sm font-medium text-gray-700 flex items-center gap-1">
+            {label} {required && <span className="text-red-500">*</span>}
+        </label>
+        <input
+            type={type}
+            name={name}
+            value={value}
+            onChange={onChange}
+            className="w-full px-4 py-2 border border-blue-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all placeholder:text-gray-400"
+            required={required}
+            {...props}
+        />
+    </div>
+);
+
 const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
     const { user } = useAuth();
     const [formData, setFormData] = useState({
@@ -17,6 +35,10 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
         course: '',
         year: '',
         contactNo: '',
+        fatherName: '',
+        fatherContact: '',
+        motherName: '',
+        motherContact: '',
         schoolId: ''
     });
     const [schoolName, setSchoolName] = useState('');
@@ -88,7 +110,9 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
             setFormData({
                 firstName: '', middleName: '', lastName: '',
                 email: '', department: '', standard: '', section: '',
-                rollNumber: '', course: '', year: '', contactNo: '', schoolId: user?.schoolId || ''
+                rollNumber: '', course: '', year: '', contactNo: '',
+                fatherName: '', fatherContact: '', motherName: '', motherContact: '',
+                schoolId: user?.schoolId || ''
             });
         } catch (err) {
             const errorMessage = err.response?.data?.message || err.response?.data?.errors?.[0]?.message || 'Failed to create user';
@@ -98,225 +122,218 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
         }
     };
 
+
+    // Reusable Field Component for Consistency
+
+
+    const matchRoleColor = {
+        student: 'border-emerald-500 text-emerald-600',
+        teacher: 'border-blue-500 text-blue-600',
+        admin: 'border-purple-500 text-purple-600'
+    };
+
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-fade-in-up">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden animate-fade-in-up flex flex-col max-h-[90vh]">
                 {/* Header */}
-                <div className="bg-primary px-6 py-4 flex items-center justify-between">
-                    <h3 className="text-xl font-bold text-white flex items-center gap-2">
-                        <FaUserPlus />
-                        ADD {roleToAdd?.toUpperCase()}
-                    </h3>
+                <div className={`px-6 py-4 flex items-center justify-between bg-white border-b border-gray-100`}>
+                    <div className="flex items-center gap-3">
+                        <div className={`p-2 rounded-lg bg-gray-50 ${matchRoleColor[roleToAdd]?.split(' ')[1]}`}>
+                            <FaUserPlus size={20} />
+                        </div>
+                        <div>
+                            <h3 className="text-xl font-bold text-gray-900">Add New {roleToAdd.charAt(0).toUpperCase() + roleToAdd.slice(1)}</h3>
+                            <p className="text-xs text-gray-500">Enter details to create a new account</p>
+                        </div>
+                    </div>
                     <button
                         onClick={onClose}
-                        className="text-white/80 hover:text-white transition-colors"
+                        className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-2 rounded-full transition-all"
                     >
                         <FaTimes size={20} />
                     </button>
                 </div>
 
                 {/* Body */}
-                <div className="p-6 max-h-[80vh] overflow-y-auto">
+                <div className="p-6 overflow-y-auto custom-scrollbar flex-1">
                     {error && (
-                        <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-lg text-sm border border-red-100">
-                            {error}
+                        <div className="mb-6 p-4 bg-red-50 text-red-600 rounded-xl text-sm border border-red-100 flex items-start gap-3">
+                            <span className="mt-0.5">⚠️</span>
+                            <div>
+                                <p className="font-semibold">Creation Failed</p>
+                                <p>{error}</p>
+                            </div>
                         </div>
                     )}
 
-                    <form onSubmit={handleSubmit} className="space-y-4">
-                        {/* School Field - Read Only for Everyone */}
-                        <div className="space-y-1">
-                            <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
-                                <FaBuilding className="text-gray-400" />
-                                School
-                            </label>
-                            <input
-                                value={schoolName || 'Loading...'}
-                                disabled
-                                className="w-full px-4 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-500 cursor-not-allowed font-medium"
-                            />
-                        </div>
-
-                        {/* Name Fields */}
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div className="space-y-1">
-                                <label className="text-sm font-medium text-gray-700">First Name *</label>
-                                <input
-                                    name="firstName"
-                                    value={formData.firstName}
-                                    onChange={handleChange}
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
-                                    required
-                                />
+                    <form onSubmit={handleSubmit} className="space-y-8">
+                        {/* School Info (Read Only) */}
+                        <div className="bg-gray-50 rounded-xl p-4 border border-gray-100 flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-gray-400 shadow-sm border border-gray-100">
+                                <FaBuilding />
                             </div>
-                            <div className="space-y-1">
-                                <label className="text-sm font-medium text-gray-700">Middle Name</label>
-                                <input
-                                    name="middleName"
-                                    value={formData.middleName}
-                                    onChange={handleChange}
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
-                                />
-                            </div>
-                            <div className="space-y-1">
-                                <label className="text-sm font-medium text-gray-700">Last Name *</label>
-                                <input
-                                    name="lastName"
-                                    value={formData.lastName}
-                                    onChange={handleChange}
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
-                                    required
-                                />
+                            <div>
+                                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Target School</p>
+                                <p className="text-sm font-bold text-gray-800">{schoolName || 'Loading...'}</p>
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="space-y-1">
-                                <label className="text-sm font-medium text-gray-700">Email Address *</label>
-                                <input
-                                    type="email"
-                                    name="email"
-                                    value={formData.email}
-                                    onChange={handleChange}
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
-                                    required
-                                />
+                        {/* SECTION: PERSONAL DETAILS (Common for all) */}
+                        <div className="space-y-4">
+                            <h4 className="text-sm font-bold text-gray-900 uppercase tracking-wider border-b border-gray-100 pb-2 flex items-center gap-2">
+                                <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                                Personal Details
+                            </h4>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <InputField label="First Name" name="firstName" value={formData.firstName} onChange={handleChange} required placeholder="John" />
+                                <InputField label="Middle Name" name="middleName" placeholder="M." />
+                                <InputField label="Last Name" name="lastName" required placeholder="Doe" />
                             </div>
-                            <div className="space-y-1">
-                                <label className="text-sm font-medium text-gray-700">Contact No</label>
-                                <input
-                                    name="contactNo"
-                                    value={formData.contactNo}
-                                    onChange={handleChange}
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
-                                />
-                            </div>
-                        </div>
-
-                        {/* Info about auto-generated password */}
-                        <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 flex items-start gap-2">
-                            <span className="text-primary mt-0.5">ℹ️</span>
-                            <p className="text-sm text-primary">
-                                A secure password will be auto-generated and sent to the user's email address.
-                            </p>
-                        </div>
-
-                        {/* Admin Specific Fields */}
-                        {roleToAdd === 'admin' && (
-                            <div className="space-y-1">
-                                <label className="text-sm font-medium text-gray-700">Department *</label>
-                                <input
-                                    name="department"
-                                    value={formData.department}
-                                    onChange={handleChange}
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
-                                    required
-                                />
-                            </div>
-                        )}
-
-                        {/* Teacher Specific Fields */}
-                        {roleToAdd === 'teacher' && (
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div className="space-y-1">
-                                    <label className="text-sm font-medium text-gray-700">Standard *</label>
-                                    <select
-                                        name="standard"
-                                        value={formData.standard}
-                                        onChange={handleChange}
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
-                                        required
-                                    >
-                                        <option value="">Select Standard</option>
-                                        <option value="9th">9th</option>
-                                        <option value="10th">10th</option>
-                                        <option value="11th">11th</option>
-                                        <option value="12th">12th</option>
-                                    </select>
-                                </div>
-                                <div className="space-y-1">
-                                    <label className="text-sm font-medium text-gray-700">Section *</label>
-                                    <select
-                                        name="section"
-                                        value={formData.section}
-                                        onChange={handleChange}
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
-                                        required
-                                    >
-                                        <option value="">Select Section</option>
-                                        <option value="A">A</option>
-                                        <option value="B">B</option>
-                                        <option value="C">C</option>
-                                        <option value="D">D</option>
-                                    </select>
+                                <InputField label="Email Address" name="email" type="email" required placeholder="john@example.com" />
+                                <InputField label="Contact Number" name="contactNo" placeholder="+91 98765 43210" />
+                            </div>
+                        </div>
+
+                        {/* SECTION: ROLE SPECIFIC DETAILS */}
+
+                        {/* ADMIN */}
+                        {roleToAdd === 'admin' && (
+                            <div className="space-y-4">
+                                <h4 className="text-sm font-bold text-gray-900 uppercase tracking-wider border-b border-gray-100 pb-2 flex items-center gap-2">
+                                    <span className="w-2 h-2 rounded-full bg-purple-500"></span>
+                                    Professional Details
+                                </h4>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <InputField label="Department" name="department" required placeholder="e.g. Administration" />
                                 </div>
                             </div>
                         )}
 
-                        {/* Student Specific Fields */}
-                        {roleToAdd === 'student' && (
-                            <>
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        {/* TEACHER */}
+                        {roleToAdd === 'teacher' && (
+                            <div className="space-y-4">
+                                <h4 className="text-sm font-bold text-gray-900 uppercase tracking-wider border-b border-gray-100 pb-2 flex items-center gap-2">
+                                    <span className="w-2 h-2 rounded-full bg-indigo-500"></span>
+                                    Academic Assignment
+                                </h4>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div className="space-y-1">
-                                        <label className="text-sm font-medium text-gray-700">Roll Number *</label>
-                                        <input
-                                            name="rollNumber"
-                                            value={formData.rollNumber}
-                                            onChange={handleChange}
-                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
-                                            required
-                                        />
-                                    </div><div className="space-y-1">
-                                        <label className="text-sm font-medium text-gray-700">Class *</label>
-                                        <input
+                                        <label className="text-sm font-medium text-gray-700 flex items-center gap-1">Standard <span className="text-red-500">*</span></label>
+                                        <select
                                             name="standard"
                                             value={formData.standard}
                                             onChange={handleChange}
-                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
+                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all bg-white"
                                             required
-                                        />
+                                        >
+                                            <option value="">Select Standard</option>
+                                            <option value="9th">9th</option>
+                                            <option value="10th">10th</option>
+                                            <option value="11th">11th</option>
+                                            <option value="12th">12th</option>
+                                        </select>
                                     </div>
                                     <div className="space-y-1">
-                                        <label className="text-sm font-medium text-gray-700">Section *</label>
-                                        <input
+                                        <label className="text-sm font-medium text-gray-700 flex items-center gap-1">Section <span className="text-red-500">*</span></label>
+                                        <select
                                             name="section"
                                             value={formData.section}
                                             onChange={handleChange}
-                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
+                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all bg-white"
                                             required
-                                        />
+                                        >
+                                            <option value="">Select Section</option>
+                                            <option value="A">A</option>
+                                            <option value="B">B</option>
+                                            <option value="C">C</option>
+                                            <option value="D">D</option>
+                                        </select>
                                     </div>
-                                    <div className="space-y-1">
-                                        <label className="text-sm font-medium text-gray-700">Year *</label>
-                                        <input
-                                            type="number"
-                                            name="year"
-                                            value={formData.year}
-                                            onChange={handleChange}
-                                            min="1"
-                                            max="6"
-                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
-                                            required
-                                        />
+                                </div>
+                            </div>
+                        )}
+
+                        {/* STUDENT */}
+                        {roleToAdd === 'student' && (
+                            <>
+                                <div className="space-y-4">
+                                    <h4 className="text-sm font-bold text-gray-900 uppercase tracking-wider border-b border-gray-100 pb-2 flex items-center gap-2">
+                                        <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                                        Student Academic Details
+                                    </h4>
+                                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                        <InputField label="Roll Number" name="rollNumber" required placeholder="e.g. 101" />
+                                        <InputField label="Class" name="standard" required placeholder="e.g. 10th" />
+                                        <InputField label="Section" name="section" required placeholder="e.g. A" />
+                                        <InputField label="Year" name="year" type="number" required min="1" max="6" />
+                                    </div>
+                                </div>
+
+                                <div className="space-y-4">
+                                    <h4 className="text-sm font-bold text-gray-900 uppercase tracking-wider border-b border-gray-100 pb-2 flex items-center gap-2">
+                                        <span className="w-2 h-2 rounded-full bg-orange-500"></span>
+                                        Parent / Guardian Details
+                                    </h4>
+
+                                    {/* Father's Details */}
+                                    <div className="bg-orange-50/50 rounded-lg p-3 border border-orange-100/50 space-y-3">
+                                        <h5 className="text-xs font-semibold text-orange-700 uppercase tracking-wide flex items-center gap-2">
+                                            <span className="text-lg"></span> Father's Details
+                                        </h5>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <InputField label="Name" name="fatherName" placeholder="Father's Full Name" />
+                                            <InputField label="Contact" name="fatherContact" placeholder="Father's Phone Number" />
+                                        </div>
+                                    </div>
+
+                                    {/* Mother's Details */}
+                                    <div className="bg-pink-50/50 rounded-lg p-3 border border-pink-100/50 space-y-3">
+                                        <h5 className="text-xs font-semibold text-pink-700 uppercase tracking-wide flex items-center gap-2">
+                                            <span className="text-lg"></span> Mother's Details
+                                        </h5>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <InputField label="Name" name="motherName" placeholder="Mother's Full Name" />
+                                            <InputField label="Contact" name="motherContact" placeholder="Mother's Phone Number" />
+                                        </div>
                                     </div>
                                 </div>
                             </>
                         )}
 
-                        <div className="pt-4 flex justify-end space-x-3">
+                        {/* Password Info */}
+                        <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 flex items-start gap-3">
+                            <span className="text-blue-500 mt-0.5">ℹ️</span>
+                            <p className="text-sm text-blue-700">
+                                A secure password will be <strong>auto-generated</strong> and sent to the user's email address.
+                            </p>
+                        </div>
+
+                        {/* Footer Actions */}
+                        <div className="pt-4 flex justify-end gap-3 border-t border-gray-100">
                             <button
                                 type="button"
                                 onClick={onClose}
-                                className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors font-medium"
+                                className="px-5 py-2.5 text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg transition-all font-medium text-sm"
                             >
                                 Cancel
                             </button>
                             <button
                                 type="submit"
                                 disabled={loading}
-                                className="px-6 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg shadow-lg shadow-primary/30 transition-colors font-medium disabled:opacity-70 disabled:cursor-not-allowed"
+                                className="px-6 py-2.5 bg-gray-900 hover:bg-black text-white rounded-lg shadow-lg shadow-gray-200 transition-all font-medium text-sm flex items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
                             >
-                                {loading ? 'Creating...' : `Create ${roleToAdd}`}
+                                {loading ? (
+                                    <>
+                                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                                        Creating...
+                                    </>
+                                ) : (
+                                    <>
+                                        <FaUserPlus />
+                                        Create {roleToAdd.charAt(0).toUpperCase() + roleToAdd.slice(1)}
+                                    </>
+                                )}
                             </button>
                         </div>
                     </form>

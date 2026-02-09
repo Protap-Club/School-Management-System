@@ -41,11 +41,20 @@ const studentProfileSchema = new mongoose.Schema(
     },
 
     // Guardian & Personal Info 
-    guardianName: {
+    // Parent Info 
+    fatherName: {
       type: String,
       trim: true,
     },
-    guardianContact: {
+    fatherContact: {
+      type: String,
+      trim: true,
+    },
+    motherName: {
+      type: String,
+      trim: true,
+    },
+    motherContact: {
       type: String,
       trim: true,
     },
