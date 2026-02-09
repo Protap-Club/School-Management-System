@@ -105,6 +105,28 @@ const UserDetailModal = ({ user, onClose }) => {
                 </div>
                 <p className="text-lg font-semibold text-gray-800">{user.profile?.section || '-'}</p>
               </div>
+
+              {/* Father's Details */}
+              <div className="p-3 bg-white rounded-xl border border-gray-100 shadow-sm">
+                <div className="flex items-center gap-2 text-gray-500 text-xs uppercase font-bold mb-1">
+                  <span className="text-orange-500">👨</span> Father
+                </div>
+                <p className="text-sm font-semibold text-gray-800">{user.profile?.fatherName || '-'}</p>
+                <div className="flex items-center gap-1 text-xs text-gray-500 mt-0.5">
+                  <FaPhone size={10} /> {user.profile?.fatherContact || '-'}
+                </div>
+              </div>
+
+              {/* Mother's Details */}
+              <div className="p-3 bg-white rounded-xl border border-gray-100 shadow-sm">
+                <div className="flex items-center gap-2 text-gray-500 text-xs uppercase font-bold mb-1">
+                  <span className="text-pink-500">👩</span> Mother
+                </div>
+                <p className="text-sm font-semibold text-gray-800">{user.profile?.motherName || '-'}</p>
+                <div className="flex items-center gap-1 text-xs text-gray-500 mt-0.5">
+                  <FaPhone size={10} /> {user.profile?.motherContact || '-'}
+                </div>
+              </div>
             </>
           ) : (
             // Generic/Teacher Fields
