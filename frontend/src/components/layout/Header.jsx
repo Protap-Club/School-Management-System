@@ -13,6 +13,21 @@ const Header = ({ onSearch, searchValue }) => {
     const [dropdownOpen, setDropdownOpen] = useState(false);
     const dropdownRef = useRef(null);
 
+    // Notification Badge State
+    const [unreadCount, setUnreadCount] = useState(0);
+
+    // Initialize notification count on mount
+    useEffect(() => {
+        const storedCount = localStorage.getItem('unreadNotifications');
+        if (storedCount === null) {
+            // Default simulated unread count
+            setUnreadCount(3);
+            localStorage.setItem('unreadNotifications', '3');
+        } else {
+            setUnreadCount(parseInt(storedCount, 10));
+        }
+    }, []);
+
     // Close dropdown when clicking outside
     useEffect(() => {
         const handleClickOutside = (event) => {
@@ -52,6 +67,12 @@ const Header = ({ onSearch, searchValue }) => {
     const handleLogout = () => {
         logout();
         navigate('/login');
+    };
+
+    const handleNotificationClick = () => {
+        setUnreadCount(0);
+        localStorage.setItem('unreadNotifications', '0');
+        navigate('/notifications');
     };
 
     // Get Header Content
@@ -119,13 +140,17 @@ const Header = ({ onSearch, searchValue }) => {
             <div className="flex items-center gap-3">
                 {/* Notification Bell */}
                 <button
-                    onClick={() => navigate('/notifications')}
+                    onClick={handleNotificationClick}
                     className="p-2 lg:p-2.5 rounded-full text-gray-500 hover:bg-gray-100 hover:text-blue-600 transition-all focus:outline-none focus:ring-2 focus:ring-blue-100 relative group"
                     title="Notifications"
                 >
                     <FaBell className="w-5 h-5" />
-                    {/* Optional: Notification Badge */}
-                    {/* <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full ring-2 ring-white"></span> */}
+                    {/* Notification Badge */}
+                    {unreadCount > 0 && (
+                        <span className="absolute top-1.5 right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white ring-2 ring-white animate-pulse-subtle">
+                            {unreadCount > 9 ? '9+' : unreadCount}
+                        </span>
+                    )}
                 </button>
 
                 {/* User Profile */}

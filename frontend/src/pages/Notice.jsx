@@ -460,7 +460,7 @@ const Notice = () => {
                                     </div>
                                     <div>
                                         <h2 className="text-lg font-semibold text-gray-900">Attachment</h2>
-                                        <p className="text-sm text-gray-500">Docs, Images, Videos supported (optional)</p>
+                                        <p className="text-sm text-gray-500">JPG,JPEG,PNG,PPT,PPTX,DOC,DOCX,XLXS,XLS,MP4,MOV,AVI,ITI,CSV,TXT</p>
                                     </div>
                                 </div>
                                 <div className="p-6">
