@@ -3,7 +3,7 @@ import { useAuth } from '../../features/auth';
 import { useSidebar } from '../../state';
 import api from '../../api/axios';
 import { useNavigate } from 'react-router-dom';
-import { FaBars, FaUserCircle, FaSignOutAlt, FaBuilding, FaChevronDown, FaSearch } from 'react-icons/fa';
+import { FaBars, FaUserCircle, FaSignOutAlt, FaBuilding, FaChevronDown, FaSearch, FaBell } from 'react-icons/fa';
 
 const Header = ({ onSearch, searchValue }) => {
     const { user, logout } = useAuth();
@@ -115,48 +115,62 @@ const Header = ({ onSearch, searchValue }) => {
 
 
 
-            {/* Right: User Profile */}
-            <div className="relative" ref={dropdownRef}>
+            {/* Right: Icons & User Profile */}
+            <div className="flex items-center gap-3">
+                {/* Notification Bell */}
                 <button
-                    onClick={() => setDropdownOpen(!dropdownOpen)}
-                    className="flex items-center gap-3 p-1.5 rounded-full hover:bg-gray-50 transition-all border border-transparent hover:border-gray-200 focus:outline-none"
+                    onClick={() => navigate('/notifications')}
+                    className="p-2 lg:p-2.5 rounded-full text-gray-500 hover:bg-gray-100 hover:text-blue-600 transition-all focus:outline-none focus:ring-2 focus:ring-blue-100 relative group"
+                    title="Notifications"
                 >
-                    <div className={`w-9 h-9 rounded-full bg-gradient-to-r ${getRoleGradient()} flex items-center justify-center text-white font-bold shadow-sm`}>
-                        {user?.name?.charAt(0).toUpperCase()}
-                    </div>
-                    <div className="hidden md:flex flex-col items-start mr-1">
-                        <span className="text-sm font-semibold text-gray-700 leading-tight">{user?.name}</span>
-                        <span className="text-xs text-gray-500 capitalize">{user?.role?.replace('_', ' ')}</span>
-                    </div>
-                    <FaChevronDown className={`text-gray-400 text-xs transition-transform duration-200 ${dropdownOpen ? 'rotate-180' : ''}`} />
+                    <FaBell className="w-5 h-5" />
+                    {/* Optional: Notification Badge */}
+                    {/* <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full ring-2 ring-white"></span> */}
                 </button>
 
-                {/* Dropdown Menu */}
-                {dropdownOpen && (
-                    <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden transform origin-top-right transition-all animate-in fade-in zoom-in-95 duration-200">
-                        <div className="p-4 border-b border-gray-50 bg-gray-50/50">
-                            <p className="text-sm font-semibold text-gray-800">{user?.name}</p>
-                            <p className="text-xs text-gray-500 truncate">{user?.email}</p>
+                {/* User Profile */}
+                <div className="relative" ref={dropdownRef}>
+                    <button
+                        onClick={() => setDropdownOpen(!dropdownOpen)}
+                        className="flex items-center gap-3 p-1.5 rounded-full hover:bg-gray-50 transition-all border border-transparent hover:border-gray-200 focus:outline-none"
+                    >
+                        <div className={`w-9 h-9 rounded-full bg-gradient-to-r ${getRoleGradient()} flex items-center justify-center text-white font-bold shadow-sm`}>
+                            {user?.name?.charAt(0).toUpperCase()}
                         </div>
+                        <div className="hidden md:flex flex-col items-start mr-1">
+                            <span className="text-sm font-semibold text-gray-700 leading-tight">{user?.name}</span>
+                            <span className="text-xs text-gray-500 capitalize">{user?.role?.replace('_', ' ')}</span>
+                        </div>
+                        <FaChevronDown className={`text-gray-400 text-xs transition-transform duration-200 ${dropdownOpen ? 'rotate-180' : ''}`} />
+                    </button>
 
-                        <div className="p-2">
-                            {/* Role Badge */}
-                            <div className="px-3 py-2">
-                                <span className={`inline-block px-2 py-1 rounded-md text-xs font-medium capitalize bg-blue-50 text-blue-700 border border-blue-100 w-full text-center`}>
-                                    {user?.role?.replace('_', ' ')}
-                                </span>
+                    {/* Dropdown Menu */}
+                    {dropdownOpen && (
+                        <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden transform origin-top-right transition-all animate-in fade-in zoom-in-95 duration-200">
+                            <div className="p-4 border-b border-gray-50 bg-gray-50/50">
+                                <p className="text-sm font-semibold text-gray-800">{user?.name}</p>
+                                <p className="text-xs text-gray-500 truncate">{user?.email}</p>
                             </div>
 
-                            <button
-                                onClick={handleLogout}
-                                className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors font-medium"
-                            >
-                                <FaSignOutAlt />
-                                Sign Out
-                            </button>
+                            <div className="p-2">
+                                {/* Role Badge */}
+                                <div className="px-3 py-2">
+                                    <span className={`inline-block px-2 py-1 rounded-md text-xs font-medium capitalize bg-blue-50 text-blue-700 border border-blue-100 w-full text-center`}>
+                                        {user?.role?.replace('_', ' ')}
+                                    </span>
+                                </div>
+
+                                <button
+                                    onClick={handleLogout}
+                                    className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors font-medium"
+                                >
+                                    <FaSignOutAlt />
+                                    Sign Out
+                                </button>
+                            </div>
                         </div>
-                    </div>
-                )}
+                    )}
+                </div>
             </div>
         </header>
     );

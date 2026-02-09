@@ -9,6 +9,7 @@ import {
     FaHome,
     FaBullhorn,
     FaCalendarAlt,
+    FaCalendarDay,
 } from 'react-icons/fa';
 
 const Sidebar = () => {
@@ -32,23 +33,30 @@ const Sidebar = () => {
                 return superAdminLinks;
             case 'admin':
                 // Build links based on enabled features
-                const adminLinks = [
-                    dashboardLink,
-                    { path: '/admin/users', label: 'Users', icon: <FaUserGraduate /> },
-                ];
+                // Requested Order: Dashboard, Attendance, Timetable, Users, Notice
+                const adminLinks = [dashboardLink];
 
-                // Only show Attendance if feature is enabled
+                // 2. Calendar
+                if (hasFeature('calendar')) {
+                    adminLinks.push({ path: '/admin/calendar', label: 'Calendar', icon: <FaCalendarDay /> });
+                }
+
+                // 3. Attendance
                 if (hasFeature('attendance')) {
                     adminLinks.push({ path: '/admin/attendance', label: 'Attendance', icon: <FaClipboardList /> });
                 }
 
-                // Notice link (only if feature enabled)
-                if (hasFeature('notice')) {
-                    adminLinks.push({ path: '/admin/notice', label: 'Notice', icon: <FaBullhorn /> });
-                }
-
+                // 4. Timetable
                 if (hasFeature('timetable')) {
                     adminLinks.push({ path: '/admin/timetable', label: 'Timetable', icon: <FaCalendarAlt /> });
+                }
+
+                // 5. Users
+                adminLinks.push({ path: '/admin/users', label: 'Users', icon: <FaUserGraduate /> });
+
+                // 6. Notice
+                if (hasFeature('notice')) {
+                    adminLinks.push({ path: '/admin/notice', label: 'Notice', icon: <FaBullhorn /> });
                 }
 
                 // Settings always last
@@ -57,23 +65,30 @@ const Sidebar = () => {
                 return adminLinks;
             case 'teacher':
                 // Build links based on enabled features
-                const teacherLinks = [
-                    dashboardLink,
-                    { path: '/teacher/users', label: 'Users', icon: <FaUserGraduate /> },
-                ];
+                // Requested Order: Dashboard, Calendar, Attendance, Timetable, Users, Notice
+                const teacherLinks = [dashboardLink];
 
-                // Only show Attendance if feature is enabled
+                // 2. Calendar
+                if (hasFeature('calendar')) {
+                    teacherLinks.push({ path: '/teacher/calendar', label: 'Calendar', icon: <FaCalendarDay /> });
+                }
+
+                // 3. Attendance
                 if (hasFeature('attendance')) {
                     teacherLinks.push({ path: '/teacher/attendance', label: 'Attendance', icon: <FaClipboardList /> });
                 }
 
-                // Notice link (only if feature enabled)
-                if (hasFeature('notice')) {
-                    teacherLinks.push({ path: '/teacher/notice', label: 'Notice', icon: <FaBullhorn /> });
-                }
-
+                // 4. Timetable
                 if (hasFeature('timetable')) {
                     teacherLinks.push({ path: '/teacher/timetable', label: 'Timetable', icon: <FaCalendarAlt /> });
+                }
+
+                // 5. Users
+                teacherLinks.push({ path: '/teacher/users', label: 'Users', icon: <FaUserGraduate /> });
+
+                // 6. Notice
+                if (hasFeature('notice')) {
+                    teacherLinks.push({ path: '/teacher/notice', label: 'Notice', icon: <FaBullhorn /> });
                 }
 
                 return teacherLinks;

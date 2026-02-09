@@ -23,6 +23,7 @@ import {
     FaSearch,
     FaSort
 } from 'react-icons/fa';
+import UserDetailModal from '../components/users/UserDetailModal';
 
 // Role hierarchy - what each role can view/create
 const ROLE_PERMISSIONS = {
@@ -40,6 +41,7 @@ const ROLE_LABELS = {
 const UsersPage = () => {
     const { user: currentUser } = useAuth();
     const [activeModal, setActiveModal] = useState(null);
+    const [selectedUser, setSelectedUser] = useState(null);
 
     // Filters & Pagination
     const [selectedRole, setSelectedRole] = useState('all');
@@ -60,6 +62,7 @@ const UsersPage = () => {
 
     // Edit Modal State
     const [editModal, setEditModal] = useState({ open: false, user: null });
+    const [editName, setEditName] = useState('');
 
     // Delete Confirmation State
     const [deleteConfirm, setDeleteConfirm] = useState({ open: false, users: [], isBulk: false });
@@ -223,7 +226,20 @@ const UsersPage = () => {
     // Single Edit
     const handleEdit = (user) => {
         setEditModal({ open: true, user });
+        setEditName(user.name);
         setActiveDropdown(null);
+    };
+
+    const handleSaveEdit = () => {
+        if (!editModal.user || !editName.trim()) return;
+
+        setUsers(prev => prev.map(u =>
+            u._id === editModal.user._id ? { ...u, name: editName } : u
+        ));
+
+        setMessage({ type: 'success', text: 'User updated successfully' });
+        setEditModal({ open: false, user: null });
+        setTimeout(() => setMessage({ type: '', text: '' }), 3000);
     };
 
     // Single Delete
@@ -539,7 +555,8 @@ const UsersPage = () => {
                                                 return (
                                                     <tr
                                                         key={u._id}
-                                                        className={`group transition-colors ${isSelected ? 'bg-indigo-50/60' : 'hover:bg-gray-50/50'}`}
+                                                        onClick={() => setSelectedUser(u)}
+                                                        className={`group transition-colors cursor-pointer ${isSelected ? 'bg-indigo-50/60' : 'hover:bg-gray-50/50'}`}
                                                     >
                                                         {selectionMode && (
                                                             <td className="px-4 py-3">
@@ -769,6 +786,12 @@ const UsersPage = () => {
                 onSuccess={handleUserCreated}
             />
 
+            {/* User Detail Modal */}
+            <UserDetailModal
+                user={selectedUser}
+                onClose={() => setSelectedUser(null)}
+            />
+
             {/* Delete/Archive Confirmation Modal */}
             {deleteConfirm.open && (
                 <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -840,9 +863,16 @@ const UsersPage = () => {
                                     <div className="text-xs text-gray-400">{editModal.user?.email}</div>
                                 </div>
                             </div>
-                            <p className="text-sm text-gray-400 italic mb-5">
-                                Edit form fields can be added here based on your requirements.
-                            </p>
+                            <div className="mb-5">
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                                <input
+                                    type="text"
+                                    value={editName}
+                                    onChange={(e) => setEditName(e.target.value)}
+                                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-sm"
+                                    placeholder="Enter user name"
+                                />
+                            </div>
                             <div className="flex gap-2.5">
                                 <button
                                     onClick={() => setEditModal({ open: false, user: null })}
@@ -851,10 +881,7 @@ const UsersPage = () => {
                                     Cancel
                                 </button>
                                 <button
-                                    onClick={() => {
-                                        setEditModal({ open: false, user: null });
-                                        exitSelectionMode();
-                                    }}
+                                    onClick={handleSaveEdit}
                                     className="flex-1 px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors text-sm font-medium"
                                 >
                                     Save Changes

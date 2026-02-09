@@ -1,5 +1,5 @@
 import jwt from "jsonwebtoken";
-import User from "../models/User.model.js";
+import User from "../module/user/model/User.model.js";
 import { conf } from "../config/index.js";
 import logger from "../config/logger.js";
 

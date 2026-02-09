@@ -17,6 +17,13 @@ import logger from './config/logger.js'; // Import our configured logger
 import apiRoutes from './routes/index.route.js';
 import errorHandler from './middlewares/error.middleware.js';
 
+
+console.log('--- Email Config Debug ---');
+console.log('SMTP_USER:', conf.SMTP_USER);
+console.log('SMTP_FROM:', conf.SMTP_FROM);
+console.log('SMTP_PASS (length):', conf.SMTP_PASS ? conf.SMTP_PASS.length : 0);
+console.log('--------------------------');
+
 // --- Constants & Setup ---
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

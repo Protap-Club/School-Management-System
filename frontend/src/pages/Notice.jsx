@@ -19,7 +19,10 @@ import {
     FaSearch,
     FaHistory,
     FaEye,
-    FaDownload
+    FaDownload,
+    FaFileVideo,
+    FaFileCode,
+    FaFileCsv
 } from 'react-icons/fa';
 
 // Mock data for frontend-only implementation
@@ -49,6 +52,13 @@ const MOCK_USERS = [
     { _id: '3', name: 'Rahul Sharma', role: 'student', email: 'rahul@student.com' },
     { _id: '4', name: 'Priya Patel', role: 'student', email: 'priya@student.com' },
     { _id: '5', name: 'Amit Kumar', role: 'student', email: 'amit@student.com' },
+];
+
+const MOCK_TEACHERS = [
+    { _id: 't-1', name: 'Mr. John Smith', email: 'john@school.com', role: 'teacher' },
+    { _id: 't-2', name: 'Ms. Sarah Johnson', email: 'sarah@school.com', role: 'teacher' },
+    { _id: 't-3', name: 'Mrs. Emily Davis', email: 'emily@school.com', role: 'teacher' },
+    { _id: 't-4', name: 'Mr. Robert Wilson', email: 'robert@school.com', role: 'teacher' },
 ];
 
 const MOCK_HISTORY_DATA = [
@@ -110,18 +120,25 @@ const MOCK_HISTORY_DATA = [
 ];
 
 // Allowed file extensions
-const ALLOWED_EXTENSIONS = ['pdf', 'doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx', 'png', 'jpg', 'jpeg'];
+const ALLOWED_EXTENSIONS = [
+    'pdf', 'doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx', 'txt', 'csv', 'iti', // Documents
+    'png', 'jpg', 'jpeg', // Images
+    'mp4', 'mov', 'avi'   // Videos
+];
 const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg'];
+const VIDEO_EXTENSIONS = ['mp4', 'mov', 'avi'];
 
 // Get file icon based on extension
 const getFileIcon = (filename) => {
     const ext = filename.split('.').pop().toLowerCase();
-    if (IMAGE_EXTENSIONS.includes(ext)) return <FaImage className="text-green-500" size={24} />;
+    if (IMAGE_EXTENSIONS.includes(ext)) return <FaImage className="text-purple-500" size={24} />;
+    if (VIDEO_EXTENSIONS.includes(ext)) return <FaFileVideo className="text-rose-500" size={24} />;
     if (ext === 'pdf') return <FaFilePdf className="text-red-500" size={24} />;
     if (['doc', 'docx'].includes(ext)) return <FaFileWord className="text-blue-500" size={24} />;
     if (['ppt', 'pptx'].includes(ext)) return <FaFilePowerpoint className="text-orange-500" size={24} />;
-    if (['xls', 'xlsx'].includes(ext)) return <FaFileExcel className="text-green-600" size={24} />;
-    return <FaFileAlt className="text-gray-500" size={24} />;
+    if (['xls', 'xlsx', 'csv'].includes(ext)) return <FaFileExcel className="text-green-600" size={24} />;
+    if (['txt', 'iti'].includes(ext)) return <FaFileAlt className="text-gray-500" size={24} />;
+    return <FaFileAlt className="text-gray-400" size={24} />;
 };
 
 const Notice = () => {
@@ -155,6 +172,7 @@ const Notice = () => {
     ]);
     const [newGroupName, setNewGroupName] = useState('');
     const [newGroupStudents, setNewGroupStudents] = useState([]);
+    const [newGroupTeachers, setNewGroupTeachers] = useState([]);
 
     // History state
     const [historySearch, setHistorySearch] = useState('');
@@ -296,14 +314,15 @@ const Notice = () => {
     };
 
     // Handle create group
+    // Handle create group
     const handleCreateGroup = () => {
         if (!newGroupName.trim()) {
             setToast({ type: 'error', text: 'Group name is required' });
             setTimeout(() => setToast({ type: '', text: '' }), 3000);
             return;
         }
-        if (newGroupStudents.length === 0) {
-            setToast({ type: 'error', text: 'Select at least one student' });
+        if (newGroupStudents.length === 0 && newGroupTeachers.length === 0) {
+            setToast({ type: 'error', text: 'Select at least one student or teacher' });
             setTimeout(() => setToast({ type: '', text: '' }), 3000);
             return;
         }
@@ -311,11 +330,12 @@ const Notice = () => {
         const newGroup = {
             id: Date.now().toString(),
             name: newGroupName,
-            students: newGroupStudents
+            students: [...newGroupStudents, ...newGroupTeachers] // Combined list
         };
         setGroups([...groups, newGroup]);
         setNewGroupName('');
         setNewGroupStudents([]);
+        setNewGroupTeachers([]);
         setToast({ type: 'success', text: 'Group created successfully!' });
         setTimeout(() => setToast({ type: '', text: '' }), 3000);
     };
@@ -372,7 +392,7 @@ const Notice = () => {
                         <FaPaperPlane className="inline mr-2" size={12} />
                         Compose
                     </button>
-                    {isTeacher && (
+                    {(isTeacher || isAdmin) && (
                         <button
                             onClick={() => setActiveTab('groups')}
                             className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'groups'
@@ -440,7 +460,7 @@ const Notice = () => {
                                     </div>
                                     <div>
                                         <h2 className="text-lg font-semibold text-gray-900">Attachment</h2>
-                                        <p className="text-sm text-gray-500">PDF, DOC, PPT, XLS, PNG, JPG (optional)</p>
+                                        <p className="text-sm text-gray-500">Docs, Images, Videos supported (optional)</p>
                                     </div>
                                 </div>
                                 <div className="p-6">
@@ -448,7 +468,7 @@ const Notice = () => {
                                         type="file"
                                         ref={fileInputRef}
                                         onChange={handleFileUpload}
-                                        accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.png,.jpg,.jpeg"
+                                        accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.csv,.iti,.png,.jpg,.jpeg,.mp4,.mov,.avi"
                                         className="hidden"
                                     />
 
@@ -533,8 +553,8 @@ const Notice = () => {
                     </div>
                 )}
 
-                {/* Groups Tab (Teacher Only) */}
-                {isTeacher && activeTab === 'groups' && (
+                {/* Groups Tab (Teacher & Admin) */}
+                {(isTeacher || isAdmin) && activeTab === 'groups' && (
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                         {/* Create Group */}
                         <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
@@ -577,6 +597,30 @@ const Notice = () => {
                                         ))}
                                     </div>
                                 </div>
+
+                                {/* Select Teachers (Admin Only) */}
+                                {isAdmin && (
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">Select Teachers</label>
+                                        <div className="border border-gray-200 rounded-xl max-h-48 overflow-y-auto">
+                                            {MOCK_TEACHERS.map(teacher => (
+                                                <label
+                                                    key={teacher._id}
+                                                    className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-b-0"
+                                                >
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={newGroupTeachers.includes(teacher._id)}
+                                                        onChange={() => toggleSelection(newGroupTeachers, setNewGroupTeachers, teacher._id)}
+                                                        className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"
+                                                    />
+                                                    <span className="text-sm text-gray-700">{teacher.name}</span>
+                                                </label>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
                                 <button
                                     onClick={handleCreateGroup}
                                     className="w-full flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2.5 px-4 rounded-xl transition-colors"
@@ -1030,6 +1074,63 @@ const Notice = () => {
                                             )}
                                         </div>
                                     </label>
+
+                                    {/* Custom Groups */}
+                                    {groups.length > 0 && (
+                                        <label className="flex items-start gap-3 p-3 border border-gray-200 rounded-xl cursor-pointer hover:bg-gray-50 transition-colors">
+                                            <input
+                                                type="radio"
+                                                name="sendOption"
+                                                value="groups"
+                                                checked={sendOption === 'groups'}
+                                                onChange={(e) => {
+                                                    setSendOption(e.target.value);
+                                                    setSearchTerm('');
+                                                }}
+                                                className="w-4 h-4 text-primary border-gray-300 focus:ring-primary mt-0.5"
+                                            />
+                                            <div className="flex-1">
+                                                <p className="text-sm font-medium text-gray-900">Custom Groups</p>
+                                                <p className="text-xs text-gray-400 mb-2">Your created groups</p>
+                                                {sendOption === 'groups' && (
+                                                    <div className="mt-3 space-y-3">
+                                                        <div className="relative">
+                                                            <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
+                                                            <input
+                                                                type="text"
+                                                                placeholder="Search groups..."
+                                                                value={searchTerm}
+                                                                onChange={(e) => setSearchTerm(e.target.value)}
+                                                                className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                                                                onClick={(e) => e.stopPropagation()}
+                                                            />
+                                                        </div>
+                                                        <div className="border border-gray-200 rounded-lg max-h-48 overflow-y-auto">
+                                                            {groups
+                                                                .filter(group => group.name.toLowerCase().includes(searchTerm.toLowerCase()))
+                                                                .map(group => (
+                                                                    <label key={group.id} className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 cursor-pointer text-sm border-b border-gray-50 last:border-b-0">
+                                                                        <input
+                                                                            type="checkbox"
+                                                                            checked={selectedGroups.includes(group.id)}
+                                                                            onChange={() => toggleSelection(selectedGroups, setSelectedGroups, group.id)}
+                                                                            className="w-3.5 h-3.5 text-primary border-gray-300 rounded focus:ring-primary"
+                                                                        />
+                                                                        <span>{group.name}</span>
+                                                                        <span className="text-xs text-gray-400">({group.students.length})</span>
+                                                                    </label>
+                                                                ))}
+                                                            {groups.filter(group => group.name.toLowerCase().includes(searchTerm.toLowerCase())).length === 0 && (
+                                                                <div className="px-3 py-4 text-center text-xs text-gray-400">
+                                                                    No groups found
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </label>
+                                    )}
                                 </div>
                             )}
 
@@ -1187,8 +1288,9 @@ const Notice = () => {
                         </div>
                     </div>
                 </div>
-            )}
-        </DashboardLayout>
+            )
+            }
+        </DashboardLayout >
     );
 };
 

@@ -12,7 +12,7 @@ import { pages, PageLoader } from './routes';
 
 function App() {
   // Destructure lazy-loaded page components
-  const { Login, Dashboard, UsersPage, Settings, Attendance, Notice, TimetablePage } = pages;
+  const { Login, Dashboard, UsersPage, Settings, Attendance, Notice, TimetablePage, Calendar, Notifications } = pages;
 
   return (
     <Provider store={store}>
@@ -98,6 +98,16 @@ function App() {
                   </ProtectedRoute>
                 }
               />
+              <Route
+                path="/admin/calendar"
+                element={
+                  <ProtectedRoute allowedRoles={['admin']}>
+                    <RequireFeature feature="calendar">
+                      <Calendar />
+                    </RequireFeature>
+                  </ProtectedRoute>
+                }
+              />
 
               {/* Teacher Routes */}
               <Route
@@ -135,6 +145,25 @@ function App() {
                     <RequireFeature feature="timetable">
                       <TimetablePage />
                     </RequireFeature>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/teacher/calendar"
+                element={
+                  <ProtectedRoute allowedRoles={['teacher']}>
+                    <RequireFeature feature="calendar">
+                      <Calendar />
+                    </RequireFeature>
+                  </ProtectedRoute>
+                }
+              />
+
+              <Route
+                path="/notifications"
+                element={
+                  <ProtectedRoute allowedRoles={['super_admin', 'admin', 'teacher']}>
+                    <Notifications />
                   </ProtectedRoute>
                 }
               />

@@ -1,4 +1,4 @@
-import * as schoolService from "../services/school.service.js";
+import * as schoolService from "../module/school/school.service.js";
 import logger from "../config/logger.js";
 
 // Middleware to check if a school has a specific feature enabled.
