@@ -3,7 +3,7 @@ import { createUser, findUserByEmail, DEMO_PASSWORD } from "../lib/factory.js";
 import { USER_ROLES } from "../../constants/userRoles.js";
 import logger from "../../config/logger.js";
 import { parseArgs } from 'node:util'; // For parsing command line arguments
-import SchoolModel from "../../models/School.model.js"; // Import SchoolModel
+import SchoolModel from "../../module/school/School.model.js"; // Import SchoolModel
 
 const createTestStudent = async (args) => {
     // Define expected arguments for the command

@@ -4,17 +4,17 @@
  * the application's core services to ensure data consistency and validation.
  */
 
-import UserModel from "../../models/User.model.js";
-import SchoolModel from "../../models/School.model.js";
-import AdminProfileModel from "../../models/AdminProfile.model.js";
-import TeacherProfileModel from "../../models/TeacherProfile.model.js";
-import StudentProfileModel from "../../models/StudentProfile.model.js";
+import UserModel from "../../module/user/model/User.model.js";
+import SchoolModel from "../../module/school/School.model.js";
+import AdminProfileModel from "../../module/user/model/AdminProfile.model.js";
+import TeacherProfileModel from "../../module/user/model/TeacherProfile.model.js";
+import StudentProfileModel from "../../module/user/model/StudentProfile.model.js";
 import { USER_ROLES } from "../../constants/userRoles.js";
 import { PROFILE_CONFIG } from "../../constants/profileConfig.js";
 
 // Import services for creating users and schools
-import { createUser as createUserService } from "../../services/user.service.js";
-import { createSchool as createSchoolService } from "../../services/school.service.js";
+import { createUser as createUserService } from "../../module/user/user.service.js";
+import { createSchool as createSchoolService } from "../../module/school/school.service.js";
 
 // Import logger for consistent output
 import logger from "../../config/logger.js";

@@ -1,6 +1,6 @@
-import AdminProfileModel from "../models/AdminProfile.model.js";
-import TeacherProfileModel from "../models/TeacherProfile.model.js";
-import StudentProfileModel from "../models/StudentProfile.model.js";
+import AdminProfileModel from "../module/user/model/AdminProfile.model.js";
+import TeacherProfileModel from "../module/user/model/TeacherProfile.model.js";
+import StudentProfileModel from "../module/user/model/StudentProfile.model.js";
 
 // Strategy object defining how each role's profile is handled.
 // Centralizes model mapping, validation requirements, and data extraction.
