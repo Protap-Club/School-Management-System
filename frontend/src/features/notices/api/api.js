@@ -40,6 +40,12 @@ export const noticesApi = {
         return response.data;
     },
 
+    // Get received notices (for notifications/bell icon)
+    getReceivedNotices: async () => {
+        const response = await api.get('/notices/received');
+        return response.data;
+    },
+
     // Get classes list (derived from timetable data)
     getClasses: async () => {
         try {

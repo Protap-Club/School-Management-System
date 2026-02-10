@@ -12,6 +12,7 @@ export const noticeKeys = {
     students: () => [...noticeKeys.all, 'students'],
     teachers: () => [...noticeKeys.all, 'teachers'],
     allUsers: () => [...noticeKeys.all, 'allUsers'],
+    received: () => [...noticeKeys.all, 'received'],
 };
 
 // Get notices with filters
@@ -28,6 +29,14 @@ export const useNotice = (id) => {
         queryKey: noticeKeys.detail(id),
         queryFn: () => noticesApi.getNoticeById(id),
         enabled: !!id,
+    });
+};
+
+// Get received notices (notifications)
+export const useReceivedNotices = () => {
+    return useQuery({
+        queryKey: noticeKeys.received(),
+        queryFn: noticesApi.getReceivedNotices,
     });
 };
 

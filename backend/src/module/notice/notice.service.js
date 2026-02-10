@@ -56,10 +56,10 @@ export const createNotice = async (schoolId, userId, data, file = null) => {
 };
 
 /**
- * Get notices with filters
+ * Get notices sent by a specific user (for history tab)
  */
-export const getNotices = async (schoolId, filters = {}) => {
-    const query = { schoolId, isActive: true };
+export const getNotices = async (schoolId, userId, filters = {}) => {
+    const query = { schoolId, createdBy: userId, isActive: true };
 
     // Type filter
     if (filters.type && filters.type !== 'all') {
@@ -96,6 +96,32 @@ export const getNotices = async (schoolId, filters = {}) => {
     const notices = await Notice.find(query)
         .populate("createdBy", "name email role")
         .sort({ createdAt: -1 })
+        .lean();
+
+    return notices;
+};
+
+/**
+ * Get notices received by a user (for notifications/bell icon)
+ * Matches notices where:
+ *   - recipientType is 'all' (entire school), OR
+ *   - user's ID is in the recipients array
+ */
+export const getReceivedNotices = async (schoolId, userId) => {
+    const userIdStr = userId.toString();
+
+    const notices = await Notice.find({
+        schoolId,
+        isActive: true,
+        createdBy: { $ne: userId }, // exclude sender's own notices
+        $or: [
+            { recipientType: 'all' },
+            { recipients: userIdStr },
+        ],
+    })
+        .populate("createdBy", "name email role")
+        .sort({ createdAt: -1 })
+        .limit(50)
         .lean();
 
     return notices;

@@ -38,7 +38,20 @@ export const getNotices = asyncHandler(async (req, res) => {
         date: req.query.date || "all",
     };
 
-    const result = await noticeService.getNotices(req.schoolId, filters);
+    const result = await noticeService.getNotices(req.schoolId, req.user._id, filters);
+
+    res.status(200).json({
+        success: true,
+        data: result,
+    });
+});
+
+/**
+ * GET /notices/received
+ * Get notices received by the logged-in user (for bell icon / notifications page)
+ */
+export const getReceivedNotices = asyncHandler(async (req, res) => {
+    const result = await noticeService.getReceivedNotices(req.schoolId, req.user._id);
 
     res.status(200).json({
         success: true,

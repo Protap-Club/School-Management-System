@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import DashboardLayout from '../layouts/DashboardLayout';
 import { useAuth } from '../features/auth';
+import { useReceivedNotices } from '../features/notices';
 import {
   FaBell,
   FaInfoCircle,
@@ -8,92 +9,82 @@ import {
   FaCheckCircle,
   FaClock,
   FaChevronDown,
+  FaFileAlt
 } from 'react-icons/fa';
 
-// Demo Data for different roles
-const DEMO_NOTIFICATIONS = {
-  superAdmin: [
-    { id: 1, title: 'System Maintenance', message: 'Scheduled system maintenance on Feb 15th from 2 AM to 4 AM.', type: 'info', date: '2 hours ago', isRead: false },
-    { id: 2, title: 'New School Registered', message: 'Greenwood High School has been successfully registered.', type: 'success', date: '5 hours ago', isRead: false },
-    { id: 3, title: 'Server Load Alert', message: 'High server load detected in US-East region.', type: 'warning', date: '1 day ago', isRead: true },
-    { id: 4, title: 'New Feature Deployed', message: 'AI-powered attendance analytics is now live.', type: 'success', date: '1 day ago', isRead: true },
-    { id: 5, title: 'Subscription Payment', message: 'Received subscription payment from St. Mary\'s School.', type: 'info', date: '2 days ago', isRead: true },
-    { id: 6, title: 'Security Alert', message: 'Multiple failed login attempts detected from IP 192.168.x.x.', type: 'warning', date: '3 days ago', isRead: true },
-    { id: 7, title: 'Database Backup', message: 'Daily database backup completed successfully.', type: 'success', date: '3 days ago', isRead: true },
-    { id: 8, title: 'User Report', message: 'New user registration has increased by 15% this week.', type: 'info', date: '4 days ago', isRead: true },
-    { id: 9, title: 'Policy Update', message: 'Privacy policy has been updated. Please review.', type: 'info', date: '5 days ago', isRead: true },
-    { id: 10, title: 'Feedback Received', message: 'New feedback received from Admin User #4521.', type: 'info', date: '1 week ago', isRead: true },
-    { id: 11, title: 'Inactive Accounts', message: '50 inactive accounts have been archived automatically.', type: 'warning', date: '1 week ago', isRead: true },
-  ],
-  admin: [
-    { id: 1, title: 'Low Attendance Alert', message: 'Class 10-A has reported less than 70% attendance today.', type: 'warning', date: '1 hour ago', isRead: false },
-    { id: 2, title: 'Fee Payment Reminder', message: 'Month-end fee collection report is due.', type: 'info', date: '3 hours ago', isRead: false },
-    { id: 3, title: 'Teacher Leave Request', message: 'Mr. Sharma (Math) has requested leave for tomorrow.', type: 'info', date: '5 hours ago', isRead: true },
-    { id: 4, title: 'New Student Admission', message: 'New student profile created for Rahul Verma (Class 5).', type: 'success', date: '1 day ago', isRead: true },
-    { id: 5, title: 'Event Planning', message: 'Annual Sports Day planning meeting scheduled at 2 PM.', type: 'info', date: '1 day ago', isRead: true },
-    { id: 6, title: 'Library Stock Update', message: 'New shipment of science textbooks has arrived.', type: 'success', date: '2 days ago', isRead: true },
-    { id: 7, title: 'Transport Issue', message: 'Bus No. 5 reported a breakdown. Alternate arranged.', type: 'warning', date: '2 days ago', isRead: true },
-    { id: 8, title: 'Parent Complaint', message: 'New complaint registered regarding canteen food quality.', type: 'warning', date: '3 days ago', isRead: true },
-    { id: 9, title: 'Exam Schedule', message: 'Mid-term exam schedule has been published.', type: 'info', date: '3 days ago', isRead: true },
-    { id: 10, title: 'Staff Meeting', message: 'Monthly staff meeting minutes have been uploaded.', type: 'info', date: '4 days ago', isRead: true },
-    { id: 11, title: 'System Warning', message: 'School license expires in 30 days. Renew now.', type: 'warning', date: '1 week ago', isRead: true },
-  ],
-  teacher: [
-    { id: 1, title: 'Assignment Due', message: 'Math assignment for Class 9-B is due today.', type: 'info', date: '30 mins ago', isRead: false },
-    { id: 2, title: 'Student Absence', message: 'Rohan (Class 10) has been absent for 3 consecutive days.', type: 'warning', date: '2 hours ago', isRead: false },
-    { id: 3, title: 'Exam Duty', message: 'You have invigilation duty for History exam tomorrow.', type: 'info', date: '4 hours ago', isRead: true },
-    { id: 4, title: 'Syllabus Update', message: 'Physics Chapter 5 completion deadline extended.', type: 'success', date: '1 day ago', isRead: true },
-    { id: 5, title: 'Parent Meeting', message: 'Mrs. Gupta designated a meeting slot at 10 AM.', type: 'info', date: '1 day ago', isRead: true },
-    { id: 6, title: 'New Resources', message: 'New digital teaching aids added for Chemistry.', type: 'success', date: '2 days ago', isRead: true },
-    { id: 7, title: 'Time Table Change', message: 'Your Period 3 on Wednesday has been swapped.', type: 'warning', date: '2 days ago', isRead: true },
-    { id: 8, title: 'Grading Deadline', message: 'Submit internal assessment marks by Friday.', type: 'info', date: '3 days ago', isRead: true },
-    { id: 9, title: 'Holiday Notice', message: 'School remains closed on Monday for Regional Holiday.', type: 'info', date: '3 days ago', isRead: true },
-    { id: 10, title: 'Class Achievement', message: 'Class 8-A won the Inter-school Quiz Competition.', type: 'success', date: '4 days ago', isRead: true },
-    { id: 11, title: 'Workshop Invite', message: 'Invitation to "Modern Teaching Methods" workshop.', type: 'info', date: '1 week ago', isRead: true },
-  ]
+/**
+ * Format date to relative time (e.g., "2 hours ago")
+ */
+const getRelativeTime = (dateString) => {
+  if (!dateString) return '';
+  const date = new Date(dateString);
+  const now = new Date();
+  const seconds = Math.floor((now - date) / 1000);
+
+  let interval = seconds / 31536000;
+  if (interval > 1) return Math.floor(interval) + " years ago";
+
+  interval = seconds / 2592000;
+  if (interval > 1) return Math.floor(interval) + " months ago";
+
+  interval = seconds / 86400;
+  if (interval > 1) return Math.floor(interval) + " days ago";
+
+  interval = seconds / 3600;
+  if (interval > 1) return Math.floor(interval) + " hours ago";
+
+  interval = seconds / 60;
+  if (interval > 1) return Math.floor(interval) + " minutes ago";
+
+  return "Just now";
 };
 
 const NotificationItem = ({ notification }) => {
-  const getIcon = (type) => {
-    switch (type) {
-      case 'warning': return <FaExclamationTriangle className="text-yellow-500" size={20} />;
-      case 'success': return <FaCheckCircle className="text-green-500" size={20} />;
-      case 'info':
-      default: return <FaInfoCircle className="text-blue-500" size={20} />;
-    }
+  const isFile = notification.type === 'file';
+
+  const getIcon = () => {
+    if (isFile) return <FaFileAlt className="text-purple-500" size={20} />;
+
+    // Default to info icon since backend doesn't have 'warning'/'success' types yet for notices
+    // You could map specific titles to icons if needed, but keeping it simple for now
+    return <FaInfoCircle className="text-blue-500" size={20} />;
   };
 
-  const getBgColor = (type) => {
-    switch (type) {
-      case 'warning': return 'bg-yellow-50 border-yellow-100';
-      case 'success': return 'bg-green-50 border-green-100';
-      case 'info':
-      default: return 'bg-blue-50 border-blue-100';
-    }
+  const getBgColor = () => {
+    if (isFile) return 'bg-purple-50 border-purple-100';
+    return 'bg-blue-50 border-blue-100';
   };
 
   return (
-    <div className={`p-4 rounded-xl border ${getBgColor(notification.type)} ${!notification.isRead ? 'border-l-4 border-l-primary shadow-sm' : ''} transition-all hover:shadow-md cursor-pointer group`}>
+    <div className={`p-4 rounded-xl border ${getBgColor()} border-l-4 ${isFile ? 'border-l-purple-500' : 'border-l-blue-500'} shadow-sm transition-all hover:shadow-md cursor-pointer group`}>
       <div className="flex items-start gap-4">
         <div className="mt-1 flex-shrink-0 bg-white p-2 rounded-full shadow-sm">
-          {getIcon(notification.type)}
+          {getIcon()}
         </div>
         <div className="flex-1">
           <div className="flex justify-between items-start">
-            <h3 className={`font-semibold text-gray-900 ${!notification.isRead ? 'text-primary' : ''}`}>
-              {notification.title}
+            <h3 className="font-semibold text-gray-900">
+              {notification.title || 'Notice'}
             </h3>
             <span className="text-xs text-gray-500 flex items-center gap-1 bg-white px-2 py-1 rounded-full border border-gray-100">
-              <FaClock size={10} /> {notification.date}
+              <FaClock size={10} /> {getRelativeTime(notification.createdAt)}
             </span>
           </div>
           <p className="text-gray-600 text-sm mt-1 leading-relaxed">
             {notification.message}
           </p>
+
+          {notification.attachment && (
+            <div className="mt-3 flex items-center gap-2 text-xs text-gray-500 bg-white/50 p-2 rounded border border-gray-200 w-fit">
+              <FaFileAlt size={10} />
+              <span>{notification.attachment.originalName}</span>
+            </div>
+          )}
+
+          <div className="mt-2 text-xs text-gray-400 capitalize">
+            From: {notification.createdBy?.name || 'Admin'} ({notification.createdBy?.role})
+          </div>
         </div>
-        {!notification.isRead && (
-          <div className="w-2 h-2 rounded-full bg-primary mt-2"></div>
-        )}
       </div>
     </div>
   );
@@ -102,31 +93,10 @@ const NotificationItem = ({ notification }) => {
 const Notifications = () => {
   const { user } = useAuth();
   const [visibleCount, setVisibleCount] = useState(5);
-  const [notifications, setNotifications] = useState([]);
-  const [role, setRole] = useState('student');
 
-  useEffect(() => {
-    // Determine user role and set notifications
-    const userRole = user?.role || 'student'; // Fallback to student
-    setRole(userRole);
-
-    // Select demo data based on role
-    let data = [];
-    if (userRole === 'superAdmin' || userRole === 'superadmin') {
-      data = DEMO_NOTIFICATIONS.superAdmin;
-    } else if (userRole === 'admin') {
-      data = DEMO_NOTIFICATIONS.admin;
-    } else if (userRole === 'teacher') {
-      data = DEMO_NOTIFICATIONS.teacher;
-    } else {
-      // Default or generic for student/others
-      data = [
-        { id: 1, title: 'Welcome', message: 'Welcome to the School Management System.', type: 'info', date: 'Just now', isRead: false },
-        ...DEMO_NOTIFICATIONS.admin // Fallback to admin data for demo if needed
-      ];
-    }
-    setNotifications(data);
-  }, [user]);
+  // Fetch real received notices
+  const { data: noticesResponse, isLoading } = useReceivedNotices();
+  const notifications = noticesResponse?.data || [];
 
   const handleSeeMore = () => {
     setVisibleCount(prev => prev + 5);
@@ -134,6 +104,7 @@ const Notifications = () => {
 
   const visibleNotifications = notifications.slice(0, visibleCount);
   const hasMore = visibleCount < notifications.length;
+  const userRole = user?.role || 'student';
 
   return (
     <DashboardLayout>
@@ -147,7 +118,7 @@ const Notifications = () => {
               Notifications
             </h1>
             <p className="text-gray-500 mt-2 ml-1">
-              Stay updated with the latest alerts and announcements for <span className="font-semibold text-primary capitalize">{role?.replace(/([A-Z])/g, ' $1').trim()}</span>
+              Stay updated with the latest alerts and announcements for <span className="font-semibold text-primary capitalize">{userRole.replace(/([A-Z])/g, ' $1').trim()}</span>
             </p>
           </div>
           <div className="bg-white px-4 py-2 rounded-lg border border-gray-200 shadow-sm text-sm font-medium text-gray-600">
@@ -157,9 +128,11 @@ const Notifications = () => {
 
         {/* Notifications List */}
         <div className="space-y-4">
-          {visibleNotifications.length > 0 ? (
+          {isLoading ? (
+            <div className="text-center py-12 text-gray-500">Loading notifications...</div>
+          ) : visibleNotifications.length > 0 ? (
             visibleNotifications.map((notification) => (
-              <NotificationItem key={notification.id} notification={notification} />
+              <NotificationItem key={notification._id} notification={notification} />
             ))
           ) : (
             <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-12 text-center">

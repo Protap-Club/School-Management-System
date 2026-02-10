@@ -5,6 +5,7 @@ export {
     noticeKeys,
     useNotices,
     useNotice,
+    useReceivedNotices,
     useCreateNotice,
     useDeleteNotice,
     useClasses,

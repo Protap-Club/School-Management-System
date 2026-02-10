@@ -7,6 +7,7 @@ import {
     createNotice,
     getNotices,
     getNoticeById,
+    getReceivedNotices,
     deleteNotice,
     getGroups,
     createGroup,
@@ -136,6 +137,12 @@ router.post(
     upload.single("attachment"),
     validate(createNoticeSchema),
     createNotice
+);
+
+// GET /api/v1/notices/received (open to ALL authenticated users)
+router.get(
+    "/received",
+    getReceivedNotices
 );
 
 // GET /api/v1/notices/:id
