@@ -63,7 +63,7 @@ export const useAuth = () => {
     // Logout mutation
     const logoutMutation = useMutation({
         mutationFn: async () => {
-            authApi.logout();
+            await authApi.logout();
             return { success: true };
         },
         onSuccess: () => {

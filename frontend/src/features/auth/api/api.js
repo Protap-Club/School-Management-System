@@ -19,8 +19,19 @@ export const authApi = {
         return response.data;
     },
 
-    // Logout (clear token)
-    logout: () => {
+    // Refresh the access token (cookie is sent automatically)
+    refresh: async () => {
+        const response = await api.post('/auth/refresh');
+        return response.data;
+    },
+
+    // Logout — call backend to clear cookie + DB, then clear local token
+    logout: async () => {
+        try {
+            await api.post('/auth/logout');
+        } catch {
+            // Even if the API call fails, still clear local state
+        }
         localStorage.removeItem('token');
     },
 };

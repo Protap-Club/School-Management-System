@@ -6,6 +6,7 @@
 import express from 'express';
 import mongoose from 'mongoose';
 import cors from 'cors';
+import cookieParser from 'cookie-parser';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { createServer } from 'http';
@@ -54,6 +55,7 @@ app.set('io', io);
 
 // --- Core Middleware ---
 app.use(cors(corsOptions)); // Enable Cross-Origin Resource Sharing
+app.use(cookieParser()); // Parse cookies (needed for refresh tokens)
 app.use(express.json()); // Parses incoming JSON payloads
 app.use(express.text({ type: 'text/plain' })); // Let's us receive plain text for certain NFC readers
 
