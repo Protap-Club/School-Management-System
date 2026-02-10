@@ -9,6 +9,9 @@ export const noticeKeys = {
     detail: (id) => [...noticeKeys.all, 'detail', id],
     groups: () => [...noticeKeys.all, 'groups'],
     classes: () => [...noticeKeys.all, 'classes'],
+    students: () => [...noticeKeys.all, 'students'],
+    teachers: () => [...noticeKeys.all, 'teachers'],
+    allUsers: () => [...noticeKeys.all, 'allUsers'],
 };
 
 // Get notices with filters
@@ -58,6 +61,30 @@ export const useClasses = () => {
     });
 };
 
+// Get students
+export const useStudents = () => {
+    return useQuery({
+        queryKey: noticeKeys.students(),
+        queryFn: noticesApi.getStudents,
+    });
+};
+
+// Get teachers
+export const useTeachers = () => {
+    return useQuery({
+        queryKey: noticeKeys.teachers(),
+        queryFn: noticesApi.getTeachers,
+    });
+};
+
+// Get all users
+export const useAllUsers = () => {
+    return useQuery({
+        queryKey: noticeKeys.allUsers(),
+        queryFn: noticesApi.getAllUsers,
+    });
+};
+
 // Get groups
 export const useGroups = () => {
     return useQuery({
@@ -87,3 +114,4 @@ export const useDeleteGroup = () => {
         },
     });
 };
+

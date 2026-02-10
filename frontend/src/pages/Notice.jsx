@@ -2,6 +2,18 @@ import React, { useState, useRef } from 'react';
 import DashboardLayout from '../layouts/DashboardLayout';
 import { useAuth } from '../features/auth';
 import {
+    useNotices,
+    useCreateNotice,
+    useDeleteNotice,
+    useGroups,
+    useCreateGroup,
+    useDeleteGroup,
+    useClasses,
+    useStudents,
+    useTeachers,
+    useAllUsers,
+} from '../features/notices';
+import {
     FaPaperPlane,
     FaUsers,
     FaPaperclip,
@@ -25,99 +37,7 @@ import {
     FaFileCsv
 } from 'react-icons/fa';
 
-// Mock data for frontend-only implementation
-const MOCK_STUDENTS = [
-    { _id: '1', name: 'Rahul Sharma', email: 'rahul@student.com' },
-    { _id: '2', name: 'Priya Patel', email: 'priya@student.com' },
-    { _id: '3', name: 'Amit Kumar', email: 'amit@student.com' },
-    { _id: '4', name: 'Sneha Gupta', email: 'sneha@student.com' },
-    { _id: '5', name: 'Vikram Singh', email: 'vikram@student.com' },
-    { _id: '6', name: 'Ananya Reddy', email: 'ananya@student.com' },
-];
 
-const MOCK_CLASSES = [
-    { value: '9-A', label: 'Class 9 - Section A' },
-    { value: '9-B', label: 'Class 9 - Section B' },
-    { value: '10-A', label: 'Class 10 - Section A' },
-    { value: '10-B', label: 'Class 10 - Section B' },
-    { value: '11-A', label: 'Class 11 - Section A' },
-    { value: '11-B', label: 'Class 11 - Section B' },
-    { value: '12-A', label: 'Class 12 - Section A' },
-    { value: '12-B', label: 'Class 12 - Section B' },
-];
-
-const MOCK_USERS = [
-    { _id: '1', name: 'Mr. John Smith', role: 'teacher', email: 'john@school.com' },
-    { _id: '2', name: 'Ms. Sarah Johnson', role: 'teacher', email: 'sarah@school.com' },
-    { _id: '3', name: 'Rahul Sharma', role: 'student', email: 'rahul@student.com' },
-    { _id: '4', name: 'Priya Patel', role: 'student', email: 'priya@student.com' },
-    { _id: '5', name: 'Amit Kumar', role: 'student', email: 'amit@student.com' },
-];
-
-const MOCK_TEACHERS = [
-    { _id: 't-1', name: 'Mr. John Smith', email: 'john@school.com', role: 'teacher' },
-    { _id: 't-2', name: 'Ms. Sarah Johnson', email: 'sarah@school.com', role: 'teacher' },
-    { _id: 't-3', name: 'Mrs. Emily Davis', email: 'emily@school.com', role: 'teacher' },
-    { _id: 't-4', name: 'Mr. Robert Wilson', email: 'robert@school.com', role: 'teacher' },
-];
-
-const MOCK_HISTORY_DATA = [
-    {
-        id: '1',
-        type: 'notice',
-        title: 'Exam Schedule Update',
-        message: 'The final exam schedule has been updated. Please check the new dates for Mathematics and Science. All other exams remain as scheduled.',
-        sentTo: 'All Students',
-        sentToType: 'group',
-        date: '2024-03-15T10:30:00',
-        status: 'sent',
-        attachments: []
-    },
-    {
-        id: '2',
-        type: 'file',
-        title: 'Science Project Guidelines',
-        message: 'Please find attached the guidelines for the upcoming science project exhibition.',
-        sentTo: 'Class 9-A',
-        sentToType: 'group',
-        date: '2024-03-14T14:20:00',
-        status: 'sent',
-        attachments: [{ name: 'Project_Guidelines.pdf', size: 2048, type: 'pdf' }]
-    },
-    {
-        id: '3',
-        type: 'notice',
-        title: 'Holiday Announcement',
-        message: 'School will remain closed on Friday for Holi celebrations.',
-        sentTo: 'Entire School',
-        sentToType: 'all',
-        date: '2024-03-10T09:00:00',
-        status: 'sent',
-        attachments: []
-    },
-    {
-        id: '4',
-        type: 'notice',
-        title: 'Meeting Reminder',
-        message: 'Please meet me in the staff room after school hours regarding your progress report.',
-        sentTo: 'Rahul Sharma',
-        sentToType: 'individual',
-        date: '2024-03-05T15:45:00',
-        status: 'sent',
-        attachments: []
-    },
-    {
-        id: '5',
-        type: 'file',
-        title: 'Math Worksheet - Algebra',
-        message: 'Complete the attached worksheet by Monday.',
-        sentTo: 'Class 10-B',
-        sentToType: 'group',
-        date: '2024-02-28T11:10:00',
-        status: 'sent',
-        attachments: [{ name: 'Algebra_Worksheet.docx', size: 1024, type: 'doc' }]
-    }
-];
 
 // Allowed file extensions
 const ALLOWED_EXTENSIONS = [
@@ -165,11 +85,7 @@ const Notice = () => {
     const [selectedStudents, setSelectedStudents] = useState([]);
     const [selectedGroups, setSelectedGroups] = useState([]);
 
-    // Groups state (Teacher only)
-    const [groups, setGroups] = useState([
-        { id: '1', name: 'Class Representatives', students: ['1', '2'] },
-        { id: '2', name: 'Sports Team', students: ['3', '4', '5'] },
-    ]);
+    // Groups state
     const [newGroupName, setNewGroupName] = useState('');
     const [newGroupStudents, setNewGroupStudents] = useState([]);
     const [newGroupTeachers, setNewGroupTeachers] = useState([]);
@@ -177,11 +93,30 @@ const Notice = () => {
     // History state
     const [historySearch, setHistorySearch] = useState('');
     const [historyFilters, setHistoryFilters] = useState({ type: 'all', sentTo: 'all', date: 'all' });
-    const [historyItems, setHistoryItems] = useState(MOCK_HISTORY_DATA);
     const [viewItem, setViewItem] = useState(null);
 
     // Toast state
     const [toast, setToast] = useState({ type: '', text: '' });
+
+    // ═══ API Hooks ═══
+    const { data: noticesData } = useNotices(historyFilters);
+    const { data: classesData } = useClasses();
+    const { data: studentsData } = useStudents();
+    const { data: teachersData } = useTeachers();
+    const { data: allUsersData } = useAllUsers();
+    const { data: groupsData } = useGroups();
+    const createNoticeMutation = useCreateNotice();
+    const deleteNoticeMutation = useDeleteNotice();
+    const createGroupMutation = useCreateGroup();
+    const deleteGroupMutation = useDeleteGroup();
+
+    // Derive lists from API data
+    const students = studentsData?.data?.users || studentsData?.data || [];
+    const teachers = teachersData?.data?.users || teachersData?.data || [];
+    const allUsers = allUsersData?.data?.users || allUsersData?.data || [];
+    const classes = classesData?.data || [];
+    const groups = groupsData?.data || [];
+    const historyItems = noticesData?.data || [];
 
     // Handle file upload
     const handleFileUpload = (e) => {
@@ -225,7 +160,7 @@ const Notice = () => {
     };
 
     // Handle final send
-    const handleFinalSend = () => {
+    const handleFinalSend = async () => {
         if (!sendOption) {
             setToast({ type: 'error', text: 'Please select recipients' });
             setTimeout(() => setToast({ type: '', text: '' }), 3000);
@@ -254,68 +189,81 @@ const Notice = () => {
             return;
         }
 
-        // Success - clear state
-        setToast({ type: 'success', text: 'Notice sent successfully!' });
-        setTimeout(() => setToast({ type: '', text: '' }), 3000);
+        // Build recipients list based on send option
+        let recipientType = sendOption;
+        let recipients = [];
+        if (sendOption === 'school') { recipientType = 'all'; recipients = []; }
+        else if (sendOption === 'allStudents') { recipientType = 'students'; recipients = []; }
+        else if (sendOption === 'classes') { recipients = selectedClasses; }
+        else if (sendOption === 'users') { recipients = selectedUsers; }
+        else if (sendOption === 'students') { recipients = selectedStudents; }
+        else if (sendOption === 'groups') { recipients = selectedGroups; }
 
-        // Reset form
-        setMessage('');
-        setAttachment(null);
-        setAttachmentPreview(null);
-        setShowSendModal(false);
-        setSendOption('');
-        setSelectedClasses([]);
-        setSelectedUsers([]);
-        setSelectedStudents([]);
-        setSelectedGroups([]);
-        if (fileInputRef.current) fileInputRef.current.value = '';
+        try {
+            await createNoticeMutation.mutateAsync({
+                message,
+                title: message.substring(0, 50),
+                recipientType,
+                recipients,
+                attachment: attachment || undefined,
+            });
+
+            setToast({ type: 'success', text: 'Notice sent successfully!' });
+            setTimeout(() => setToast({ type: '', text: '' }), 3000);
+
+            // Reset form
+            setMessage('');
+            setAttachment(null);
+            setAttachmentPreview(null);
+            setShowSendModal(false);
+            setSendOption('');
+            setSelectedClasses([]);
+            setSelectedUsers([]);
+            setSelectedStudents([]);
+            setSelectedGroups([]);
+            if (fileInputRef.current) fileInputRef.current.value = '';
+        } catch (error) {
+            setToast({ type: 'error', text: error?.response?.data?.message || 'Failed to send notice' });
+            setTimeout(() => setToast({ type: '', text: '' }), 3000);
+        }
     };
 
-    // Filter History Items
+    // Helper: format recipientType for display
+    const getRecipientLabel = (item) => {
+        if (item.recipientType === 'all') return 'Entire School';
+        if (item.recipientType === 'classes') return item.recipients?.join(', ') || 'Classes';
+        if (item.recipientType === 'students') return 'Students';
+        if (item.recipientType === 'users') return 'Selected Users';
+        if (item.recipientType === 'groups') return 'Groups';
+        return item.recipientType || 'Unknown';
+    };
+
+    // Filter History Items (backend handles type/sentTo/date filters, we just do client-side search)
     const filteredHistory = historyItems.filter(item => {
-        // Search
+        if (!historySearch) return true;
         const searchLower = historySearch.toLowerCase();
-        const matchesSearch =
-            item.title.toLowerCase().includes(searchLower) ||
-            item.message.toLowerCase().includes(searchLower) ||
-            item.sentTo.toLowerCase().includes(searchLower);
-
-        if (!matchesSearch) return false;
-
-        // Type Filter
-        if (historyFilters.type !== 'all' && item.type !== historyFilters.type) return false;
-
-        // Sent To Filter
-        if (historyFilters.sentTo !== 'all') {
-            if (historyFilters.sentTo === 'group' && item.sentToType !== 'group' && item.sentToType !== 'all') return false; // 'all' is effectively a large group
-            if (historyFilters.sentTo === 'individual' && item.sentToType !== 'individual') return false;
-        }
-
-        // Date Filter (Mock logic)
-        if (historyFilters.date !== 'all') {
-            const itemDate = new Date(item.date);
-            const now = new Date();
-            const diffTime = Math.abs(now - itemDate);
-            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-            if (historyFilters.date === 'today' && diffDays > 1) return false;
-            if (historyFilters.date === 'last7' && diffDays > 7) return false;
-            if (historyFilters.date === 'last30' && diffDays > 30) return false;
-        }
-
-        return true;
+        return (
+            (item.title || '').toLowerCase().includes(searchLower) ||
+            (item.message || '').toLowerCase().includes(searchLower) ||
+            getRecipientLabel(item).toLowerCase().includes(searchLower)
+        );
     });
 
     // Handle delete history
-    const handleDeleteHistory = (itemId) => {
-        setHistoryItems(historyItems.filter(item => item.id !== itemId));
-        setToast({ type: 'success', text: 'History item deleted' });
-        setTimeout(() => setToast({ type: '', text: '' }), 3000);
+    const handleDeleteHistory = async (itemId) => {
+        try {
+            await deleteNoticeMutation.mutateAsync(itemId);
+            setToast({ type: 'success', text: 'Notice deleted' });
+            setTimeout(() => setToast({ type: '', text: '' }), 3000);
+        } catch (error) {
+            setToast({ type: 'error', text: error?.response?.data?.message || 'Failed to delete' });
+            setTimeout(() => setToast({ type: '', text: '' }), 3000);
+        }
     };
 
     // Handle create group
     // Handle create group
-    const handleCreateGroup = () => {
+    const handleCreateGroup = async () => {
         if (!newGroupName.trim()) {
             setToast({ type: 'error', text: 'Group name is required' });
             setTimeout(() => setToast({ type: '', text: '' }), 3000);
@@ -327,24 +275,32 @@ const Notice = () => {
             return;
         }
 
-        const newGroup = {
-            id: Date.now().toString(),
-            name: newGroupName,
-            students: [...newGroupStudents, ...newGroupTeachers] // Combined list
-        };
-        setGroups([...groups, newGroup]);
-        setNewGroupName('');
-        setNewGroupStudents([]);
-        setNewGroupTeachers([]);
-        setToast({ type: 'success', text: 'Group created successfully!' });
-        setTimeout(() => setToast({ type: '', text: '' }), 3000);
+        try {
+            await createGroupMutation.mutateAsync({
+                name: newGroupName,
+                students: [...newGroupStudents, ...newGroupTeachers],
+            });
+            setNewGroupName('');
+            setNewGroupStudents([]);
+            setNewGroupTeachers([]);
+            setToast({ type: 'success', text: 'Group created successfully!' });
+            setTimeout(() => setToast({ type: '', text: '' }), 3000);
+        } catch (error) {
+            setToast({ type: 'error', text: error?.response?.data?.message || 'Failed to create group' });
+            setTimeout(() => setToast({ type: '', text: '' }), 3000);
+        }
     };
 
     // Handle delete group
-    const handleDeleteGroup = (groupId) => {
-        setGroups(groups.filter(g => g.id !== groupId));
-        setToast({ type: 'success', text: 'Group deleted' });
-        setTimeout(() => setToast({ type: '', text: '' }), 3000);
+    const handleDeleteGroup = async (groupId) => {
+        try {
+            await deleteGroupMutation.mutateAsync(groupId);
+            setToast({ type: 'success', text: 'Group deleted' });
+            setTimeout(() => setToast({ type: '', text: '' }), 3000);
+        } catch (error) {
+            setToast({ type: 'error', text: error?.response?.data?.message || 'Failed to delete group' });
+            setTimeout(() => setToast({ type: '', text: '' }), 3000);
+        }
     };
 
     // Toggle selection in array
@@ -581,7 +537,7 @@ const Notice = () => {
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-2">Select Students</label>
                                     <div className="border border-gray-200 rounded-xl max-h-48 overflow-y-auto">
-                                        {MOCK_STUDENTS.map(student => (
+                                        {students.map(student => (
                                             <label
                                                 key={student._id}
                                                 className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-b-0"
@@ -603,7 +559,7 @@ const Notice = () => {
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-2">Select Teachers</label>
                                         <div className="border border-gray-200 rounded-xl max-h-48 overflow-y-auto">
-                                            {MOCK_TEACHERS.map(teacher => (
+                                            {teachers.map(teacher => (
                                                 <label
                                                     key={teacher._id}
                                                     className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-b-0"
@@ -654,7 +610,7 @@ const Notice = () => {
                                     <div className="space-y-3">
                                         {groups.map(group => (
                                             <div
-                                                key={group.id}
+                                                key={group._id}
                                                 className="flex items-center justify-between p-4 bg-gray-50 rounded-xl"
                                             >
                                                 <div className="flex items-center gap-3">
@@ -663,11 +619,11 @@ const Notice = () => {
                                                     </div>
                                                     <div>
                                                         <p className="text-sm font-medium text-gray-900">{group.name}</p>
-                                                        <p className="text-xs text-gray-400">{group.students.length} student{group.students.length !== 1 ? 's' : ''}</p>
+                                                        <p className="text-xs text-gray-400">{(group.members || []).length} member{(group.members || []).length !== 1 ? 's' : ''}</p>
                                                     </div>
                                                 </div>
                                                 <button
-                                                    onClick={() => handleDeleteGroup(group.id)}
+                                                    onClick={() => handleDeleteGroup(group._id)}
                                                     className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
                                                 >
                                                     <FaTrash size={12} />
@@ -779,10 +735,10 @@ const Notice = () => {
                                                 <div className="md:col-span-5">
                                                     <div className="flex items-center gap-2 mb-1">
                                                         <h3 className="text-base font-semibold text-gray-900 truncate">{item.title}</h3>
-                                                        {item.attachments.length > 0 && (
+                                                        {item.attachment && item.attachment.filename && (
                                                             <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">
                                                                 <FaPaperclip className="mr-1" size={10} />
-                                                                {item.attachments.length}
+                                                                1
                                                             </span>
                                                         )}
                                                     </div>
@@ -793,9 +749,9 @@ const Notice = () => {
                                                 <div className="md:col-span-3 flex items-center">
                                                     <div className="flex items-center gap-2 text-sm text-gray-600">
                                                         <div className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center">
-                                                            {item.sentToType === 'individual' ? <FaUserFriends size={10} /> : <FaUsers size={10} />}
+                                                            {(item.recipientType === 'users' || item.recipientType === 'students') ? <FaUserFriends size={10} /> : <FaUsers size={10} />}
                                                         </div>
-                                                        <span className="truncate max-w-[150px]" title={item.sentTo}>{item.sentTo}</span>
+                                                        <span className="truncate max-w-[150px]" title={getRecipientLabel(item)}>{getRecipientLabel(item)}</span>
                                                     </div>
                                                 </div>
 
@@ -807,7 +763,7 @@ const Notice = () => {
                                                             Sent
                                                         </div>
                                                         <div className="text-xs text-gray-400 mt-1">
-                                                            {new Date(item.date).toLocaleDateString()} • {new Date(item.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                            {new Date(item.createdAt).toLocaleDateString()} • {new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                                         </div>
                                                     </div>
 
@@ -821,7 +777,7 @@ const Notice = () => {
                                                             <FaEye size={16} />
                                                         </button>
                                                         <button
-                                                            onClick={() => handleDeleteHistory(item.id)}
+                                                            onClick={() => handleDeleteHistory(item._id)}
                                                             className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                                                             title="Delete"
                                                         >
@@ -861,9 +817,9 @@ const Notice = () => {
                                     <div>
                                         <h4 className="text-lg font-bold text-gray-900">{viewItem.title}</h4>
                                         <div className="flex items-center gap-2 mt-1 text-sm text-gray-500">
-                                            <span>{new Date(viewItem.date).toLocaleDateString()}</span>
+                                            <span>{new Date(viewItem.createdAt).toLocaleDateString()}</span>
                                             <span>•</span>
-                                            <span>{viewItem.sentTo}</span>
+                                            <span>{getRecipientLabel(viewItem)}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -874,26 +830,24 @@ const Notice = () => {
                                 </div>
 
                                 {/* Attachments */}
-                                {viewItem.attachments && viewItem.attachments.length > 0 && (
+                                {viewItem.attachment && viewItem.attachment.filename && (
                                     <div>
-                                        <h5 className="text-sm font-medium text-gray-900 mb-3">Attachments</h5>
+                                        <h5 className="text-sm font-medium text-gray-900 mb-3">Attachment</h5>
                                         <div className="space-y-2">
-                                            {viewItem.attachments.map((file, idx) => (
-                                                <div key={idx} className="flex items-center justify-between p-3 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors">
-                                                    <div className="flex items-center gap-3">
-                                                        <div className="w-10 h-10 bg-white border border-gray-100 rounded-lg flex items-center justify-center">
-                                                            {getFileIcon(file.name)}
-                                                        </div>
-                                                        <div>
-                                                            <p className="text-sm font-medium text-gray-900">{file.name}</p>
-                                                            <p className="text-xs text-gray-500">{(file.size / 1024).toFixed(1)} KB</p>
-                                                        </div>
+                                            <div className="flex items-center justify-between p-3 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-10 h-10 bg-white border border-gray-100 rounded-lg flex items-center justify-center">
+                                                        {getFileIcon(viewItem.attachment.originalName || viewItem.attachment.filename)}
                                                     </div>
-                                                    <button className="p-2 text-gray-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-colors">
-                                                        <FaDownload size={14} />
-                                                    </button>
+                                                    <div>
+                                                        <p className="text-sm font-medium text-gray-900">{viewItem.attachment.originalName || viewItem.attachment.filename}</p>
+                                                        <p className="text-xs text-gray-500">{((viewItem.attachment.size || 0) / 1024).toFixed(1)} KB</p>
+                                                    </div>
                                                 </div>
-                                            ))}
+                                                <a href={viewItem.attachment.path} target="_blank" rel="noopener noreferrer" className="p-2 text-gray-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-colors">
+                                                    <FaDownload size={14} />
+                                                </a>
+                                            </div>
                                         </div>
                                     </div>
                                 )}
@@ -988,7 +942,7 @@ const Notice = () => {
                                                         />
                                                     </div>
                                                     <div className="border border-gray-200 rounded-lg max-h-48 overflow-y-auto">
-                                                        {MOCK_CLASSES
+                                                        {classes
                                                             .filter(cls => cls.label.toLowerCase().includes(searchTerm.toLowerCase()))
                                                             .map(cls => (
                                                                 <label key={cls.value} className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 cursor-pointer text-sm border-b border-gray-50 last:border-b-0">
@@ -1001,7 +955,7 @@ const Notice = () => {
                                                                     {cls.label}
                                                                 </label>
                                                             ))}
-                                                        {MOCK_CLASSES.filter(cls => cls.label.toLowerCase().includes(searchTerm.toLowerCase())).length === 0 && (
+                                                        {classes.filter(cls => cls.label.toLowerCase().includes(searchTerm.toLowerCase())).length === 0 && (
                                                             <div className="px-3 py-4 text-center text-xs text-gray-400">
                                                                 No classes found
                                                             </div>
@@ -1042,10 +996,10 @@ const Notice = () => {
                                                         />
                                                     </div>
                                                     <div className="border border-gray-200 rounded-lg max-h-48 overflow-y-auto">
-                                                        {MOCK_USERS
+                                                        {allUsers
                                                             .filter(user =>
-                                                                user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                                                                user.role.toLowerCase().includes(searchTerm.toLowerCase())
+                                                                (user.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                                                (user.role || '').toLowerCase().includes(searchTerm.toLowerCase())
                                                             )
                                                             .map(user => (
                                                                 <label key={user._id} className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 cursor-pointer text-sm border-b border-gray-50 last:border-b-0">
@@ -1061,9 +1015,9 @@ const Notice = () => {
                                                                     </span>
                                                                 </label>
                                                             ))}
-                                                        {MOCK_USERS.filter(user =>
-                                                            user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                                                            user.role.toLowerCase().includes(searchTerm.toLowerCase())
+                                                        {allUsers.filter(user =>
+                                                            (user.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                                            (user.role || '').toLowerCase().includes(searchTerm.toLowerCase())
                                                         ).length === 0 && (
                                                                 <div className="px-3 py-4 text-center text-xs text-gray-400">
                                                                     No users found
@@ -1109,15 +1063,15 @@ const Notice = () => {
                                                             {groups
                                                                 .filter(group => group.name.toLowerCase().includes(searchTerm.toLowerCase()))
                                                                 .map(group => (
-                                                                    <label key={group.id} className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 cursor-pointer text-sm border-b border-gray-50 last:border-b-0">
+                                                                    <label key={group._id} className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 cursor-pointer text-sm border-b border-gray-50 last:border-b-0">
                                                                         <input
                                                                             type="checkbox"
-                                                                            checked={selectedGroups.includes(group.id)}
-                                                                            onChange={() => toggleSelection(selectedGroups, setSelectedGroups, group.id)}
+                                                                            checked={selectedGroups.includes(group._id)}
+                                                                            onChange={() => toggleSelection(selectedGroups, setSelectedGroups, group._id)}
                                                                             className="w-3.5 h-3.5 text-primary border-gray-300 rounded focus:ring-primary"
                                                                         />
                                                                         <span>{group.name}</span>
-                                                                        <span className="text-xs text-gray-400">({group.students.length})</span>
+                                                                        <span className="text-xs text-gray-400">({(group.members || []).length})</span>
                                                                     </label>
                                                                 ))}
                                                             {groups.filter(group => group.name.toLowerCase().includes(searchTerm.toLowerCase())).length === 0 && (
@@ -1186,7 +1140,7 @@ const Notice = () => {
                                                         />
                                                     </div>
                                                     <div className="border border-gray-200 rounded-lg max-h-48 overflow-y-auto">
-                                                        {MOCK_STUDENTS
+                                                        {students
                                                             .filter(student => student.name.toLowerCase().includes(searchTerm.toLowerCase()))
                                                             .map(student => (
                                                                 <label key={student._id} className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 cursor-pointer text-sm border-b border-gray-50 last:border-b-0">
@@ -1199,7 +1153,7 @@ const Notice = () => {
                                                                     {student.name}
                                                                 </label>
                                                             ))}
-                                                        {MOCK_STUDENTS.filter(student => student.name.toLowerCase().includes(searchTerm.toLowerCase())).length === 0 && (
+                                                        {students.filter(student => student.name.toLowerCase().includes(searchTerm.toLowerCase())).length === 0 && (
                                                             <div className="px-3 py-4 text-center text-xs text-gray-400">
                                                                 No students found
                                                             </div>
@@ -1244,15 +1198,15 @@ const Notice = () => {
                                                             {groups
                                                                 .filter(group => group.name.toLowerCase().includes(searchTerm.toLowerCase()))
                                                                 .map(group => (
-                                                                    <label key={group.id} className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 cursor-pointer text-sm border-b border-gray-50 last:border-b-0">
+                                                                    <label key={group._id} className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 cursor-pointer text-sm border-b border-gray-50 last:border-b-0">
                                                                         <input
                                                                             type="checkbox"
-                                                                            checked={selectedGroups.includes(group.id)}
-                                                                            onChange={() => toggleSelection(selectedGroups, setSelectedGroups, group.id)}
+                                                                            checked={selectedGroups.includes(group._id)}
+                                                                            onChange={() => toggleSelection(selectedGroups, setSelectedGroups, group._id)}
                                                                             className="w-3.5 h-3.5 text-primary border-gray-300 rounded focus:ring-primary"
                                                                         />
                                                                         <span>{group.name}</span>
-                                                                        <span className="text-xs text-gray-400">({group.students.length})</span>
+                                                                        <span className="text-xs text-gray-400">({(group.members || []).length})</span>
                                                                     </label>
                                                                 ))}
                                                             {groups.filter(group => group.name.toLowerCase().includes(searchTerm.toLowerCase())).length === 0 && (
