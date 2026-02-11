@@ -60,12 +60,9 @@ export const useAuth = () => {
         },
     });
 
-    // Logout mutation
+    // Logout mutation — now calls the backend to clear refresh cookie
     const logoutMutation = useMutation({
-        mutationFn: async () => {
-            authApi.logout();
-            return { success: true };
-        },
+        mutationFn: authApi.logout,
         onSuccess: () => {
             dispatch(clearUser());
             queryClient.clear();
