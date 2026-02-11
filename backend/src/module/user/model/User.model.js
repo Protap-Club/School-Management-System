@@ -4,7 +4,7 @@ import { VALID_ROLES } from "../../../constants/userRoles.js";
 
 const userSchema = new mongoose.Schema(
   {
-    // Identity & Access 
+    // Identity & Access
     name: {
       type: String,
       required: true,
@@ -29,8 +29,11 @@ const userSchema = new mongoose.Schema(
       required: true,
       index: true,
     },
-
-    // Organization & Hardware 
+    refreshToken : {
+      type : String,
+      select : false
+    },
+    // Organization & Hardware
     schoolId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "School",
@@ -45,17 +48,17 @@ const userSchema = new mongoose.Schema(
       index: true,
     },
 
-    // Contact & Profile 
+    // Contact & Profile
     contactNo: {
       type: String,
       trim: true,
     },
     avatarUrl: {
       type: String,
-      trim: true
+      trim: true,
     }, // Optional: Useful for UI/Profiles
 
-    // Status & Security 
+    // Status & Security
     isActive: {
       type: Boolean,
       default: true,
@@ -68,7 +71,7 @@ const userSchema = new mongoose.Schema(
       type: Date,
     },
 
-    // Archive & Audit Trail 
+    // Archive & Audit Trail
     isArchived: {
       type: Boolean,
       default: false,
@@ -86,7 +89,7 @@ const userSchema = new mongoose.Schema(
       ref: "User",
     },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 // --- Hooks ---
@@ -104,7 +107,7 @@ userSchema.methods.comparePassword = async function (candidatePassword) {
   return bcrypt.compare(candidatePassword, this.password);
 };
 
-//  Virtuals 
+//  Virtuals
 // Links User to their specific profile based on role
 userSchema.virtual("studentProfile", {
   ref: "StudentProfile",

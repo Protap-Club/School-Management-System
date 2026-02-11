@@ -1,16 +1,22 @@
 import bcrypt from "bcryptjs";
-import jwt from "jsonwebtoken";
 import User from "../user/model/User.model.js";
-import { conf } from "../../config/index.js";
 import { USER_ROLES } from "../../constants/userRoles.js";
 import { CustomError } from "../../utils/customError.js";
+import {
+    generateAccessToken,
+    generateRefreshToken,
+    verifyRefreshToken,
+    hashToken,
+    compareToken,
+} from "../../utils/token.util.js";
 
 // LOGIN
 export const login = async (email, password) => {
     if (!email || !password) throw new CustomError("Email and password are required", 400);
 
-    // Fetch user with password (explicitly selected) and populate school info
-    const user = await User.findOne({ email }).select('+password').populate('schoolId', 'name code');
+    const user = await User.findOne({ email })
+        .select("+password")
+        .populate("schoolId", "name code");
 
     if (!user) throw new CustomError("Invalid credentials", 401);
 
@@ -24,31 +30,67 @@ export const login = async (email, password) => {
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) throw new CustomError("Invalid credentials", 401);
 
-    // Optimization: Update login time without triggering 'save' hooks
+    // Update last login time (skip hooks)
     await User.updateOne({ _id: user._id }, { $set: { lastLoginAt: new Date() } });
 
-    // Generate Token (Payload includes Role/School to save frontend requests)
-    const token = jwt.sign(
-        { id: user._id, role: user.role, schoolId: user.schoolId?._id },
-        conf.JWT_SECRET,
-        { expiresIn: "7d" }
-    );
+    // Token payload
+    const tokenPayload = { id: user._id, role: user.role, schoolId: user.schoolId?._id };
 
-    // Prepare clean response (Exclude password)
-    // Prepare restricted response
+    const accessToken = generateAccessToken(tokenPayload);
+    const refreshToken = generateRefreshToken(tokenPayload);
+
+    // Store hashed refresh token in DB
+    const hashedRefresh = await hashToken(refreshToken);
+    await User.updateOne({ _id: user._id }, { $set: { refreshToken: hashedRefresh } });
+
     const userResponse = {
         name: user.name,
         userid: user._id,
         schoolId: user.schoolId?._id,
         schoolName: user.schoolId?.name,
         email: user.email,
-        role: user.role
+        role: user.role,
     };
 
-    return { user: userResponse, token };
+    return { user: userResponse, accessToken, refreshToken };
 };
 
-// LOGOUT (Stateless JWT)
-export const logout = async () => {
+// REFRESH ACCESS TOKEN
+export const refreshAccessToken = async (oldRefreshToken) => {
+    if (!oldRefreshToken) throw new CustomError("Refresh token is required", 401);
+
+    // Verify the JWT signature & expiry
+    let decoded;
+    try {
+        decoded = verifyRefreshToken(oldRefreshToken);
+    } catch {
+        throw new CustomError("Invalid or expired refresh token", 401);
+    }
+
+    // Fetch user with the stored hashed refresh token
+    const user = await User.findById(decoded.id).select("+refreshToken");
+    if (!user) throw new CustomError("User not found", 401);
+    if (!user.refreshToken) throw new CustomError("No active session — please login", 401);
+
+    // Compare the incoming token against stored hash
+    const isValid = await compareToken(oldRefreshToken, user.refreshToken);
+    if (!isValid) throw new CustomError("Refresh token has been revoked", 401);
+
+    // Token rotation — issue new pair
+    const tokenPayload = { id: user._id, role: user.role, schoolId: user.schoolId };
+    const newAccessToken = generateAccessToken(tokenPayload);
+    const newRefreshToken = generateRefreshToken(tokenPayload);
+
+    // Save new hashed refresh token
+    const hashedRefresh = await hashToken(newRefreshToken);
+    await User.updateOne({ _id: user._id }, { $set: { refreshToken: hashedRefresh } });
+
+    return { accessToken: newAccessToken, refreshToken: newRefreshToken };
+};
+
+// LOGOUT 
+export const logout = async (userId) => {
+    // Invalidate refresh token in DB
+    await User.updateOne({ _id: userId }, { $set: { refreshToken: null } });
     return { message: "Logged out successfully" };
 };

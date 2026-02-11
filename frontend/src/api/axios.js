@@ -1,24 +1,4 @@
-import axios from 'axios';
-
-const api = axios.create({
-  baseURL: 'http://localhost:5000/api/v1',
-  headers: {
-    'Content-Type': 'application/json',
-  },
-});
-
-// Add a request interceptor to add the auth token to every request
-api.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
-  }
-);
-
-export default api;
+// Legacy axios location — re-exports from the canonical lib/axios module.
+// Components still importing from 'api/axios' will get the correct
+// instance with withCredentials and refresh interceptor.
+export { default } from '../lib/axios';

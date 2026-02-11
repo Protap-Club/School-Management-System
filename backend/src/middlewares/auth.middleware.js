@@ -12,7 +12,7 @@ const checkAuth = async (req, res, next) => {
             return res.status(401).json({ success: false, message: "No token provided" });
         }
 
-        const decoded = jwt.verify(token, conf.JWT_SECRET);
+        const decoded = jwt.verify(token, conf.JWT_ACCESS_SECRET);
 
         // Optimization: .lean() returns a plain JS object instead of a heavy Mongoose document
         const user = await User.findById(decoded.id)
