@@ -40,9 +40,45 @@ export const noticesApi = {
         return response.data;
     },
 
-    // Get classes list
+    // Get received notices (for notifications/bell icon)
+    getReceivedNotices: async () => {
+        const response = await api.get('/notices/received');
+        return response.data;
+    },
+
+    // Get classes list (derived from timetable data)
     getClasses: async () => {
-        const response = await api.get('/classes');
+        try {
+            const response = await api.get('/timetables');
+            const timetables = response.data?.data || [];
+            // Transform timetable data into class options
+            return {
+                success: true,
+                data: timetables.map(t => ({
+                    value: `${t.standard}-${t.section}`,
+                    label: `Class ${t.standard} - Section ${t.section}`
+                }))
+            };
+        } catch {
+            return { success: true, data: [] };
+        }
+    },
+
+    // Get students list
+    getStudents: async () => {
+        const response = await api.get('/users?role=student&pageSize=100');
+        return response.data;
+    },
+
+    // Get teachers list
+    getTeachers: async () => {
+        const response = await api.get('/users?role=teacher&pageSize=100');
+        return response.data;
+    },
+
+    // Get all users (students + teachers)
+    getAllUsers: async () => {
+        const response = await api.get('/users?pageSize=100');
         return response.data;
     },
 
@@ -64,3 +100,4 @@ export const noticesApi = {
         return response.data;
     },
 };
+
