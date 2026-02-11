@@ -5,10 +5,11 @@ import { CustomError } from "../../utils/customError.js";
 import {
     generateAccessToken,
     generateRefreshToken,
-    verifyRefreshToken,
     hashToken,
-    compareToken,
+    saveRefreshTokenToUser
 } from "../../utils/token.util.js";
+
+// Public service functions 
 
 // LOGIN
 export const login = async (email, password) => {
@@ -30,19 +31,17 @@ export const login = async (email, password) => {
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) throw new CustomError("Invalid credentials", 401);
 
-    // Update last login time (skip hooks)
+    // Update login time without triggering 'save' hooks
     await User.updateOne({ _id: user._id }, { $set: { lastLoginAt: new Date() } });
 
-    // Token payload
-    const tokenPayload = { id: user._id, role: user.role, schoolId: user.schoolId?._id };
+    // Generate tokens
+    const accessToken = generateAccessToken(user);
+    const refreshToken = generateRefreshToken();
 
-    const accessToken = generateAccessToken(tokenPayload);
-    const refreshToken = generateRefreshToken(tokenPayload);
+    // Store hashed refresh token on user document
+    await saveRefreshTokenToUser(user._id, refreshToken);
 
-    // Store hashed refresh token in DB
-    const hashedRefresh = await hashToken(refreshToken);
-    await User.updateOne({ _id: user._id }, { $set: { refreshToken: hashedRefresh } });
-
+    // Prepare clean response
     const userResponse = {
         name: user.name,
         userid: user._id,
@@ -59,38 +58,47 @@ export const login = async (email, password) => {
 export const refreshAccessToken = async (oldRefreshToken) => {
     if (!oldRefreshToken) throw new CustomError("Refresh token is required", 401);
 
-    // Verify the JWT signature & expiry
-    let decoded;
-    try {
-        decoded = verifyRefreshToken(oldRefreshToken);
-    } catch {
-        throw new CustomError("Invalid or expired refresh token", 401);
+    const oldHash = hashToken(oldRefreshToken);
+
+    // Find user by the stored refresh token hash
+    const user = await User.findOne({ refreshTokenHash: oldHash })
+        .select("+refreshTokenHash +refreshTokenExpiresAt")
+        .populate("schoolId", "name code");
+
+    if (!user) {
+        // Token not found — could be reuse after rotation. No user to clear, just reject.
+        throw new CustomError("Invalid refresh token", 401);
     }
 
-    // Fetch user with the stored hashed refresh token
-    const user = await User.findById(decoded.id).select("+refreshToken");
-    if (!user) throw new CustomError("User not found", 401);
-    if (!user.refreshToken) throw new CustomError("No active session — please login", 401);
+    // Check expiry
+    if (!user.refreshTokenExpiresAt || user.refreshTokenExpiresAt < new Date()) {
+        // Expired — clear stored token and reject
+        await User.updateOne(
+            { _id: user._id },
+            { $unset: { refreshTokenHash: "", refreshTokenExpiresAt: "" } }
+        );
+        throw new CustomError("Refresh token has expired, please login again", 401);
+    }
 
-    // Compare the incoming token against stored hash
-    const isValid = await compareToken(oldRefreshToken, user.refreshToken);
-    if (!isValid) throw new CustomError("Refresh token has been revoked", 401);
+    // Token Rotation 
+    // Issue new tokens and invalidate the old one
+    const newAccessToken = generateAccessToken(user);
+    const newRefreshToken = generateRefreshToken();
 
-    // Token rotation — issue new pair
-    const tokenPayload = { id: user._id, role: user.role, schoolId: user.schoolId };
-    const newAccessToken = generateAccessToken(tokenPayload);
-    const newRefreshToken = generateRefreshToken(tokenPayload);
-
-    // Save new hashed refresh token
-    const hashedRefresh = await hashToken(newRefreshToken);
-    await User.updateOne({ _id: user._id }, { $set: { refreshToken: hashedRefresh } });
+    await saveRefreshTokenToUser(user._id, newRefreshToken);
 
     return { accessToken: newAccessToken, refreshToken: newRefreshToken };
 };
 
-// LOGOUT 
-export const logout = async (userId) => {
-    // Invalidate refresh token in DB
-    await User.updateOne({ _id: userId }, { $set: { refreshToken: null } });
+// LOGOUT (server-side: clear refresh token)
+export const logout = async (refreshToken) => {
+    if (refreshToken) {
+        const tokenHash = hashToken(refreshToken);
+        // Clear the refresh token fields for the matching user
+        await User.updateOne(
+            { refreshTokenHash: tokenHash },
+            { $unset: { refreshTokenHash: "", refreshTokenExpiresAt: "" } }
+        );
+    }
     return { message: "Logged out successfully" };
 };

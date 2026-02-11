@@ -71,7 +71,17 @@ const userSchema = new mongoose.Schema(
       type: Date,
     },
 
-    // Archive & Audit Trail
+    // Refresh Token 
+    refreshTokenHash: {
+      type: String,
+      select: false,
+    },
+    refreshTokenExpiresAt: {
+      type: Date,
+      select: false,
+    },
+
+    // Archive & Audit Trail 
     isArchived: {
       type: Boolean,
       default: false,

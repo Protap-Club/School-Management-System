@@ -19,18 +19,30 @@ export const authApi = {
         return response.data;
     },
 
+<<<<<<< HEAD
     // Refresh the access token (cookie is sent automatically)
     refresh: async () => {
+=======
+    // Refresh access token (cookie sent automatically)
+    refreshToken: async () => {
+>>>>>>> fix
         const response = await api.post('/auth/refresh');
         return response.data;
     },
 
+<<<<<<< HEAD
     // Logout — call backend to clear cookie + DB, then clear local token
+=======
+    // Logout calls backend to clear refresh cookie, then clears local token
+>>>>>>> fix
     logout: async () => {
         try {
             await api.post('/auth/logout');
         } catch {
+<<<<<<< HEAD
             // Even if the API call fails, still clear local state
+=======
+>>>>>>> fix
         }
         localStorage.removeItem('token');
     },

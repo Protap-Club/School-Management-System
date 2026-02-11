@@ -1,8 +1,3 @@
-/**
- * Main entry point for the Protap School Management System backend.
- * This file sets up the Express server, database connection, WebSockets, and all middleware.
- */
-
 import express from 'express';
 import mongoose from 'mongoose';
 import cors from 'cors';
@@ -12,7 +7,7 @@ import { fileURLToPath } from 'url';
 import { createServer } from 'http';
 import { initSocket } from './socket.js';
 
-// --- Local Imports ---
+// Local Imports 
 import { conf } from './config/index.js';
 import logger from './config/logger.js'; // Import our configured logger
 import apiRoutes from './routes/index.route.js';
@@ -25,7 +20,7 @@ console.log('SMTP_FROM:', conf.SMTP_FROM);
 console.log('SMTP_PASS (length):', conf.SMTP_PASS ? conf.SMTP_PASS.length : 0);
 console.log('--------------------------');
 
-// --- Constants & Setup ---
+// Constants & Setup    
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -35,7 +30,7 @@ const PORT = conf.PORT || 5000;
 // We need to use the native http server to hook Socket.io, then pass the app to it.
 const server = createServer(app);
 
-// --- CORS Configuration ---
+// CORS Configuration 
 // Only allowing our frontend to connect.
 const corsOptions = {
     origin: ['http://localhost:5173'], // Add your frontend URL here
@@ -44,18 +39,17 @@ const corsOptions = {
     allowedHeaders: ['Content-Type', 'Authorization']
 };
 
-// --- WebSocket (Socket.io) Setup ---
+// WebSocket (Socket.io) Setup 
 // Setting up real-time communication for things like live attendance updates.
-// --- WebSocket (Socket.io) Setup ---
 const io = initSocket(server, corsOptions);
 
 // Store io instance on the app object
 app.set('io', io);
 
 
-// --- Core Middleware ---
+// Core Middleware 
 app.use(cors(corsOptions)); // Enable Cross-Origin Resource Sharing
-app.use(cookieParser()); // Parse cookies (needed for refresh tokens)
+app.use(cookieParser());     // Parse cookies (needed for refresh tokens)
 app.use(express.json()); // Parses incoming JSON payloads
 app.use(express.text({ type: 'text/plain' })); // Let's us receive plain text for certain NFC readers
 
@@ -63,13 +57,13 @@ app.use(express.text({ type: 'text/plain' })); // Let's us receive plain text fo
 app.set('io', io);
 
 
-// --- Static File Serving ---
+// Static File Serving 
 // Making the 'uploads' and 'resource' directories publicly accessible.
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 app.use('/resource', express.static(path.join(__dirname, '../resource')));
 
 
-// --- API Routes ---
+// API Routes 
 // This is where we define the main endpoints for our API.
 // Mount all API routes via the central router
 app.use('/api/v1', apiRoutes);
@@ -80,13 +74,13 @@ app.get('/', (req, res) => {
 });
 
 
-// --- Error Handling ---
+// Error Handling   
 // This middleware catches any errors that bubble up from our controllers.
 // It MUST be the last 'app.use()' call.
 app.use(errorHandler);
 
 
-// --- Database & Server Initialization ---
+// Database & Server Initialization 
 // We connect to MongoDB first, and only if successful, we start the server.
 logger.info("Connecting to MongoDB...");
 mongoose.connect(conf.MONGO_URI, { dbName: "Protap" })
