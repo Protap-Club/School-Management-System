@@ -12,11 +12,7 @@ const api = axios.create({
     timeout: 10000,
 });
 
-<<<<<<< HEAD
-// Request interceptor — attach access token
-=======
 // Request interceptor: attach access token 
->>>>>>> fix
 api.interceptors.request.use(
     (config) => {
         const token = localStorage.getItem('token');
@@ -28,22 +24,12 @@ api.interceptors.request.use(
     (error) => Promise.reject(error)
 );
 
-<<<<<<< HEAD
-// Refresh token interceptor
-// Queues failed requests while a refresh is in progress so we don't fire
-// multiple /refresh calls simultaneously.
-
-let isRefreshing = false;
-let failedQueue = [];
-
-=======
 // Response interceptor: silent refresh on 401 
 let isRefreshing = false;
 let failedQueue = [];
 
 // Queue failed requests while a refresh is in progress.
 // Once the refresh completes, replay them with the new token.
->>>>>>> fix
 const processQueue = (error, token = null) => {
     failedQueue.forEach(({ resolve, reject }) => {
         if (error) {
@@ -60,20 +46,6 @@ api.interceptors.response.use(
     async (error) => {
         const originalRequest = error.config;
 
-<<<<<<< HEAD
-        // Only attempt refresh on 401 and not on the refresh/login endpoints themselves
-        const isAuthEndpoint =
-            originalRequest.url?.includes('/auth/refresh') ||
-            originalRequest.url?.includes('/auth/login');
-
-        if (error.response?.status === 401 && !originalRequest._retry && !isAuthEndpoint) {
-            if (isRefreshing) {
-                // Another refresh is in-flight — queue this request
-                return new Promise((resolve, reject) => {
-                    failedQueue.push({ resolve, reject });
-                }).then((newToken) => {
-                    originalRequest.headers.Authorization = `Bearer ${newToken}`;
-=======
         // Only attempt refresh on 401, and not if the failing request is itself the refresh call
         if (
             error.response?.status === 401 &&
@@ -86,7 +58,6 @@ api.interceptors.response.use(
                     failedQueue.push({ resolve, reject });
                 }).then((token) => {
                     originalRequest.headers.Authorization = `Bearer ${token}`;
->>>>>>> fix
                     return api(originalRequest);
                 });
             }
@@ -95,28 +66,6 @@ api.interceptors.response.use(
             isRefreshing = true;
 
             try {
-<<<<<<< HEAD
-                // Call refresh endpoint (cookie is sent automatically)
-                const { data } = await api.post('/auth/refresh');
-
-                // Store the new access token
-                localStorage.setItem('token', data.token);
-                api.defaults.headers.common.Authorization = `Bearer ${data.token}`;
-
-                processQueue(null, data.token);
-
-                // Retry the original request with the new token
-                originalRequest.headers.Authorization = `Bearer ${data.token}`;
-                return api(originalRequest);
-            } catch (refreshError) {
-                processQueue(refreshError, null);
-
-                // Refresh failed — session is dead, force logout
-                localStorage.removeItem('token');
-                if (window.location.pathname !== '/login') {
-                    window.location.href = '/login';
-                }
-=======
                 // Call refresh endpoint — cookie is sent automatically
                 const { data } = await api.post('/auth/refresh');
 
@@ -137,7 +86,6 @@ api.interceptors.response.use(
                     window.location.href = '/login';
                 }
 
->>>>>>> fix
                 return Promise.reject(refreshError);
             } finally {
                 isRefreshing = false;
