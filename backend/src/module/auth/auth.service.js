@@ -25,7 +25,21 @@ export const login = async (email, password) => {
     if (!user.isActive) throw new CustomError("Account is deactivated", 403);
 
     // Restriction: Students cannot access the admin dashboard
-    if (user.role === USER_ROLES.STUDENT) throw new CustomError("Access denied for students", 403);
+    // if (user.role === USER_ROLES.STUDENT) throw new CustomError("Access denied for students", 403);
+
+    // Platform-specific restrictions
+    if (platform === 'web') {
+        // Students cannot access the admin dashboard (WEB ONLY)
+        if (user.role === USER_ROLES.STUDENT) {
+            throw new CustomError("Access denied for students", 403);
+        }
+    } else if (platform === 'mobile') {
+        // Mobile-specific restrictions (if any)
+        // For example: Only students and teachers allowed
+        if (![USER_ROLES.STUDENT, USER_ROLES.TEACHER].includes(user.role)) {
+            throw new CustomError("Only students and teachers can access the mobile app", 403);
+        }
+    }
 
     // Verify Password
     const isMatch = await bcrypt.compare(password, user.password);

@@ -14,9 +14,9 @@ const REFRESH_COOKIE_OPTIONS = {
 
 // Handle user login
 export const login = asyncHandler(async (req, res) => {
-    const { email, password } = req.body;
+    const { email, password, platform } = req.body;
 
-    const result = await authService.login(email, password);
+    const result = await authService.login(email, password, platform);
 
     // Set refresh token as HttpOnly cookie
     res.cookie("refreshToken", result.refreshToken, REFRESH_COOKIE_OPTIONS);
