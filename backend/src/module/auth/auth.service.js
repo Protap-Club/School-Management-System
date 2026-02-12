@@ -2,6 +2,7 @@ import bcrypt from "bcryptjs";
 import User from "../user/model/User.model.js";
 import { USER_ROLES } from "../../constants/userRoles.js";
 import { CustomError } from "../../utils/customError.js";
+import logger from "../../config/logger.js";
 import {
     generateAccessToken,
     generateRefreshToken,
@@ -12,17 +13,27 @@ import {
 // Public service functions 
 
 // LOGIN
-export const login = async (email, password) => {
+export const login = async (email, password, platform) => {
+    logger.info("Login attempt", { email, platform });
+    
     if (!email || !password) throw new CustomError("Email and password are required", 400);
 
     const user = await User.findOne({ email })
         .select("+password")
         .populate("schoolId", "name code");
 
-    if (!user) throw new CustomError("Invalid credentials", 401);
+    if (!user) {
+        logger.warn("Login failed: User not found", { email, platform });
+        throw new CustomError("Invalid credentials", 401);
+    }
+
+    logger.info("User found", { email, role: user.role, isActive: user.isActive, platform });
 
     // Check account status
-    if (!user.isActive) throw new CustomError("Account is deactivated", 403);
+    if (!user.isActive) {
+        logger.warn("Login failed: Account deactivated", { email, platform, role: user.role });
+        throw new CustomError("Account is deactivated", 403);
+    }
 
     // Restriction: Students cannot access the admin dashboard
     // if (user.role === USER_ROLES.STUDENT) throw new CustomError("Access denied for students", 403);
@@ -31,19 +42,24 @@ export const login = async (email, password) => {
     if (platform === 'web') {
         // Students cannot access the admin dashboard (WEB ONLY)
         if (user.role === USER_ROLES.STUDENT) {
+            logger.warn("Login failed: Student access denied on web", { email, platform, role: user.role });
             throw new CustomError("Access denied for students", 403);
         }
     } else if (platform === 'mobile') {
         // Mobile-specific restrictions (if any)
         // For example: Only students and teachers allowed
         if (![USER_ROLES.STUDENT, USER_ROLES.TEACHER].includes(user.role)) {
+            logger.warn("Login failed: Role not allowed on mobile", { email, platform, role: user.role });
             throw new CustomError("Only students and teachers can access the mobile app", 403);
         }
     }
 
     // Verify Password
     const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) throw new CustomError("Invalid credentials", 401);
+    if (!isMatch) {
+        logger.warn("Login failed: Invalid password", { email, platform, role: user.role });
+        throw new CustomError("Invalid credentials", 401);
+    }
 
     // Update login time without triggering 'save' hooks
     await User.updateOne({ _id: user._id }, { $set: { lastLoginAt: new Date() } });
@@ -64,6 +80,8 @@ export const login = async (email, password) => {
         email: user.email,
         role: user.role,
     };
+
+    logger.info("Login successful", userResponse);
 
     return { user: userResponse, accessToken, refreshToken };
 };

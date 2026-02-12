@@ -33,7 +33,7 @@ const server = createServer(app);
 // CORS Configuration 
 // Only allowing our frontend to connect.
 const corsOptions = {
-    origin: ['http://localhost:5173'], // Add your frontend URL here
+    origin: ['http://localhost:5173', 'http://localhost:8081'], // Add your frontend URL here
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization']
