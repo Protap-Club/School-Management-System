@@ -55,18 +55,14 @@ const TimetableModal = ({ isOpen, onClose, onSave, onDelete, initialData, slotIn
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden transform transition-all">
-        {/* Header */}
         <div className="bg-primary/5 px-6 py-4 flex items-center justify-between border-b border-gray-100">
           <h3 className="text-lg font-semibold text-gray-800">{initialData ? 'Edit Period' : 'Add Period'}</h3>
           <button onClick={onClose} disabled={loading} className="p-2 rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors disabled:opacity-50"><FaTimes /></button>
         </div>
-
-        {/* Body */}
         <div className="p-6">
           <div className="mb-6 bg-blue-50 p-3 rounded-lg text-sm text-blue-700">
             Scheduling for <strong>{dayDisplay}</strong> at <strong>{timeDisplay}</strong>
           </div>
-
           <form onSubmit={handleSubmit} className="space-y-4">
             {FORM_FIELDS.map(field => (
               <div key={field.key}>
@@ -91,8 +87,6 @@ const TimetableModal = ({ isOpen, onClose, onSave, onDelete, initialData, slotIn
                 {errors[field.key] && <p className="text-red-500 text-xs mt-1">{errors[field.key]}</p>}
               </div>
             ))}
-
-            {/* Action Buttons */}
             <div className="flex gap-3 mt-8">
               {initialData && (
                 <button type="button" onClick={() => initialData?._id && onDelete(initialData._id)} disabled={loading}

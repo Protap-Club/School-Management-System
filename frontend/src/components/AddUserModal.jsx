@@ -13,21 +13,17 @@ const InputField = ({ label, name, value, onChange, type = "text", required = fa
             required={required} {...props} />
     </div>
 );
-
 const STANDARDS = ['9th', '10th', '11th', '12th'];
 const SECTIONS = ['A', 'B', 'C', 'D'];
-
 const ROLE_COLORS = {
     student: 'border-emerald-500 text-emerald-600',
     teacher: 'border-blue-500 text-blue-600',
     admin: 'border-purple-500 text-purple-600'
 };
-
 const PARENT_SECTIONS = [
     { key: 'father', emoji: '', label: "Father's Details", bg: 'bg-orange-50/50', border: 'border-orange-100/50', textColor: 'text-orange-700', nameField: 'fatherName', contactField: 'fatherContact', namePlaceholder: "Father's Full Name", contactPlaceholder: "Father's Phone Number" },
     { key: 'mother', emoji: '', label: "Mother's Details", bg: 'bg-pink-50/50', border: 'border-pink-100/50', textColor: 'text-pink-700', nameField: 'motherName', contactField: 'motherContact', namePlaceholder: "Mother's Full Name", contactPlaceholder: "Mother's Phone Number" },
 ];
-
 const INITIAL_FORM = {
     firstName: '', middleName: '', lastName: '', email: '', department: '',
     standard: '', section: '', rollNumber: '', course: '', year: '',
@@ -102,7 +98,6 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden animate-fade-in-up flex flex-col max-h-[90vh]">
-                {/* Header */}
                 <div className="px-6 py-4 flex items-center justify-between bg-white border-b border-gray-100">
                     <div className="flex items-center gap-3">
                         <div className={`p-2 rounded-lg bg-gray-50 ${ROLE_COLORS[roleToAdd]?.split(' ')[1]}`}><FaUserPlus size={20} /></div>
@@ -113,8 +108,6 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
                     </div>
                     <button onClick={onClose} className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-2 rounded-full transition-all"><FaTimes size={20} /></button>
                 </div>
-
-                {/* Body */}
                 <div className="p-6 overflow-y-auto custom-scrollbar flex-1">
                     {error && (
                         <div className="mb-6 p-4 bg-red-50 text-red-600 rounded-xl text-sm border border-red-100 flex items-start gap-3">
@@ -122,9 +115,7 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
                             <div><p className="font-semibold">Creation Failed</p><p>{error}</p></div>
                         </div>
                     )}
-
                     <form onSubmit={handleSubmit} className="space-y-8">
-                        {/* School Info */}
                         <div className="bg-gray-50 rounded-xl p-4 border border-gray-100 flex items-center gap-3">
                             <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-gray-400 shadow-sm border border-gray-100"><FaBuilding /></div>
                             <div>
@@ -132,8 +123,6 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
                                 <p className="text-sm font-bold text-gray-800">{schoolName || 'Loading...'}</p>
                             </div>
                         </div>
-
-                        {/* Personal Details */}
                         <div className="space-y-4">
                             {renderSectionHeader('bg-blue-500', 'Personal Details')}
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -146,8 +135,6 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
                                 <InputField label="Contact Number" name="contactNo" placeholder="+91 98765 43210" />
                             </div>
                         </div>
-
-                        {/* Admin: Professional Details */}
                         {roleToAdd === 'admin' && (
                             <div className="space-y-4">
                                 {renderSectionHeader('bg-purple-500', 'Professional Details')}
@@ -156,8 +143,6 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
                                 </div>
                             </div>
                         )}
-
-                        {/* Teacher: Academic Assignment */}
                         {roleToAdd === 'teacher' && (
                             <div className="space-y-4">
                                 {renderSectionHeader('bg-indigo-500', 'Academic Assignment')}
@@ -167,8 +152,6 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
                                 </div>
                             </div>
                         )}
-
-                        {/* Student: Academic + Parent */}
                         {roleToAdd === 'student' && (
                             <>
                                 <div className="space-y-4">
@@ -180,7 +163,6 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
                                         <InputField label="Year" name="year" type="number" required min="1" max="6" />
                                     </div>
                                 </div>
-
                                 <div className="space-y-4">
                                     {renderSectionHeader('bg-orange-500', 'Parent / Guardian Details')}
                                     {PARENT_SECTIONS.map(p => (
@@ -197,14 +179,10 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
                                 </div>
                             </>
                         )}
-
-                        {/* Password Info */}
                         <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 flex items-start gap-3">
                             <span className="text-blue-500 mt-0.5">ℹ️</span>
                             <p className="text-sm text-blue-700">A secure password will be <strong>auto-generated</strong> and sent to the user's email address.</p>
                         </div>
-
-                        {/* Footer */}
                         <div className="pt-4 flex justify-end gap-3 border-t border-gray-100">
                             <button type="button" onClick={onClose} className="px-5 py-2.5 text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg transition-all font-medium text-sm">Cancel</button>
                             <button type="submit" disabled={loading}

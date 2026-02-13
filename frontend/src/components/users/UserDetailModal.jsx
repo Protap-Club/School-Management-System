@@ -6,13 +6,11 @@ const STATUS_BADGE = {
   absent: 'bg-red-100 text-red-700',
   late: 'bg-orange-100 text-orange-700',
 };
-
 const STAT_ITEMS = [
   { key: 'present', label: 'Present', bg: 'bg-green-50', border: 'border-green-100', labelColor: 'text-green-600', valueColor: 'text-green-700' },
   { key: 'absent', label: 'Absent', bg: 'bg-red-50', border: 'border-red-100', labelColor: 'text-red-600', valueColor: 'text-red-700' },
   { key: 'late', label: 'Late', bg: 'bg-orange-50', border: 'border-orange-100', labelColor: 'text-orange-600', valueColor: 'text-orange-700' },
 ];
-
 const UserDetailModal = ({ user, onClose }) => {
   if (!user) return null;
 
@@ -66,8 +64,6 @@ const UserDetailModal = ({ user, onClose }) => {
   return (
     <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[60] p-4 animate-fadeIn">
       <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
-
-        {/* Header */}
         <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-6 text-white shrink-0">
           <div className="flex justify-between items-start">
             <div className="flex items-center gap-4">
@@ -83,8 +79,6 @@ const UserDetailModal = ({ user, onClose }) => {
             <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-lg transition-colors"><FaTimes size={20} /></button>
           </div>
         </div>
-
-        {/* Profile Overview */}
         <div className="p-6 grid grid-cols-2 lg:grid-cols-4 gap-4 bg-gray-50 border-b border-gray-100 shrink-0">
           {isStudent ? (
             <>
@@ -104,11 +98,8 @@ const UserDetailModal = ({ user, onClose }) => {
           )}
           {renderInfoCard(<FaUser className="text-emerald-500" />, 'Status', 'Active')}
         </div>
-
-        {/* Content Body */}
         <div className="p-6 overflow-y-auto">
           <h3 className="text-lg font-bold text-gray-800 mb-4">Activity History (Last 30 Days)</h3>
-
           <div className="flex gap-4 mb-6">
             {STAT_ITEMS.map(({ key, label, bg, border, labelColor, valueColor }) => (
               <div key={key} className={`flex-1 ${bg} p-4 rounded-xl border ${border} text-center`}>
@@ -117,7 +108,6 @@ const UserDetailModal = ({ user, onClose }) => {
               </div>
             ))}
           </div>
-
           <table className="w-full text-left border-collapse">
             <thead>
               <tr>

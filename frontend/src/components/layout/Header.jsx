@@ -63,7 +63,6 @@ const Header = () => {
 
     return (
         <header className="fixed top-0 left-0 w-full h-16 bg-white border-b border-gray-200 z-50 flex items-center justify-between px-4 shadow-sm">
-            {/* Left: Toggle & Logo */}
             <div className="flex items-center gap-4">
                 <button onClick={toggleSidebar}
                     className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-100" title="Toggle Sidebar">
@@ -81,8 +80,6 @@ const Header = () => {
                     <span className="font-bold text-gray-800 text-lg hidden md:block">{title}</span>
                 </div>
             </div>
-
-            {/* Right: Icons & User Profile */}
             <div className="flex items-center gap-3">
                 <button onClick={handleNotificationClick}
                     className="p-2 lg:p-2.5 rounded-full text-gray-500 hover:bg-gray-100 hover:text-blue-600 transition-all focus:outline-none focus:ring-2 focus:ring-blue-100 relative group" title="Notifications">
@@ -93,7 +90,6 @@ const Header = () => {
                         </span>
                     )}
                 </button>
-
                 <div className="relative" ref={dropdownRef}>
                     <button onClick={() => setDropdownOpen(!dropdownOpen)}
                         className="flex items-center gap-3 p-1.5 rounded-full hover:bg-gray-50 transition-all border border-transparent hover:border-gray-200 focus:outline-none">
@@ -106,7 +102,6 @@ const Header = () => {
                         </div>
                         <FaChevronDown className={`text-gray-400 text-xs transition-transform duration-200 ${dropdownOpen ? 'rotate-180' : ''}`} />
                     </button>
-
                     {dropdownOpen && (
                         <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden transform origin-top-right transition-all animate-in fade-in zoom-in-95 duration-200">
                             <div className="p-4 border-b border-gray-50 bg-gray-50/50">

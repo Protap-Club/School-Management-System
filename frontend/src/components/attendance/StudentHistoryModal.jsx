@@ -2,20 +2,17 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { FaTimes, FaUserGraduate, FaIdCard, FaBuilding, FaLayerGroup, FaChevronLeft, FaChevronRight, FaClock, FaCheck, FaTimesCircle, FaExclamationTriangle } from 'react-icons/fa';
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-
 const STATUS_CONFIG = {
   present: { color: 'bg-emerald-500 text-white', light: 'bg-emerald-50 border-emerald-200', icon: <FaCheck className="text-emerald-600" />, iconBg: 'bg-emerald-100', textColor: 'text-emerald-600', legendColor: 'bg-emerald-500' },
   absent: { color: 'bg-red-500 text-white', light: 'bg-red-50 border-red-200', icon: <FaTimesCircle className="text-red-600" />, iconBg: 'bg-red-100', textColor: 'text-red-600', legendColor: 'bg-red-500' },
   late: { color: 'bg-amber-500 text-white', light: 'bg-amber-50 border-amber-200', icon: <FaExclamationTriangle className="text-amber-600" />, iconBg: 'bg-amber-100', textColor: 'text-amber-600', legendColor: 'bg-amber-500' },
 };
-
 const LEGEND_ITEMS = [
   { label: 'Present', color: 'bg-emerald-500' },
   { label: 'Late', color: 'bg-amber-500' },
   { label: 'Absent', color: 'bg-red-500' },
   { label: 'No Data', color: 'bg-gray-200' },
 ];
-
 const STAT_CARDS = [
   { key: 'present', label: 'Present', ...STATUS_CONFIG.present },
   { key: 'late', label: 'Late', ...STATUS_CONFIG.late },
@@ -111,8 +108,6 @@ const StudentHistoryModal = ({ student, onClose }) => {
   return (
     <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[60] p-4 animate-fadeIn">
       <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
-
-        {/* Header */}
         <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-5 text-white shrink-0">
           <div className="flex justify-between items-start">
             <div className="flex items-center gap-4">
@@ -127,8 +122,6 @@ const StudentHistoryModal = ({ student, onClose }) => {
             <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-lg transition-colors"><FaTimes size={18} /></button>
           </div>
         </div>
-
-        {/* Profile Overview */}
         <div className="px-5 py-3 flex flex-wrap gap-3 bg-gray-50 border-b border-gray-100 shrink-0">
           {profileBadges.map(({ icon, label, value }) => (
             <div key={label} className="flex items-center gap-2 px-3 py-1.5 bg-white rounded-lg border border-gray-200 text-sm">
@@ -141,10 +134,7 @@ const StudentHistoryModal = ({ student, onClose }) => {
             <FaUserGraduate />{attendancePercentage}% Attendance
           </div>
         </div>
-
-        {/* Content Body */}
         <div className="flex-1 overflow-hidden flex">
-          {/* Left: Calendar */}
           <div className="flex-1 p-5 overflow-y-auto border-r border-gray-100">
             <div className="flex items-center justify-between mb-4">
               <button onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1))}
@@ -158,14 +148,12 @@ const StudentHistoryModal = ({ student, onClose }) => {
                 <FaChevronRight size={14} />
               </button>
             </div>
-
             <div className="grid grid-cols-7 gap-1 mb-2">
               {WEEKDAYS.map(day => (
                 <div key={day} className="h-8 flex items-center justify-center text-xs font-semibold text-gray-400 uppercase">{day}</div>
               ))}
             </div>
             <div className="grid grid-cols-7 gap-1">{calendarDays}</div>
-
             <div className="flex items-center justify-center gap-4 mt-4 pt-4 border-t border-gray-100">
               {LEGEND_ITEMS.map(({ label, color }) => (
                 <div key={label} className="flex items-center gap-1.5 text-xs text-gray-500">
@@ -174,8 +162,6 @@ const StudentHistoryModal = ({ student, onClose }) => {
               ))}
             </div>
           </div>
-
-          {/* Right: Stats & Details */}
           <div className="w-72 p-5 bg-gray-50 overflow-y-auto shrink-0">
             <h4 className="text-sm font-bold text-gray-700 uppercase tracking-wide mb-4">Summary</h4>
             <div className="space-y-3 mb-6">
@@ -189,7 +175,6 @@ const StudentHistoryModal = ({ student, onClose }) => {
                 </div>
               ))}
             </div>
-
             {selectedDay ? (
               <div className={`p-4 rounded-xl border ${STATUS_CONFIG[selectedDay.status]?.light || 'bg-gray-50 border-gray-200'}`}>
                 <div className="flex items-center justify-between mb-3">
