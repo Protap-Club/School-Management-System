@@ -6,7 +6,6 @@ import TimetableModal from '../components/timetable/TimetableModal';
 import { FaCalendarAlt, FaChalkboardTeacher, FaLayerGroup, FaPlus, FaSpinner, FaToggleOn, FaToggleOff } from 'react-icons/fa';
 import { useTimetableData } from '../hooks/useTimetableData';
 import { TIMETABLE_STATUS } from '../api/timetable';
-
 const TimetablePage = () => {
   const { user } = useAuth();
   const isTeacher = user?.role === 'teacher';
@@ -125,7 +124,6 @@ const TimetablePage = () => {
             <button onClick={clearError} className="text-red-500 hover:text-red-700">&times;</button>
           </div>
         )}
-
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
           <div>
             <h1 className="text-xl font-bold text-gray-800 flex items-center gap-2">
@@ -179,7 +177,6 @@ const TimetablePage = () => {
                 )}
               </div>
             )}
-
             {isAdmin && adminViewMode === 'class' && selectedTimetable && (
               <button onClick={handleToggleStatus}
                 className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium transition-all ${selectedTimetable.status === TIMETABLE_STATUS.PUBLISHED ? 'bg-green-50 border-green-200 text-green-700' : 'bg-gray-50 border-gray-200 text-gray-600'}`}>
@@ -190,16 +187,13 @@ const TimetablePage = () => {
             )}
           </div>
         </div>
-
         <div className="bg-white rounded-xl p-3 shadow-sm border border-gray-100">
           <TimetableGrid entries={displayEntries} timeSlots={timeSlots} teachers={teachers}
             onCellClick={handleCellClick} readOnly={isReadOnly} showClass={isTeacherScheduleView} />
         </div>
-
         <TimetableModal isOpen={isModalOpen} onClose={closeModal} onSave={handleSaveEntry} onDelete={handleDeleteEntry}
           initialData={selectedCell?.entry} slotInfo={selectedCell ? { day: selectedCell.day, slot: selectedCell.slot } : null}
           teachers={teachers} loading={saveLoading} />
-
         {isCreateModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
             <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">

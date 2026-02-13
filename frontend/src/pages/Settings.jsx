@@ -4,7 +4,6 @@ import { useAuth } from '../features/auth';
 import { useTheme, useFeatures } from '../state';
 import api from '../api/axios';
 import { FaPalette, FaImage, FaCheck, FaUpload, FaToggleOn, FaBuilding } from 'react-icons/fa';
-
 const THEME_COLORS = [
     { name: 'Royal Blue', value: '#2563eb', textColor: '#ffffff' },
     { name: 'Purple', value: '#7c3aed', textColor: '#ffffff' },
@@ -58,6 +57,7 @@ const Settings = () => {
 
     const fetchSchoolFeatures = async () => {
         setFeaturesLoading(true);
+
         try {
             const response = await api.get('/school/profile');
             if (response.data.success && response.data.data?.school) setFeatures(response.data.data.school.features || {});
@@ -124,7 +124,6 @@ const Settings = () => {
             </DashboardLayout>
         );
     }
-
     const accentColor = settings.theme?.accentColor || '#2563eb';
 
     const renderSectionHeader = (icon, iconBg, title, subtitle, badge = null) => (
@@ -150,13 +149,11 @@ const Settings = () => {
                     <span className="font-medium">{message.text}</span>
                 </div>
             )}
-
             <div className="space-y-8">
                 <div>
                     <h1 className="text-3xl font-bold text-gray-900">Settings</h1>
                     <p className="text-gray-500 mt-1">{isSuperAdmin ? 'Manage portal appearance and school features' : 'Customize your portal appearance and branding'}</p>
                 </div>
-
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                     {/* Left Column */}
                     <div className="space-y-6">
@@ -180,7 +177,6 @@ const Settings = () => {
                                 </div>
                             </div>
                         </div>
-
                         {/* Logo Upload */}
                         <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
                             {renderSectionHeader(<FaImage className="text-amber-600" size={18} />, 'from-amber-100 to-orange-100', 'Portal Logo', 'Upload your organization logo')}
@@ -199,8 +195,6 @@ const Settings = () => {
                             </div>
                         </div>
                     </div>
-
-                    {/* Right Column */}
                     <div className="space-y-6">
                         {/* Feature Toggles */}
                         {isSuperAdmin && (
@@ -249,7 +243,6 @@ const Settings = () => {
                                 </div>
                             </div>
                         )}
-
                         {/* Live Preview */}
                         <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl border border-gray-200 p-6 lg:p-8">
                             <div className="mb-6">

@@ -9,7 +9,6 @@ import {
   FaUsers, FaSearch, FaWifi, FaChevronDown, FaUserTie, FaClipboardList
 } from 'react-icons/fa';
 import StudentHistoryModal from '../components/attendance/StudentHistoryModal';
-
 const STATUS_STYLES = {
   present: 'bg-green-50 text-green-700 border-green-100',
   late: 'bg-orange-50 text-orange-700 border-orange-100',
@@ -54,7 +53,6 @@ const Attendance = () => {
             if (teacherRes.data.success) { teacherData = teacherRes.data.data.users || []; setTeachers(teacherData); }
           } catch (err) { console.error('Failed to fetch teachers', err); }
         }
-
         let attendanceData = [];
         try {
           const attRes = await api.get('/attendance/today');
@@ -64,7 +62,6 @@ const Attendance = () => {
         if (studentRes.data.success) {
           const studentData = studentRes.data.data.users || [];
           setStudents(studentData);
-
           const initialMap = {};
           let presentCount = 0;
           attendanceData.forEach(record => {
@@ -105,10 +102,8 @@ const Attendance = () => {
     });
     return () => disconnectSocket();
   }, [currentUser?.schoolId]);
-
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
-  // Access control
   if (currentUser?.role === 'super_admin') {
     return (
       <DashboardLayout>
@@ -175,8 +170,6 @@ const Attendance = () => {
             {socketConnected ? 'Live Updates Active' : 'Connecting...'}
           </div>
         </div>
-
-        {/* Stats Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {STAT_CARDS.map(({ icon: Icon, label, key, color }) => (
             <div key={key} className="bg-white shadow-sm rounded-2xl p-5 border border-gray-100">
@@ -192,8 +185,6 @@ const Attendance = () => {
             </div>
           ))}
         </div>
-
-        {/* Content */}
         {loading ? (
           <div className="p-12 text-center bg-white rounded-2xl border border-gray-100">
             <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary mx-auto"></div>
@@ -234,7 +225,6 @@ const Attendance = () => {
                           <div className={`text-gray-400 transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}><FaChevronDown /></div>
                         </div>
                       </div>
-
                       {isExpanded && (
                         <div className="border-t border-gray-100 animate-fadeIn">
                           <div className="p-4 bg-gray-50/30 border-b border-gray-50">
@@ -292,7 +282,6 @@ const Attendance = () => {
             )}
           </>
         )}
-
         <StudentHistoryModal student={selectedStudent} onClose={() => setSelectedStudent(null)} />
       </div>
     </DashboardLayout>

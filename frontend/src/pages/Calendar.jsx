@@ -3,7 +3,6 @@ import DashboardLayout from '../layouts/DashboardLayout';
 import { useAuth } from '../features/auth';
 import { FaChevronLeft, FaChevronRight, FaCalendarAlt, FaPlus, FaTrash, FaTimes, FaSpinner, FaClock, FaTag, FaUmbrellaBeach } from 'react-icons/fa';
 import api from '../lib/axios';
-
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 const TYPE_CONFIG = {
@@ -60,12 +59,10 @@ const Calendar = () => {
       setLoading(false);
     }
   }, [currentDate]);
-
   useEffect(() => { fetchEvents(); }, [fetchEvents]);
 
   const nextMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
   const prevMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
-
   // Events mapped by date
   const getEventsForDate = useMemo(() => {
     const map = {};
@@ -154,7 +151,6 @@ const Calendar = () => {
     } finally { setSaving(false); }
   };
 
-  // Build calendar grid cells
   const daysInMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
   const firstDay = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).getDay();
   const days = [];
@@ -197,7 +193,6 @@ const Calendar = () => {
       {children}
     </div>
   );
-
   return (
     <DashboardLayout>
       {message.text && (
@@ -206,7 +201,6 @@ const Calendar = () => {
           {message.text}
         </div>
       )}
-
       {hoveredEvent && (
         <div className="fixed z-50 bg-white rounded-xl shadow-2xl border border-gray-100 p-4 min-w-[260px] max-w-[340px] animate-fadeIn"
           style={{ left: `${Math.min(tooltipPosition.x, window.innerWidth - 360)}px`, top: `${tooltipPosition.y}px`, transform: 'translateX(-50%)' }}>
@@ -244,7 +238,6 @@ const Calendar = () => {
           </div>
         </div>
       )}
-
       <div className="space-y-4">
         {/* Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
@@ -271,8 +264,6 @@ const Calendar = () => {
             </div>
           </div>
         </div>
-
-        {/* Legend */}
         <div className="flex flex-wrap items-center gap-4 text-xs">
           <span className="text-gray-400 font-medium">Legend:</span>
           {LEGEND_ITEMS.map(item => (
@@ -282,8 +273,6 @@ const Calendar = () => {
             </div>
           ))}
         </div>
-
-        {/* Calendar Grid */}
         {loading ? (
           <div className="flex items-center justify-center h-64 bg-white rounded-xl shadow-sm border border-gray-100">
             <FaSpinner className="animate-spin text-2xl text-indigo-600" />
@@ -297,8 +286,6 @@ const Calendar = () => {
           </div>
         )}
       </div>
-
-      {/* Admin Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
           <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden">

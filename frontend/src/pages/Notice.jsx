@@ -2,45 +2,18 @@ import React, { useState, useRef } from 'react';
 import DashboardLayout from '../layouts/DashboardLayout';
 import { useAuth } from '../features/auth';
 import {
-    useNotices,
-    useCreateNotice,
-    useDeleteNotice,
-    useGroups,
-    useCreateGroup,
-    useDeleteGroup,
-    useClasses,
-    useStudents,
-    useTeachers,
-    useAllUsers,
+    useNotices, useCreateNotice, useDeleteNotice, useGroups,
+    useCreateGroup, useDeleteGroup, useClasses, useStudents, useTeachers, useAllUsers,
 } from '../features/notices';
 import {
-    FaPaperPlane,
-    FaUsers,
-    FaPaperclip,
-    FaTimes,
-    FaCheck,
-    FaFilePdf,
-    FaFileWord,
-    FaFilePowerpoint,
-    FaFileExcel,
-    FaFileAlt,
-    FaImage,
-    FaTrash,
-    FaPlus,
-    FaUserFriends,
-    FaSearch,
-    FaHistory,
-    FaEye,
-    FaDownload,
-    FaFileVideo,
-    FaFileCode,
-    FaFileCsv
+    FaPaperPlane, FaUsers, FaPaperclip, FaTimes, FaCheck, FaFilePdf, FaFileWord,
+    FaFilePowerpoint, FaFileExcel, FaFileAlt, FaImage, FaTrash, FaPlus, FaUserFriends,
+    FaSearch, FaHistory, FaEye, FaDownload, FaFileVideo, FaFileCode, FaFileCsv
 } from 'react-icons/fa';
 
 const ALLOWED_EXTENSIONS = [
     'pdf', 'doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx', 'txt', 'csv', 'iti',
-    'png', 'jpg', 'jpeg',
-    'mp4', 'mov', 'avi'
+    'png', 'jpg', 'jpeg', 'mp4', 'mov', 'avi'
 ];
 const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg'];
 const VIDEO_EXTENSIONS = ['mp4', 'mov', 'avi'];
@@ -60,12 +33,7 @@ const getFileIcon = (filename) => {
     return FILE_ICON_MAP.find(m => m.match(ext))?.icon || <FaFileAlt className="text-gray-400" size={24} />;
 };
 
-const RECIPIENT_LABELS = {
-    all: 'Entire School',
-    students: 'Students',
-    users: 'Selected Users',
-    groups: 'Groups',
-};
+const RECIPIENT_LABELS = { all: 'Entire School', students: 'Students', users: 'Selected Users', groups: 'Groups' };
 
 const SELECTION_VALIDATORS = {
     classes: { list: 'selectedClasses', msg: 'Please select at least one class' },
@@ -129,123 +97,76 @@ const Notice = () => {
     const groups = groupsData?.data || [];
     const historyItems = noticesData?.data || [];
 
-    // --- Helpers ---
-    const showToast = (type, text) => {
-        setToast({ type, text });
-        setTimeout(() => setToast({ type: '', text: '' }), 3000);
-    };
-
-    const toggleSelection = (array, setArray, value) => {
-        setArray(array.includes(value) ? array.filter(v => v !== value) : [...array, value]);
-    };
-
+    const showToast = (type, text) => { setToast({ type, text }); setTimeout(() => setToast({ type: '', text: '' }), 3000); };
+    const toggleSelection = (array, setArray, value) => { setArray(array.includes(value) ? array.filter(v => v !== value) : [...array, value]); };
     const getRecipientLabel = (item) => {
         if (item.recipientType === 'classes') return item.recipients?.join(', ') || 'Classes';
         return RECIPIENT_LABELS[item.recipientType] || item.recipientType || 'Unknown';
     };
 
-    // --- Handlers ---
     const handleFileUpload = (e) => {
         const file = e.target.files[0];
         if (!file) return;
         const ext = file.name.split('.').pop().toLowerCase();
-        if (!ALLOWED_EXTENSIONS.includes(ext)) {
-            showToast('error', 'Internal Server Error');
-            return;
-        }
+        if (!ALLOWED_EXTENSIONS.includes(ext)) { showToast('error', 'Internal Server Error'); return; }
         setAttachment(file);
         if (IMAGE_EXTENSIONS.includes(ext)) {
             const reader = new FileReader();
             reader.onload = (e) => setAttachmentPreview(e.target.result);
             reader.readAsDataURL(file);
-        } else {
-            setAttachmentPreview(null);
-        }
+        } else { setAttachmentPreview(null); }
     };
 
-    const removeAttachment = () => {
-        setAttachment(null);
-        setAttachmentPreview(null);
-        if (fileInputRef.current) fileInputRef.current.value = '';
-    };
+    const removeAttachment = () => { setAttachment(null); setAttachmentPreview(null); if (fileInputRef.current) fileInputRef.current.value = ''; };
 
     const handleSendClick = () => {
         if (!message.trim()) { setMessageError('Message is required'); return; }
-        setMessageError('');
-        setShowSendModal(true);
+        setMessageError(''); setShowSendModal(true);
     };
 
     const handleFinalSend = async () => {
         if (!sendOption) { showToast('error', 'Please select recipients'); return; }
-
         const validator = SELECTION_VALIDATORS[sendOption];
-        if (validator && selectionState[validator.list].length === 0) {
-            showToast('error', validator.msg);
-            return;
-        }
-
+        if (validator && selectionState[validator.list].length === 0) { showToast('error', validator.msg); return; }
         const mapping = RECIPIENT_MAP[sendOption] || { type: sendOption, key: null };
         const recipientType = mapping.type;
         const recipients = mapping.key ? selectionState[mapping.key] : [];
-
         try {
-            await createNoticeMutation.mutateAsync({
-                message, title: message.substring(0, 50), recipientType, recipients,
-                attachment: attachment || undefined,
-            });
+            await createNoticeMutation.mutateAsync({ message, title: message.substring(0, 50), recipientType, recipients, attachment: attachment || undefined });
             showToast('success', 'Notice sent successfully!');
             setMessage(''); setAttachment(null); setAttachmentPreview(null);
             setShowSendModal(false); setSendOption('');
             setSelectedClasses([]); setSelectedUsers([]); setSelectedStudents([]); setSelectedGroups([]);
             if (fileInputRef.current) fileInputRef.current.value = '';
-        } catch (error) {
-            showToast('error', error?.response?.data?.message || 'Failed to send notice');
-        }
+        } catch (error) { showToast('error', error?.response?.data?.message || 'Failed to send notice'); }
     };
 
     const handleDeleteHistory = async (itemId) => {
-        try {
-            await deleteNoticeMutation.mutateAsync(itemId);
-            showToast('success', 'Notice deleted');
-        } catch (error) {
-            showToast('error', error?.response?.data?.message || 'Failed to delete');
-        }
+        try { await deleteNoticeMutation.mutateAsync(itemId); showToast('success', 'Notice deleted'); }
+        catch (error) { showToast('error', error?.response?.data?.message || 'Failed to delete'); }
     };
 
     const handleCreateGroup = async () => {
         if (!newGroupName.trim()) { showToast('error', 'Group name is required'); return; }
-        if (newGroupStudents.length === 0 && newGroupTeachers.length === 0) {
-            showToast('error', 'Select at least one student or teacher'); return;
-        }
+        if (newGroupStudents.length === 0 && newGroupTeachers.length === 0) { showToast('error', 'Select at least one student or teacher'); return; }
         try {
-            await createGroupMutation.mutateAsync({
-                name: newGroupName, students: [...newGroupStudents, ...newGroupTeachers],
-            });
+            await createGroupMutation.mutateAsync({ name: newGroupName, students: [...newGroupStudents, ...newGroupTeachers] });
             setNewGroupName(''); setNewGroupStudents([]); setNewGroupTeachers([]);
             showToast('success', 'Group created successfully!');
-        } catch (error) {
-            showToast('error', error?.response?.data?.message || 'Failed to create group');
-        }
+        } catch (error) { showToast('error', error?.response?.data?.message || 'Failed to create group'); }
     };
 
     const handleDeleteGroup = async (groupId) => {
-        try {
-            await deleteGroupMutation.mutateAsync(groupId);
-            showToast('success', 'Group deleted');
-        } catch (error) {
-            showToast('error', error?.response?.data?.message || 'Failed to delete group');
-        }
+        try { await deleteGroupMutation.mutateAsync(groupId); showToast('success', 'Group deleted'); }
+        catch (error) { showToast('error', error?.response?.data?.message || 'Failed to delete group'); }
     };
 
     const filteredHistory = historyItems.filter(item => {
         if (!historySearch) return true;
         const s = historySearch.toLowerCase();
-        return (item.title || '').toLowerCase().includes(s) ||
-            (item.message || '').toLowerCase().includes(s) ||
-            getRecipientLabel(item).toLowerCase().includes(s);
+        return (item.title || '').toLowerCase().includes(s) || (item.message || '').toLowerCase().includes(s) || getRecipientLabel(item).toLowerCase().includes(s);
     });
 
-    // --- Render Helpers ---
     const renderSectionHeader = (icon, iconBg, iconColor, title, subtitle) => (
         <div className="px-6 py-5 border-b border-gray-100 flex items-center gap-4">
             <div className={`w-11 h-11 rounded-xl bg-gradient-to-br ${iconBg} flex items-center justify-center`}>
@@ -262,27 +183,19 @@ const Notice = () => {
         <div className="mt-3 space-y-3">
             <div className="relative">
                 <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
-                <input
-                    type="text" placeholder={placeholder} value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
+                <input type="text" placeholder={placeholder} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
                     className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                    onClick={(e) => e.stopPropagation()}
-                />
+                    onClick={(e) => e.stopPropagation()} />
             </div>
             <div className="border border-gray-200 rounded-lg max-h-48 overflow-y-auto">
-                {items
-                    .filter(item => searchField(item).toLowerCase().includes(searchTerm.toLowerCase()))
-                    .map(item => (
-                        <label key={item._id || item.value} className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 cursor-pointer text-sm border-b border-gray-50 last:border-b-0">
-                            <input
-                                type="checkbox"
-                                checked={selectedArr.includes(item._id || item.value)}
-                                onChange={() => toggleSelection(selectedArr, setSelectedArr, item._id || item.value)}
-                                className="w-3.5 h-3.5 text-primary border-gray-300 rounded focus:ring-primary"
-                            />
-                            {renderLabel ? renderLabel(item) : <span>{item.name || item.label}</span>}
-                        </label>
-                    ))}
+                {items.filter(item => searchField(item).toLowerCase().includes(searchTerm.toLowerCase())).map(item => (
+                    <label key={item._id || item.value} className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 cursor-pointer text-sm border-b border-gray-50 last:border-b-0">
+                        <input type="checkbox" checked={selectedArr.includes(item._id || item.value)}
+                            onChange={() => toggleSelection(selectedArr, setSelectedArr, item._id || item.value)}
+                            className="w-3.5 h-3.5 text-primary border-gray-300 rounded focus:ring-primary" />
+                        {renderLabel ? renderLabel(item) : <span>{item.name || item.label}</span>}
+                    </label>
+                ))}
                 {items.filter(item => searchField(item).toLowerCase().includes(searchTerm.toLowerCase())).length === 0 && (
                     <div className="px-3 py-4 text-center text-xs text-gray-400">No results found</div>
                 )}
@@ -292,12 +205,9 @@ const Notice = () => {
 
     const renderRadioOption = (value, title, subtitle, expandedContent) => (
         <label className={`flex items-${expandedContent ? 'start' : 'center'} gap-3 p-3 border border-gray-200 rounded-xl cursor-pointer hover:bg-gray-50 transition-colors`}>
-            <input
-                type="radio" name="sendOption" value={value}
-                checked={sendOption === value}
+            <input type="radio" name="sendOption" value={value} checked={sendOption === value}
                 onChange={(e) => { setSendOption(e.target.value); setSearchTerm(''); }}
-                className={`w-4 h-4 text-primary border-gray-300 focus:ring-primary${expandedContent ? ' mt-0.5' : ''}`}
-            />
+                className={`w-4 h-4 text-primary border-gray-300 focus:ring-primary${expandedContent ? ' mt-0.5' : ''}`} />
             <div className="flex-1">
                 <p className="text-sm font-medium text-gray-900">{title}</p>
                 <p className="text-xs text-gray-400 mb-2">{subtitle}</p>
@@ -314,26 +224,17 @@ const Notice = () => {
     );
 
     const renderTabButton = (tab, icon, label) => (
-        <button
-            onClick={() => setActiveTab(tab)}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === tab
-                ? 'bg-white text-gray-900 shadow-sm'
-                : 'text-gray-500 hover:text-gray-700'
-                }`}
-        >
-            {React.cloneElement(icon, { className: "inline mr-2", size: 12 })}
-            {label}
+        <button onClick={() => setActiveTab(tab)}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === tab ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+            {React.cloneElement(icon, { className: "inline mr-2", size: 12 })}{label}
         </button>
     );
 
     const renderFilterSelect = (label, filterKey, options) => (
         <div className="flex items-center gap-2">
             <span className="text-xs font-medium text-gray-500 uppercase">{label}:</span>
-            <select
-                value={historyFilters[filterKey]}
-                onChange={(e) => setHistoryFilters({ ...historyFilters, [filterKey]: e.target.value })}
-                className="text-sm border-gray-200 rounded-lg focus:ring-primary focus:border-primary px-2 py-1 bg-white"
-            >
+            <select value={historyFilters[filterKey]} onChange={(e) => setHistoryFilters({ ...historyFilters, [filterKey]: e.target.value })}
+                className="text-sm border-gray-200 rounded-lg focus:ring-primary focus:border-primary px-2 py-1 bg-white">
                 {options.map(([val, label]) => <option key={val} value={val}>{label}</option>)}
             </select>
         </div>
@@ -341,7 +242,6 @@ const Notice = () => {
 
     return (
         <DashboardLayout>
-            {/* Toast */}
             {toast.text && (
                 <div className={`fixed top-6 right-6 z-[100] px-5 py-3.5 rounded-xl shadow-lg flex items-center gap-3 animate-fadeIn backdrop-blur-sm ${toast.type === 'success' ? 'bg-emerald-500/90 text-white' : 'bg-red-500/90 text-white'}`}>
                     <div className="w-6 h-6 rounded-full flex items-center justify-center bg-white/20">
@@ -350,52 +250,36 @@ const Notice = () => {
                     <span className="font-medium">{toast.text}</span>
                 </div>
             )}
-
             <div className="space-y-6">
-                {/* Header */}
                 <div>
                     <h1 className="text-3xl font-bold text-gray-900">Notice Board</h1>
-                    <p className="text-gray-500 mt-1">
-                        {isAdmin ? 'Send notices to the entire school, classes, or specific users' : 'Send notices to your students or groups'}
-                    </p>
+                    <p className="text-gray-500 mt-1">{isAdmin ? 'Send notices to the entire school, classes, or specific users' : 'Send notices to your students or groups'}</p>
                 </div>
-
-                {/* Tab Navigation */}
                 <div className="flex gap-1 bg-gray-100 p-1 rounded-xl w-fit">
                     {renderTabButton('compose', <FaPaperPlane />, 'Compose')}
                     {(isTeacher || isAdmin) && renderTabButton('groups', <FaUserFriends />, 'Groups')}
                     {renderTabButton('history', <FaHistory />, 'History')}
                 </div>
 
-                {/* Compose Tab */}
                 {activeTab === 'compose' && (
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                         <div className="lg:col-span-2 space-y-6">
-                            {/* Message Section */}
                             <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
                                 {renderSectionHeader(<FaPaperPlane />, 'from-blue-100 to-indigo-100', 'text-indigo-500', 'Compose Notice', 'Write your message below')}
                                 <div className="p-6">
-                                    <textarea
-                                        value={message}
-                                        onChange={(e) => { setMessage(e.target.value); if (e.target.value.trim()) setMessageError(''); }}
+                                    <textarea value={message} onChange={(e) => { setMessage(e.target.value); if (e.target.value.trim()) setMessageError(''); }}
                                         placeholder="Write your notice here..." rows={8}
-                                        className={`w-full px-4 py-3 border rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all ${messageError ? 'border-red-300 bg-red-50' : 'border-gray-200'}`}
-                                    />
+                                        className={`w-full px-4 py-3 border rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all ${messageError ? 'border-red-300 bg-red-50' : 'border-gray-200'}`} />
                                     {messageError && (
-                                        <p className="mt-2 text-sm text-red-500 flex items-center gap-1">
-                                            <FaTimes size={10} /> {messageError}
-                                        </p>
+                                        <p className="mt-2 text-sm text-red-500 flex items-center gap-1"><FaTimes size={10} /> {messageError}</p>
                                     )}
                                 </div>
                             </div>
-
-                            {/* Attachment Section */}
                             <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
                                 {renderSectionHeader(<FaPaperclip />, 'from-amber-100 to-orange-100', 'text-amber-600', 'Attachment', 'JPG,JPEG,PNG,PPT,PPTX,DOC,DOCX,XLXS,XLS,MP4,MOV,AVI,ITI,CSV,TXT')}
                                 <div className="p-6">
                                     <input type="file" ref={fileInputRef} onChange={handleFileUpload}
-                                        accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.csv,.iti,.png,.jpg,.jpeg,.mp4,.mov,.avi"
-                                        className="hidden" />
+                                        accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.csv,.iti,.png,.jpg,.jpeg,.mp4,.mov,.avi" className="hidden" />
                                     {!attachment ? (
                                         <button onClick={() => fileInputRef.current?.click()}
                                             className="w-full group flex flex-col items-center justify-center gap-3 px-6 py-8 border-2 border-dashed border-gray-200 rounded-xl hover:border-gray-300 hover:bg-gray-50 transition-all cursor-pointer">
@@ -412,24 +296,18 @@ const Notice = () => {
                                             {attachmentPreview ? (
                                                 <img src={attachmentPreview} alt="Preview" className="w-16 h-16 object-cover rounded-lg border border-gray-200" />
                                             ) : (
-                                                <div className="w-16 h-16 bg-white rounded-lg border border-gray-200 flex items-center justify-center">
-                                                    {getFileIcon(attachment.name)}
-                                                </div>
+                                                <div className="w-16 h-16 bg-white rounded-lg border border-gray-200 flex items-center justify-center">{getFileIcon(attachment.name)}</div>
                                             )}
                                             <div className="flex-1 min-w-0">
                                                 <p className="text-sm font-medium text-gray-900 truncate">{attachment.name}</p>
                                                 <p className="text-xs text-gray-400">{(attachment.size / 1024).toFixed(1)} KB</p>
                                             </div>
-                                            <button onClick={removeAttachment} className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors">
-                                                <FaTrash size={14} />
-                                            </button>
+                                            <button onClick={removeAttachment} className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"><FaTrash size={14} /></button>
                                         </div>
                                     )}
                                 </div>
                             </div>
                         </div>
-
-                        {/* Send Section */}
                         <div className="space-y-6">
                             <div className="bg-white rounded-2xl border border-gray-200 p-6">
                                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Ready to Send?</h3>
@@ -454,10 +332,8 @@ const Notice = () => {
                     </div>
                 )}
 
-                {/* Groups Tab */}
                 {(isTeacher || isAdmin) && activeTab === 'groups' && (
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        {/* Create Group */}
                         <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
                             {renderSectionHeader(<FaPlus />, 'from-emerald-100 to-green-100', 'text-emerald-500', 'Create New Group', 'Group students for quick messaging')}
                             <div className="p-6 space-y-4">
@@ -501,16 +377,12 @@ const Notice = () => {
                                 </button>
                             </div>
                         </div>
-
-                        {/* Groups List */}
                         <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
                             {renderSectionHeader(<FaUserFriends />, 'from-violet-100 to-purple-100', 'text-violet-500', 'Your Groups', `${groups.length} group${groups.length !== 1 ? 's' : ''} created`)}
                             <div className="p-6">
                                 {groups.length === 0 ? (
                                     <div className="text-center py-8">
-                                        <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                                            <FaUserFriends className="text-gray-400" size={20} />
-                                        </div>
+                                        <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3"><FaUserFriends className="text-gray-400" size={20} /></div>
                                         <p className="text-gray-500 text-sm">No groups created yet</p>
                                     </div>
                                 ) : (
@@ -518,17 +390,13 @@ const Notice = () => {
                                         {groups.map(group => (
                                             <div key={group._id} className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
                                                 <div className="flex items-center gap-3">
-                                                    <div className="w-10 h-10 bg-gradient-to-br from-violet-100 to-purple-100 rounded-lg flex items-center justify-center">
-                                                        <FaUsers className="text-violet-500" size={14} />
-                                                    </div>
+                                                    <div className="w-10 h-10 bg-gradient-to-br from-violet-100 to-purple-100 rounded-lg flex items-center justify-center"><FaUsers className="text-violet-500" size={14} /></div>
                                                     <div>
                                                         <p className="text-sm font-medium text-gray-900">{group.name}</p>
                                                         <p className="text-xs text-gray-400">{(group.members || []).length} member{(group.members || []).length !== 1 ? 's' : ''}</p>
                                                     </div>
                                                 </div>
-                                                <button onClick={() => handleDeleteGroup(group._id)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors">
-                                                    <FaTrash size={12} />
-                                                </button>
+                                                <button onClick={() => handleDeleteGroup(group._id)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"><FaTrash size={12} /></button>
                                             </div>
                                         ))}
                                     </div>
@@ -538,7 +406,6 @@ const Notice = () => {
                     </div>
                 )}
 
-                {/* History Tab */}
                 {activeTab === 'history' && (
                     <div className="space-y-6">
                         <div className="bg-white rounded-2xl border border-gray-200 p-6 space-y-6">
@@ -549,8 +416,7 @@ const Notice = () => {
                                 </div>
                                 <div className="relative w-full md:w-72">
                                     <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
-                                    <input type="text" placeholder="Search history..." value={historySearch}
-                                        onChange={(e) => setHistorySearch(e.target.value)}
+                                    <input type="text" placeholder="Search history..." value={historySearch} onChange={(e) => setHistorySearch(e.target.value)}
                                         className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
                                 </div>
                             </div>
@@ -562,13 +428,10 @@ const Notice = () => {
                                 {renderFilterSelect('Date', 'date', [['all', 'Any Time'], ['today', 'Today'], ['last7', 'Last 7 Days'], ['last30', 'Last 30 Days']])}
                             </div>
                         </div>
-
                         <div className="space-y-4">
                             {filteredHistory.length === 0 ? (
                                 <div className="bg-white rounded-2xl border border-gray-200 p-12 text-center">
-                                    <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                                        <FaHistory className="text-gray-300" size={24} />
-                                    </div>
+                                    <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4"><FaHistory className="text-gray-300" size={24} /></div>
                                     <h3 className="text-lg font-medium text-gray-900">No history found</h3>
                                     <p className="text-gray-500 text-sm mt-1">Try adjusting your filters or search terms</p>
                                 </div>
@@ -584,9 +447,7 @@ const Notice = () => {
                                                     <div className="flex items-center gap-2 mb-1">
                                                         <h3 className="text-base font-semibold text-gray-900 truncate">{item.title}</h3>
                                                         {item.attachment && item.attachment.filename && (
-                                                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">
-                                                                <FaPaperclip className="mr-1" size={10} />1
-                                                            </span>
+                                                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600"><FaPaperclip className="mr-1" size={10} />1</span>
                                                         )}
                                                     </div>
                                                     <p className="text-sm text-gray-500 line-clamp-2">{item.message}</p>
@@ -609,12 +470,8 @@ const Notice = () => {
                                                         </div>
                                                     </div>
                                                     <div className="flex items-center gap-1 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
-                                                        <button onClick={() => setViewItem(item)} className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="View Details">
-                                                            <FaEye size={16} />
-                                                        </button>
-                                                        <button onClick={() => handleDeleteHistory(item._id)} className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Delete">
-                                                            <FaTrash size={16} />
-                                                        </button>
+                                                        <button onClick={() => setViewItem(item)} className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="View Details"><FaEye size={16} /></button>
+                                                        <button onClick={() => handleDeleteHistory(item._id)} className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Delete"><FaTrash size={16} /></button>
                                                     </div>
                                                 </div>
                                             </div>
@@ -626,15 +483,12 @@ const Notice = () => {
                     </div>
                 )}
 
-                {/* View History Item Modal */}
                 {viewItem && (
                     <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
                         <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-fadeIn">
                             <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
                                 <h3 className="text-lg font-semibold text-gray-900">Notice Details</h3>
-                                <button onClick={() => setViewItem(null)} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
-                                    <FaTimes className="text-gray-400" size={16} />
-                                </button>
+                                <button onClick={() => setViewItem(null)} className="p-2 hover:bg-gray-100 rounded-lg transition-colors"><FaTimes className="text-gray-400" size={16} /></button>
                             </div>
                             <div className="p-6 space-y-6">
                                 <div className="flex items-start gap-4">
@@ -644,15 +498,11 @@ const Notice = () => {
                                     <div>
                                         <h4 className="text-lg font-bold text-gray-900">{viewItem.title}</h4>
                                         <div className="flex items-center gap-2 mt-1 text-sm text-gray-500">
-                                            <span>{new Date(viewItem.createdAt).toLocaleDateString()}</span>
-                                            <span>•</span>
-                                            <span>{getRecipientLabel(viewItem)}</span>
+                                            <span>{new Date(viewItem.createdAt).toLocaleDateString()}</span><span>•</span><span>{getRecipientLabel(viewItem)}</span>
                                         </div>
                                     </div>
                                 </div>
-                                <div className="bg-gray-50 rounded-xl p-4 text-gray-700 text-sm leading-relaxed whitespace-pre-wrap">
-                                    {viewItem.message}
-                                </div>
+                                <div className="bg-gray-50 rounded-xl p-4 text-gray-700 text-sm leading-relaxed whitespace-pre-wrap">{viewItem.message}</div>
                                 {viewItem.attachment && viewItem.attachment.filename && (
                                     <div>
                                         <h5 className="text-sm font-medium text-gray-900 mb-3">Attachment</h5>
@@ -667,17 +517,13 @@ const Notice = () => {
                                                         <p className="text-xs text-gray-500">{((viewItem.attachment.size || 0) / 1024).toFixed(1)} KB</p>
                                                     </div>
                                                 </div>
-                                                <a href={viewItem.attachment.path} target="_blank" rel="noopener noreferrer" className="p-2 text-gray-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-colors">
-                                                    <FaDownload size={14} />
-                                                </a>
+                                                <a href={viewItem.attachment.path} target="_blank" rel="noopener noreferrer" className="p-2 text-gray-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-colors"><FaDownload size={14} /></a>
                                             </div>
                                         </div>
                                     </div>
                                 )}
                                 <div className="pt-2">
-                                    <button onClick={() => setViewItem(null)} className="w-full py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-xl transition-colors">
-                                        Close
-                                    </button>
+                                    <button onClick={() => setViewItem(null)} className="w-full py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-xl transition-colors">Close</button>
                                 </div>
                             </div>
                         </div>
@@ -685,25 +531,18 @@ const Notice = () => {
                 )}
             </div>
 
-            {/* Send Modal */}
             {showSendModal && (
                 <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-fadeIn flex flex-col max-h-[90vh]">
                         <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between flex-shrink-0">
                             <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center">
-                                    <FaPaperPlane className="text-primary" size={16} />
-                                </div>
+                                <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center"><FaPaperPlane className="text-primary" size={16} /></div>
                                 <h3 className="text-lg font-semibold text-gray-900">Send Notice</h3>
                             </div>
-                            <button onClick={() => setShowSendModal(false)} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
-                                <FaTimes className="text-gray-400" size={16} />
-                            </button>
+                            <button onClick={() => setShowSendModal(false)} className="p-2 hover:bg-gray-100 rounded-lg transition-colors"><FaTimes className="text-gray-400" size={16} /></button>
                         </div>
-
                         <div className="p-6 space-y-4 overflow-y-auto custom-scrollbar">
                             <p className="text-sm text-gray-500 mb-4">Choose who should receive this notice:</p>
-
                             {isAdmin && (
                                 <div className="space-y-3">
                                     {renderRadioOption('school', 'Entire School', 'All teachers and students', null)}
@@ -713,20 +552,12 @@ const Notice = () => {
                                     {renderRadioOption('users', 'Specific Users', 'Select individual users',
                                         renderSearchableList(allUsers, selectedUsers, setSelectedUsers,
                                             u => `${u.name || ''} ${u.role || ''}`, 'Search users...',
-                                            (user) => (
-                                                <>
-                                                    <span className="flex-1 truncate">{user.name}</span>
-                                                    <span className={`text-xs px-1.5 py-0.5 rounded flex-shrink-0 ${user.role === 'teacher' ? 'bg-indigo-50 text-indigo-600' : 'bg-green-50 text-green-600'}`}>
-                                                        {user.role}
-                                                    </span>
-                                                </>
-                                            )
+                                            (user) => (<><span className="flex-1 truncate">{user.name}</span><span className={`text-xs px-1.5 py-0.5 rounded flex-shrink-0 ${user.role === 'teacher' ? 'bg-indigo-50 text-indigo-600' : 'bg-green-50 text-green-600'}`}>{user.role}</span></>)
                                         )
                                     )}
                                     {renderGroupsOption()}
                                 </div>
                             )}
-
                             {isTeacher && (
                                 <div className="space-y-3">
                                     {renderRadioOption('allStudents', 'All Students', 'Your assigned class students', null)}
@@ -737,14 +568,9 @@ const Notice = () => {
                                 </div>
                             )}
                         </div>
-
                         <div className="px-6 py-4 border-t border-gray-100 flex gap-3">
-                            <button onClick={() => setShowSendModal(false)}
-                                className="flex-1 px-4 py-2.5 border border-gray-200 text-gray-700 font-medium rounded-xl hover:bg-gray-50 transition-colors">
-                                Cancel
-                            </button>
-                            <button onClick={handleFinalSend}
-                                className="flex-1 px-4 py-2.5 bg-primary hover:bg-primary-hover text-white font-medium rounded-xl transition-colors flex items-center justify-center gap-2">
+                            <button onClick={() => setShowSendModal(false)} className="flex-1 px-4 py-2.5 border border-gray-200 text-gray-700 font-medium rounded-xl hover:bg-gray-50 transition-colors">Cancel</button>
+                            <button onClick={handleFinalSend} className="flex-1 px-4 py-2.5 bg-primary hover:bg-primary-hover text-white font-medium rounded-xl transition-colors flex items-center justify-center gap-2">
                                 <FaPaperPlane size={12} /> Send Now
                             </button>
                         </div>
