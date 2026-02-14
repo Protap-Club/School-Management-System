@@ -7,11 +7,17 @@ import { ValidationError } from "../utils/customError.js";
 export const validate = (schema) => (req, res, next) => {
     try {
         // Validate all inputs strictly
-        schema.parse({
+        const parsedData = schema.parse({
             body: req.body,
             query: req.query,
             params: req.params,
         });
+
+        // Assign parsed (and potentially transformed/defaulted) data back to req
+        req.body = parsedData.body;
+        req.query = parsedData.query;
+        req.params = parsedData.params;
+
         next();
     } catch (error) {
         // Handle Zod errors immediately to ensure consistent 400 format

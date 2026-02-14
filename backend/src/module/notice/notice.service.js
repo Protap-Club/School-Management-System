@@ -3,143 +3,86 @@ import { Notice, NoticeGroup } from "./Notice.model.js";
 import { BadRequestError, NotFoundError, ConflictError } from "../../utils/customError.js";
 import logger from "../../config/logger.js";
 
-// ═══════════════════════════════════════════════════════════════
-// Notice Service
-// ═══════════════════════════════════════════════════════════════
+// NOTICE SERVICES
 
-/**
- * Create a new notice
- */
-export const createNotice = async (schoolId, userId, data, file = null) => {
-    // Parse recipients from JSON string (sent via FormData)
-    let recipients = [];
-    try {
-        recipients = typeof data.recipients === 'string'
-            ? JSON.parse(data.recipients)
-            : (data.recipients || []);
-    } catch {
-        throw new BadRequestError("Invalid recipients format");
-    }
+// Create a new notice
+export const createNotice = async (schoolId, userId, data, file) => {
+    // Parse recipients (sent as JSON string from FormData)
+    const recipients = typeof data.recipients === 'string'
+        ? JSON.parse(data.recipients)
+        : (data.recipients || []);
 
-    // Determine notice type based on attachment
-    const type = file ? 'file' : 'notice';
-
-    // Build attachment object if file exists
-    let attachment = undefined;
-    if (file) {
-        attachment = {
-            filename: file.filename,
-            originalName: file.originalname,
-            path: `/uploads/notices/${file.filename}`,
-            size: file.size,
-            mimetype: file.mimetype,
-        };
-    }
+    // Build attachment if file exists
+    const attachment = file ? {
+        filename: file.filename,
+        originalName: file.originalname,
+        path: `/uploads/notices/${file.filename}`,
+        size: file.size,
+        mimetype: file.mimetype,
+    } : null;
 
     const notice = await Notice.create({
         schoolId,
         createdBy: userId,
         title: data.title || "",
         message: data.message,
-        type,
-        recipientType: data.recipientType,
         recipients,
         attachment,
-        status: "sent",
     });
 
-    // Populate createdBy for response
     await notice.populate("createdBy", "name email role");
+    logger.info(`Notice created: ${notice._id}`);
 
-    logger.info(`Notice created: ${notice._id} by user ${userId}`);
     return notice;
 };
 
-/**
- * Get notices sent by a specific user (for history tab)
- */
+// Get notices sent by a user (history)
 export const getNotices = async (schoolId, userId, filters = {}) => {
-    const query = { schoolId, createdBy: userId, isActive: true };
-
-    // Type filter
-    if (filters.type && filters.type !== 'all') {
-        query.type = filters.type;
-    }
-
-    // SentTo filter
-    if (filters.sentTo && filters.sentTo !== 'all') {
-        if (filters.sentTo === 'group') {
-            query.recipientType = { $in: ['all', 'classes', 'groups'] };
-        } else if (filters.sentTo === 'individual') {
-            query.recipientType = { $in: ['users', 'students'] };
-        }
-    }
+    const query = { schoolId, createdBy: userId };
 
     // Date filter
     if (filters.date && filters.date !== 'all') {
         const now = new Date();
-        let dateFrom;
+        const dateMap = {
+            today: new Date(now.setHours(0, 0, 0, 0)),
+            last7: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000),
+            last30: new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000),
+        };
 
-        if (filters.date === 'today') {
-            dateFrom = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        } else if (filters.date === 'last7') {
-            dateFrom = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-        } else if (filters.date === 'last30') {
-            dateFrom = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-        }
-
-        if (dateFrom) {
-            query.createdAt = { $gte: dateFrom };
+        if (dateMap[filters.date]) {
+            query.createdAt = { $gte: dateMap[filters.date] };
         }
     }
 
-    const notices = await Notice.find(query)
+    return await Notice.find(query)
         .populate("createdBy", "name email role")
         .sort({ createdAt: -1 })
         .lean();
-
-    return notices;
 };
 
-/**
- * Get notices received by a user (for notifications/bell icon)
- * Matches notices where:
- *   - recipientType is 'all' (entire school), OR
- *   - user's ID is in the recipients array
- */
+// Get notices received by a user
 export const getReceivedNotices = async (schoolId, userId) => {
-    const userIdStr = userId.toString();
-
-    const notices = await Notice.find({
+    return await Notice.find({
         schoolId,
-        isActive: true,
-        createdBy: { $ne: userId }, // exclude sender's own notices
+        createdBy: { $ne: userId },
         $or: [
-            { recipientType: 'all' },
-            { recipients: userIdStr },
+            { recipients: { $size: 0 } },  // Sent to all
+            { recipients: userId }          // Sent to me
         ],
     })
         .populate("createdBy", "name email role")
         .sort({ createdAt: -1 })
         .limit(50)
         .lean();
-
-    return notices;
 };
 
-/**
- * Get a single notice by ID
- */
+// Get a single notice by ID
 export const getNoticeById = async (schoolId, noticeId) => {
     if (!mongoose.Types.ObjectId.isValid(noticeId)) {
         throw new BadRequestError("Invalid notice ID");
     }
 
-    const notice = await Notice.findOne({
-        _id: noticeId,
-        schoolId,
-        isActive: true,
-    })
+    const notice = await Notice.findOne({ _id: noticeId, schoolId })
         .populate("createdBy", "name email role")
         .lean();
 
@@ -150,37 +93,32 @@ export const getNoticeById = async (schoolId, noticeId) => {
     return notice;
 };
 
-/**
- * Soft-delete a notice
- */
+// Permanently delete a notice
 export const deleteNotice = async (schoolId, noticeId, userId) => {
     if (!mongoose.Types.ObjectId.isValid(noticeId)) {
         throw new BadRequestError("Invalid notice ID");
     }
 
-    const notice = await Notice.findOneAndUpdate(
-        { _id: noticeId, schoolId, isActive: true },
-        { isActive: false },
-        { new: true }
-    );
+    const notice = await Notice.findOneAndDelete({
+        _id: noticeId,
+        schoolId,
+        createdBy: userId  // Only creator can delete
+    });
 
     if (!notice) {
         throw new NotFoundError("Notice not found");
     }
 
-    logger.info(`Notice deleted: ${noticeId} by user ${userId}`);
+    logger.info(`Notice deleted: ${noticeId}`);
     return notice;
 };
 
-// ═══════════════════════════════════════════════════════════════
-// Group Service
-// ═══════════════════════════════════════════════════════════════
 
-/**
- * Get all groups for a user within a school
- */
+// GROUP SERVICES
+
+// Get all groups created by a user
 export const getGroups = async (schoolId, userId) => {
-    const groups = await NoticeGroup.find({
+    return await NoticeGroup.find({
         schoolId,
         createdBy: userId,
         isActive: true,
@@ -188,13 +126,9 @@ export const getGroups = async (schoolId, userId) => {
         .populate("members", "name email role")
         .sort({ createdAt: -1 })
         .lean();
-
-    return groups;
 };
 
-/**
- * Create a new notice group
- */
+// Create a saved group
 export const createGroup = async (schoolId, userId, data) => {
     // Check for duplicate group name
     const existing = await NoticeGroup.findOne({
@@ -212,19 +146,16 @@ export const createGroup = async (schoolId, userId, data) => {
         schoolId,
         createdBy: userId,
         name: data.name,
-        members: data.students, // Array of user ObjectIds
+        members: data.students,
     });
 
-    // Populate members for response
     await group.populate("members", "name email role");
+    logger.info(`Group created: ${group._id}`);
 
-    logger.info(`NoticeGroup created: ${group._id} by user ${userId}`);
     return group;
 };
 
-/**
- * Soft-delete a notice group
- */
+// Soft-delete a group
 export const deleteGroup = async (schoolId, groupId, userId) => {
     if (!mongoose.Types.ObjectId.isValid(groupId)) {
         throw new BadRequestError("Invalid group ID");
@@ -237,9 +168,9 @@ export const deleteGroup = async (schoolId, groupId, userId) => {
     );
 
     if (!group) {
-        throw new NotFoundError("Group not found or access denied");
+        throw new NotFoundError("Group not found");
     }
 
-    logger.info(`NoticeGroup deleted: ${groupId} by user ${userId}`);
+    logger.info(`Group deleted: ${groupId}`);
     return group;
 };

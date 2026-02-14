@@ -138,24 +138,24 @@ export const toggleUserStatus = async (creator, userIds, isArchived) => {
 };
 
 // PERMANENT DELETE (without transactions for standalone MongoDB)
-export const hardDeleteUsers = async (creator, userIds) => {
-    const ids = Array.isArray(userIds) ? userIds : [userIds];
-    const query = buildAccessQuery(creator, { userIds: ids, isArchived: true });
+// export const hardDeleteUsers = async (creator, userIds) => {
+//     const ids = Array.isArray(userIds) ? userIds : [userIds];
+//     const query = buildAccessQuery(creator, { userIds: ids, isArchived: true });
 
-    const usersToDelete = await User.find(query);
-    if (usersToDelete.length === 0) {
-        throw new BadRequestError("Users must be archived before permanent deletion");
-    }
+//     const usersToDelete = await User.find(query);
+//     if (usersToDelete.length === 0) {
+//         throw new BadRequestError("Users must be archived before permanent deletion");
+//     }
 
-    const deleteIds = usersToDelete.map(u => u._id);
+//     const deleteIds = usersToDelete.map(u => u._id);
 
-    // Delete Profiles first, then Users
-    for (const user of usersToDelete) {
-        const config = PROFILE_CONFIG[user.role];
-        if (config) await config.model.deleteMany({ userId: user._id });
-    }
+//     // Delete Profiles first, then Users
+//     for (const user of usersToDelete) {
+//         const config = PROFILE_CONFIG[user.role];
+//         if (config) await config.model.deleteMany({ userId: user._id });
+//     }
 
-    const result = await User.deleteMany({ _id: { $in: deleteIds } });
+//     const result = await User.deleteMany({ _id: { $in: deleteIds } });
 
-    return { deleteResult: { deletedCount: result.deletedCount } };
-};
+//     return { deleteResult: { deletedCount: result.deletedCount } };
+// };

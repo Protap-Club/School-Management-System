@@ -32,11 +32,11 @@ export const linkNfcTag = async (studentId, nfcUid) => {
     }
 
     const data = {
-        name : updatedStudent.name,
-        nfcUid : cleanUid,
-        schoolId : updatedStudent.schoolId,
-        role : updatedStudent.role,
-        _id : updatedStudent._id,
+        name: updatedStudent.name,
+        nfcUid: cleanUid,
+        schoolId: updatedStudent.schoolId,
+        role: updatedStudent.role,
+        _id: updatedStudent._id,
     }
 
     logger.info(`NFC linked: ${updatedStudent.name} -> ${cleanUid}`);
@@ -46,7 +46,7 @@ export const linkNfcTag = async (studentId, nfcUid) => {
 // MARK ATTENDANCE (Via NFC)
 // The core "Tap" function.
 
-export const markAttendanceByNfc = async (nfcUid, schoolId ) => {
+export const markAttendanceByNfc = async (nfcUid, schoolId) => {
     if (!nfcUid) throw new BadRequestError("NFC UID required");
 
     // Step 1: Find Student (Fast read)
@@ -58,7 +58,7 @@ export const markAttendanceByNfc = async (nfcUid, schoolId ) => {
         .select("_id name schoolId role")
         .lean();
 
-    if (!student) throw new CustomError("Tag not registered", 404);
+    if (!student) throw new NotFoundError("Tag not registered");
 
     // Step 2: Define "Today" (Reset time to midnight for consistency)
     const startOfDay = new Date();
@@ -71,7 +71,7 @@ export const markAttendanceByNfc = async (nfcUid, schoolId ) => {
     }).lean();
 
     if (existing) {
-        throw new CustomError("Attendance already marked", 409, {
+        throw new ConflictError("Attendance already marked", "ATTENDANCE_EXISTS", {
             studentName: student.name,
             time: existing.checkInTime
         });

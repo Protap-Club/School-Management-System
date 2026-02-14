@@ -2,14 +2,12 @@ import * as noticeService from "./notice.service.js";
 import asyncHandler from "../../utils/asyncHandler.js";
 import logger from "../../config/logger.js";
 
-// ═══════════════════════════════════════════════════════════════
 // Notice Controllers
-// ═══════════════════════════════════════════════════════════════
 
-/**
- * POST /notices
- * Create a new notice (multipart/form-data with optional attachment)
- */
+
+//  POST /notices
+//  Create a new notice (multipart/form-data with optional attachment)
+
 export const createNotice = asyncHandler(async (req, res) => {
     const result = await noticeService.createNotice(
         req.schoolId,
@@ -27,10 +25,9 @@ export const createNotice = asyncHandler(async (req, res) => {
     logger.info(`Notice created by ${req.user._id}: ${result._id}`);
 });
 
-/**
- * GET /notices
- * Get all notices with optional query filters (type, sentTo, date)
- */
+// GET /notices
+//  Get all notices with optional query filters (type, sentTo, date)
+
 export const getNotices = asyncHandler(async (req, res) => {
     const filters = {
         type: req.query.type || "all",
@@ -46,10 +43,9 @@ export const getNotices = asyncHandler(async (req, res) => {
     });
 });
 
-/**
- * GET /notices/received
- * Get notices received by the logged-in user (for bell icon / notifications page)
- */
+// GET /notices/received
+//  Get notices received by the logged-in user (for bell icon / notifications page)
+ 
 export const getReceivedNotices = asyncHandler(async (req, res) => {
     const result = await noticeService.getReceivedNotices(req.schoolId, req.user._id);
 
@@ -59,10 +55,9 @@ export const getReceivedNotices = asyncHandler(async (req, res) => {
     });
 });
 
-/**
- * GET /notices/:id
- * Get a single notice by ID
- */
+// GET /notices/:id
+// Get a single notice by ID
+ 
 export const getNoticeById = asyncHandler(async (req, res) => {
     const result = await noticeService.getNoticeById(req.schoolId, req.params.id);
 
@@ -72,10 +67,9 @@ export const getNoticeById = asyncHandler(async (req, res) => {
     });
 });
 
-/**
- * DELETE /notices/:id
- * Soft-delete a notice
- */
+// DELETE /notices/:id
+// Soft-delete a notice
+
 export const deleteNotice = asyncHandler(async (req, res) => {
     const result = await noticeService.deleteNotice(
         req.schoolId,
@@ -90,14 +84,13 @@ export const deleteNotice = asyncHandler(async (req, res) => {
     });
 });
 
-// ═══════════════════════════════════════════════════════════════
-// Group Controllers
-// ═══════════════════════════════════════════════════════════════
 
-/**
- * GET /notices/groups
- * Get all groups for the logged-in user
- */
+// Group Controllers
+
+
+// GET /notices/groups
+// Get all groups for the logged-in user
+
 export const getGroups = asyncHandler(async (req, res) => {
     const result = await noticeService.getGroups(req.schoolId, req.user._id);
 
@@ -107,10 +100,9 @@ export const getGroups = asyncHandler(async (req, res) => {
     });
 });
 
-/**
- * POST /notices/groups
- * Create a new notice group
- */
+// POST /notices/groups
+// Create a new notice group
+
 export const createGroup = asyncHandler(async (req, res) => {
     const result = await noticeService.createGroup(
         req.schoolId,
@@ -127,10 +119,9 @@ export const createGroup = asyncHandler(async (req, res) => {
     logger.info(`Group created by ${req.user._id}: ${result._id}`);
 });
 
-/**
- * DELETE /notices/groups/:groupId
- * Soft-delete a notice group
- */
+// DELETE /notices/groups/:groupId
+// Soft-delete a notice group
+
 export const deleteGroup = asyncHandler(async (req, res) => {
     const result = await noticeService.deleteGroup(
         req.schoolId,
