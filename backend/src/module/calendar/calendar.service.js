@@ -1,5 +1,6 @@
 import { CalendarEvent } from "./calendar.model.js";
 import logger from "../../config/logger.js";
+import { ConflictError, NotFoundError, BadRequestError } from "../../utils/customError.js";
 
 /**
  * Create a new calendar event
@@ -17,9 +18,7 @@ export const createCalendarEvent = async (eventData, userId, schoolId) => {
 
     if (existingEvent) {
         logger.warn("Duplicate calendar event already exists");
-        const error = new Error("Duplicate event already exists");
-        error.statusCode = 400;
-        throw error;
+        throw new ConflictError("Duplicate event already exists");
     }
 
     const newEvent = await CalendarEvent.create({
@@ -84,9 +83,7 @@ export const getCalendarEventById = async (id) => {
 
     if (!event) {
         logger.warn(`Calendar event not found: ${id}`);
-        const error = new Error("Event not found");
-        error.statusCode = 404;
-        throw error;
+        throw new NotFoundError("Event not found");
     }
 
     return event;
@@ -101,18 +98,14 @@ export const updateCalendarEvent = async (id, updateData) => {
 
     if (!event) {
         logger.warn(`Calendar event not found for update: ${id}`);
-        const error = new Error("Event not found");
-        error.statusCode = 404;
-        throw error;
+        throw new NotFoundError("Event not found");
     }
 
     // Edge Case: If updating dates, re-validate that Start <= End
     if (updateData.start && updateData.end) {
         if (new Date(updateData.start) > new Date(updateData.end)) {
             logger.warn("End date cannot be before start date");
-            const error = new Error("End date cannot be before start date");
-            error.statusCode = 400;
-            throw error;
+            throw new BadRequestError("End date cannot be before start date");
         }
     }
 
@@ -142,9 +135,7 @@ export const deleteCalendarEvent = async (id) => {
 
     if (!event) {
         logger.warn(`Calendar event not found for deletion: ${id}`);
-        const error = new Error("Event not found");
-        error.statusCode = 404;
-        throw error;
+        throw new NotFoundError("Event not found");
     }
 
     await CalendarEvent.findByIdAndDelete(id);

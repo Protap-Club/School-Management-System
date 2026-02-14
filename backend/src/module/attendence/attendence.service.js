@@ -1,7 +1,7 @@
 import User from "../user/model/User.model.js";
 import Attendance from "./Attendance.model.js";
 import { getIO } from "../../socket.js";
-import { CustomError } from "../../utils/customError.js";
+import { BadRequestError, ConflictError, NotFoundError } from "../../utils/customError.js";
 import logger from "../../config/logger.js";
 
 
@@ -9,14 +9,14 @@ import logger from "../../config/logger.js";
 // Associates a physical card with a student account.
 
 export const linkNfcTag = async (studentId, nfcUid) => {
-    if (!studentId || !nfcUid) throw new CustomError("Missing required fields", 400);
+    if (!studentId || !nfcUid) throw new BadRequestError("Missing required fields");
 
     const cleanUid = nfcUid.trim();
 
     // Check 1: Is this tag already taken by someone else?
     const conflict = await User.findOne({ nfcUid: cleanUid }).select("_id").lean();
     if (conflict && conflict._id.toString() !== studentId) {
-        throw new CustomError("Tag already registered to another user", 409);
+        throw new ConflictError("Tag already registered to another user");
     }
 
     // Check 2: Update the student 
@@ -28,7 +28,7 @@ export const linkNfcTag = async (studentId, nfcUid) => {
     ).select("name nfcUid").lean();
 
     if (!updatedStudent) {
-        throw new CustomError("Student not found or user is not a student", 404);
+        throw new NotFoundError("Student not found or user is not a student", 404);
     }
 
     const data = {
@@ -47,7 +47,7 @@ export const linkNfcTag = async (studentId, nfcUid) => {
 // The core "Tap" function.
 
 export const markAttendanceByNfc = async (nfcUid, schoolId ) => {
-    if (!nfcUid) throw new CustomError("NFC UID required", 400);
+    if (!nfcUid) throw new BadRequestError("NFC UID required");
 
     // Step 1: Find Student (Fast read)
     // Step 1: Find Student (Fast read)

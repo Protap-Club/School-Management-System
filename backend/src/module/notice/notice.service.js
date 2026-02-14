@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 import { Notice, NoticeGroup } from "./Notice.model.js";
-import { CustomError } from "../../utils/customError.js";
+import { BadRequestError, NotFoundError, ConflictError } from "../../utils/customError.js";
 import logger from "../../config/logger.js";
 
 // ═══════════════════════════════════════════════════════════════
@@ -18,7 +18,7 @@ export const createNotice = async (schoolId, userId, data, file = null) => {
             ? JSON.parse(data.recipients)
             : (data.recipients || []);
     } catch {
-        throw new CustomError("Invalid recipients format", 400);
+        throw new BadRequestError("Invalid recipients format");
     }
 
     // Determine notice type based on attachment
@@ -132,7 +132,7 @@ export const getReceivedNotices = async (schoolId, userId) => {
  */
 export const getNoticeById = async (schoolId, noticeId) => {
     if (!mongoose.Types.ObjectId.isValid(noticeId)) {
-        throw new CustomError("Invalid notice ID", 400);
+        throw new BadRequestError("Invalid notice ID");
     }
 
     const notice = await Notice.findOne({
@@ -144,7 +144,7 @@ export const getNoticeById = async (schoolId, noticeId) => {
         .lean();
 
     if (!notice) {
-        throw new CustomError("Notice not found", 404);
+        throw new NotFoundError("Notice not found");
     }
 
     return notice;
@@ -155,7 +155,7 @@ export const getNoticeById = async (schoolId, noticeId) => {
  */
 export const deleteNotice = async (schoolId, noticeId, userId) => {
     if (!mongoose.Types.ObjectId.isValid(noticeId)) {
-        throw new CustomError("Invalid notice ID", 400);
+        throw new BadRequestError("Invalid notice ID");
     }
 
     const notice = await Notice.findOneAndUpdate(
@@ -165,7 +165,7 @@ export const deleteNotice = async (schoolId, noticeId, userId) => {
     );
 
     if (!notice) {
-        throw new CustomError("Notice not found", 404);
+        throw new NotFoundError("Notice not found");
     }
 
     logger.info(`Notice deleted: ${noticeId} by user ${userId}`);
@@ -205,7 +205,7 @@ export const createGroup = async (schoolId, userId, data) => {
     });
 
     if (existing) {
-        throw new CustomError("A group with this name already exists", 409);
+        throw new ConflictError("A group with this name already exists");
     }
 
     const group = await NoticeGroup.create({
@@ -227,7 +227,7 @@ export const createGroup = async (schoolId, userId, data) => {
  */
 export const deleteGroup = async (schoolId, groupId, userId) => {
     if (!mongoose.Types.ObjectId.isValid(groupId)) {
-        throw new CustomError("Invalid group ID", 400);
+        throw new BadRequestError("Invalid group ID");
     }
 
     const group = await NoticeGroup.findOneAndUpdate(
@@ -237,7 +237,7 @@ export const deleteGroup = async (schoolId, groupId, userId) => {
     );
 
     if (!group) {
-        throw new CustomError("Group not found or access denied", 404);
+        throw new NotFoundError("Group not found or access denied");
     }
 
     logger.info(`NoticeGroup deleted: ${groupId} by user ${userId}`);

@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 import { TimeSlot, Timetable, TimetableEntry, DAYS_OF_WEEK } from "./Timetable.model.js";
-import { CustomError } from "../../utils/customError.js";
+import { NotFoundError, BadRequestError, ConflictError } from "../../utils/customError.js";
 import logger from "../../config/logger.js";
 
 // Manage TimeSlots (get, create, update, delete)
@@ -20,7 +20,7 @@ export const manageTimeSlots = async (schoolId, action, data = {}) => {
 
     // Create a new slot
     if (action === 'create') {
-        if (await TimeSlot.exists({ schoolId, slotNumber: data.slotNumber, isActive: true })) throw new CustomError(`Slot #${data.slotNumber} exists`, 409);
+        if (await TimeSlot.exists({ schoolId, slotNumber: data.slotNumber, isActive: true })) throw new ConflictError(`Slot #${data.slotNumber} exists`);
         logger.info(`Creating TimeSlot #${data.slotNumber} for school ${schoolId}`);
         const slot = await TimeSlot.create({ schoolId, ...data });
         return {
@@ -36,10 +36,10 @@ export const manageTimeSlots = async (schoolId, action, data = {}) => {
 
     // Update a slot
     if (action === 'update') {
-        if (data.slotNumber && await TimeSlot.exists({ schoolId, slotNumber: data.slotNumber, isActive: true, _id: { $ne: data.id } })) throw new CustomError(`Slot #${data.slotNumber} taken`, 409);
+        if (data.slotNumber && await TimeSlot.exists({ schoolId, slotNumber: data.slotNumber, isActive: true, _id: { $ne: data.id } })) throw new ConflictError(`Slot #${data.slotNumber} taken`);
         logger.info(`Updating TimeSlot ${data.id} for school ${schoolId}`);
         const updated = await TimeSlot.findOneAndUpdate({ _id: data.id, schoolId }, data, { new: true }).lean();
-        if (!updated) throw new CustomError("Slot not found", 404);
+        if (!updated) throw new NotFoundError("Slot not found");
         return {
             slot: {
                 _id: updated._id,
@@ -53,7 +53,7 @@ export const manageTimeSlots = async (schoolId, action, data = {}) => {
 
     // Delete a slot
     if (action === 'delete') {
-        if (await TimetableEntry.countDocuments({ timeSlotId: data.id, isActive: true }) > 0) throw new CustomError("Slot is currently in use", 400);
+        if (await TimetableEntry.countDocuments({ timeSlotId: data.id, isActive: true }) > 0) throw new BadRequestError("Slot is currently in use");
         logger.warn(`Soft-deleting TimeSlot ${data.id} for school ${schoolId}`);
         const deleted = await TimeSlot.findOneAndUpdate({ _id: data.id, schoolId }, { isActive: false }, { new: true }).lean();
         return {
@@ -69,7 +69,7 @@ export const manageTimeSlots = async (schoolId, action, data = {}) => {
 export const manageTimetables = async (schoolId, action, data = {}) => {
     // Create a new timetable
     if (action === 'create') {
-        if (await Timetable.exists({ schoolId, standard: data.standard, section: data.section, academicYear: data.academicYear, isActive: true })) throw new CustomError("Timetable exists", 409);
+        if (await Timetable.exists({ schoolId, standard: data.standard, section: data.section, academicYear: data.academicYear, isActive: true })) throw new ConflictError("Timetable exists");
         logger.info(`Creating Timetable ${data.standard}-${data.section} for school ${schoolId}`);
         const timetable = await Timetable.create({ schoolId, ...data });
         return {
@@ -109,7 +109,7 @@ export const manageTimetables = async (schoolId, action, data = {}) => {
     // Get a specific timetable with entries
     if (action === 'get_one') {
         const timetable = await Timetable.findOne({ _id: data.id, schoolId, isActive: true }).lean();
-        if (!timetable) throw new CustomError("Timetable not found", 404);
+        if (!timetable) throw new NotFoundError("Timetable not found");
         const entries = await TimetableEntry.find({ timetableId: data.id, isActive: true }).populate("timeSlotId teacherId").sort({ dayOfWeek: 1 }).lean();
 
         return {
@@ -156,13 +156,13 @@ export const manageTimetables = async (schoolId, action, data = {}) => {
             { new: true }
         ).lean();
 
-        if (!timetable) throw new CustomError("Timetable not found", 404);
+        if (!timetable) throw new NotFoundError("Timetable not found");
         logger.info(`Timetable ${id} status updated to ${status}`);
         return { timetable: { _id: timetable._id, status: timetable.status } };
     }
 
     // Default fallback if action not found
-    throw new CustomError("Invalid action", 400);
+    throw new BadRequestError("Invalid action");
 };
 
 // Sync entries in bulk
@@ -205,7 +205,7 @@ export const syncEntries = async (schoolId, timetableId, entriesData) => {
 // Update a specific entry (with teacher permission check)
 export const updateEntry = async (schoolId, id, updates, user = null) => {
     const entry = await TimetableEntry.findOne({ _id: id, schoolId, isActive: true }).lean();
-    if (!entry) throw new CustomError("Entry not found", 404);
+    if (!entry) throw new NotFoundError("Entry not found");
 
     // Permission check: Teachers can edit any entry in a timetable they're assigned to
     if (user && user.role === 'teacher') {
@@ -216,7 +216,7 @@ export const updateEntry = async (schoolId, id, updates, user = null) => {
             isActive: true
         });
         if (!hasAssignment) {
-            throw new CustomError("You can only edit entries in classes you're assigned to", 403);
+            throw new ForbiddenError("You can only edit entries in classes you're assigned to");
         }
     }
 
@@ -226,7 +226,7 @@ export const updateEntry = async (schoolId, id, updates, user = null) => {
 
     if (tId && (updates.teacherId || updates.timeSlotId || updates.dayOfWeek)) {
         const conflict = await TimetableEntry.findOne({ schoolId, teacherId: tId, dayOfWeek: day, timeSlotId: slotId, isActive: true, _id: { $ne: id } }).populate('timetableId');
-        if (conflict) throw new CustomError(`Teacher busy in ${conflict.timetableId.standard}-${conflict.timetableId.section}`, 409);
+        if (conflict) throw new ConflictError(`Teacher busy in ${conflict.timetableId.standard}-${conflict.timetableId.section}`);
     }
 
     logger.info(`Updating Entry ${id} for school ${schoolId}`);

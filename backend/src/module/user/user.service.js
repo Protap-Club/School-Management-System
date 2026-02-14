@@ -1,8 +1,7 @@
-
 import User from "./model/User.model.js";
 import { PROFILE_CONFIG } from "../../config/profiles.js";
 import { sendCredentialsEmail } from "../../utils/email.util.js";
-import { CustomError } from "../../utils/customError.js";
+import { BadRequestError, NotFoundError, ConflictError } from "../../utils/customError.js";
 
 // Helper to build a query based on who is asking (The Filter Factory)
 const buildAccessQuery = (creator, filters = {}) => {
@@ -32,14 +31,14 @@ export const createUser = async (creator, userData) => {
     const { name, email, role, skipEmail } = userData;
 
     // Ensure name is present
-    if (!name) throw new CustomError("Name is required", 400);
+    if (!name) throw new BadRequestError("Name is required");
 
     // Determine correct school context - use provided schoolId or fallback to creator's schoolId
     const targetSchoolId = userData.schoolId || creator.schoolId;
 
     // Check if user already exists
     const existing = await User.findOne({ email });
-    if (existing) throw new CustomError("Email already registered", 409);
+    if (existing) throw new ConflictError("Email already registered");
 
     // Generate credentials
     const plainPassword = userData.password || Math.random().toString(36).slice(-8);
@@ -132,7 +131,7 @@ export const toggleUserStatus = async (creator, userIds, isArchived) => {
     const result = await User.updateMany(query, { $set: { isArchived } });
 
     if (result.matchedCount === 0) {
-        throw new CustomError(`No ${!isArchived ? 'archived' : 'active'} users found to update`, 404);
+        throw new NotFoundError(`No ${!isArchived ? 'archived' : 'active'} users found to update`);
     }
 
     return { updateResult: result };
@@ -145,7 +144,7 @@ export const hardDeleteUsers = async (creator, userIds) => {
 
     const usersToDelete = await User.find(query);
     if (usersToDelete.length === 0) {
-        throw new CustomError("Users must be archived before permanent deletion", 400);
+        throw new BadRequestError("Users must be archived before permanent deletion");
     }
 
     const deleteIds = usersToDelete.map(u => u._id);

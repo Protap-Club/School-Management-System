@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import logger from "../config/logger.js";
+import { ValidationError } from "../utils/customError.js";
 
 // Middleware to validate request data against Zod schema.
 
@@ -22,13 +23,12 @@ export const validate = (schema) => (req, res, next) => {
             }));
 
             // Log full details for debugging
-            logger.warn(`Validation Failed: ${JSON.stringify(errors)}`);
-
-            return res.status(400).json({
-                success: false,
-                message: "Validation failed",
-                errors
+            logger.warn({
+                msg: "Validation Failed",
+                errors: errors
             });
+
+            throw new ValidationError("Input validation failed", errors);
         }
         // Pass unexpected errors to global handler
         next(error);

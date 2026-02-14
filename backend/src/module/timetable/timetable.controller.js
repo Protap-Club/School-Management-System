@@ -2,6 +2,7 @@ import * as timetableService from "./timetable.service.js";
 import asyncHandler from "../../utils/asyncHandler.js";
 import logger from "../../config/logger.js";
 import { USER_ROLES } from "../../constants/userRoles.js";
+import { BadRequestError, ForbiddenError } from "../../utils/customError.js";
 
 // Create a new time slot
 export const createTimeSlot = asyncHandler(async (req, res) => {
@@ -104,11 +105,7 @@ export const addEntry = asyncHandler(async (req, res) => {
     // Check for failure
     if (result.syncResult.failedEntries.length > 0) {
         const failure = result.syncResult.failedEntries[0];
-        return res.status(400).json({
-            success: false,
-            message: failure.reason || "Failed to create entry",
-            error: failure.reason
-        });
+        throw new BadRequestError(failure.reason || "Failed to create entry");
     }
 
     res.status(201).json({
@@ -160,10 +157,7 @@ export const getTeacherSchedule = asyncHandler(async (req, res) => {
     const { teacherId } = req.params;
 
     if (req.user.role === USER_ROLES.TEACHER && String(req.user._id) !== String(teacherId)) {
-        return res.status(403).json({
-            success: false,
-            message: "Access denied"
-        });
+        throw new ForbiddenError("Access denied");
     }
 
     const result = await timetableService.getTeacherSchedule(req.schoolId, teacherId, req.query.academicYear);

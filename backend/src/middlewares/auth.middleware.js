@@ -2,6 +2,7 @@ import jwt from "jsonwebtoken";
 import User from "../module/user/model/User.model.js";
 import { conf } from "../config/index.js";
 import logger from "../config/logger.js";
+import { NotFoundError, UnauthorizedError } from "../utils/customError.js";
 
 const checkAuth = async (req, res, next) => {
     try {
@@ -9,29 +10,30 @@ const checkAuth = async (req, res, next) => {
         const token = req.headers.authorization?.split(" ")[1];
 
         if (!token) {
-            return res.status(401).json({ success: false, message: "No token provided" });
+            throw new UnauthorizedError("Token Not Found!")
         }
 
         const decoded = jwt.verify(token, conf.JWT_SECRET);
+        if (!decoded){
+            throw new UnauthorizedError("Invalid Token");
+        }
 
         // Optimization: .lean() returns a plain JS object instead of a heavy Mongoose document
-        const user = await User.findById(decoded.id)
-            .select("-password")
+        const findUser = await User.findById(decoded.id)
+            .select("_id name email role schoolId isActive")
             .lean();
 
-        if (!user) {
-            logger.warn(`Auth check failed: User ID ${decoded.id} not found.`);
-            return res.status(401).json({ success: false, message: "User not found" });
+        if (!findUser) {
+            throw new NotFoundError("User Not Found");
         }
-        user.schoolId = decoded.schoolId;
 
-        req.user = user;
+        req.user = findUser;
         next();
 
     } catch (error) {
         // Log errors only (keeps logs clean of "success" noise)
         logger.error(`Auth Middleware Error: ${error.message}`);
-        return res.status(401).json({ success: false, message: "Token is not valid or has expired" });
+        next(error);
     }
 };
 

@@ -1,6 +1,7 @@
 import * as schoolService from "./school.service.js";
 import asyncHandler from "../../utils/asyncHandler.js";
 import logger from "../../config/logger.js";
+import { BadRequestError } from "../../utils/customError.js";
 
 // Create a new school
 export const createSchool = asyncHandler(async (req, res) => {
@@ -46,10 +47,7 @@ export const getMySchoolBranding = asyncHandler(async (req, res) => {
 
 // Upload school logo
 export const uploadSchoolLogo = asyncHandler(async (req, res) => {
-    if (!req.file) return res.status(400).json({ 
-        success: false, 
-        message: "No file uploaded" 
-    });
+    if (!req.file) throw new BadRequestError("No file uploaded");
     const logoUrl = `/uploads/logos/${req.file.filename}`;
     const result = await schoolService.updateLogo(req.schoolId, logoUrl);
     res.status(200).json({ 
