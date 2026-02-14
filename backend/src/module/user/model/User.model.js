@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
-import { VALID_ROLES } from "../../../constants/userRoles.js";
+import { USER_ROLES } from "../../../constants/userRoles.js";
 
 const userSchema = new mongoose.Schema(
   {
@@ -25,13 +25,13 @@ const userSchema = new mongoose.Schema(
     },
     role: {
       type: String,
-      enum: VALID_ROLES,
+      enum: USER_ROLES,
       required: true,
       index: true,
     },
-    refreshToken : {
-      type : String,
-      select : false
+    refreshToken: {
+      type: String,
+      select: false
     },
     // Organization & Hardware
     schoolId: {

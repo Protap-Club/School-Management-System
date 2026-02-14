@@ -56,9 +56,26 @@ app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 app.use('/resource', express.static(path.join(__dirname, '../resource')));
 
 
-// API Routes 
-// This is where we define the main endpoints for our API.
-// Mount all API routes via the central router
+// Response Logger (temporary - for testing)
+app.use((req, res, next) => {
+    const start = Date.now();
+    const originalJson = res.json.bind(res);
+    res.json = (body) => {
+        const duration = Date.now() - start;
+        logger.info({
+            msg: "API Response",
+            method: req.method,
+            url: req.originalUrl,
+            status: res.statusCode,
+            duration: `${duration}ms`,
+            body: JSON.stringify(body).substring(0, 500),
+        });
+        return originalJson(body);
+    };
+    next();
+});
+
+// API Routes
 app.use('/api/v1', apiRoutes);
 
 // A simple health check endpoint.

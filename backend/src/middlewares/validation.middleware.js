@@ -15,8 +15,9 @@ export const validate = (schema) => (req, res, next) => {
 
         // Assign parsed (and potentially transformed/defaulted) data back to req
         req.body = parsedData.body;
-        req.query = parsedData.query;
-        req.params = parsedData.params;
+        // req.query and req.params are read-only in Express 5, so merge instead
+        if (parsedData.query) Object.assign(req.query, parsedData.query);
+        if (parsedData.params) Object.assign(req.params, parsedData.params);
 
         next();
     } catch (error) {

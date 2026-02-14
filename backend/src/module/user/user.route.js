@@ -1,23 +1,16 @@
 import express from "express";
-import {
-    createUser,
-    getUsers,
-    toggleUserStatus,
-} from "./user.controller.js";
+import { createUser, getUsers, toggleUserStatus, hardDeleteUsers } from "./user.controller.js";
+import { checkRole } from "../../middlewares/role.middleware.js";
+import { USER_ROLES } from "../../constants/userRoles.js";
 import { validate } from "../../middlewares/validation.middleware.js";
-import {
-    createUserSchema,
-    getUsersSchema,
-    userIdsBodySchema
-} from "./user.validation.js";
+import { createUserSchema, getUsersSchema, userIdsBodySchema } from "./user.validation.js";
 
 const router = express.Router();
 
-router.get("/", validate(getUsersSchema), getUsers);  // all authenticated can see users
-router.get("/:id", validate(getUsersSchema), getUsers);  // returns single user for profile
-router.post("/", validate(createUserSchema), createUser);  // create bulk user
-router.post("/:id", validate(createUserSchema), createUser) // create single user
-router.patch("/", validate(userIdsBodySchema), toggleUserStatus) // archive many users
-router.patch("/:id", validate(userIdsBodySchema), toggleUserStatus) // archive single user
+router.get("/", validate(getUsersSchema), getUsers);
+router.get("/:id", getUsers);
+router.post("/", checkRole([USER_ROLES.ADMIN, USER_ROLES.TEACHER]), validate(createUserSchema), createUser);
+router.patch("/status", checkRole([USER_ROLES.ADMIN, USER_ROLES.TEACHER]), validate(userIdsBodySchema), toggleUserStatus);
+router.delete("/", checkRole([USER_ROLES.ADMIN]), validate(userIdsBodySchema), hardDeleteUsers);
 
 export default router;
