@@ -1,4 +1,5 @@
 *.env
 node_modules
 BACKEND_PROJECT_REPORT.md
+./API_ANALYSIS_REPORT.md
 
