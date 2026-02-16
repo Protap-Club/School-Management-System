@@ -3,6 +3,7 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import logger from "../config/logger.js";
+import { ValidationError } from "../utils/customError.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -34,7 +35,7 @@ const fileFilter = (req, file, cb) => {
     if (allowedTypes.includes(file.mimetype)) {
         cb(null, true);
     } else {
-        cb(new Error('Invalid file type. Only JPG, PNG, and WEBP are allowed.'), false);
+        cb(new ValidationError('Invalid file type. Only JPG, PNG, and WEBP are allowed.'), false);
     }
 };
 

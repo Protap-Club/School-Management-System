@@ -1,6 +1,6 @@
 import School from "./School.model.js";
 import { isValidFeatureKey, SCHOOL_FEATURES } from "../../constants/featureFlags.js";
-import { CustomError } from "../../utils/customError.js";
+import { ConflictError, NotFoundError, BadRequestError } from "../../utils/customError.js";
 import logger from "../../config/logger.js";
 import { deleteFile } from "../../middlewares/upload.middleware.js";
 
@@ -8,7 +8,7 @@ import { deleteFile } from "../../middlewares/upload.middleware.js";
 // Creates a school. 
 export const createSchool = async (creatorId, schoolData) => {
     const exists = await School.exists({ code: schoolData.code.toUpperCase() });
-    if (exists) throw new CustomError("School code already exists", 409);
+    if (exists) throw new ConflictError("School code already exists");
 
     const newSchool = await School.create({
         ...schoolData,
@@ -40,7 +40,7 @@ export const updateSchool = async (schoolId, updateData) => {
     if (updateData.theme) allowedUpdates.theme = updateData.theme;
 
     const updated = await School.findByIdAndUpdate(schoolId, allowedUpdates, { new: true, runValidators: true });
-    if (!updated) throw new CustomError("School not found", 404);
+    if (!updated) throw new NotFoundError("School not found");
 
     const data = {
         name : updated.name,
@@ -56,10 +56,10 @@ export const updateSchool = async (schoolId, updateData) => {
 // Gets the "Profile" of the school. 
 export const getSchoolProfile = async (schoolId) => {
     // Safety: ensure we actually have an ID to look for
-    if (!schoolId) throw new CustomError("School context required", 400);
+    if (!schoolId) throw new BadRequestError("School context required");
 
     const school = await School.findById(schoolId).lean();
-    if (!school) throw new CustomError("School not found", 404);
+    if (!school) throw new NotFoundError("School not found");
 
     const data = {
         name: school.name,
@@ -87,7 +87,7 @@ export const getSchoolBranding = async (schoolId) => {
 
 export const updateLogo = async (schoolId, filePath) => {
     const school = await School.findById(schoolId);
-    if (!school) throw new CustomError("School not found", 404);
+    if (!school) throw new NotFoundError("School not found");
 
     const oldLogo = school.logoUrl;
     school.logoUrl = filePath;
@@ -104,11 +104,11 @@ export const getAvailableFeatures = () => Object.values(SCHOOL_FEATURES);
 // The Super Admin calls this to turn on/off features for THEIR school.
 export const updateSchoolFeatures = async (schoolId, featureUpdates) => {
     const school = await School.findById(schoolId);
-    if (!school) throw new CustomError("School not found", 404);
+    if (!school) throw new NotFoundError("School not found");
 
     // Validate and Apply
     for (const key of Object.keys(featureUpdates)) {
-        if (!isValidFeatureKey(key)) throw new CustomError(`Invalid feature key: ${key}`, 400);
+        if (!isValidFeatureKey(key)) throw new BadRequestError(`Invalid feature key: ${key}`);
         school.features[key] = Boolean(featureUpdates[key]);
     }
 

@@ -1,9 +1,6 @@
 import mongoose from "mongoose";
 
-// ═══════════════════════════════════════════════════════════════
 // Notice Schema
-// ═══════════════════════════════════════════════════════════════
-
 const noticeSchema = new mongoose.Schema(
   {
     schoolId: {
@@ -65,10 +62,7 @@ const noticeSchema = new mongoose.Schema(
 // Compound index for listing notices per school
 noticeSchema.index({ schoolId: 1, isActive: 1, createdAt: -1 });
 
-// ═══════════════════════════════════════════════════════════════
 // NoticeGroup Schema
-// ═══════════════════════════════════════════════════════════════
-
 const noticeGroupSchema = new mongoose.Schema(
   {
     schoolId: {
