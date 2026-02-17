@@ -158,10 +158,15 @@ export const getTeacherSchedule = asyncHandler(async (req, res) => {
 });
 
 // Get my schedule (Teacher/Student)
-export const getMySchedule = asyncHandler(async (req, res) => {
-    const teacherId = req.user._id;
-    // TODO: Add Student schedule logic here if needed
-    const result = await timetableService.getTeacherSchedule(req.schoolId, teacherId);
+export const getMyTimetable = asyncHandler(async (req, res) => {
+    const userId = req.user._id;
+    const schoolId = req.user.schoolId;
+    const role = req.user.role;
+    const platform = req.query.platform || "web";
+
+    logger.info(`userId : ${userId}, schoolId: ${schoolId}, role: ${role}, platform: ${platform}`);
+
+    const result = await timetableService.getUserTimetable(schoolId, userId, role, platform);
     res.status(200).json({
         success: true,
         data: result
