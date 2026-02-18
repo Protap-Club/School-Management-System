@@ -2,7 +2,6 @@ import { TimeSlot, Timetable, TimetableEntry, DAYS_OF_WEEK } from "./Timetable.m
 import { NotFoundError, ConflictError, ForbiddenError, BadRequestError } from "../../utils/customError.js";
 import logger from "../../config/logger.js";
 import StudentProfile from "../user/model/StudentProfile.model.js";
-import User from "../user/model/User.model.js";
 
 // TIMESLOT SERVICES
 
@@ -208,10 +207,11 @@ export const getUserTimetable = async (schoolId, userId, role, platform) => {
         const timetable = await Timetable.findOne({
             schoolId,
             standard: profile.standard,
-            section: profile.section
+            section: profile.section,
+            academicYear: new Date().getFullYear()
         }).lean();
 
-        if (!timetable) return null;
+        if (!timetable) throw new NotFoundError("No timetable found for your class this year");;
         query.timetableId = timetable._id;
     } else {
         throw new ForbiddenError("Only teachers and students can access timetable");
