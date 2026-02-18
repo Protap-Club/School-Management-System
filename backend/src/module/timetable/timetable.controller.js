@@ -2,30 +2,30 @@ import * as timetableService from "./timetable.service.js";
 import asyncHandler from "../../utils/asyncHandler.js";
 import logger from "../../config/logger.js";
 import { USER_ROLES } from "../../constants/userRoles.js";
+import { ForbiddenError, BadRequestError } from "../../utils/customError.js";
 
-// Create a new time slot
+// TimeSlot Controllers
+
 export const createTimeSlot = asyncHandler(async (req, res) => {
-    const result = await timetableService.manageTimeSlots(req.schoolId, 'create', req.body);
+    const result = await timetableService.createTimeSlot(req.schoolId, req.body);
     res.status(201).json({
         success: true,
         message: "Time slot created",
         data: result
     });
-    logger.info(`Time slot created: ${result.slot.slotNumber}`);
+    logger.info(`Time slot created: ${result.slotNumber}`);
 });
 
-// Get all active time slots
 export const getTimeSlots = asyncHandler(async (req, res) => {
-    const result = await timetableService.manageTimeSlots(req.schoolId, 'get');
+    const result = await timetableService.getTimeSlots(req.schoolId);
     res.status(200).json({
         success: true,
         data: result
     });
 });
 
-// Update a time slot
 export const updateTimeSlot = asyncHandler(async (req, res) => {
-    const result = await timetableService.manageTimeSlots(req.schoolId, 'update', { ...req.body, id: req.params.id });
+    const result = await timetableService.updateTimeSlot(req.schoolId, req.params.id, req.body);
     res.status(200).json({
         success: true,
         message: "Time slot updated",
@@ -33,30 +33,31 @@ export const updateTimeSlot = asyncHandler(async (req, res) => {
     });
 });
 
-// Soft-delete a time slot
 export const deleteTimeSlot = asyncHandler(async (req, res) => {
-    const result = await timetableService.manageTimeSlots(req.schoolId, 'delete', { id: req.params.id });
+    await timetableService.deleteTimeSlot(req.schoolId, req.params.id);
     res.status(200).json({
         success: true,
-        message: "Time slot deleted",
-        data: result
+        message: "Time slot deleted"
     });
 });
 
-// Create a new timetable
+// Timetable Controllers
+
+// Create a new timetable (Header only)
 export const createTimetable = asyncHandler(async (req, res) => {
-    const result = await timetableService.manageTimetables(req.schoolId, 'create', req.body);
+    const result = await timetableService.createTimetable(req.schoolId, req.body);
     res.status(201).json({
         success: true,
         message: "Timetable created",
         data: result
     });
-    logger.info(`Timetable created: ${result.timetable.standard}-${result.timetable.section}`);
+    logger.info(`Timetable created: ${result._id}`);
 });
 
-// Get all active timetables
+// Get all timetables (Admin sees all, Teacher sees assigned)
 export const getTimetables = asyncHandler(async (req, res) => {
-    const result = await timetableService.manageTimetables(req.schoolId, 'get_all', req.query);
+    const teacherId = req.user.role === USER_ROLES.TEACHER ? req.user._id : null;
+    const result = await timetableService.getTimetables(req.schoolId, teacherId);
     res.status(200).json({
         success: true,
         data: result
@@ -65,50 +66,34 @@ export const getTimetables = asyncHandler(async (req, res) => {
 
 // Get specific timetable with entries
 export const getTimetableById = asyncHandler(async (req, res) => {
-    const result = await timetableService.manageTimetables(req.schoolId, 'get_one', { id: req.params.id });
+    const result = await timetableService.getTimetableById(req.schoolId, req.params.id);
     res.status(200).json({
         success: true,
         data: result
     });
 });
 
-// Soft-delete a timetable
+// Delete a timetable
 export const deleteTimetable = asyncHandler(async (req, res) => {
-    const result = await timetableService.manageTimetables(req.schoolId, 'delete', { id: req.params.id });
+    await timetableService.deleteTimetable(req.schoolId, req.params.id);
     res.status(200).json({
         success: true,
-        message: "Timetable deleted",
-        data: result
+        message: "Timetable deleted"
     });
 });
 
-// Update Timetable Status
-export const updateTimetableStatus = asyncHandler(async (req, res) => {
-    const result = await timetableService.manageTimetables(req.schoolId, 'update_status', {
-        id: req.params.id,
-        status: req.body.status
-    });
-    res.status(200).json({
-        success: true,
-        message: "Timetable status updated",
-        data: result
-    });
-});
+// Entry Controllers
 
 // Add a single entry
 export const addEntry = asyncHandler(async (req, res) => {
     const timetableId = req.params.id;
     // Reuse sync logic for single entry (wrap in array)
-    const result = await timetableService.syncEntries(req.schoolId, timetableId, [req.body]);
-    
+    const result = await timetableService.createEntries(req.schoolId, timetableId, [req.body]);
+
     // Check for failure
-    if (result.syncResult.failedEntries.length > 0) {
-        const failure = result.syncResult.failedEntries[0];
-        return res.status(400).json({
-            success: false,
-            message: failure.reason || "Failed to create entry",
-            error: failure.reason
-        });
+    if (result.failed.length > 0) {
+        const failure = result.failed[0];
+        throw new BadRequestError(failure.reason || "Failed to create entry");
     }
 
     res.status(201).json({
@@ -120,23 +105,23 @@ export const addEntry = asyncHandler(async (req, res) => {
 
 // Sync entries in bulk
 export const syncTimetableEntries = asyncHandler(async (req, res) => {
-    // Determine timetableId: param > body > query? Usually param for hierarchy
     const timetableId = req.params.id;
-    const result = await timetableService.syncEntries(req.schoolId, timetableId, req.body.entries);
+    const result = await timetableService.createEntries(req.schoolId, timetableId, req.body.entries);
     res.status(200).json({
         success: true,
-        message: "Entries synced",
+        message: "Entries processed",
         data: result
     });
 });
 
-// Update a single entry (Teachers can only edit their own entries)
+// Update a single entry
 export const updateEntry = asyncHandler(async (req, res) => {
     const result = await timetableService.updateEntry(
-        req.schoolId, 
-        req.params.entryId, 
+        req.schoolId,
+        req.params.entryId,
         req.body,
-        req.user // Pass user for permission check
+        req.user._id,
+        req.user.role
     );
     res.status(200).json({
         success: true,
@@ -147,38 +132,41 @@ export const updateEntry = asyncHandler(async (req, res) => {
 
 // Delete a single entry
 export const deleteEntry = asyncHandler(async (req, res) => {
-    const result = await timetableService.deleteEntry(req.schoolId, req.params.entryId);
+    await timetableService.deleteEntry(req.schoolId, req.params.entryId);
     res.status(200).json({
         success: true,
-        message: "Entry deleted",
-        data: result
+        message: "Entry deleted"
     });
 });
 
-// Get teacher's chronological schedule
+// Schedule Controllers
+
+// Get teacher's schedule (Admin view)
 export const getTeacherSchedule = asyncHandler(async (req, res) => {
     const { teacherId } = req.params;
 
+    // Security check: Teachers can't spy on other teachers
     if (req.user.role === USER_ROLES.TEACHER && String(req.user._id) !== String(teacherId)) {
-        return res.status(403).json({
-            success: false,
-            message: "Access denied"
-        });
+        throw new ForbiddenError("Access denied");
     }
 
-    const result = await timetableService.getTeacherSchedule(req.schoolId, teacherId, req.query.academicYear);
+    const result = await timetableService.getTeacherSchedule(req.schoolId, teacherId);
     res.status(200).json({
         success: true,
         data: result
     });
 });
 
-// Get my (logged-in teacher/student/user) schedule
-export const getMySchedule = asyncHandler(async (req, res) => {
-    // Assuming teacher for now, but could be extended for students based on role
-    // Service expects teacherId
-    const teacherId = req.user._id;
-    const result = await timetableService.getTeacherSchedule(req.schoolId, teacherId, req.query.academicYear);
+// Get my schedule (Teacher/Student)
+export const getMyTimetable = asyncHandler(async (req, res) => {
+    const userId = req.user._id;
+    const schoolId = req.user.schoolId;
+    const role = req.user.role;
+    const platform = req.query.platform || "web";
+
+    logger.info(`userId : ${userId}, schoolId: ${schoolId}, role: ${role}, platform: ${platform}`);
+
+    const result = await timetableService.getUserTimetable(schoolId, userId, role, platform);
     res.status(200).json({
         success: true,
         data: result

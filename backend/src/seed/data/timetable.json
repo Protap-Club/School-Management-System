@@ -1,0 +1,145 @@
+{
+  "schools": [
+    {
+      "code": "DPS",
+      "timeSlots": [
+        {
+          "slotNumber": 1,
+          "startTime": "08:00 AM",
+          "endTime": "08:45 AM",
+          "slotType": "CLASS"
+        },
+        {
+          "slotNumber": 2,
+          "startTime": "08:45 AM",
+          "endTime": "09:30 AM",
+          "slotType": "CLASS"
+        },
+        {
+          "slotNumber": 3,
+          "startTime": "09:30 AM",
+          "endTime": "10:15 AM",
+          "slotType": "CLASS"
+        },
+        {
+          "slotNumber": 4,
+          "startTime": "10:15 AM",
+          "endTime": "10:45 AM",
+          "slotType": "BREAK"
+        },
+        {
+          "slotNumber": 5,
+          "startTime": "10:45 AM",
+          "endTime": "11:30 AM",
+          "slotType": "CLASS"
+        },
+        {
+          "slotNumber": 6,
+          "startTime": "11:30 AM",
+          "endTime": "12:15 PM",
+          "slotType": "CLASS"
+        },
+        {
+          "slotNumber": 7,
+          "startTime": "12:15 PM",
+          "endTime": "01:00 PM",
+          "slotType": "CLASS"
+        },
+        {
+          "slotNumber": 8,
+          "startTime": "01:00 PM",
+          "endTime": "01:45 PM",
+          "slotType": "CLASS"
+        }
+      ],
+      "subjects": [
+        { "name": "Mathematics", "code": "MTH" },
+        { "name": "English", "code": "ENG" },
+        { "name": "Physics", "code": "PHY" },
+        { "name": "Chemistry", "code": "CHM" },
+        { "name": "Biology", "code": "BIO" },
+        { "name": "Computer Science", "code": "CS" },
+        { "name": "Social Studies", "code": "SST" },
+        { "name": "Physical Education", "code": "PE" },
+        { "name": "Art", "code": "ART" }
+      ],
+      "teachers": [
+        {
+          "email": "priya@dps.com",
+          "name": "Priya Sharma",
+          "standard": "10th",
+          "section": "A",
+          "subject": "English",
+          "employeeId": "DPS-TCH-001"
+        },
+        {
+          "email": "amit@dps.com",
+          "name": "Amit Verma",
+          "standard": "10th",
+          "section": "B",
+          "subject": "Mathematics",
+          "employeeId": "DPS-TCH-002"
+        },
+        {
+          "email": "neha@dps.com",
+          "name": "Neha Gupta",
+          "standard": "11th",
+          "section": "A",
+          "subject": "Physics",
+          "employeeId": "DPS-TCH-003"
+        },
+        {
+          "email": "rahul@dps.com",
+          "name": "Rahul Singh",
+          "standard": "11th",
+          "section": "B",
+          "subject": "Chemistry",
+          "employeeId": "DPS-TCH-004"
+        },
+        {
+          "email": "kavita@dps.com",
+          "name": "Kavita Patel",
+          "standard": "12th",
+          "section": "A",
+          "subject": "Biology",
+          "employeeId": "DPS-TCH-005"
+        },
+        {
+          "email": "vikram@dps.com",
+          "name": "Vikram Reddy",
+          "standard": "12th",
+          "section": "B",
+          "subject": "Computer Science",
+          "employeeId": "DPS-TCH-006"
+        },
+        {
+          "email": "sunita.i@dps.com",
+          "name": "Sunita Iyer",
+          "standard": "9th",
+          "section": "A",
+          "subject": "Social Studies",
+          "employeeId": "DPS-TCH-007"
+        },
+        {
+          "email": "arjun@dps.com",
+          "name": "Arjun Malhotra",
+          "standard": "9th",
+          "section": "B",
+          "subject": "Physical Education",
+          "employeeId": "DPS-TCH-008"
+        }
+      ],
+      "classes": [
+        { "standard": "9th", "section": "A" },
+        { "standard": "9th", "section": "B" },
+        { "standard": "10th", "section": "A" },
+        { "standard": "10th", "section": "B" },
+        { "standard": "11th", "section": "A" },
+        { "standard": "11th", "section": "B" },
+        { "standard": "12th", "section": "A" },
+        { "standard": "12th", "section": "B" }
+      ],
+      "academicYear": 2024
+    }
+  ]
+}

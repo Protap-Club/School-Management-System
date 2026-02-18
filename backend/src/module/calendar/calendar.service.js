@@ -1,9 +1,8 @@
 import { CalendarEvent } from "./calendar.model.js";
 import logger from "../../config/logger.js";
+import { ConflictError, NotFoundError, BadRequestError } from "../../utils/customError.js";
 
-/**
- * Create a new calendar event
- */
+// Create a new calendar event
 export const createCalendarEvent = async (eventData, userId, schoolId) => {
     const { title, start, end, allDay, type, description } = eventData;
 
@@ -17,9 +16,7 @@ export const createCalendarEvent = async (eventData, userId, schoolId) => {
 
     if (existingEvent) {
         logger.warn("Duplicate calendar event already exists");
-        const error = new Error("Duplicate event already exists");
-        error.statusCode = 400;
-        throw error;
+        throw new ConflictError("Duplicate event already exists");
     }
 
     const newEvent = await CalendarEvent.create({
@@ -37,11 +34,11 @@ export const createCalendarEvent = async (eventData, userId, schoolId) => {
     return newEvent;
 };
 
-/**
- * Fetch calendar events with optional date range filter
- */
+// Fetch calendar events with optional date range filter
+// Supports: start, end, type (web calendar view)
+//           upcoming, limit (mobile dashboard widget)
 export const fetchCalendarEvents = async (queryData, schoolId) => {
-    const { start, end, type } = queryData;
+    const { start, end, type, upcoming, limit } = queryData;
     let query = {};
 
     // Filter by school if provided
@@ -61,22 +58,29 @@ export const fetchCalendarEvents = async (queryData, schoolId) => {
         ];
     }
 
+    // Mobile-friendly: return only upcoming events (start >= now)
+    if (upcoming === 'true' || upcoming === true) {
+        query.start = { ...(query.start || {}), $gte: new Date() };
+    }
+
     // Filter by type if provided
     if (type) {
         query.type = type;
     }
 
+    // Parse limit (mobile sends ?limit=3 for dashboard widget)
+    const parsedLimit = limit ? parseInt(limit, 10) : 0;
+
     const events = await CalendarEvent.find(query)
         .sort({ start: 1 })
         .populate('createdBy', 'name email')
+        .limit(parsedLimit)   // 0 = no limit (web default)
         .lean();
 
     return events;
 };
 
-/**
- * Get a single calendar event by ID
- */
+// Get a single calendar event by ID
 export const getCalendarEventById = async (id) => {
     const event = await CalendarEvent.findById(id)
         .populate('createdBy', 'name email')
@@ -84,45 +88,35 @@ export const getCalendarEventById = async (id) => {
 
     if (!event) {
         logger.warn(`Calendar event not found: ${id}`);
-        const error = new Error("Event not found");
-        error.statusCode = 404;
-        throw error;
+        throw new NotFoundError("Event not found");
     }
 
     return event;
 };
 
-/**
- * Update a calendar event
- */
+// Update a calendar event
 export const updateCalendarEvent = async (id, updateData) => {
     // Check if event exists
     const event = await CalendarEvent.findById(id);
 
     if (!event) {
         logger.warn(`Calendar event not found for update: ${id}`);
-        const error = new Error("Event not found");
-        error.statusCode = 404;
-        throw error;
+        throw new NotFoundError("Event not found");
     }
 
-    // Edge Case: If updating dates, re-validate that Start <= End
-    if (updateData.start && updateData.end) {
-        if (new Date(updateData.start) > new Date(updateData.end)) {
-            logger.warn("End date cannot be before start date");
-            const error = new Error("End date cannot be before start date");
-            error.statusCode = 400;
-            throw error;
-        }
+    // Merge new dates with existing ones to validate range correctly
+    const newStart = updateData.start ? new Date(updateData.start) : event.start;
+    const newEnd = updateData.end ? new Date(updateData.end) : event.end;
+
+    // Validate that Start <= End
+    if (newStart > newEnd) {
+        logger.warn("End date cannot be before start date");
+        throw new BadRequestError("End date cannot be before start date");
     }
 
-    // Convert date strings to Date objects if present
-    if (updateData.start) {
-        updateData.start = new Date(updateData.start);
-    }
-    if (updateData.end) {
-        updateData.end = new Date(updateData.end);
-    }
+    // Convert date strings to Date objects if present (for mongoose update)
+    if (updateData.start) updateData.start = newStart;
+    if (updateData.end) updateData.end = newEnd;
 
     const updatedEvent = await CalendarEvent.findByIdAndUpdate(
         id,
@@ -134,20 +128,15 @@ export const updateCalendarEvent = async (id, updateData) => {
     return updatedEvent;
 };
 
-/**
- * Delete a calendar event
- */
+// Delete a calendar event
 export const deleteCalendarEvent = async (id) => {
-    const event = await CalendarEvent.findById(id);
+    const deletedEvent = await CalendarEvent.findByIdAndDelete(id);
 
-    if (!event) {
+    if (!deletedEvent) {
         logger.warn(`Calendar event not found for deletion: ${id}`);
-        const error = new Error("Event not found");
-        error.statusCode = 404;
-        throw error;
+        throw new NotFoundError("Event not found");
     }
 
-    await CalendarEvent.findByIdAndDelete(id);
     logger.info(`Calendar event deleted: ${id}`);
     return { message: "Event deleted successfully" };
 };
