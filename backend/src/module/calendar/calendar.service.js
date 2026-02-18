@@ -35,8 +35,10 @@ export const createCalendarEvent = async (eventData, userId, schoolId) => {
 };
 
 // Fetch calendar events with optional date range filter
+// Supports: start, end, type (web calendar view)
+//           upcoming, limit (mobile dashboard widget)
 export const fetchCalendarEvents = async (queryData, schoolId) => {
-    const { start, end, type } = queryData;
+    const { start, end, type, upcoming, limit } = queryData;
     let query = {};
 
     // Filter by school if provided
@@ -56,14 +58,23 @@ export const fetchCalendarEvents = async (queryData, schoolId) => {
         ];
     }
 
+    // Mobile-friendly: return only upcoming events (start >= now)
+    if (upcoming === 'true' || upcoming === true) {
+        query.start = { ...(query.start || {}), $gte: new Date() };
+    }
+
     // Filter by type if provided
     if (type) {
         query.type = type;
     }
 
+    // Parse limit (mobile sends ?limit=3 for dashboard widget)
+    const parsedLimit = limit ? parseInt(limit, 10) : 0;
+
     const events = await CalendarEvent.find(query)
         .sort({ start: 1 })
         .populate('createdBy', 'name email')
+        .limit(parsedLimit)   // 0 = no limit (web default)
         .lean();
 
     return events;
