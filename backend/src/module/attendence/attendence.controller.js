@@ -45,9 +45,13 @@ export const markAttendance = asyncHandler(async (req, res) => {
     logger.info(`Attendance marked: ${result.attendance.student}`);
 });
 
-// Get Today's Attendance
+// Get Today's Attendance (unified — platform branching)
 export const getTodayAttendance = asyncHandler(async (req, res) => {
-    const records = await nfcService.getTodayAttendance(req.user.schoolId);
+    const platform = req.query.platform || 'web';
+
+    logger.info("Controller: Attendance request", { userId: req.user._id, platform });
+
+    const records = await nfcService.getTodayAttendance(req.user, platform);
 
     res.status(200).json({
         success: true,
