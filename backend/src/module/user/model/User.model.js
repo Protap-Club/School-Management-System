@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
-import { VALID_ROLES } from "../../../constants/userRoles.js";
+import { USER_ROLES } from "../../../constants/userRoles.js";
 
 const userSchema = new mongoose.Schema(
   {
@@ -25,13 +25,13 @@ const userSchema = new mongoose.Schema(
     },
     role: {
       type: String,
-      enum: VALID_ROLES,
+      enum: USER_ROLES,
       required: true,
       index: true,
     },
-    refreshToken : {
-      type : String,
-      select : false
+    refreshToken: {
+      type: String,
+      select: false
     },
     // Organization & Hardware
     schoolId: {
@@ -102,7 +102,7 @@ const userSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
-// --- Hooks ---
+// Hooks
 // Hash password before saving if it's new or modified
 userSchema.pre("save", async function () {
   if (!this.isModified("password")) return;
@@ -111,7 +111,7 @@ userSchema.pre("save", async function () {
   this.password = await bcrypt.hash(this.password, salt);
 });
 
-// --- Methods ---
+// Methods
 // Method to compare candidate password with hashed password in database
 userSchema.methods.comparePassword = async function (candidatePassword) {
   return bcrypt.compare(candidatePassword, this.password);

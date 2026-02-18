@@ -1,7 +1,12 @@
 import bcrypt from "bcryptjs";
 import User from "../user/model/User.model.js";
 import { USER_ROLES } from "../../constants/userRoles.js";
-import { CustomError } from "../../utils/customError.js";
+import {
+    BadRequestError,
+    UnauthorizedError,
+    ForbiddenError,
+    NotFoundError
+} from "../../utils/customError.js";
 import logger from "../../config/logger.js";
 import {
     generateAccessToken,
@@ -16,7 +21,7 @@ import {
 export const login = async (email, password, platform) => {
     logger.info("Login attempt", { email, platform });
     
-    if (!email || !password) throw new CustomError("Email and password are required", 400);
+    if (!email || !password) throw new BadRequestError("Email and password are required");
 
     const user = await User.findOne({ email })
         .select("+password")
@@ -24,7 +29,7 @@ export const login = async (email, password, platform) => {
 
     if (!user) {
         logger.warn("Login failed: User not found", { email, platform });
-        throw new CustomError("Invalid credentials", 401);
+        throw new UnauthorizedError("Invalid credentials");
     }
 
     logger.info("User found", { email, role: user.role, isActive: user.isActive, platform });
@@ -32,7 +37,7 @@ export const login = async (email, password, platform) => {
     // Check account status
     if (!user.isActive) {
         logger.warn("Login failed: Account deactivated", { email, platform, role: user.role });
-        throw new CustomError("Account is deactivated", 403);
+        throw new ForbiddenError("Account is deactivated");
     }
 
     // Restriction: Students cannot access the admin dashboard
@@ -43,14 +48,14 @@ export const login = async (email, password, platform) => {
         // Students cannot access the admin dashboard (WEB ONLY)
         if (user.role === USER_ROLES.STUDENT) {
             logger.warn("Login failed: Student access denied on web", { email, platform, role: user.role });
-            throw new CustomError("Access denied for students", 403);
+            throw new ForbiddenError("Access denied for students");
         }
     } else if (platform === 'mobile') {
         // Mobile-specific restrictions (if any)
         // For example: Only students and teachers allowed
         if (![USER_ROLES.STUDENT, USER_ROLES.TEACHER].includes(user.role)) {
             logger.warn("Login failed: Role not allowed on mobile", { email, platform, role: user.role });
-            throw new CustomError("Only students and teachers can access the mobile app", 403);
+            throw new ForbiddenError("Only students and teachers can access the mobile app");
         }
     }
 
@@ -58,7 +63,7 @@ export const login = async (email, password, platform) => {
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
         logger.warn("Login failed: Invalid password", { email, platform, role: user.role });
-        throw new CustomError("Invalid credentials", 401);
+        throw new UnauthorizedError("Invalid credentials");
     }
 
     // Update login time without triggering 'save' hooks
@@ -88,7 +93,7 @@ export const login = async (email, password, platform) => {
 
 // REFRESH ACCESS TOKEN
 export const refreshAccessToken = async (oldRefreshToken) => {
-    if (!oldRefreshToken) throw new CustomError("Refresh token is required", 401);
+    if (!oldRefreshToken) throw new UnauthorizedError("Refresh token is required");
 
     const oldHash = hashToken(oldRefreshToken);
 
@@ -99,7 +104,7 @@ export const refreshAccessToken = async (oldRefreshToken) => {
 
     if (!user) {
         // Token not found — could be reuse after rotation. No user to clear, just reject.
-        throw new CustomError("Invalid refresh token", 401);
+        throw new UnauthorizedError("Invalid refresh token");
     }
 
     // Check expiry
@@ -109,7 +114,7 @@ export const refreshAccessToken = async (oldRefreshToken) => {
             { _id: user._id },
             { $unset: { refreshTokenHash: "", refreshTokenExpiresAt: "" } }
         );
-        throw new CustomError("Refresh token has expired, please login again", 401);
+        throw new UnauthorizedError("Refresh token has expired, please login again");
     }
 
     // Token Rotation 

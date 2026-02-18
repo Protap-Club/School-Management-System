@@ -1,16 +1,24 @@
 import { z } from 'zod';
 import logger from "../config/logger.js";
+import { ValidationError } from "../utils/customError.js";
 
 // Middleware to validate request data against Zod schema.
 
 export const validate = (schema) => (req, res, next) => {
     try {
         // Validate all inputs strictly
-        schema.parse({
+        const parsedData = schema.parse({
             body: req.body,
             query: req.query,
             params: req.params,
         });
+
+        // Assign parsed (and potentially transformed/defaulted) data back to req
+        req.body = parsedData.body;
+        // req.query and req.params are read-only in Express 5, so merge instead
+        if (parsedData.query) Object.assign(req.query, parsedData.query);
+        if (parsedData.params) Object.assign(req.params, parsedData.params);
+
         next();
     } catch (error) {
         // Handle Zod errors immediately to ensure consistent 400 format
@@ -22,13 +30,12 @@ export const validate = (schema) => (req, res, next) => {
             }));
 
             // Log full details for debugging
-            logger.warn(`Validation Failed: ${JSON.stringify(errors)}`);
-
-            return res.status(400).json({
-                success: false,
-                message: "Validation failed",
-                errors
+            logger.warn({
+                msg: "Validation Failed",
+                errors: errors
             });
+
+            throw new ValidationError("Input validation failed", errors);
         }
         // Pass unexpected errors to global handler
         next(error);

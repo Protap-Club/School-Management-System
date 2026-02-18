@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { VALID_ROLES } from '../../constants/userRoles.js';
+import { USER_ROLES } from '../../constants/userRoles.js';
 
 // Schema for ObjectId validation
 const objectIdSchema = z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid ObjectId');

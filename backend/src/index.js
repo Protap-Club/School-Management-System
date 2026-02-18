@@ -11,14 +11,7 @@ import { initSocket } from './socket.js';
 import { conf } from './config/index.js';
 import logger from './config/logger.js'; // Import our configured logger
 import apiRoutes from './routes/index.route.js';
-import errorHandler from './middlewares/error.middleware.js';
-
-
-console.log('--- Email Config Debug ---');
-console.log('SMTP_USER:', conf.SMTP_USER);
-console.log('SMTP_FROM:', conf.SMTP_FROM);
-console.log('SMTP_PASS (length):', conf.SMTP_PASS ? conf.SMTP_PASS.length : 0);
-console.log('--------------------------');
+import errorHandler, { notFoundHandler } from './middlewares/error.middleware.js';
 
 // Constants & Setup    
 const __filename = fileURLToPath(import.meta.url);
@@ -27,13 +20,13 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = conf.PORT || 5000;
 
-// We need to use the native http server to hook Socket.io, then pass the app to it.
+// Use the native http server to hook Socket.io, then pass the app to it.
 const server = createServer(app);
 
 // CORS Configuration 
 // Only allowing our frontend to connect.
 const corsOptions = {
-    origin: ['http://localhost:5173', 'http://localhost:8081'], // Add your frontend URL here
+    origin: ['http://localhost:5173', 'http://localhost:8081'], // Add frontend URL here
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization']
@@ -51,7 +44,7 @@ app.set('io', io);
 app.use(cors(corsOptions)); // Enable Cross-Origin Resource Sharing
 app.use(cookieParser());     // Parse cookies (needed for refresh tokens)
 app.use(express.json()); // Parses incoming JSON payloads
-app.use(express.text({ type: 'text/plain' })); // Let's us receive plain text for certain NFC readers
+app.use(express.text({ type: 'text/plain' })); // Let's receive plain text for certain NFC readers
 
 // Store io instance on the app object to make it accessible in request handlers
 app.set('io', io);
@@ -63,9 +56,26 @@ app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 app.use('/resource', express.static(path.join(__dirname, '../resource')));
 
 
-// API Routes 
-// This is where we define the main endpoints for our API.
-// Mount all API routes via the central router
+// Response Logger (temporary - for testing)
+app.use((req, res, next) => {
+    const start = Date.now();
+    const originalJson = res.json.bind(res);
+    res.json = (body) => {
+        const duration = Date.now() - start;
+        logger.info({
+            msg: "API Response",
+            method: req.method,
+            url: req.originalUrl,
+            status: res.statusCode,
+            duration: `${duration}ms`,
+            body: JSON.stringify(body).substring(0, 500),
+        });
+        return originalJson(body);
+    };
+    next();
+});
+
+// API Routes
 app.use('/api/v1', apiRoutes);
 
 // A simple health check endpoint.
@@ -77,6 +87,7 @@ app.get('/', (req, res) => {
 // Error Handling   
 // This middleware catches any errors that bubble up from our controllers.
 // It MUST be the last 'app.use()' call.
+app.use(notFoundHandler);
 app.use(errorHandler);
 
 
