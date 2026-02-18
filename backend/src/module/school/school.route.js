@@ -14,7 +14,7 @@ router.use(extractSchoolId);
 router.get("/", getSchoolById);
 router.put("/", checkRole([USER_ROLES.ADMIN]), validate(updateSchoolSchema), updateSchool);
 router.post("/logo", checkRole([USER_ROLES.ADMIN]), upload.single("logo"), validate(uploadLogoSchema), uploadSchoolLogo);
-router.get("/features", checkRole([USER_ROLES.ADMIN]), updateSchoolFeatures);
-router.patch("/features", checkRole([USER_ROLES.ADMIN]), validate(updateFeaturesSchema), updateSchoolFeatures);
+router.get("/features", checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN]), updateSchoolFeatures);
+router.patch("/features", checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN]), validate(updateFeaturesSchema), updateSchoolFeatures);
 
 export default router;

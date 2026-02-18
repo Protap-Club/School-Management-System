@@ -42,7 +42,7 @@ const Header = () => {
         const fetchBranding = async () => {
             if (!user) return;
             try {
-                const response = await api.get('/school/profile');
+                const response = await api.get('/school/');
                 if (response.data.success && response.data.data) setSchoolBranding(response.data.data);
             } catch (error) { console.error('Failed to fetch branding', error); }
         };

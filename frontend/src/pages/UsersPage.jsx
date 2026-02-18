@@ -150,7 +150,7 @@ const UsersPage = () => {
             if (showArchived) {
                 await api.delete('/users', { data: { userIds: userIdsToProcess } });
             } else {
-                await api.patch('/users/archive', { userIds: userIdsToProcess });
+                await api.patch('/users/status', { userIds: userIdsToProcess });
             }
             setUsers(prev => prev.filter(u => !userIdsToProcess.includes(u._id)));
             fetchUsers();
@@ -166,7 +166,7 @@ const UsersPage = () => {
 
     const handleRestore = async (userId) => {
         try {
-            await api.patch('/users/archive', { userIds: [userId], isArchived: false });
+            await api.patch('/users/status', { userIds: [userId], isArchived: false });
             setUsers(prev => prev.filter(u => u._id !== userId));
             setActiveDropdown(null);
             fetchUsers();

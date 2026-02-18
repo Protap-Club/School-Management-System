@@ -46,7 +46,7 @@ const Settings = () => {
 
     const fetchSettings = async () => {
         try {
-            const response = await api.get('/school/profile');
+            const response = await api.get('/school/');
             if (response.data.success && response.data.data?.school) {
                 const school = response.data.data.school;
                 setSettings({ logoUrl: school.logoUrl || '', theme: school.theme || { accentColor: '#2563eb' } });
@@ -59,7 +59,7 @@ const Settings = () => {
         setFeaturesLoading(true);
 
         try {
-            const response = await api.get('/school/profile');
+            const response = await api.get('/school/');
             if (response.data.success && response.data.data?.school) setFeatures(response.data.data.school.features || {});
         } catch (error) { console.error('Failed to fetch features', error); }
         finally { setFeaturesLoading(false); }
@@ -88,7 +88,7 @@ const Settings = () => {
         setSettings(prev => ({ ...prev, theme: { ...prev.theme, accentColor: colorValue } }));
         updateTheme(colorValue);
         try {
-            await api.put('/school/profile', { theme: { accentColor: colorValue } });
+            await api.put('/school/', { theme: { accentColor: colorValue } });
             showMessage('success', 'Theme updated!');
         } catch (error) { console.error('Failed to save theme', error); }
     };
@@ -105,7 +105,7 @@ const Settings = () => {
         try {
             const formData = new FormData();
             formData.append('logo', file);
-            const response = await api.put('/school/logo', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+            const response = await api.post('/school/logo', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
             if (response.data.success) {
                 setSettings(prev => ({ ...prev, logoUrl: response.data.data.logoUrl }));
                 showMessage('success', 'Logo uploaded successfully!');

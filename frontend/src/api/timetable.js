@@ -10,23 +10,23 @@ import api from './axios';
 // ═══════════════════════════════════════════════════════════════
 
 export const getTimeSlots = async () => {
-    const response = await api.get('/timetable/time-slots');
+    const response = await api.get('/timetables/slots');
     return response.data;
 };
 
 export const createTimeSlot = async (data) => {
     // data: { slotNumber, startTime, endTime, slotType?, label? }
-    const response = await api.post('/timetable/time-slots', data);
+    const response = await api.post('/timetables/slots', data);
     return response.data;
 };
 
 export const updateTimeSlot = async (id, data) => {
-    const response = await api.put(`/timetable/time-slots/${id}`, data);
+    const response = await api.put(`/timetables/slots/${id}`, data);
     return response.data;
 };
 
 export const deleteTimeSlot = async (id) => {
-    const response = await api.delete(`/timetable/time-slots/${id}`);
+    const response = await api.delete(`/timetables/slots/${id}`);
     return response.data;
 };
 
@@ -42,30 +42,30 @@ export const getTimetables = async (filters = {}) => {
     if (filters.academicYear) params.append('academicYear', filters.academicYear);
     if (filters.teacherId) params.append('teacherId', filters.teacherId);
 
-    const response = await api.get(`/timetable?${params.toString()}`);
+    const response = await api.get(`/timetables?${params.toString()}`);
     return response.data;
 };
 
 export const getTimetableById = async (id) => {
     // Returns { timetable, entries }
-    const response = await api.get(`/timetable/${id}`);
+    const response = await api.get(`/timetables/${id}`);
     return response.data;
 };
 
 export const createTimetable = async (data) => {
     // data: { standard, section, academicYear }
-    const response = await api.post('/timetable', data);
+    const response = await api.post('/timetables', data);
     return response.data;
 };
 
 export const updateTimetableStatus = async (id, status) => {
     // status: "DRAFT" | "PUBLISHED"
-    const response = await api.patch(`/timetable/${id}/status`, { status });
+    const response = await api.patch(`/timetables/${id}/status`, { status });
     return response.data;
 };
 
 export const deleteTimetable = async (id) => {
-    const response = await api.delete(`/timetable/${id}`);
+    const response = await api.delete(`/timetables/${id}`);
     return response.data;
 };
 
@@ -75,23 +75,23 @@ export const deleteTimetable = async (id) => {
 
 export const createEntry = async (timetableId, data) => {
     // data: { dayOfWeek, timeSlotId, subject?, teacherId?, roomNumber?, notes? }
-    const response = await api.post(`/timetable/${timetableId}/entries`, data);
+    const response = await api.post(`/timetables/${timetableId}/entries`, data);
     return response.data;
 };
 
 export const createBulkEntries = async (timetableId, entries) => {
     // entries: Array<{ dayOfWeek, timeSlotId, subject?, teacherId?, roomNumber?, notes? }>
-    const response = await api.post(`/timetable/${timetableId}/entries/sync`, { entries });
+    const response = await api.post(`/timetables/${timetableId}/entries/sync`, { entries });
     return response.data;
 };
 
 export const updateEntry = async (entryId, data) => {
-    const response = await api.patch(`/timetable/entries/${entryId}`, data);
+    const response = await api.patch(`/timetables/entries/${entryId}`, data);
     return response.data;
 };
 
 export const deleteEntry = async (entryId) => {
-    const response = await api.delete(`/timetable/entries/${entryId}`);
+    const response = await api.delete(`/timetables/entries/${entryId}`);
     return response.data;
 };
 
@@ -100,7 +100,7 @@ export const deleteEntry = async (entryId) => {
 // ═══════════════════════════════════════════════════════════════
 
 export const getTeacherSchedule = async (teacherId, academicYear = null) => {
-    let url = `/timetable/teacher-schedule/${teacherId}`;
+    let url = `/timetables/schedule/${teacherId}`;
     if (academicYear) {
         url += `?academicYear=${academicYear}`;
     }
@@ -113,7 +113,7 @@ export const getTeacherSchedule = async (teacherId, academicYear = null) => {
 // ═══════════════════════════════════════════════════════════════
 
 export const getTeachers = async () => {
-    const response = await api.get('/user?role=teacher&pageSize=100');
+    const response = await api.get('/users?role=teacher&pageSize=100');
     return response.data;
 };
 

@@ -44,12 +44,12 @@ const Attendance = () => {
     const fetchData = async () => {
       try {
         const isAdmin = currentUser?.role === 'admin';
-        const studentRes = await api.get('/user?role=student&pageSize=500');
+        const studentRes = await api.get('/users?role=student&pageSize=500');
 
         let teacherData = [];
         if (isAdmin) {
           try {
-            const teacherRes = await api.get('/user?role=teacher&pageSize=100');
+            const teacherRes = await api.get('/users?role=teacher&pageSize=100');
             if (teacherRes.data.success) { teacherData = teacherRes.data.data.users || []; setTeachers(teacherData); }
           } catch (err) { console.error('Failed to fetch teachers', err); }
         }
