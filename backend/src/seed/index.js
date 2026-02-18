@@ -35,6 +35,7 @@ const commands = {
     "quick": () => import("./commands/quick.js"),
     "cleanup": () => import("./commands/cleanup.js"),
     "holidays": () => import("./commands/holidays.js"),
+    "timetable": () => import("./commands/timetable.js"),
 
     // Utility commands
     "clear-attendance": () => import("./commands/clearAttendance.js"),
@@ -57,6 +58,7 @@ AVAILABLE COMMANDS:
   demo                      Full demo setup (2 schools + various users)
   quick                     Quick test setup (1 school, minimal users for testing)
   cleanup                   Remove all demo data (DPS, DAV, TEST, IITD, IIMA)
+  timetable                 Seed full timetable for DPS school (slots, classes, entries)
   clear-attendance          Clears today's attendance records.
   create-student --email    Creates a specific student with optional NFC tag for testing.
   help                      Show this help message
