@@ -47,7 +47,7 @@ export const markAttendance = asyncHandler(async (req, res) => {
 
 // Get Today's Attendance (unified — platform branching)
 export const getTodayAttendance = asyncHandler(async (req, res) => {
-    const platform = req.query.platform || 'web';
+    const platform = req.platform;
 
     logger.info("Controller: Attendance request", { userId: req.user._id, platform });
 
