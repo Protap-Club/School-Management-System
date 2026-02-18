@@ -184,23 +184,29 @@ export const getMyProfile = async (userId, role, schoolId, platform) => {
 
     // 4. Role based profile populate
     const profileVirtualMap = {
-        [USER_ROLES.STUDENT]: { path: "studentProfile", select: "-userId -__v" },
-        [USER_ROLES.TEACHER]: { path: "teacherProfile", select: "-userId -__v" },
-        [USER_ROLES.ADMIN]: { path: "adminProfile", select: "-userId -__v" },
+        [USER_ROLES.STUDENT]: {
+            path: "studentProfile",
+            select: "rollNumber standard section admissionDate year fatherName motherName address"
+        },
+        [USER_ROLES.TEACHER]: {
+            path: "teacherProfile",
+            select: "qualification joiningDate"
+        },
+        [USER_ROLES.ADMIN]: {
+            path: "adminProfile",
+            select: "department"
+        },
     };
 
     const profilePopulate = profileVirtualMap[role] || null;
 
     // 5. Build query — NO .lean() so virtuals work
-    let query = User.findOne({ _id: userId, schoolId, isArchived: false })
-        .select("-password -refreshToken -refreshTokenHash -refreshTokenExpiresAt -__v")
-        .populate("schoolId", "name code");
+    const user = await User.findOne({ _id: userId, schoolId, isArchived: false })
+        .select("name email role contactNo avatarUrl")
+        .populate("schoolId", "name code")
+        .populate(profilePopulate);
 
-    if (profilePopulate) {
-        query = query.populate(profilePopulate);
-    }
 
-    const user = await query;
 
     // 6. User not found
     if (!user) {
@@ -208,7 +214,7 @@ export const getMyProfile = async (userId, role, schoolId, platform) => {
     }
 
     // 7. Active check
-    if (!user.isActive) {
+    if (user.isActive === false) {
         throw new ForbiddenError("Your account has been deactivated");
     }
 

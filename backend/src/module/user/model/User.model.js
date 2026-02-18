@@ -99,7 +99,7 @@ const userSchema = new mongoose.Schema(
       ref: "User",
     },
   },
-  { timestamps: true },
+  { timestamps: true, id: false },
 );
 
 // Hooks

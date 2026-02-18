@@ -55,6 +55,7 @@ const teacherProfileSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
+    id: false,
   }
 );
 
