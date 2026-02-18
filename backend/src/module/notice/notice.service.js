@@ -1,7 +1,8 @@
 import mongoose from "mongoose";
 import { Notice, NoticeGroup } from "./Notice.model.js";
-import { BadRequestError, NotFoundError, ConflictError } from "../../utils/customError.js";
+import { BadRequestError, NotFoundError, ConflictError, ForbiddenError } from "../../utils/customError.js";
 import logger from "../../config/logger.js";
+import { USER_ROLES } from "../../constants/userRoles.js";
 
 // NOTICE SERVICES
 
@@ -36,8 +37,26 @@ export const createNotice = async (schoolId, userId, data, file) => {
     return notice;
 };
 
-// Get notices sent by a user (history)
-export const getNotices = async (schoolId, userId, filters = {}) => {
+// Get notices (Unified — platform branching like attendance.service.js)
+export const getNotices = async (user, platform, filters = {}) => {
+    const schoolId = user.schoolId?._id || user.schoolId;
+    const userId = user._id;
+
+    logger.info("Notice retrieval request", { userId, role: user.role, platform });
+
+    // Platform-specific logic
+    if (platform === 'mobile') {
+        if (user.role === USER_ROLES.STUDENT) {
+            return await getStudentMobileNotices(schoolId, userId);
+        } else if (user.role === USER_ROLES.TEACHER) {
+            return await getTeacherMobileNotices(schoolId, userId);
+        } else {
+            // ADMIN or others restricted on mobile notice view
+            throw new ForbiddenError("Only students and teachers can access mobile notices");
+        }
+    }
+
+    // Web/Default: Returns notices created by the user (history)
     const query = { schoolId, createdBy: userId };
 
     // Date filter
@@ -173,4 +192,23 @@ export const deleteGroup = async (schoolId, groupId, userId) => {
 
     logger.info(`Group deleted: ${groupId}`);
     return group;
+};
+
+// ─── MOBILE HELPERS ─────────────────────────────────────────────
+
+// STUDENT: Returns only received notices
+const getStudentMobileNotices = async (schoolId, userId) => {
+    return await getReceivedNotices(schoolId, userId);
+};
+
+// TEACHER: Returns received + history (sent) notices
+const getTeacherMobileNotices = async (schoolId, userId) => {
+    const received = await getReceivedNotices(schoolId, userId);
+    const history = await Notice.find({ schoolId, createdBy: userId })
+        .populate("createdBy", "name email role")
+        .sort({ createdAt: -1 })
+        .limit(20) // Limit mobile history to recent 20
+        .lean();
+
+    return { received, history };
 };
