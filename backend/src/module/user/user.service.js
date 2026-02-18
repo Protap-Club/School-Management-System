@@ -1,7 +1,8 @@
 import User from "./model/User.model.js";
 import { PROFILE_CONFIG } from "../../config/profiles.js";
 import { sendCredentialsEmail } from "../../utils/email.util.js";
-import { BadRequestError, NotFoundError, ConflictError } from "../../utils/customError.js";
+import { USER_ROLES } from "../../constants/userRoles.js";
+import { BadRequestError, NotFoundError, ConflictError, ForbiddenError } from "../../utils/customError.js";
 
 // Helper to build a query based on who is asking (The Filter Factory)
 const buildAccessQuery = (creator, filters = {}) => {
@@ -159,3 +160,73 @@ export const toggleUserStatus = async (creator, userIds, isArchived) => {
 
 //     return { deleteResult: { deletedCount: result.deletedCount } };
 // };
+
+export const getMyProfile = async (userId, role, schoolId, platform) => {
+
+    // 1. Basic field validation
+    if (!userId || !role || !schoolId || !platform) {
+        throw new BadRequestError("All fields are required");
+    }
+
+    // 2. Super admin has no profile
+    if (role === USER_ROLES.SUPER_ADMIN) {
+        throw new ForbiddenError("Super admins do not have a profile");
+    }
+
+    // 3. Platform + role access rules
+    if (platform === "mobile" && role === USER_ROLES.ADMIN) {
+        throw new ForbiddenError("Access Denied: Admins cannot access profile via mobile");
+    }
+
+    if (platform === "web" && role === USER_ROLES.STUDENT) {
+        throw new ForbiddenError("Access Denied: Students cannot access profile via web");
+    }
+
+    // 4. Role based profile populate
+    const profileVirtualMap = {
+        [USER_ROLES.STUDENT]: { path: "studentProfile", select: "-userId -__v" },
+        [USER_ROLES.TEACHER]: { path: "teacherProfile", select: "-userId -__v" },
+        [USER_ROLES.ADMIN]: { path: "adminProfile", select: "-userId -__v" },
+    };
+
+    const profilePopulate = profileVirtualMap[role] || null;
+
+    // 5. Build query — NO .lean() so virtuals work
+    let query = User.findOne({ _id: userId, schoolId, isArchived: false })
+        .select("-password -refreshToken -refreshTokenHash -refreshTokenExpiresAt -__v")
+        .populate("schoolId", "name code");
+
+    if (profilePopulate) {
+        query = query.populate(profilePopulate);
+    }
+
+    const user = await query;
+
+    // 6. User not found
+    if (!user) {
+        throw new NotFoundError("User not found");
+    }
+
+    // 7. Active check
+    if (!user.isActive) {
+        throw new ForbiddenError("Your account has been deactivated");
+    }
+
+    // 8. Convert to plain object WITH virtuals resolved
+    const userObj = user.toObject({ virtuals: true });
+
+    // 9. Return clean response
+    return {
+        _id: userObj._id,
+        name: userObj.name,
+        email: userObj.email,
+        role: userObj.role,
+        contactNo: userObj.contactNo,
+        avatarUrl: userObj.avatarUrl,
+        mustChangePassword: userObj.mustChangePassword,
+        lastLoginAt: userObj.lastLoginAt,
+        isActive: userObj.isActive,
+        school: userObj.schoolId,
+        profile: userObj.studentProfile || userObj.teacherProfile || userObj.adminProfile || null
+    };
+}

@@ -133,4 +133,11 @@ userSchema.virtual("teacherProfile", {
   justOne: true,
 });
 
+userSchema.virtual("adminProfile", {
+  ref: "AdminProfile",
+  localField: "_id",
+  foreignField: "userId",
+  justOne: true,
+});
+
 export default mongoose.model("User", userSchema);
