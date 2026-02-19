@@ -2,6 +2,8 @@ import User from "./model/User.model.js";
 import { PROFILE_CONFIG } from "../../config/profiles.js";
 import { sendCredentialsEmail } from "../../utils/email.util.js";
 import { BadRequestError, NotFoundError, ConflictError } from "../../utils/customError.js";
+import { deleteFromCloudinary } from "../../middlewares/upload.middleware.js";
+import logger from "../../config/logger.js";
 
 // Helper to build a query based on who is asking (The Filter Factory)
 const buildAccessQuery = (creator, filters = {}) => {
@@ -159,3 +161,19 @@ export const toggleUserStatus = async (creator, userIds, isArchived) => {
 
 //     return { deleteResult: { deletedCount: result.deletedCount } };
 // };
+
+// UPDATE AVATAR
+export const updateAvatar = async (userId, avatarUrl) => {
+    const user = await User.findById(userId);
+    if (!user) throw new NotFoundError("User not found");
+
+    const oldAvatar = user.avatarUrl;
+    user.avatarUrl = avatarUrl;
+    await user.save();
+
+    // Clean up old avatar from Cloudinary
+    if (oldAvatar) await deleteFromCloudinary(oldAvatar);
+
+    logger.info(`Avatar updated for user: ${userId}`);
+    return { avatarUrl: user.avatarUrl };
+};

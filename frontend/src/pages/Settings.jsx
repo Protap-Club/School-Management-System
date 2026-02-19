@@ -396,7 +396,7 @@ const Settings = () => {
                                     {settings.logoUrl ? (
                                         <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center p-1.5">
                                             <img
-                                                src={settings.logoUrl.startsWith('/') ? `http://localhost:5000${settings.logoUrl}` : settings.logoUrl}
+                                                src={settings.logoUrl}
                                                 alt="Logo"
                                                 className="h-full w-full object-contain"
                                                 onError={(e) => {

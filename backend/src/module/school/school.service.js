@@ -2,7 +2,7 @@ import School from "./School.model.js";
 import { isValidFeatureKey, SCHOOL_FEATURES } from "../../constants/featureFlags.js";
 import { ConflictError, NotFoundError, BadRequestError } from "../../utils/customError.js";
 import logger from "../../config/logger.js";
-import { deleteFile } from "../../middlewares/upload.middleware.js";
+import { deleteFromCloudinary } from "../../middlewares/upload.middleware.js";
 
 
 // Creates a school. 
@@ -93,7 +93,7 @@ export const updateLogo = async (schoolId, filePath) => {
     school.logoUrl = filePath;
     await school.save();
 
-    if (oldLogo) await deleteFile(oldLogo);
+    if (oldLogo) await deleteFromCloudinary(oldLogo);
 
     return { logoUrl: school.logoUrl };
 };

@@ -1,8 +1,7 @@
 import express from "express";
 import multer from "multer";
-import path from "path";
-import fs from "fs";
-import { fileURLToPath } from "url";
+import { CloudinaryStorage } from "multer-storage-cloudinary";
+import cloudinary from "../../config/cloudinary.js";
 import {
     createNotice,
     getNotices,
@@ -26,21 +25,16 @@ import {
     groupIdParamsSchema,
 } from "./notice.validation.js";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// Multer config
-const noticesDir = path.join(__dirname, "../../../uploads/notices");
-if (!fs.existsSync(noticesDir)) {
-    fs.mkdirSync(noticesDir, { recursive: true });
-}
-
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => cb(null, noticesDir),
-    filename: (req, file, cb) => {
-        const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
-        const ext = path.extname(file.originalname).toLowerCase();
-        cb(null, `notice_${uniqueSuffix}${ext}`);
+// Cloudinary Storage for Notice Attachments
+const noticeStorage = new CloudinaryStorage({
+    cloudinary,
+    params: {
+        folder: 'protap/notices',
+        resource_type: 'auto', // Handles images, PDFs, videos, docs
+        allowed_formats: [
+            'pdf', 'doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx',
+            'txt', 'csv', 'png', 'jpg', 'jpeg', 'mp4', 'mov', 'avi'
+        ],
     },
 });
 
@@ -71,7 +65,7 @@ const fileFilter = (req, file, cb) => {
 };
 
 const upload = multer({
-    storage,
+    storage: noticeStorage,
     fileFilter,
     limits: { fileSize: 25 * 1024 * 1024 },
 });

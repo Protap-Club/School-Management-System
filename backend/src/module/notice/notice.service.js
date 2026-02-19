@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import { Notice, NoticeGroup } from "./Notice.model.js";
 import { BadRequestError, NotFoundError, ConflictError } from "../../utils/customError.js";
 import logger from "../../config/logger.js";
+import { deleteFromCloudinary } from "../../middlewares/upload.middleware.js";
 
 // NOTICE SERVICES
 
@@ -13,10 +14,11 @@ export const createNotice = async (schoolId, userId, data, file) => {
         : (data.recipients || []);
 
     // Build attachment if file exists
+    // Cloudinary returns the full URL in file.path
     const attachment = file ? {
-        filename: file.filename,
+        filename: file.filename || file.public_id,
         originalName: file.originalname,
-        path: `/uploads/notices/${file.filename}`,
+        path: file.path,
         size: file.size,
         mimetype: file.mimetype,
     } : null;
@@ -107,6 +109,11 @@ export const deleteNotice = async (schoolId, noticeId, userId) => {
 
     if (!notice) {
         throw new NotFoundError("Notice not found");
+    }
+
+    // Clean up the attachment from Cloudinary
+    if (notice.attachment?.path) {
+        await deleteFromCloudinary(notice.attachment.path);
     }
 
     logger.info(`Notice deleted: ${noticeId}`);

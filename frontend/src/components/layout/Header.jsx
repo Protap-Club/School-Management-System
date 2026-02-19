@@ -118,7 +118,7 @@ const Header = ({ onSearch, searchValue }) => {
                 <div className="flex items-center gap-3">
                     {headerContent.logo ? (
                         <img
-                            src={headerContent.logo.startsWith('/') ? `http://localhost:5000${headerContent.logo}` : headerContent.logo}
+                            src={headerContent.logo}
                             alt="Logo"
                             className="h-10 w-auto object-contain"
                             onError={(e) => { e.target.style.display = 'none'; }}
