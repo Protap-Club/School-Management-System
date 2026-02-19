@@ -62,3 +62,18 @@ export const hardDeleteUsers = asyncHandler(async (req, res) => {
     });
     logger.info(`Users deleted permanently: ${result.deleteResult.deletedCount}`);
 });
+
+export const userProfile = asyncHandler(async (req, res) => {
+    const { _id: userId, role, schoolId } = req.user;
+    const platform = req.platform;
+
+    const result = await userService.getMyProfile(userId, role, schoolId, platform);
+
+    logger.info(`User profile fetched successfully | userId: ${userId} | role: ${role} | platform: ${platform}`);
+
+    res.status(200).json({
+        success: true,
+        message: "User Profile Fetched Successfully",
+        data: result
+    });
+});

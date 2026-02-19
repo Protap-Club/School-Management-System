@@ -65,6 +65,7 @@ const studentProfileSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
+    id: false,
   }
 );
 

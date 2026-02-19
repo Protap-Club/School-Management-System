@@ -14,7 +14,7 @@ const checkAuth = async (req, res, next) => {
         }
 
         const decoded = jwt.verify(token, conf.JWT_SECRET);
-        if (!decoded){
+        if (!decoded) {
             throw new UnauthorizedError("Invalid Token");
         }
 

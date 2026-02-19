@@ -99,7 +99,7 @@ const userSchema = new mongoose.Schema(
       ref: "User",
     },
   },
-  { timestamps: true },
+  { timestamps: true, id: false },
 );
 
 // Hooks
@@ -128,6 +128,13 @@ userSchema.virtual("studentProfile", {
 
 userSchema.virtual("teacherProfile", {
   ref: "TeacherProfile",
+  localField: "_id",
+  foreignField: "userId",
+  justOne: true,
+});
+
+userSchema.virtual("adminProfile", {
+  ref: "AdminProfile",
   localField: "_id",
   foreignField: "userId",
   justOne: true,

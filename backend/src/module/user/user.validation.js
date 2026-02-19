@@ -36,3 +36,12 @@ export const userIdsBodySchema = z.object({
         isArchived: z.boolean().optional(),
     }),
 });
+
+export const getProfileSchema = z.object({
+    params: z.object({
+        id: objectIdSchema.optional(),
+    }),
+    query: z.object({
+        platform: z.string().optional(),
+    }),
+});
