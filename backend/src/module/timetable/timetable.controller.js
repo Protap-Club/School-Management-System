@@ -162,7 +162,7 @@ export const getMyTimetable = asyncHandler(async (req, res) => {
     const userId = req.user._id;
     const schoolId = req.user.schoolId;
     const role = req.user.role;
-    const platform = req.query.platform || "web";
+    const platform = req.platform;
 
     logger.info(`userId : ${userId}, schoolId: ${schoolId}, role: ${role}, platform: ${platform}`);
 

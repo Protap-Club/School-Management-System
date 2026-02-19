@@ -15,10 +15,8 @@ const REFRESH_COOKIE_OPTIONS = {
 // Handle user login
 export const login = asyncHandler(async (req, res) => {
     const { email, password } = req.body;
-
-    // Extract platform from header with fallback to body
-    const platform = req.headers["x-platform"] || req.body.platform || "web";
-
+    const platform = req.headers["x-platform"] === "mobile" ? "mobile" : "web";
+    
     logger.info("Controller: Login request received", { email, platform });
 
     const result = await authService.login(email, password, platform);
