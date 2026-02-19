@@ -6,6 +6,13 @@ import TimetableModal from '../components/timetable/TimetableModal';
 import { FaCalendarAlt, FaChalkboardTeacher, FaLayerGroup, FaPlus, FaSpinner, FaToggleOn, FaToggleOff } from 'react-icons/fa';
 import { useTimetableData } from '../hooks/useTimetableData';
 import { TIMETABLE_STATUS } from '../api/timetable';
+
+const CREATE_FORM_FIELDS = [
+  { label: 'Standard', key: 'standard', type: 'text', placeholder: 'e.g. 10th' },
+  { label: 'Section', key: 'section', type: 'text', placeholder: 'e.g. A' },
+  { label: 'Academic Year', key: 'academicYear', type: 'number', min: '2000', max: '2100' },
+];
+
 const TimetablePage = () => {
   const { user } = useAuth();
   const isTeacher = user?.role === 'teacher';
@@ -16,16 +23,15 @@ const TimetablePage = () => {
     addTimetable, updateStatus, removeTimetable, selectTimetable, addEntry, editEntry, removeEntry, fetchTeacherSchedule, clearError
   } = useTimetableData(user?.role, user?._id);
 
+  // View state
   const [activeTab, setActiveTab] = useState('class-timetable');
   const [adminViewMode, setAdminViewMode] = useState('class');
   const [selectedTeacherId, setSelectedTeacherId] = useState('');
   const [teacherScheduleData, setTeacherScheduleData] = useState(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedCell, setSelectedCell] = useState(null);
-  const [saveLoading, setSaveLoading] = useState(false);
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [createForm, setCreateForm] = useState({ standard: '', section: '', academicYear: new Date().getFullYear() });
-  const [createLoading, setCreateLoading] = useState(false);
+
+  // Modal state
+  const [modalState, setModalState] = useState({ open: false, cell: null, saving: false });
+  const [createState, setCreateState] = useState({ open: false, form: { standard: '', section: '', academicYear: new Date().getFullYear() }, loading: false });
 
   const isTeacherScheduleView = (isTeacher && activeTab === 'my-timetable') || (!isTeacher && adminViewMode === 'teacher');
 
@@ -48,8 +54,6 @@ const TimetablePage = () => {
     })();
   }, [isTeacher, activeTab, adminViewMode, selectedTeacherId, user, fetchTeacherSchedule]);
 
-  const isReadOnly = useMemo(() => isTeacherScheduleView, [isTeacherScheduleView]);
-
   const displayEntries = useMemo(() => {
     if (isTeacherScheduleView) {
       if (!teacherScheduleData?.teacherSchedule) return [];
@@ -58,54 +62,58 @@ const TimetablePage = () => {
     return entries;
   }, [isTeacherScheduleView, entries, teacherScheduleData]);
 
-  const closeModal = () => { setIsModalOpen(false); setSelectedCell(null); };
+  const closeModal = useCallback(() => setModalState({ open: false, cell: null, saving: false }), []);
 
-  const handleCellClick = (day, slot, entry) => { setSelectedCell({ day, slot, entry }); setIsModalOpen(true); };
+  const handleCellClick = useCallback((day, slot, entry) => {
+    setModalState({ open: true, cell: { day, slot, entry }, saving: false });
+  }, []);
 
-  const handleSaveEntry = async (entryData, existingEntryId) => {
+  const handleSaveEntry = useCallback(async (entryData, existingEntryId) => {
     if (!selectedTimetable) return;
-    setSaveLoading(true);
+    setModalState(prev => ({ ...prev, saving: true }));
     try {
       const result = existingEntryId ? await editEntry(existingEntryId, entryData) : await addEntry(selectedTimetable._id, entryData);
       if (result.success) closeModal();
       else alert(result.error || 'Failed to save entry');
-    } finally { setSaveLoading(false); }
-  };
+    } finally { setModalState(prev => ({ ...prev, saving: false })); }
+  }, [selectedTimetable, editEntry, addEntry, closeModal]);
 
-  const handleDeleteEntry = async (entryId) => {
-    setSaveLoading(true);
+  const handleDeleteEntry = useCallback(async (entryId) => {
+    setModalState(prev => ({ ...prev, saving: true }));
     try {
       const result = await removeEntry(entryId);
       if (result.success) closeModal();
       else alert(result.error || 'Failed to delete entry');
-    } finally { setSaveLoading(false); }
-  };
+    } finally { setModalState(prev => ({ ...prev, saving: false })); }
+  }, [removeEntry, closeModal]);
 
-  const handleCreateTimetable = async (e) => {
+  const handleCreateTimetable = useCallback(async (e) => {
     e.preventDefault();
-    setCreateLoading(true);
+    setCreateState(prev => ({ ...prev, loading: true }));
     try {
-      const result = await addTimetable({ standard: createForm.standard, section: createForm.section, academicYear: parseInt(createForm.academicYear) });
+      const result = await addTimetable({ standard: createState.form.standard, section: createState.form.section, academicYear: parseInt(createState.form.academicYear) });
       if (result.success) {
-        setIsCreateModalOpen(false);
-        setCreateForm({ standard: '', section: '', academicYear: new Date().getFullYear() });
+        setCreateState({ open: false, form: { standard: '', section: '', academicYear: new Date().getFullYear() }, loading: false });
         const newId = result.data?.timetable?._id || result.data?._id;
         if (newId) selectTimetable(newId);
       } else { alert(result.error || 'Failed to create timetable'); }
-    } finally { setCreateLoading(false); }
-  };
+    } finally { setCreateState(prev => ({ ...prev, loading: false })); }
+  }, [createState.form, addTimetable, selectTimetable]);
 
-  const handleToggleStatus = async () => {
+  const handleToggleStatus = useCallback(async () => {
     if (!selectedTimetable) return;
     await updateStatus(selectedTimetable._id, selectedTimetable.status === TIMETABLE_STATUS.PUBLISHED ? TIMETABLE_STATUS.DRAFT : TIMETABLE_STATUS.PUBLISHED);
-  };
+  }, [selectedTimetable, updateStatus]);
 
-  const renderTabButton = (tabKey, icon, label, isActive) => (
-    <button onClick={() => isTeacher ? setActiveTab(tabKey) : setAdminViewMode(tabKey)}
-      className={`px-${isTeacher ? '4' : '3'} py-${isTeacher ? '2' : '1.5'} rounded-${isTeacher ? 'lg' : 'md'} text-sm font-medium transition-all ${isActive ? 'bg-white text-primary shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
-      {icon ? <div className="flex items-center gap-2">{icon}{label}</div> : label}
-    </button>
-  );
+  const renderTabButton = (tabKey, icon, label, isActive) => {
+    const teacherStyle = isTeacher ? 'px-4 py-2 rounded-lg' : 'px-3 py-1.5 rounded-md';
+    return (
+      <button onClick={() => isTeacher ? setActiveTab(tabKey) : setAdminViewMode(tabKey)}
+        className={`${teacherStyle} text-sm font-medium transition-all ${isActive ? 'bg-white text-primary shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+        {icon ? <div className="flex items-center gap-2">{icon}{label}</div> : label}
+      </button>
+    );
+  };
 
   if (loading && timeSlots.length === 0) {
     return (
@@ -126,14 +134,9 @@ const TimetablePage = () => {
         )}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
           <div>
-            <h1 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-              <FaCalendarAlt className="text-primary" /> Timetable
-            </h1>
-            <p className="text-gray-500 text-sm mt-0.5">
-              {isTeacher ? 'View your schedule and class timetables.' : 'Manage class schedules and periods.'}
-            </p>
+            <h1 className="text-xl font-bold text-gray-800 flex items-center gap-2"><FaCalendarAlt className="text-primary" /> Timetable</h1>
+            <p className="text-gray-500 text-sm mt-0.5">{isTeacher ? 'View your schedule and class timetables.' : 'Manage class schedules and periods.'}</p>
           </div>
-
           <div className="flex flex-col md:flex-row gap-4 justify-between items-start md:items-center">
             {isTeacher ? (
               <>
@@ -162,7 +165,7 @@ const TimetablePage = () => {
                       {timetables.length === 0 && <option value="">No timetables</option>}
                       {timetables.map(tt => <option key={tt._id} value={tt._id}>{tt.standard}-{tt.section} ({tt.academicYear})</option>)}
                     </select>
-                    <button onClick={() => setIsCreateModalOpen(true)} className="p-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors" title="Create Timetable">
+                    <button onClick={() => setCreateState(prev => ({ ...prev, open: true }))} className="p-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors" title="Create Timetable">
                       <FaPlus className="text-sm" />
                     </button>
                   </div>
@@ -189,37 +192,33 @@ const TimetablePage = () => {
         </div>
         <div className="bg-white rounded-xl p-3 shadow-sm border border-gray-100">
           <TimetableGrid entries={displayEntries} timeSlots={timeSlots} teachers={teachers}
-            onCellClick={handleCellClick} readOnly={isReadOnly} showClass={isTeacherScheduleView} />
+            onCellClick={handleCellClick} readOnly={isTeacherScheduleView} showClass={isTeacherScheduleView} />
         </div>
-        <TimetableModal isOpen={isModalOpen} onClose={closeModal} onSave={handleSaveEntry} onDelete={handleDeleteEntry}
-          initialData={selectedCell?.entry} slotInfo={selectedCell ? { day: selectedCell.day, slot: selectedCell.slot } : null}
-          teachers={teachers} loading={saveLoading} />
-        {isCreateModalOpen && (
+        <TimetableModal isOpen={modalState.open} onClose={closeModal} onSave={handleSaveEntry} onDelete={handleDeleteEntry}
+          initialData={modalState.cell?.entry} slotInfo={modalState.cell ? { day: modalState.cell.day, slot: modalState.cell.slot } : null}
+          teachers={teachers} loading={modalState.saving} />
+        {createState.open && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
             <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
               <div className="bg-primary/5 px-6 py-4 border-b border-gray-100">
                 <h3 className="text-lg font-semibold text-gray-800">Create New Timetable</h3>
               </div>
               <form onSubmit={handleCreateTimetable} className="p-6 space-y-4">
-                {[
-                  { label: 'Standard', key: 'standard', type: 'text', placeholder: 'e.g. 10th' },
-                  { label: 'Section', key: 'section', type: 'text', placeholder: 'e.g. A' },
-                  { label: 'Academic Year', key: 'academicYear', type: 'number', min: '2000', max: '2100' },
-                ].map(field => (
+                {CREATE_FORM_FIELDS.map(field => (
                   <div key={field.key}>
                     <label className="block text-sm font-medium text-gray-700 mb-1">{field.label} *</label>
-                    <input type={field.type} required value={createForm[field.key]}
-                      onChange={(e) => setCreateForm({ ...createForm, [field.key]: e.target.value })}
+                    <input type={field.type} required value={createState.form[field.key]}
+                      onChange={(e) => setCreateState(prev => ({ ...prev, form: { ...prev.form, [field.key]: e.target.value } }))}
                       className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary/20"
                       placeholder={field.placeholder} min={field.min} max={field.max} />
                   </div>
                 ))}
                 <div className="flex gap-3 mt-6">
-                  <button type="button" onClick={() => setIsCreateModalOpen(false)} disabled={createLoading}
+                  <button type="button" onClick={() => setCreateState(prev => ({ ...prev, open: false }))} disabled={createState.loading}
                     className="flex-1 py-2.5 px-4 rounded-xl border border-gray-200 text-gray-600 font-medium hover:bg-gray-50">Cancel</button>
-                  <button type="submit" disabled={createLoading}
+                  <button type="submit" disabled={createState.loading}
                     className="flex-1 py-2.5 px-4 rounded-xl bg-primary text-white font-medium hover:bg-primary-dark flex items-center justify-center gap-2">
-                    {createLoading && <FaSpinner className="animate-spin" />} Create
+                    {createState.loading && <FaSpinner className="animate-spin" />} Create
                   </button>
                 </div>
               </form>

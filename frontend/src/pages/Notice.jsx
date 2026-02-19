@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo, useCallback } from 'react';
 import DashboardLayout from '../layouts/DashboardLayout';
 import { useAuth } from '../features/auth';
 import {
@@ -11,10 +11,7 @@ import {
     FaSearch, FaHistory, FaEye, FaDownload, FaFileVideo, FaFileCode, FaFileCsv
 } from 'react-icons/fa';
 
-const ALLOWED_EXTENSIONS = [
-    'pdf', 'doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx', 'txt', 'csv', 'iti',
-    'png', 'jpg', 'jpeg', 'mp4', 'mov', 'avi'
-];
+const ALLOWED_EXTENSIONS = ['pdf', 'doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx', 'txt', 'csv', 'iti', 'png', 'jpg', 'jpeg', 'mp4', 'mov', 'avi'];
 const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg'];
 const VIDEO_EXTENSIONS = ['mp4', 'mov', 'avi'];
 
@@ -34,22 +31,24 @@ const getFileIcon = (filename) => {
 };
 
 const RECIPIENT_LABELS = { all: 'Entire School', students: 'Students', users: 'Selected Users', groups: 'Groups' };
-
 const SELECTION_VALIDATORS = {
     classes: { list: 'selectedClasses', msg: 'Please select at least one class' },
     users: { list: 'selectedUsers', msg: 'Please select at least one user' },
     students: { list: 'selectedStudents', msg: 'Please select at least one student' },
     groups: { list: 'selectedGroups', msg: 'Please select at least one group' },
 };
-
 const RECIPIENT_MAP = {
-    school: { type: 'all', key: null },
-    allStudents: { type: 'students', key: null },
-    classes: { type: 'classes', key: 'selectedClasses' },
-    users: { type: 'users', key: 'selectedUsers' },
-    students: { type: 'students', key: 'selectedStudents' },
-    groups: { type: 'groups', key: 'selectedGroups' },
+    school: { type: 'all', key: null }, allStudents: { type: 'students', key: null },
+    classes: { type: 'classes', key: 'selectedClasses' }, users: { type: 'users', key: 'selectedUsers' },
+    students: { type: 'students', key: 'selectedStudents' }, groups: { type: 'groups', key: 'selectedGroups' },
 };
+
+const getRecipientLabel = (item) => {
+    if (item.recipientType === 'classes') return item.recipients?.join(', ') || 'Classes';
+    return RECIPIENT_LABELS[item.recipientType] || item.recipientType || 'Unknown';
+};
+
+const MODAL_OVERLAY = 'fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4';
 
 const Notice = () => {
     const { user: currentUser } = useAuth();
@@ -57,11 +56,14 @@ const Notice = () => {
     const isTeacher = currentUser?.role === 'teacher';
     const fileInputRef = useRef(null);
 
+    // Compose state
     const [activeTab, setActiveTab] = useState('compose');
     const [message, setMessage] = useState('');
     const [attachment, setAttachment] = useState(null);
     const [attachmentPreview, setAttachmentPreview] = useState(null);
     const [messageError, setMessageError] = useState('');
+
+    // Send modal state
     const [showSendModal, setShowSendModal] = useState(false);
     const [sendOption, setSendOption] = useState('');
     const [searchTerm, setSearchTerm] = useState('');
@@ -69,9 +71,13 @@ const Notice = () => {
     const [selectedUsers, setSelectedUsers] = useState([]);
     const [selectedStudents, setSelectedStudents] = useState([]);
     const [selectedGroups, setSelectedGroups] = useState([]);
+
+    // Group creation state
     const [newGroupName, setNewGroupName] = useState('');
     const [newGroupStudents, setNewGroupStudents] = useState([]);
     const [newGroupTeachers, setNewGroupTeachers] = useState([]);
+
+    // History state
     const [historySearch, setHistorySearch] = useState('');
     const [historyFilters, setHistoryFilters] = useState({ type: 'all', sentTo: 'all', date: 'all' });
     const [viewItem, setViewItem] = useState(null);
@@ -79,6 +85,7 @@ const Notice = () => {
 
     const selectionState = { selectedClasses, selectedUsers, selectedStudents, selectedGroups };
 
+    // Data hooks
     const { data: noticesData } = useNotices(historyFilters);
     const { data: classesData } = useClasses();
     const { data: studentsData } = useStudents();
@@ -97,14 +104,10 @@ const Notice = () => {
     const groups = groupsData?.data || [];
     const historyItems = noticesData?.data || [];
 
-    const showToast = (type, text) => { setToast({ type, text }); setTimeout(() => setToast({ type: '', text: '' }), 3000); };
+    const showToast = useCallback((type, text) => { setToast({ type, text }); setTimeout(() => setToast({ type: '', text: '' }), 3000); }, []);
     const toggleSelection = (array, setArray, value) => { setArray(array.includes(value) ? array.filter(v => v !== value) : [...array, value]); };
-    const getRecipientLabel = (item) => {
-        if (item.recipientType === 'classes') return item.recipients?.join(', ') || 'Classes';
-        return RECIPIENT_LABELS[item.recipientType] || item.recipientType || 'Unknown';
-    };
 
-    const handleFileUpload = (e) => {
+    const handleFileUpload = useCallback((e) => {
         const file = e.target.files[0];
         if (!file) return;
         const ext = file.name.split('.').pop().toLowerCase();
@@ -112,41 +115,44 @@ const Notice = () => {
         setAttachment(file);
         if (IMAGE_EXTENSIONS.includes(ext)) {
             const reader = new FileReader();
-            reader.onload = (e) => setAttachmentPreview(e.target.result);
+            reader.onload = (ev) => setAttachmentPreview(ev.target.result);
             reader.readAsDataURL(file);
         } else { setAttachmentPreview(null); }
-    };
+    }, [showToast]);
 
-    const removeAttachment = () => { setAttachment(null); setAttachmentPreview(null); if (fileInputRef.current) fileInputRef.current.value = ''; };
+    const removeAttachment = useCallback(() => { setAttachment(null); setAttachmentPreview(null); if (fileInputRef.current) fileInputRef.current.value = ''; }, []);
 
-    const handleSendClick = () => {
+    const handleSendClick = useCallback(() => {
         if (!message.trim()) { setMessageError('Message is required'); return; }
         setMessageError(''); setShowSendModal(true);
-    };
+    }, [message]);
 
-    const handleFinalSend = async () => {
+    const resetComposeState = useCallback(() => {
+        setMessage(''); setAttachment(null); setAttachmentPreview(null);
+        setShowSendModal(false); setSendOption('');
+        setSelectedClasses([]); setSelectedUsers([]); setSelectedStudents([]); setSelectedGroups([]);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+    }, []);
+
+    const handleFinalSend = useCallback(async () => {
         if (!sendOption) { showToast('error', 'Please select recipients'); return; }
         const validator = SELECTION_VALIDATORS[sendOption];
         if (validator && selectionState[validator.list].length === 0) { showToast('error', validator.msg); return; }
         const mapping = RECIPIENT_MAP[sendOption] || { type: sendOption, key: null };
-        const recipientType = mapping.type;
         const recipients = mapping.key ? selectionState[mapping.key] : [];
         try {
-            await createNoticeMutation.mutateAsync({ message, title: message.substring(0, 50), recipientType, recipients, attachment: attachment || undefined });
+            await createNoticeMutation.mutateAsync({ message, title: message.substring(0, 50), recipientType: mapping.type, recipients, attachment: attachment || undefined });
             showToast('success', 'Notice sent successfully!');
-            setMessage(''); setAttachment(null); setAttachmentPreview(null);
-            setShowSendModal(false); setSendOption('');
-            setSelectedClasses([]); setSelectedUsers([]); setSelectedStudents([]); setSelectedGroups([]);
-            if (fileInputRef.current) fileInputRef.current.value = '';
+            resetComposeState();
         } catch (error) { showToast('error', error?.response?.data?.message || 'Failed to send notice'); }
-    };
+    }, [sendOption, selectionState, message, attachment, createNoticeMutation, showToast, resetComposeState]);
 
-    const handleDeleteHistory = async (itemId) => {
+    const handleDeleteHistory = useCallback(async (itemId) => {
         try { await deleteNoticeMutation.mutateAsync(itemId); showToast('success', 'Notice deleted'); }
         catch (error) { showToast('error', error?.response?.data?.message || 'Failed to delete'); }
-    };
+    }, [deleteNoticeMutation, showToast]);
 
-    const handleCreateGroup = async () => {
+    const handleCreateGroup = useCallback(async () => {
         if (!newGroupName.trim()) { showToast('error', 'Group name is required'); return; }
         if (newGroupStudents.length === 0 && newGroupTeachers.length === 0) { showToast('error', 'Select at least one student or teacher'); return; }
         try {
@@ -154,18 +160,22 @@ const Notice = () => {
             setNewGroupName(''); setNewGroupStudents([]); setNewGroupTeachers([]);
             showToast('success', 'Group created successfully!');
         } catch (error) { showToast('error', error?.response?.data?.message || 'Failed to create group'); }
-    };
+    }, [newGroupName, newGroupStudents, newGroupTeachers, createGroupMutation, showToast]);
 
-    const handleDeleteGroup = async (groupId) => {
+    const handleDeleteGroup = useCallback(async (groupId) => {
         try { await deleteGroupMutation.mutateAsync(groupId); showToast('success', 'Group deleted'); }
         catch (error) { showToast('error', error?.response?.data?.message || 'Failed to delete group'); }
-    };
+    }, [deleteGroupMutation, showToast]);
 
-    const filteredHistory = historyItems.filter(item => {
-        if (!historySearch) return true;
+    const filteredHistory = useMemo(() => {
+        if (!historySearch) return historyItems;
         const s = historySearch.toLowerCase();
-        return (item.title || '').toLowerCase().includes(s) || (item.message || '').toLowerCase().includes(s) || getRecipientLabel(item).toLowerCase().includes(s);
-    });
+        return historyItems.filter(item =>
+            (item.title || '').toLowerCase().includes(s) || (item.message || '').toLowerCase().includes(s) || getRecipientLabel(item).toLowerCase().includes(s)
+        );
+    }, [historyItems, historySearch]);
+
+    // --- Render helpers ---
 
     const renderSectionHeader = (icon, iconBg, iconColor, title, subtitle) => (
         <div className="px-6 py-5 border-b border-gray-100 flex items-center gap-4">
@@ -240,6 +250,62 @@ const Notice = () => {
         </div>
     );
 
+    const renderMemberList = (items, selectedArr, setSelectedArr) => (
+        <div className="border border-gray-200 rounded-xl max-h-48 overflow-y-auto">
+            {items.map(item => (
+                <label key={item._id} className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-b-0">
+                    <input type="checkbox" checked={selectedArr.includes(item._id)}
+                        onChange={() => toggleSelection(selectedArr, setSelectedArr, item._id)}
+                        className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary" />
+                    <span className="text-sm text-gray-700">{item.name}</span>
+                </label>
+            ))}
+        </div>
+    );
+
+    const renderHistoryItem = (item) => (
+        <div key={item.id} className="bg-white rounded-2xl border border-gray-200 p-5 hover:shadow-md transition-shadow group">
+            <div className="flex flex-col md:flex-row gap-4 items-start md:items-center">
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${item.type === 'notice' ? 'bg-blue-100 text-blue-600' : 'bg-amber-100 text-amber-600'}`}>
+                    {item.type === 'notice' ? <FaPaperPlane size={16} /> : <FaPaperclip size={16} />}
+                </div>
+                <div className="flex-1 min-w-0 grid grid-cols-1 md:grid-cols-12 gap-4 w-full">
+                    <div className="md:col-span-5">
+                        <div className="flex items-center gap-2 mb-1">
+                            <h3 className="text-base font-semibold text-gray-900 truncate">{item.title}</h3>
+                            {item.attachment && item.attachment.filename && (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600"><FaPaperclip className="mr-1" size={10} />1</span>
+                            )}
+                        </div>
+                        <p className="text-sm text-gray-500 line-clamp-2">{item.message}</p>
+                    </div>
+                    <div className="md:col-span-3 flex items-center">
+                        <div className="flex items-center gap-2 text-sm text-gray-600">
+                            <div className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center">
+                                {(item.recipientType === 'users' || item.recipientType === 'students') ? <FaUserFriends size={10} /> : <FaUsers size={10} />}
+                            </div>
+                            <span className="truncate max-w-[150px]" title={getRecipientLabel(item)}>{getRecipientLabel(item)}</span>
+                        </div>
+                    </div>
+                    <div className="md:col-span-4 flex items-center justify-between md:justify-end gap-6">
+                        <div className="text-right">
+                            <div className="text-sm font-medium text-emerald-600 flex items-center justify-end gap-1">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>Sent
+                            </div>
+                            <div className="text-xs text-gray-400 mt-1">
+                                {new Date(item.createdAt).toLocaleDateString()} • {new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-1 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button onClick={() => setViewItem(item)} className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="View Details"><FaEye size={16} /></button>
+                            <button onClick={() => handleDeleteHistory(item._id)} className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Delete"><FaTrash size={16} /></button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+
     return (
         <DashboardLayout>
             {toast.text && (
@@ -270,9 +336,7 @@ const Notice = () => {
                                     <textarea value={message} onChange={(e) => { setMessage(e.target.value); if (e.target.value.trim()) setMessageError(''); }}
                                         placeholder="Write your notice here..." rows={8}
                                         className={`w-full px-4 py-3 border rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all ${messageError ? 'border-red-300 bg-red-50' : 'border-gray-200'}`} />
-                                    {messageError && (
-                                        <p className="mt-2 text-sm text-red-500 flex items-center gap-1"><FaTimes size={10} /> {messageError}</p>
-                                    )}
+                                    {messageError && <p className="mt-2 text-sm text-red-500 flex items-center gap-1"><FaTimes size={10} /> {messageError}</p>}
                                 </div>
                             </div>
                             <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
@@ -339,36 +403,17 @@ const Notice = () => {
                             <div className="p-6 space-y-4">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-2">Group Name</label>
-                                    <input type="text" value={newGroupName} onChange={(e) => setNewGroupName(e.target.value)}
-                                        placeholder="e.g., Science Club"
+                                    <input type="text" value={newGroupName} onChange={(e) => setNewGroupName(e.target.value)} placeholder="e.g., Science Club"
                                         className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all" />
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-2">Select Students</label>
-                                    <div className="border border-gray-200 rounded-xl max-h-48 overflow-y-auto">
-                                        {students.map(student => (
-                                            <label key={student._id} className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-b-0">
-                                                <input type="checkbox" checked={newGroupStudents.includes(student._id)}
-                                                    onChange={() => toggleSelection(newGroupStudents, setNewGroupStudents, student._id)}
-                                                    className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary" />
-                                                <span className="text-sm text-gray-700">{student.name}</span>
-                                            </label>
-                                        ))}
-                                    </div>
+                                    {renderMemberList(students, newGroupStudents, setNewGroupStudents)}
                                 </div>
                                 {isAdmin && (
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-2">Select Teachers</label>
-                                        <div className="border border-gray-200 rounded-xl max-h-48 overflow-y-auto">
-                                            {teachers.map(teacher => (
-                                                <label key={teacher._id} className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-b-0">
-                                                    <input type="checkbox" checked={newGroupTeachers.includes(teacher._id)}
-                                                        onChange={() => toggleSelection(newGroupTeachers, setNewGroupTeachers, teacher._id)}
-                                                        className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary" />
-                                                    <span className="text-sm text-gray-700">{teacher.name}</span>
-                                                </label>
-                                            ))}
-                                        </div>
+                                        {renderMemberList(teachers, newGroupTeachers, setNewGroupTeachers)}
                                     </div>
                                 )}
                                 <button onClick={handleCreateGroup}
@@ -435,56 +480,13 @@ const Notice = () => {
                                     <h3 className="text-lg font-medium text-gray-900">No history found</h3>
                                     <p className="text-gray-500 text-sm mt-1">Try adjusting your filters or search terms</p>
                                 </div>
-                            ) : (
-                                filteredHistory.map(item => (
-                                    <div key={item.id} className="bg-white rounded-2xl border border-gray-200 p-5 hover:shadow-md transition-shadow group">
-                                        <div className="flex flex-col md:flex-row gap-4 items-start md:items-center">
-                                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${item.type === 'notice' ? 'bg-blue-100 text-blue-600' : 'bg-amber-100 text-amber-600'}`}>
-                                                {item.type === 'notice' ? <FaPaperPlane size={16} /> : <FaPaperclip size={16} />}
-                                            </div>
-                                            <div className="flex-1 min-w-0 grid grid-cols-1 md:grid-cols-12 gap-4 w-full">
-                                                <div className="md:col-span-5">
-                                                    <div className="flex items-center gap-2 mb-1">
-                                                        <h3 className="text-base font-semibold text-gray-900 truncate">{item.title}</h3>
-                                                        {item.attachment && item.attachment.filename && (
-                                                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600"><FaPaperclip className="mr-1" size={10} />1</span>
-                                                        )}
-                                                    </div>
-                                                    <p className="text-sm text-gray-500 line-clamp-2">{item.message}</p>
-                                                </div>
-                                                <div className="md:col-span-3 flex items-center">
-                                                    <div className="flex items-center gap-2 text-sm text-gray-600">
-                                                        <div className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center">
-                                                            {(item.recipientType === 'users' || item.recipientType === 'students') ? <FaUserFriends size={10} /> : <FaUsers size={10} />}
-                                                        </div>
-                                                        <span className="truncate max-w-[150px]" title={getRecipientLabel(item)}>{getRecipientLabel(item)}</span>
-                                                    </div>
-                                                </div>
-                                                <div className="md:col-span-4 flex items-center justify-between md:justify-end gap-6">
-                                                    <div className="text-right">
-                                                        <div className="text-sm font-medium text-emerald-600 flex items-center justify-end gap-1">
-                                                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>Sent
-                                                        </div>
-                                                        <div className="text-xs text-gray-400 mt-1">
-                                                            {new Date(item.createdAt).toLocaleDateString()} • {new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                                        </div>
-                                                    </div>
-                                                    <div className="flex items-center gap-1 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
-                                                        <button onClick={() => setViewItem(item)} className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="View Details"><FaEye size={16} /></button>
-                                                        <button onClick={() => handleDeleteHistory(item._id)} className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Delete"><FaTrash size={16} /></button>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))
-                            )}
+                            ) : filteredHistory.map(renderHistoryItem)}
                         </div>
                     </div>
                 )}
 
                 {viewItem && (
-                    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                    <div className={MODAL_OVERLAY}>
                         <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-fadeIn">
                             <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
                                 <h3 className="text-lg font-semibold text-gray-900">Notice Details</h3>
@@ -506,19 +508,17 @@ const Notice = () => {
                                 {viewItem.attachment && viewItem.attachment.filename && (
                                     <div>
                                         <h5 className="text-sm font-medium text-gray-900 mb-3">Attachment</h5>
-                                        <div className="space-y-2">
-                                            <div className="flex items-center justify-between p-3 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-10 h-10 bg-white border border-gray-100 rounded-lg flex items-center justify-center">
-                                                        {getFileIcon(viewItem.attachment.originalName || viewItem.attachment.filename)}
-                                                    </div>
-                                                    <div>
-                                                        <p className="text-sm font-medium text-gray-900">{viewItem.attachment.originalName || viewItem.attachment.filename}</p>
-                                                        <p className="text-xs text-gray-500">{((viewItem.attachment.size || 0) / 1024).toFixed(1)} KB</p>
-                                                    </div>
+                                        <div className="flex items-center justify-between p-3 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-10 h-10 bg-white border border-gray-100 rounded-lg flex items-center justify-center">
+                                                    {getFileIcon(viewItem.attachment.originalName || viewItem.attachment.filename)}
                                                 </div>
-                                                <a href={viewItem.attachment.path} target="_blank" rel="noopener noreferrer" className="p-2 text-gray-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-colors"><FaDownload size={14} /></a>
+                                                <div>
+                                                    <p className="text-sm font-medium text-gray-900">{viewItem.attachment.originalName || viewItem.attachment.filename}</p>
+                                                    <p className="text-xs text-gray-500">{((viewItem.attachment.size || 0) / 1024).toFixed(1)} KB</p>
+                                                </div>
                                             </div>
+                                            <a href={viewItem.attachment.path} target="_blank" rel="noopener noreferrer" className="p-2 text-gray-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-colors"><FaDownload size={14} /></a>
                                         </div>
                                     </div>
                                 )}
@@ -532,7 +532,7 @@ const Notice = () => {
             </div>
 
             {showSendModal && (
-                <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                <div className={MODAL_OVERLAY}>
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-fadeIn flex flex-col max-h-[90vh]">
                         <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between flex-shrink-0">
                             <div className="flex items-center gap-3">

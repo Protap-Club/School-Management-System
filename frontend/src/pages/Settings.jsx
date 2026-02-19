@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import DashboardLayout from '../layouts/DashboardLayout';
 import { useAuth } from '../features/auth';
 import { useTheme, useFeatures } from '../state';
 import api from '../api/axios';
 import { FaPalette, FaImage, FaCheck, FaUpload, FaToggleOn, FaBuilding } from 'react-icons/fa';
+
 const THEME_COLORS = [
     { name: 'Royal Blue', value: '#2563eb', textColor: '#ffffff' },
     { name: 'Purple', value: '#7c3aed', textColor: '#ffffff' },
@@ -27,48 +28,42 @@ const Settings = () => {
     const { updateTheme } = useTheme();
     const { refreshFeatures } = useFeatures();
     const isSuperAdmin = currentUser?.role === 'super_admin';
+    const currentSchoolId = currentUser?.schoolId?._id || currentUser?.schoolId;
+    const fileInputRef = useRef(null);
 
+    // Theme & logo state
     const [settings, setSettings] = useState({ logoUrl: '', theme: { accentColor: '#2563eb' } });
     const [loading, setLoading] = useState(true);
     const [uploading, setUploading] = useState(false);
     const [message, setMessage] = useState({ type: '', text: '' });
-    const fileInputRef = useRef(null);
+
+    // Feature state
     const [features, setFeatures] = useState({});
     const [featuresLoading, setFeaturesLoading] = useState(false);
     const [togglingFeature, setTogglingFeature] = useState(null);
 
-    const currentSchoolId = currentUser?.schoolId?._id || currentUser?.schoolId;
-
-    const showMessage = (type, text, duration = 2000) => {
+    const showMessage = useCallback((type, text, duration = 2000) => {
         setMessage({ type, text });
         setTimeout(() => setMessage({ type: '', text: '' }), duration);
-    };
+    }, []);
 
-    const fetchSettings = async () => {
-        try {
-            const response = await api.get('/school/');
-            if (response.data.success && response.data.data?.school) {
-                const school = response.data.data.school;
-                setSettings({ logoUrl: school.logoUrl || '', theme: school.theme || { accentColor: '#2563eb' } });
-            }
-        } catch (error) { console.error('Failed to fetch settings', error); }
-        finally { setLoading(false); }
-    };
+    useEffect(() => {
+        const fetchSchoolData = async () => {
+            try {
+                const response = await api.get('/school/');
+                if (response.data.success && response.data.data?.school) {
+                    const school = response.data.data.school;
+                    setSettings({ logoUrl: school.logoUrl || '', theme: school.theme || { accentColor: '#2563eb' } });
+                    if (isSuperAdmin) setFeatures(school.features || {});
+                }
+            } catch (error) { console.error('Failed to fetch settings', error); }
+            finally { setLoading(false); setFeaturesLoading(false); }
+        };
+        if (isSuperAdmin) setFeaturesLoading(true);
+        fetchSchoolData();
+    }, [currentSchoolId, isSuperAdmin]);
 
-    const fetchSchoolFeatures = async () => {
-        setFeaturesLoading(true);
-
-        try {
-            const response = await api.get('/school/');
-            if (response.data.success && response.data.data?.school) setFeatures(response.data.data.school.features || {});
-        } catch (error) { console.error('Failed to fetch features', error); }
-        finally { setFeaturesLoading(false); }
-    };
-
-    useEffect(() => { fetchSettings(); }, []);
-    useEffect(() => { if (currentSchoolId && isSuperAdmin) fetchSchoolFeatures(); }, [currentSchoolId, isSuperAdmin]);
-
-    const handleToggleFeature = async (featureKey) => {
+    const handleToggleFeature = useCallback(async (featureKey) => {
         if (!currentSchoolId || togglingFeature) return;
         setTogglingFeature(featureKey);
         const newValue = !features[featureKey];
@@ -79,27 +74,21 @@ const Settings = () => {
                 refreshFeatures();
                 showMessage('success', `${FEATURE_META[featureKey]?.label || featureKey} ${newValue ? 'enabled' : 'disabled'}`);
             }
-        } catch (error) {
-            showMessage('error', 'Internal Server Error');
-        } finally { setTogglingFeature(null); }
-    };
+        } catch (error) { showMessage('error', 'Internal Server Error'); }
+        finally { setTogglingFeature(null); }
+    }, [currentSchoolId, togglingFeature, features, refreshFeatures, showMessage]);
 
-    const handleColorSelect = async (colorValue) => {
+    const handleColorSelect = useCallback(async (colorValue) => {
         setSettings(prev => ({ ...prev, theme: { ...prev.theme, accentColor: colorValue } }));
         updateTheme(colorValue);
-        try {
-            await api.put('/school/', { theme: { accentColor: colorValue } });
-            showMessage('success', 'Theme updated!');
-        } catch (error) { console.error('Failed to save theme', error); }
-    };
+        try { await api.put('/school/', { theme: { accentColor: colorValue } }); showMessage('success', 'Theme updated!'); }
+        catch (error) { console.error('Failed to save theme', error); }
+    }, [updateTheme, showMessage]);
 
-    const handleFileUpload = async (e) => {
+    const handleFileUpload = useCallback(async (e) => {
         const file = e.target.files[0];
         if (!file) return;
-        if (!file.type.startsWith('image/') || file.size > 2 * 1024 * 1024) {
-            showMessage('error', 'Internal Server Error');
-            return;
-        }
+        if (!file.type.startsWith('image/') || file.size > 2 * 1024 * 1024) { showMessage('error', 'Internal Server Error'); return; }
         setUploading(true);
         setMessage({ type: '', text: '' });
         try {
@@ -113,7 +102,7 @@ const Settings = () => {
             }
         } catch (error) { showMessage('error', 'Internal Server Error'); }
         finally { setUploading(false); }
-    };
+    }, [showMessage]);
 
     if (loading) {
         return (
@@ -124,6 +113,7 @@ const Settings = () => {
             </DashboardLayout>
         );
     }
+
     const accentColor = settings.theme?.accentColor || '#2563eb';
 
     const renderSectionHeader = (icon, iconBg, title, subtitle, badge = null) => (
@@ -136,6 +126,22 @@ const Settings = () => {
                 </div>
             </div>
             {badge}
+        </div>
+    );
+
+    const renderFeatureToggle = (key, meta) => (
+        <div key={key} className={`flex items-center justify-between p-4 rounded-xl transition-colors ${features[key] ? 'bg-gray-50' : 'bg-white hover:bg-gray-50'}`}>
+            <div className="flex items-center gap-3">
+                <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${meta.color} flex items-center justify-center`}><FaBuilding className={meta.iconColor} size={14} /></div>
+                <div>
+                    <p className="text-sm font-medium text-gray-900">{meta.label}</p>
+                    <p className="text-xs text-gray-400">{meta.description}</p>
+                </div>
+            </div>
+            <button onClick={() => handleToggleFeature(key)} disabled={togglingFeature === key}
+                className={`relative w-12 h-7 rounded-full transition-colors ${features[key] ? 'bg-emerald-500' : 'bg-gray-200'} ${togglingFeature === key ? 'opacity-50' : ''}`}>
+                <span className={`absolute top-1 left-1 w-5 h-5 bg-white rounded-full shadow-sm transition-transform ${features[key] ? 'translate-x-5' : 'translate-x-0'}`} />
+            </button>
         </div>
     );
 
@@ -155,13 +161,9 @@ const Settings = () => {
                     <p className="text-gray-500 mt-1">{isSuperAdmin ? 'Manage portal appearance and school features' : 'Customize your portal appearance and branding'}</p>
                 </div>
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                    {/* Left Column */}
                     <div className="space-y-6">
-                        {/* Theme Colors */}
                         <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
-                            {renderSectionHeader(
-                                <FaPalette className="text-indigo-500" size={18} />, 'from-violet-100 to-indigo-100',
-                                'Theme Color', 'Choose your primary accent',
+                            {renderSectionHeader(<FaPalette className="text-indigo-500" size={18} />, 'from-violet-100 to-indigo-100', 'Theme Color', 'Choose your primary accent',
                                 <span className="text-xs text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full font-medium">Auto-save</span>
                             )}
                             <div className="p-6">
@@ -177,7 +179,6 @@ const Settings = () => {
                                 </div>
                             </div>
                         </div>
-                        {/* Logo Upload */}
                         <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
                             {renderSectionHeader(<FaImage className="text-amber-600" size={18} />, 'from-amber-100 to-orange-100', 'Portal Logo', 'Upload your organization logo')}
                             <div className="p-6">
@@ -196,15 +197,12 @@ const Settings = () => {
                         </div>
                     </div>
                     <div className="space-y-6">
-                        {/* Feature Toggles */}
                         {isSuperAdmin && (
                             <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
                                 <div className="px-6 py-5 border-b border-gray-100">
                                     <div className="flex items-center justify-between mb-4">
                                         <div className="flex items-center gap-4">
-                                            <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-cyan-100 to-blue-100 flex items-center justify-center">
-                                                <FaToggleOn className="text-blue-500" size={18} />
-                                            </div>
+                                            <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-cyan-100 to-blue-100 flex items-center justify-center"><FaToggleOn className="text-blue-500" size={18} /></div>
                                             <div>
                                                 <h2 className="text-lg font-semibold text-gray-900">Feature Toggles</h2>
                                                 <p className="text-sm text-gray-500">Enable/disable school features</p>
@@ -216,34 +214,13 @@ const Settings = () => {
                                 </div>
                                 <div className="p-4">
                                     {featuresLoading ? (
-                                        <div className="flex items-center justify-center py-8">
-                                            <div className="animate-spin rounded-full h-6 w-6 border-2 border-gray-200 border-t-gray-600"></div>
-                                        </div>
+                                        <div className="flex items-center justify-center py-8"><div className="animate-spin rounded-full h-6 w-6 border-2 border-gray-200 border-t-gray-600"></div></div>
                                     ) : (
-                                        <div className="space-y-2">
-                                            {Object.entries(FEATURE_META).map(([key, meta]) => (
-                                                <div key={key} className={`flex items-center justify-between p-4 rounded-xl transition-colors ${features[key] ? 'bg-gray-50' : 'bg-white hover:bg-gray-50'}`}>
-                                                    <div className="flex items-center gap-3">
-                                                        <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${meta.color} flex items-center justify-center`}>
-                                                            <FaBuilding className={meta.iconColor} size={14} />
-                                                        </div>
-                                                        <div>
-                                                            <p className="text-sm font-medium text-gray-900">{meta.label}</p>
-                                                            <p className="text-xs text-gray-400">{meta.description}</p>
-                                                        </div>
-                                                    </div>
-                                                    <button onClick={() => handleToggleFeature(key)} disabled={togglingFeature === key}
-                                                        className={`relative w-12 h-7 rounded-full transition-colors ${features[key] ? 'bg-emerald-500' : 'bg-gray-200'} ${togglingFeature === key ? 'opacity-50' : ''}`}>
-                                                        <span className={`absolute top-1 left-1 w-5 h-5 bg-white rounded-full shadow-sm transition-transform ${features[key] ? 'translate-x-5' : 'translate-x-0'}`} />
-                                                    </button>
-                                                </div>
-                                            ))}
-                                        </div>
+                                        <div className="space-y-2">{Object.entries(FEATURE_META).map(([key, meta]) => renderFeatureToggle(key, meta))}</div>
                                     )}
                                 </div>
                             </div>
                         )}
-                        {/* Live Preview */}
                         <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl border border-gray-200 p-6 lg:p-8">
                             <div className="mb-6">
                                 <h3 className="text-lg font-semibold text-gray-900">Live Preview</h3>
