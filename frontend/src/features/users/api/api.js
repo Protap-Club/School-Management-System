@@ -23,16 +23,16 @@ export const usersApi = {
     },
 
     // Archive/Restore user (toggle) - single user
-    // PATCH /api/v1/users/archive
+    // PATCH /api/v1/users/status
     toggleUserStatus: async (userId) => {
-        const response = await api.patch('/users/archive', { userIds: [userId] });
+        const response = await api.patch('/users/status', { userIds: [userId] });
         return response.data;
     },
 
     // Archive/Restore users (toggle) - bulk
-    // PATCH /api/v1/users/archive
+    // PATCH /api/v1/users/status
     toggleUsersStatus: async (userIds) => {
-        const response = await api.patch('/users/archive', { userIds });
+        const response = await api.patch('/users/status', { userIds });
         return response.data;
     },
 

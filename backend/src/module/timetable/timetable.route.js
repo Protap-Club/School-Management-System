@@ -13,7 +13,7 @@ import {
     updateEntry,
     deleteEntry,
     getTeacherSchedule,
-    getMySchedule,
+    getMyTimetable,
 } from "./timetable.controller.js";
 import { checkRole } from "../../middlewares/role.middleware.js";
 import { USER_ROLES } from "../../constants/userRoles.js";
@@ -45,7 +45,7 @@ router.put("/slots/:id", checkRole([USER_ROLES.ADMIN]), validate(updateTimeSlotS
 router.delete("/slots/:id", checkRole([USER_ROLES.ADMIN]), validate(timeSlotIdParamsSchema), deleteTimeSlot);
 
 // Schedule
-router.get("/schedule/me", checkRole([USER_ROLES.TEACHER]), getMySchedule);
+router.get("/schedule/me", checkRole([USER_ROLES.TEACHER, USER_ROLES.STUDENT]), getMyTimetable);
 router.get("/schedule/:teacherId", checkRole([USER_ROLES.ADMIN]), validate(teacherScheduleParamsSchema), getTeacherSchedule);
 
 // Entries

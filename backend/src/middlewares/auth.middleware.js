@@ -28,6 +28,16 @@ const checkAuth = async (req, res, next) => {
         }
 
         req.user = findUser;
+
+        // Attach platform from header
+        const platform = req.headers["x-platform"];
+        req.platform = platform === "mobile" ? "mobile" : "web";
+
+        // Mobile Rule Guard
+        const MOBILE_ALLOWED_ROLES = ["TEACHER", "STUDENT"];
+        if (req.platform === "mobile" && !MOBILE_ALLOWED_ROLES.includes(req.user.role)) {
+            throw new ForbiddenError("Admin access is not available on mobile");
+        }
         next();
 
     } catch (error) {
