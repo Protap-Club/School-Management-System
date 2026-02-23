@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { useAuth } from '../features/auth';
 import { useNavigate } from 'react-router-dom';
 import { FaUser, FaLock } from 'react-icons/fa';
+
+const VALID_ROLES = ['super_admin', 'admin', 'teacher'];
 
 const Login = () => {
     const [email, setEmail] = useState('');
@@ -10,85 +12,48 @@ const Login = () => {
     const { login } = useAuth();
     const navigate = useNavigate();
 
-    const handleSubmit = async (e) => {
+    const handleSubmit = useCallback(async (e) => {
         e.preventDefault();
         setError('');
         try {
             const user = await login(email, password);
-            // Redirect based on role
-            if (['super_admin', 'admin', 'teacher'].includes(user.role)) {
-                navigate('/dashboard');
-            } else {
-                navigate('/login'); // Fallback
-            }
+            navigate(VALID_ROLES.includes(user.role) ? '/dashboard' : '/login');
         } catch (err) {
             setError('Internal Server Error');
         }
-    };
+    }, [email, password, login, navigate]);
 
     return (
         <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-blue-100 p-4">
-            {/* Background decoration */}
             <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
                 <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-blue-300 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob"></div>
                 <div className="absolute top-[-10%] right-[-10%] w-96 h-96 bg-indigo-300 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob animation-delay-2000"></div>
                 <div className="absolute -bottom-32 left-20 w-96 h-96 bg-blue-300 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob animation-delay-4000"></div>
             </div>
-
             <div className="bg-white/80 backdrop-blur-lg rounded-2xl shadow-xl w-full max-w-md p-8 relative z-10 border border-white/50">
                 <div className="text-center mb-10">
-                    <img
-                        src="/public/protap.png"
-                        alt="Protap Logo"
-                        className="w-20 h-20 mx-auto mb-4 object-contain"
-                    />
+                    <img src="/public/protap.png" alt="Protap Logo" className="w-20 h-20 mx-auto mb-4 object-contain" />
                     <h2 className="text-3xl font-bold text-gray-800">Welcome Back</h2>
                     <p className="text-gray-500 mt-2">Sign in to access your portal</p>
                 </div>
-
                 {error && (
-                    <div className="bg-red-50 text-red-600 p-3 rounded-lg mb-6 text-sm flex items-center justify-center">
-                        {error}
-                    </div>
+                    <div className="bg-red-50 text-red-600 p-3 rounded-lg mb-6 text-sm flex items-center justify-center">{error}</div>
                 )}
-
                 <form onSubmit={handleSubmit} className="space-y-6">
                     <div className="relative">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <FaUser className="text-gray-400" />
-                        </div>
-                        <input
-                            type="email"
-                            className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 hover:bg-white"
-                            placeholder="Email request"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            required
-                        />
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><FaUser className="text-gray-400" /></div>
+                        <input type="email" className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 hover:bg-white"
+                            placeholder="Email request" value={email} onChange={(e) => setEmail(e.target.value)} required />
                     </div>
-
                     <div className="relative">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <FaLock className="text-gray-400" />
-                        </div>
-                        <input
-                            type="password"
-                            className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 hover:bg-white"
-                            placeholder="Password"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            required
-                        />
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><FaLock className="text-gray-400" /></div>
+                        <input type="password" className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 hover:bg-white"
+                            placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} required />
                     </div>
-
-                    <button
-                        type="submit"
-                        className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-xl shadow-lg shadow-blue-600/30 transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98]"
-                    >
+                    <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-xl shadow-lg shadow-blue-600/30 transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98]">
                         Sign In
                     </button>
                 </form>
-
                 <div className="mt-8 text-center text-sm text-gray-500">
                     <p>Protected by Enterprise Grade Security</p>
                 </div>

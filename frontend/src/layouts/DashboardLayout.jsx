@@ -28,7 +28,7 @@ const DashboardLayout = ({ children, onSearch, searchValue }) => {
                 const token = localStorage.getItem('token');
                 if (!token) return;
 
-                const response = await api.get('/school/profile');
+                const response = await api.get('/school/');
                 if (response.data.success && response.data.data?.school?.theme) {
                     const { accentColor } = response.data.data.school.theme;
 
