@@ -14,11 +14,13 @@ export const createNotice = async (schoolId, userId, data, file) => {
         : (data.recipients || []);
 
     // Build attachment if file exists
-    // Cloudinary returns the full URL in file.path
+    // Cloudinary returns the full URL in file.path and public_id in file.filename
     const attachment = file ? {
-        filename: file.filename || file.public_id,
+        filename: file.filename, // Using Cloudinary public_id as filename for legacy consistency if needed
         originalName: file.originalname,
         path: file.path,
+        secure_url: file.path, 
+        public_id: file.filename, 
         size: file.size,
         mimetype: file.mimetype,
     } : null;
@@ -112,8 +114,9 @@ export const deleteNotice = async (schoolId, noticeId, userId) => {
     }
 
     // Clean up the attachment from Cloudinary
-    if (notice.attachment?.path) {
-        await deleteFromCloudinary(notice.attachment.path);
+    if (notice.attachment) {
+        const publicIdToDelete = notice.attachment.public_id || notice.attachment.path;
+        await deleteFromCloudinary(publicIdToDelete);
     }
 
     logger.info(`Notice deleted: ${noticeId}`);

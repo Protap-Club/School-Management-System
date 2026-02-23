@@ -7,10 +7,14 @@ import { ValidationError } from "../utils/customError.js";
 // --- Cloudinary Storage for School Logos ---
 const logoStorage = new CloudinaryStorage({
     cloudinary,
-    params: {
-        folder: 'protap/logos',
-        allowed_formats: ['jpg', 'jpeg', 'png', 'webp'],
-        transformation: [{ quality: 'auto', fetch_format: 'auto' }],
+    params: async (req, file) => {
+        // Namespace per school: schools/{schoolId}/logo
+        const folder = req.schoolId ? `schools/${req.schoolId}/logo` : 'schools/default/logo';
+        return {
+            folder,
+            allowed_formats: ['jpg', 'jpeg', 'png', 'webp'],
+            transformation: [{ quality: 'auto', fetch_format: 'auto' }],
+        };
     },
 });
 
@@ -27,7 +31,7 @@ const imageFilter = (req, file, cb) => {
 export const upload = multer({
     storage: logoStorage,
     fileFilter: imageFilter,
-    limits: { fileSize: 2 * 1024 * 1024 } // 2MB limit
+    limits: { fileSize: 2 * 1024 * 1024 } // 2MB limit for school logo
 });
 
 
@@ -35,7 +39,7 @@ export const upload = multer({
 const avatarStorage = new CloudinaryStorage({
     cloudinary,
     params: {
-        folder: 'protap/avatars',
+        folder: 'users/avatars', // Namespace for user avatars
         allowed_formats: ['jpg', 'jpeg', 'png', 'webp'],
         transformation: [{ width: 300, height: 300, crop: 'fill', gravity: 'face', quality: 'auto', fetch_format: 'auto' }],
     },
@@ -44,7 +48,7 @@ const avatarStorage = new CloudinaryStorage({
 export const avatarUpload = multer({
     storage: avatarStorage,
     fileFilter: imageFilter,
-    limits: { fileSize: 2 * 1024 * 1024 } // 2MB limit
+    limits: { fileSize: 1 * 1024 * 1024 } // 1MB limit for user avatars
 });
 
 

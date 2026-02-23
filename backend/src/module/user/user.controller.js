@@ -67,9 +67,11 @@ export const hardDeleteUsers = asyncHandler(async (req, res) => {
 // Upload user avatar
 export const uploadAvatar = asyncHandler(async (req, res) => {
     if (!req.file) throw new BadRequestError("No file uploaded");
-    // Cloudinary returns the full URL in req.file.path
+    // Cloudinary returns the full URL in req.file.path and public_id in req.file.filename
     const avatarUrl = req.file.path;
-    const result = await userService.updateAvatar(req.user._id, avatarUrl);
+    const avatarPublicId = req.file.filename;
+    
+    const result = await userService.updateAvatar(req.user._id, avatarUrl, avatarPublicId);
     res.status(200).json({ 
         success: true, 
         message: "Avatar uploaded", 

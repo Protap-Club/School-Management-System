@@ -163,16 +163,17 @@ export const toggleUserStatus = async (creator, userIds, isArchived) => {
 // };
 
 // UPDATE AVATAR
-export const updateAvatar = async (userId, avatarUrl) => {
+export const updateAvatar = async (userId, avatarUrl, avatarPublicId) => {
     const user = await User.findById(userId);
     if (!user) throw new NotFoundError("User not found");
 
-    const oldAvatar = user.avatarUrl;
+    const oldAvatarPublicId = user.avatarPublicId || user.avatarUrl; // Fallback for legacy URLs
     user.avatarUrl = avatarUrl;
+    user.avatarPublicId = avatarPublicId;
     await user.save();
 
     // Clean up old avatar from Cloudinary
-    if (oldAvatar) await deleteFromCloudinary(oldAvatar);
+    if (oldAvatarPublicId) await deleteFromCloudinary(oldAvatarPublicId);
 
     logger.info(`Avatar updated for user: ${userId}`);
     return { avatarUrl: user.avatarUrl };
