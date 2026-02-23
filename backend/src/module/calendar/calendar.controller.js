@@ -8,6 +8,21 @@ import {
 } from "./calendar.service.js";
 import asyncHandler from "../../utils/asyncHandler.js";
 
+
+/**
+ * Helper: Strip a calendar event down to only what the mobile app needs
+ * Students on mobile don't need createdBy, timestamps, etc.
+ */
+const toMobileEvent = (event) => ({
+    _id: event._id,
+    title: event.title,
+    start: event.start,
+    end: event.end,
+    allDay: event.allDay,
+    type: event.type,
+    description: event.description || null
+});
+
 /**
  * Helper: Check if the request is from the mobile app
  * Reads the 'x-platform' header sent by the mobile client
@@ -58,7 +73,7 @@ export const getEvents = asyncHandler(async (req, res) => {
     const result = await fetchCalendarEvents(req.query, schoolId);
 
     // Mobile: return streamlined response for student app
-    if (isMobilePlatform(req)) {
+    if (req.platform === "mobile") {
         return res.status(200).json({
             success: true,
             count: result.length,
@@ -86,7 +101,7 @@ export const getEventById = asyncHandler(async (req, res) => {
     const result = await getCalendarEventById(id);
 
     // Mobile: return streamlined response
-    if (isMobilePlatform(req)) {
+    if (req.platform === "mobile") {
         return res.status(200).json({
             success: true,
             data: toMobileEvent(result)

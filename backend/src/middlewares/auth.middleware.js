@@ -2,7 +2,7 @@ import jwt from "jsonwebtoken";
 import User from "../module/user/model/User.model.js";
 import { conf } from "../config/index.js";
 import logger from "../config/logger.js";
-import { NotFoundError, UnauthorizedError } from "../utils/customError.js";
+import { NotFoundError, UnauthorizedError, ForbiddenError } from "../utils/customError.js";
 
 const checkAuth = async (req, res, next) => {
     try {
@@ -14,7 +14,7 @@ const checkAuth = async (req, res, next) => {
         }
 
         const decoded = jwt.verify(token, conf.JWT_SECRET);
-        if (!decoded){
+        if (!decoded) {
             throw new UnauthorizedError("Invalid Token");
         }
 
@@ -29,13 +29,12 @@ const checkAuth = async (req, res, next) => {
 
         req.user = findUser;
 
-        // Attach platform from header
-        const platform = req.headers["x-platform"];
-        req.platform = platform === "mobile" ? "mobile" : "web";
+        // Attach platform from header (default to web)
+        req.platform = req.headers["x-platform"] === "mobile" ? "mobile" : "web";
+        req.schoolId = findUser.schoolId; // Attach schoolId directly for easier access
 
-        // Mobile Rule Guard
-        const MOBILE_ALLOWED_ROLES = ["TEACHER", "STUDENT"];
-        if (req.platform === "mobile" && !MOBILE_ALLOWED_ROLES.includes(req.user.role)) {
+        // Admin Access Guard for Mobile
+        if (req.platform === "mobile" && findUser.role === "ADMIN") {
             throw new ForbiddenError("Admin access is not available on mobile");
         }
         next();
