@@ -1,24 +1,24 @@
 // Timetable API Functions
 import api from '../../../lib/axios';
 
-// TimeSlot API - /api/v1/timeslots
+// TimeSlot API - /api/v1/timetables/slots
 export const getTimeSlots = async () => {
-    const response = await api.get('/timeslots');
+    const response = await api.get('/timetables/slots');
     return response.data;
 };
 
 export const createTimeSlot = async (data) => {
-    const response = await api.post('/timeslots', data);
+    const response = await api.post('/timetables/slots', data);
     return response.data;
 };
 
 export const updateTimeSlot = async ({ id, data }) => {
-    const response = await api.put(`/timeslots/${id}`, data);
+    const response = await api.put(`/timetables/slots/${id}`, data);
     return response.data;
 };
 
 export const deleteTimeSlot = async (id) => {
-    const response = await api.delete(`/timeslots/${id}`);
+    const response = await api.delete(`/timetables/slots/${id}`);
     return response.data;
 };
 
@@ -68,9 +68,9 @@ export const deleteEntry = async (entryId) => {
     return response.data;
 };
 
-// Teacher Schedule API - /api/v1/schedule/me
+// Teacher Schedule API - /api/v1/timetables/schedule/me
 export const getMySchedule = async () => {
-    const response = await api.get('/schedule/me');
+    const response = await api.get('/timetables/schedule/me');
     return response.data;
 };
 

@@ -2,11 +2,6 @@ import React from 'react';
 import { FaPlus, FaMapMarkerAlt, FaChalkboardTeacher } from 'react-icons/fa';
 import { DAYS_OF_WEEK } from '../../api/timetable';
 
-/**
- * TimetableGrid Component
- * Displays the timetable grid with days as columns and time slots as rows
- * Matches the reference design with stacked time display and full-width breaks
- */
 const TimetableGrid = ({
   entries = [],
   timeSlots = [],
@@ -15,11 +10,8 @@ const TimetableGrid = ({
   readOnly = false,
   showClass = false
 }) => {
-  // Helper to get slot identifier (works with both backend _id and default slotNumber)
   const getSlotId = (slot) => slot._id || slot.slotNumber;
 
-  // Helper to find entry for a specific day and time slot
-  // Handles both 'dayOfWeek' (class timetable) and 'day' (teacher schedule) properties
   const getEntry = (dayOfWeek, slot) => {
     const slotId = getSlotId(slot);
     return entries.find(
@@ -31,7 +23,6 @@ const TimetableGrid = ({
     );
   };
 
-  // Get teacher name - use embedded name if available, fallback to array lookup
   const getTeacherName = (teacherId) => {
     if (!teacherId) return 'Unassigned';
     // If teacherId has embedded name (from populated response), use it directly
@@ -41,8 +32,6 @@ const TimetableGrid = ({
     const teacher = teachers.find((t) => t._id === id);
     return teacher ? teacher.name : 'Unassigned';
   };
-
-  // Get class display from timetable
   const getClassDisplay = (entry) => {
     if (entry.timetableId) {
       const tt = entry.timetableId;
@@ -50,8 +39,6 @@ const TimetableGrid = ({
     }
     return '';
   };
-
-  // Format time to 12-hour format (e.g., "10:00" -> "10:00 AM")
   const formatTime = (time) => {
     if (!time) return '';
     const [hours, minutes] = time.split(':').map(Number);
@@ -63,7 +50,6 @@ const TimetableGrid = ({
   return (
     <div className="w-full">
       <div className="w-full border border-gray-200 rounded-xl overflow-hidden bg-white shadow-sm">
-        {/* Header Row */}
         <div className="grid grid-cols-[100px_repeat(6,1fr)] bg-gray-50 border-b border-gray-200">
           <div className="py-3 px-2 text-xs font-bold text-gray-500 uppercase tracking-wider text-center border-r border-gray-100">
             TIME
@@ -77,8 +63,6 @@ const TimetableGrid = ({
             </div>
           ))}
         </div>
-
-        {/* Time Slots */}
         {timeSlots.map((slot) => {
           const isBreak = slot.slotType === 'BREAK';
           const slotId = getSlotId(slot);
@@ -106,8 +90,6 @@ const TimetableGrid = ({
                   </span>
                 )}
               </div>
-
-              {/* Break Row - Full Width */}
               {isBreak ? (
                 <div className="py-4 flex items-center justify-center">
                   <span className="text-sm font-medium text-orange-400 uppercase tracking-widest">
@@ -115,7 +97,6 @@ const TimetableGrid = ({
                   </span>
                 </div>
               ) : (
-                /* Days Columns */
                 DAYS_OF_WEEK.map((day) => {
                   const entry = getEntry(day, slot);
 
@@ -150,7 +131,6 @@ const TimetableGrid = ({
                               )}
                             </div>
                           </div>
-
                           {entry.roomNumber && (
                             <div className="flex items-center text-xs text-gray-400 mt-1">
                               <FaMapMarkerAlt className="mr-1 text-[10px]" />
@@ -174,8 +154,6 @@ const TimetableGrid = ({
             </div>
           );
         })}
-
-        {/* Empty state if no time slots */}
         {timeSlots.length === 0 && (
           <div className="p-12 text-center text-gray-400">
             <p className="text-lg">No time slots defined yet.</p>
