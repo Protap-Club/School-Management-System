@@ -9,12 +9,6 @@ export const linkTagSchema = z.object({
 
 export const markAttendanceSchema = z.object({
     body: z.object({
-        nfcUid: z.string().nonempty({ message: "NFC UID is required" }),
-    }).optional(),
-    query: z.object({
-        nfcUid: z.string().nonempty({ message: "NFC UID is required" }),
-    }).optional(),
-}).refine(data => data.body?.nfcUid || data.query?.nfcUid, {
-    message: "NFC UID must be provided in either body or query",
-    path: ["nfcUid"],
+        nfcUid: z.string().min(1, "NFC UID is required"),
+    }),
 });

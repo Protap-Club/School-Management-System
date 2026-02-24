@@ -40,6 +40,7 @@ const commands = {
     // Utility commands
     "clear-attendance": () => import("./commands/clearAttendance.js"),
     "create-student": () => import("./commands/createStudent.js"),
+    "nfc": () => import("./commands/nfc.js"),
 };
 
 /**
@@ -61,6 +62,7 @@ AVAILABLE COMMANDS:
   timetable                 Seed full timetable for DPS school (slots, classes, entries)
   clear-attendance          Clears today's attendance records.
   create-student --email    Creates a specific student with optional NFC tag for testing.
+  nfc                       Link NFC tags to students (data in seed/data/nfcTags.js)
   help                      Show this help message
 
 OPTIONS (for create-student):

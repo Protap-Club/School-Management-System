@@ -13,12 +13,14 @@ const router = express.Router();
 // Public
 router.use("/auth", authRoutes);
 
+// NFC device endpoint — uses its own device-key auth, must come before global checkAuth
+router.use("/attendance", attendanceRoutes);
+
 // Protected (all below need auth)
 router.use(checkAuth);
 
 router.use("/users", userRoutes);
 router.use("/school", schoolRoutes);
-router.use("/attendance", attendanceRoutes);
 router.use("/notices", noticeRoutes);
 router.use("/calendar", calendarRoutes);
 router.use("/timetables", timetableRoutes);

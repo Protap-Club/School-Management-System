@@ -8,8 +8,8 @@ import { linkTagSchema, markAttendanceSchema } from "./attendence.validation.js"
 
 const router = express.Router();
 
-router.get("/today", getTodayAttendance);
-router.post("/nfc/link", checkRole([USER_ROLES.ADMIN, USER_ROLES.TEACHER]), validate(linkTagSchema), linkTag);
+router.get("/today", checkAuth, getTodayAttendance);
+router.post("/nfc/link", checkAuth, checkRole([USER_ROLES.ADMIN, USER_ROLES.TEACHER]), validate(linkTagSchema), linkTag);
 router.post(
     "/nfc",
     validate(markAttendanceSchema),

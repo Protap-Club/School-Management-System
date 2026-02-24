@@ -29,11 +29,9 @@ export const markAttendance = asyncHandler(async (req, res) => {
         throw new BadRequestError("NFCID is Required");
     }
 
-    // Mark attendance in service
-    const schoolId = req.user ? req.user.schoolId : undefined;
-    if (!schoolId) {
-        throw new BadRequestError("Schoolid is required");
-    }
+    // schoolId is optional — service resolves it from the NFC-linked student record
+    // When using x-device-key bypass, req.user is undefined, which is fine
+    const schoolId = req.user?.schoolId;
 
     const result = await nfcService.markAttendanceByNfc(nfcUid, schoolId);
 
