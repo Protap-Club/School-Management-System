@@ -29,19 +29,7 @@ const toMobileEvent = (event) => ({
  */
 const isMobilePlatform = (req) => req.headers['x-platform'] === 'mobile';
 
-/**
- * Helper: Strip a calendar event down to only what the mobile app needs
- * Students on mobile don't need createdBy, timestamps, etc.
- */
-const toMobileEvent = (event) => ({
-    _id: event._id,
-    title: event.title,
-    start: event.start,
-    end: event.end,
-    allDay: event.allDay,
-    type: event.type,
-    description: event.description || null
-});
+
 
 /**
  * @desc    Create a new calendar event
