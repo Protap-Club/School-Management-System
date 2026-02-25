@@ -1,7 +1,6 @@
 import express from "express";
 import {
     createTimetable,
-    getTimetables,
     getTimetableById,
     deleteTimetable,
     createTimeSlot,
@@ -9,7 +8,6 @@ import {
     updateTimeSlot,
     deleteTimeSlot,
     addEntry,
-    syncTimetableEntries,
     updateEntry,
     deleteEntry,
     getTeacherSchedule,
@@ -27,7 +25,6 @@ import {
     updateTimeSlotSchema,
     timeSlotIdParamsSchema,
     createEntrySchema,
-    createBulkEntriesSchema,
     updateEntrySchema,
     entryIdParamsSchema,
     teacherScheduleParamsSchema,
@@ -38,24 +35,22 @@ const router = express.Router();
 router.use(extractSchoolId);
 router.use(requireFeature("timetable"));
 
-// Slots
+// Time Slots (bell schedule)
 router.get("/slots", getTimeSlots);
 router.post("/slots", checkRole([USER_ROLES.ADMIN]), validate(createTimeSlotSchema), createTimeSlot);
 router.put("/slots/:id", checkRole([USER_ROLES.ADMIN]), validate(updateTimeSlotSchema), updateTimeSlot);
 router.delete("/slots/:id", checkRole([USER_ROLES.ADMIN]), validate(timeSlotIdParamsSchema), deleteTimeSlot);
 
-// Schedule
+// Schedule views
 router.get("/schedule/me", checkRole([USER_ROLES.TEACHER, USER_ROLES.STUDENT]), getMyTimetable);
 router.get("/schedule/:teacherId", checkRole([USER_ROLES.ADMIN]), validate(teacherScheduleParamsSchema), getTeacherSchedule);
 
-// Entries
+// Timetable entries (individual periods)
 router.post("/:id/entries", checkRole([USER_ROLES.ADMIN]), validate(createEntrySchema), addEntry);
-router.post("/:id/entries/sync", checkRole([USER_ROLES.ADMIN]), validate(createBulkEntriesSchema), syncTimetableEntries);
 router.patch("/entries/:entryId", checkRole([USER_ROLES.ADMIN]), validate(updateEntrySchema), updateEntry);
 router.delete("/entries/:entryId", checkRole([USER_ROLES.ADMIN]), validate(entryIdParamsSchema), deleteEntry);
 
 // Timetable CRUD
-router.get("/", getTimetables);
 router.post("/", checkRole([USER_ROLES.ADMIN]), validate(createTimetableSchema), createTimetable);
 router.get("/:id", validate(timetableIdParamsSchema), getTimetableById);
 router.delete("/:id", checkRole([USER_ROLES.ADMIN]), validate(timetableIdParamsSchema), deleteTimetable);
