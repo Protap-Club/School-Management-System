@@ -35,10 +35,7 @@ export const updateTimeSlot = asyncHandler(async (req, res) => {
 
 export const deleteTimeSlot = asyncHandler(async (req, res) => {
     await timetableService.deleteTimeSlot(req.schoolId, req.params.id);
-    res.status(200).json({
-        success: true,
-        message: "Time slot deleted"
-    });
+    res.status(204).end();
 });
 
 // Timetable Controllers
@@ -76,10 +73,7 @@ export const getTimetableById = asyncHandler(async (req, res) => {
 // Delete a timetable
 export const deleteTimetable = asyncHandler(async (req, res) => {
     await timetableService.deleteTimetable(req.schoolId, req.params.id);
-    res.status(200).json({
-        success: true,
-        message: "Timetable deleted"
-    });
+    res.status(204).end();
 });
 
 // Entry Controllers
@@ -133,10 +127,7 @@ export const updateEntry = asyncHandler(async (req, res) => {
 // Delete a single entry
 export const deleteEntry = asyncHandler(async (req, res) => {
     await timetableService.deleteEntry(req.schoolId, req.params.entryId);
-    res.status(200).json({
-        success: true,
-        message: "Entry deleted"
-    });
+    res.status(204).end();
 });
 
 // Schedule Controllers

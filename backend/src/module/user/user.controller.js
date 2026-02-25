@@ -14,22 +14,19 @@ export const createUser = asyncHandler(async (req, res) => {
 });
 
 // Get list of users (filters handled by service)
-// Get list of users (filters handled by service)
 export const getUsers = asyncHandler(async (req, res) => {
     const filters = { ...req.query };
-    if (req.params.id) {
-        filters.userIds = req.params.id;
-    }
     const result = await userService.getUsers(req.user, filters);
 
-    // If getting single user by ID, return just that user object (or 404 handled by service/empty list check)
-    if (req.params.id) {
-        if (result.users.length === 0) {
-            return res.status(404).json({ success: false, message: "User not found" });
-        }
-        return res.status(200).json({ success: true, data: result.users[0] });
-    }
+    res.status(200).json({
+        success: true,
+        data: result
+    });
+});
 
+// Get a single user by ID
+export const getUserById = asyncHandler(async (req, res) => {
+    const result = await userService.getUserById(req.user, req.params.id);
     res.status(200).json({
         success: true,
         data: result
@@ -51,16 +48,19 @@ export const toggleUserStatus = asyncHandler(async (req, res) => {
     logger.info(`User status toggled: ${ids.length} users, archived=${archivedStatus}`);
 });
 
-// Permanently delete users (bulk and single supported)
-export const hardDeleteUsers = asyncHandler(async (req, res) => {
-    const ids = Array.isArray(req.body.userIds) ? req.body.userIds : [req.params.id];
+// Permanently delete a single user
+export const hardDeleteUser = asyncHandler(async (req, res) => {
+    const result = await userService.hardDeleteUsers(req.user, [req.params.id]);
+    logger.info(`User deleted permanently: ${req.params.id}`);
+    res.status(204).end();
+});
+
+// Permanently delete users in bulk
+export const batchDeleteUsers = asyncHandler(async (req, res) => {
+    const ids = req.body.userIds;
     const result = await userService.hardDeleteUsers(req.user, ids);
-    res.status(200).json({
-        success: true,
-        message: "Users permanently deleted",
-        data: result
-    });
     logger.info(`Users deleted permanently: ${result.deleteResult.deletedCount}`);
+    res.status(204).end();
 });
 
 export const userProfile = asyncHandler(async (req, res) => {
@@ -73,7 +73,6 @@ export const userProfile = asyncHandler(async (req, res) => {
 
     res.status(200).json({
         success: true,
-        message: "User Profile Fetched Successfully",
         data: result
     });
 });

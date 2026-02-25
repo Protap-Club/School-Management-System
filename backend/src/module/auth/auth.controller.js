@@ -2,6 +2,7 @@ import * as authService from "./auth.service.js";
 import asyncHandler from "../../utils/asyncHandler.js";
 import { conf } from "../../config/index.js";
 import logger from "../../config/logger.js";
+import { UnauthorizedError } from "../../utils/customError.js";
 
 // Shared cookie options for the refresh token
 const REFRESH_COOKIE_OPTIONS = {
@@ -42,6 +43,10 @@ export const login = asyncHandler(async (req, res) => {
 // Refresh access token using the HttpOnly refresh cookie
 export const refresh = asyncHandler(async (req, res) => {
     const oldRefreshToken = req.cookies.refreshToken;
+
+    if (!oldRefreshToken) {
+        throw new UnauthorizedError("Refresh token cookie is missing");
+    }
 
     const result = await authService.refreshAccessToken(oldRefreshToken);
 
