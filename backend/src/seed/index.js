@@ -1,90 +1,58 @@
 #!/usr/bin/env node
-/**
- * ═══════════════════════════════════════════════════════════════
- * Seed Manager - Centralized Database Seeding & Utility CLI
- * ═══════════════════════════════════════════════════════════════
- *
- * This script provides a command-line interface for managing various
- * database seeding and maintenance tasks. It connects to the database,
- * dispatches commands, and ensures proper disconnection.
- *
- * Commands are dynamically loaded from the './commands' directory.
- *
- * Usage:
- *   node src/seed/index.js <command> [options]
- *
- * Examples:
- *   node src/seed/index.js demo
- *   node src/seed/index.js quick
- *   node src/seed/index.js cleanup
- *   node src/seed/index.js clear-attendance
- *   node src/seed/index.js create-student --name "Vraj" --email "vraj@test.com" --nfc "12345"
- *   node src/seed/index.js help
- * ═══════════════════════════════════════════════════════════════
- */
+// Seed CLI — run `node src/seed/index.js <command>` or `node src/seed/index.js help`
+import { connectDB, disconnectDB } from "./lib/db.js";
+import logger from "../config/logger.js";
 
-import { connectDB, disconnectDB } from "./lib/db.js"; // Database connection utilities
-import logger from "../config/logger.js"; // Centralized application logger
-
-// --- Dynamic Command Loader ---
-// Map of available commands and their corresponding module paths.
-// This allows for easy extension by adding new files to the 'commands' directory.
+// Available commands mapped to their module loaders
 const commands = {
-    // Core seeding commands
-    "demo": () => import("./commands/demo.js"),
-    "quick": () => import("./commands/quick.js"),
-    "cleanup": () => import("./commands/cleanup.js"),
-    "holidays": () => import("./commands/holidays.js"),
-    "timetable": () => import("./commands/timetable.js"),
-
-    // Utility commands
-    "clear-attendance": () => import("./commands/clearAttendance.js"),
-    "create-student": () => import("./commands/createStudent.js"),
+    // Navrachna seed commands (use seed-all to run everything)
+    "seed-all": () => import("./commands/seedAll.js"),
+    "seed-school": () => import("./commands/seedSchool.js"),
+    "seed-users": () => import("./commands/seedUsers.js"),
+    "seed-profiles": () => import("./commands/seedProfiles.js"),
+    "seed-timetable": () => import("./commands/seedTimetable.js"),
+    "seed-attendance": () => import("./commands/seedAttendance.js"),
+    "seed-calendar": () => import("./commands/seedCalendar.js"),
+    "seed-notices": () => import("./commands/seedNotices.js"),
 };
 
-/**
- * Displays the help message for the CLI.
- */
 const showHelp = () => {
     logger.info(`
-═══════════════════════════════════════════════════════════════
-🌱 Seed Manager - Database Seeding Tool
-═══════════════════════════════════════════════════════════════
+═══════════════════════════════════════════════════════════
+  Seed CLI — Database Seeding Tool
+═══════════════════════════════════════════════════════════
 
 USAGE:
-  node src/seed/index.js <command> [options]
+  node src/seed/index.js <command>
 
-AVAILABLE COMMANDS:
-  demo                      Full demo setup (2 schools + various users)
-  quick                     Quick test setup (1 school, minimal users for testing)
-  cleanup                   Remove all demo data (DPS, DAV, TEST, IITD, IIMA)
-  timetable                 Seed full timetable for DPS school (slots, classes, entries)
-  clear-attendance          Clears today's attendance records.
-  create-student --email    Creates a specific student with optional NFC tag for testing.
-  help                      Show this help message
+COMMANDS:
+  seed-all            Runs ALL seed commands below in order (one-shot full setup)
+  seed-school         Creates the Navrachna school
+  seed-users          Creates super admin, admins, teachers, 1080 students
+  seed-profiles       Creates admin, teacher, and student profiles
+  seed-timetable      Creates time slots, timetables, and timetable entries
+  seed-attendance     Creates sample attendance for class 10-A
+  seed-calendar       Creates holidays, exams, and school events
+  seed-notices        Creates notices and notice groups
+  help                Show this help message
 
-OPTIONS (for create-student):
-  --name <string>           Student's full name (required)
-  --email <string>          Student's email (required)
-  --nfc <string>            Optional NFC UID to link to the student
+DEPENDENCY ORDER (if running individually):
+  seed-school → seed-users → seed-profiles → seed-timetable / seed-attendance / seed-calendar / seed-notices
 
-Remember to check 'backend/src/seed/data/demo.js' for default credentials if running 'demo' or 'quick'.
-═══════════════════════════════════════════════════════════════
+DEFAULT PASSWORD: Demo@123  (for all seeded users)
+═══════════════════════════════════════════════════════════
 `);
 };
 
-// --- Main CLI Execution Logic ---
 const main = async () => {
-    const args = process.argv.slice(2); // Get command-line arguments (excluding 'node' and script path)
+    const args = process.argv.slice(2);
     const commandName = args[0]?.toLowerCase();
 
-    // Show help if no command or 'help' command is provided.
     if (!commandName || commandName === "help") {
         showHelp();
         return;
     }
 
-    // Check if the requested command exists.
     if (!commands[commandName]) {
         logger.error(`Unknown command: "${commandName}"`);
         showHelp();
@@ -92,23 +60,18 @@ const main = async () => {
     }
 
     try {
-        // Connect to the database before executing any command.
         await connectDB();
 
-        // Dynamically import and execute the command module.
-        const commandModule = await commands[commandName]();
-        if (typeof commandModule.default === 'function') {
-            await commandModule.default(args.slice(1)); // Pass remaining arguments to the command handler
+        const mod = await commands[commandName]();
+        if (typeof mod.default === "function") {
+            await mod.default(args.slice(1));
         } else {
-            logger.error(`Command module for "${commandName}" did not export a default function.`);
+            logger.error(`Command "${commandName}" did not export a default function.`);
         }
-
     } catch (error) {
-        logger.error({ err: error }, `Error executing command "${commandName}": ${error.message}`);
-        // Ensure process exits with a non-zero code on error.
+        logger.error(`Error in "${commandName}": ${error.message}`);
         process.exitCode = 1;
     } finally {
-        // Always disconnect from the database.
         await disconnectDB();
     }
 };
