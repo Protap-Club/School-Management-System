@@ -17,6 +17,7 @@ import { checkRole } from "../../middlewares/role.middleware.js";
 import { USER_ROLES } from "../../constants/userRoles.js";
 import extractSchoolId from "../../middlewares/school.middleware.js";
 import { requireFeature } from "../../middlewares/feature.middleware.js";
+import checkWebOnly from "../../middlewares/checkWebOnly.js";
 import { validate } from "../../middlewares/validation.middleware.js";
 import {
     createTimetableSchema,
@@ -37,22 +38,22 @@ router.use(requireFeature("timetable"));
 
 // Time Slots (bell schedule)
 router.get("/slots", getTimeSlots);
-router.post("/slots", checkRole([USER_ROLES.ADMIN]), validate(createTimeSlotSchema), createTimeSlot);
-router.put("/slots/:id", checkRole([USER_ROLES.ADMIN]), validate(updateTimeSlotSchema), updateTimeSlot);
-router.delete("/slots/:id", checkRole([USER_ROLES.ADMIN]), validate(timeSlotIdParamsSchema), deleteTimeSlot);
+router.post("/slots", checkWebOnly, checkRole([USER_ROLES.ADMIN]), validate(createTimeSlotSchema), createTimeSlot);
+router.put("/slots/:id", checkWebOnly, checkRole([USER_ROLES.ADMIN]), validate(updateTimeSlotSchema), updateTimeSlot);
+router.delete("/slots/:id", checkWebOnly, checkRole([USER_ROLES.ADMIN]), validate(timeSlotIdParamsSchema), deleteTimeSlot);
 
-// Schedule views
+// Schedule views (mobile-accessible)
 router.get("/schedule/me", checkRole([USER_ROLES.TEACHER, USER_ROLES.STUDENT]), getMyTimetable);
-router.get("/schedule/:teacherId", checkRole([USER_ROLES.ADMIN]), validate(teacherScheduleParamsSchema), getTeacherSchedule);
+router.get("/schedule/:teacherId", checkWebOnly, checkRole([USER_ROLES.ADMIN]), validate(teacherScheduleParamsSchema), getTeacherSchedule);
 
-// Timetable entries (individual periods)
-router.post("/:id/entries", checkRole([USER_ROLES.ADMIN]), validate(createEntrySchema), addEntry);
-router.patch("/entries/:entryId", checkRole([USER_ROLES.ADMIN]), validate(updateEntrySchema), updateEntry);
-router.delete("/entries/:entryId", checkRole([USER_ROLES.ADMIN]), validate(entryIdParamsSchema), deleteEntry);
+// Timetable entries (web-only write ops)
+router.post("/:id/entries", checkWebOnly, checkRole([USER_ROLES.ADMIN]), validate(createEntrySchema), addEntry);
+router.patch("/entries/:entryId", checkWebOnly, checkRole([USER_ROLES.ADMIN]), validate(updateEntrySchema), updateEntry);
+router.delete("/entries/:entryId", checkWebOnly, checkRole([USER_ROLES.ADMIN]), validate(entryIdParamsSchema), deleteEntry);
 
 // Timetable CRUD
-router.post("/", checkRole([USER_ROLES.ADMIN]), validate(createTimetableSchema), createTimetable);
+router.post("/", checkWebOnly, checkRole([USER_ROLES.ADMIN]), validate(createTimetableSchema), createTimetable);
 router.get("/:id", validate(timetableIdParamsSchema), getTimetableById);
-router.delete("/:id", checkRole([USER_ROLES.ADMIN]), validate(timetableIdParamsSchema), deleteTimetable);
+router.delete("/:id", checkWebOnly, checkRole([USER_ROLES.ADMIN]), validate(timetableIdParamsSchema), deleteTimetable);
 
 export default router;

@@ -1,7 +1,9 @@
 import User from "./model/User.model.js";
+import TeacherProfile from "./model/TeacherProfile.model.js";
 import { PROFILE_CONFIG } from "../../config/profiles.js";
 import { sendCredentialsEmail } from "../../utils/email.util.js";
-import { BadRequestError, NotFoundError, ConflictError } from "../../utils/customError.js";
+import { BadRequestError, NotFoundError, ConflictError, ForbiddenError } from "../../utils/customError.js";
+import { USER_ROLES, canManageRole } from "../../constants/userRoles.js";
 
 // Helper to build a query based on who is asking (The Filter Factory)
 const buildAccessQuery = (creator, filters = {}) => {
@@ -19,9 +21,26 @@ const buildAccessQuery = (creator, filters = {}) => {
     query.isArchived = isArchived !== undefined ? isArchived : false;
 
     if (name) query.name = { $regex: name, $options: "i" };
-    if (role && role !== 'all') query.role = role;
-    // Only default to students for teachers if no explicit role was requested
-    else if (creator.role === 'teacher') query.role = 'student';
+
+    // Role-based scoping: what roles can you SEE?
+    if (role && role !== 'all') {
+        query.role = role;
+    } else {
+        // No explicit role filter — scope by the requester's role
+        switch (creator.role) {
+            case USER_ROLES.TEACHER:
+                query.role = USER_ROLES.STUDENT;
+                break;
+            case USER_ROLES.ADMIN:
+                query.role = { $in: [USER_ROLES.TEACHER, USER_ROLES.STUDENT] };
+                break;
+            case USER_ROLES.SUPER_ADMIN:
+                query.role = { $in: [USER_ROLES.ADMIN, USER_ROLES.TEACHER, USER_ROLES.STUDENT] };
+                break;
+            default:
+                query.role = USER_ROLES.STUDENT;
+        }
+    }
 
     return query;
 };
@@ -33,6 +52,10 @@ export const createUser = async (creator, userData) => {
     // Ensure name is present
     if (!name) throw new BadRequestError("Name is required");
 
+    // Hierarchy check: creator can only create roles below their own
+    if (!canManageRole(creator.role, role)) {
+        throw new ForbiddenError(`You cannot create a user with role '${role}'. You can only create roles below your own.`);
+    }
     // Determine correct school context - use provided schoolId or fallback to creator's schoolId
     const targetSchoolId = userData.schoolId || creator.schoolId;
 
@@ -89,6 +112,37 @@ export const getUsers = async (creator, filters = {}) => {
     const { page = 0, pageSize = 25, ...queryFilters } = filters;
     const query = buildAccessQuery(creator, queryFilters);
 
+    // For teachers: restrict to students from their assigned classes only
+    if (creator.role === USER_ROLES.TEACHER && (query.role === USER_ROLES.STUDENT || !queryFilters.role)) {
+        const teacherProfile = await TeacherProfile.findOne({ userId: creator._id })
+            .select("assignedClasses")
+            .lean();
+
+        if (teacherProfile?.assignedClasses?.length) {
+            // Build $or conditions for each assigned class (standard + section)
+            const classConditions = teacherProfile.assignedClasses.map(cls => ({
+                "profile.standard": cls.standard,
+                "profile.section": cls.section
+            }));
+
+            // We need to use aggregation or post-filter via studentProfile
+            // First, get student IDs from StudentProfile that match the teacher's classes
+            const { default: StudentProfile } = await import("./model/StudentProfile.model.js");
+            const matchingStudentProfiles = await StudentProfile.find({
+                schoolId: creator.schoolId,
+                $or: teacherProfile.assignedClasses.map(cls => ({
+                    standard: cls.standard,
+                    section: cls.section
+                }))
+            }).select("userId").lean();
+
+            const allowedStudentIds = matchingStudentProfiles.map(sp => sp.userId);
+            query._id = query._id
+                ? { $in: allowedStudentIds.filter(id => query._id.$in?.includes(id.toString())) }
+                : { $in: allowedStudentIds };
+        }
+    }
+
     // Get total count for pagination
     const totalCount = await User.countDocuments(query);
 
@@ -103,6 +157,7 @@ export const getUsers = async (creator, filters = {}) => {
         .lean();
 
     return {
+        totalCount,
         users: users.map(u => ({
             _id: u._id,
             name: u.name,
@@ -113,11 +168,32 @@ export const getUsers = async (creator, filters = {}) => {
             profile: u.studentProfile || u.teacherProfile
         })),
         pagination: {
-            totalCount,
             page: Number(page),
             pageSize: Number(pageSize),
             totalPages: Math.ceil(totalCount / Number(pageSize))
         }
+    };
+};
+
+// GET MY PROFILE (for mobile — teacher/student self-view)
+export const getMyProfile = async (userId) => {
+    const user = await User.findById(userId)
+        .select("-password")
+        .populate("schoolId", "name code")
+        .populate("studentProfile")
+        .populate("teacherProfile")
+        .lean();
+
+    if (!user) throw new NotFoundError("User not found");
+
+    return {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        schoolId: user.schoolId,
+        isActive: user.isActive,
+        profile: user.studentProfile || user.teacherProfile || user.adminProfile || null
     };
 };
 

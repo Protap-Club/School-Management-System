@@ -14,7 +14,6 @@ export const createUser = asyncHandler(async (req, res) => {
 });
 
 // Get list of users (filters handled by service)
-// Get list of users (filters handled by service)
 export const getUsers = asyncHandler(async (req, res) => {
     const filters = { ...req.query };
     if (req.params.id) {
@@ -30,6 +29,15 @@ export const getUsers = asyncHandler(async (req, res) => {
         return res.status(200).json({ success: true, data: result.users[0] });
     }
 
+    res.status(200).json({
+        success: true,
+        data: result
+    });
+});
+
+// Get my own profile (for mobile — teacher/student self-view)
+export const getMyProfile = asyncHandler(async (req, res) => {
+    const result = await userService.getMyProfile(req.user._id);
     res.status(200).json({
         success: true,
         data: result

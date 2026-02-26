@@ -2,7 +2,8 @@ import jwt from "jsonwebtoken";
 import User from "../module/user/model/User.model.js";
 import { conf } from "../config/index.js";
 import logger from "../config/logger.js";
-import { NotFoundError, UnauthorizedError } from "../utils/customError.js";
+import { NotFoundError, UnauthorizedError, ForbiddenError } from "../utils/customError.js";
+import { USER_ROLES } from "../constants/userRoles.js";
 
 const checkAuth = async (req, res, next) => {
     try {
@@ -14,7 +15,7 @@ const checkAuth = async (req, res, next) => {
         }
 
         const decoded = jwt.verify(token, conf.JWT_SECRET);
-        if (!decoded){
+        if (!decoded) {
             throw new UnauthorizedError("Invalid Token");
         }
 
@@ -34,7 +35,7 @@ const checkAuth = async (req, res, next) => {
         req.platform = platform === "mobile" ? "mobile" : "web";
 
         // Mobile Rule Guard
-        const MOBILE_ALLOWED_ROLES = ["TEACHER", "STUDENT"];
+        const MOBILE_ALLOWED_ROLES = [USER_ROLES.TEACHER, USER_ROLES.STUDENT];
         if (req.platform === "mobile" && !MOBILE_ALLOWED_ROLES.includes(req.user.role)) {
             throw new ForbiddenError("Admin access is not available on mobile");
         }
