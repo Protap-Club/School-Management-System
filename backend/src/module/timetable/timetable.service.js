@@ -45,28 +45,12 @@ export const deleteTimeSlot = async (schoolId, id) => {
     const inUse = await TimetableEntry.exists({ timeSlotId: id });
     if (inUse) throw new ConflictError("TimeSlot is currently in use");
 
-    await TimeSlot.findOneAndDelete({ _id: id, schoolId });
+    const slot = await TimeSlot.findOneAndDelete({ _id: id, schoolId });
+    if (!slot) throw new NotFoundError("TimeSlot not found");
     logger.info(`TimeSlot deleted: ${id}`);
 };
 
 // TIMETABLE SERVICES
-export const getTimetables = async (schoolId, teacherId = null) => {
-    // If teacher, show only timetables they're assigned to
-    if (teacherId) {
-        const entryIds = await TimetableEntry.distinct('timetableId', {
-            schoolId,
-            teacherId
-        });
-        return await Timetable.find({ _id: { $in: entryIds } })
-            .sort({ standard: 1, section: 1 })
-            .lean();
-    }
-
-    // Admin sees all
-    return await Timetable.find({ schoolId })
-        .sort({ standard: 1, section: 1 })
-        .lean();
-};
 
 export const getTimetableById = async (schoolId, id) => {
     const timetable = await Timetable.findOne({ _id: id, schoolId }).lean();
@@ -97,13 +81,19 @@ export const createTimetable = async (schoolId, data) => {
 };
 
 export const deleteTimetable = async (schoolId, id) => {
+    const timetable = await Timetable.findOne({ _id: id, schoolId });
+    if (!timetable) throw new NotFoundError("Timetable not found");
+
     await TimetableEntry.deleteMany({ timetableId: id });
-    await Timetable.findOneAndDelete({ _id: id, schoolId });
+    await Timetable.deleteOne({ _id: id, schoolId });
     logger.info(`Timetable deleted: ${id}`);
 };
 
 // ENTRY SERVICES
 export const createEntries = async (schoolId, timetableId, entries) => {
+    const timetable = await Timetable.findOne({ _id: timetableId, schoolId });
+    if (!timetable) throw new NotFoundError("Timetable not found");
+
     const created = [];
     const failed = [];
 
@@ -185,8 +175,32 @@ export const updateEntry = async (schoolId, id, updates, userId, userRole) => {
 };
 
 export const deleteEntry = async (schoolId, id) => {
-    await TimetableEntry.findOneAndDelete({ _id: id, schoolId });
+    const entry = await TimetableEntry.findOneAndDelete({ _id: id, schoolId });
+    if (!entry) throw new NotFoundError("Entry not found");
     logger.info(`Entry deleted: ${id}`);
+};
+
+// TEACHER SCHEDULE
+export const getTeacherSchedule = async (schoolId, teacherId) => {
+    const entries = await TimetableEntry.find({ schoolId, teacherId })
+        .populate("timetableId", "standard section academicYear")
+        .populate("timeSlotId", "slotNumber startTime endTime slotType")
+        .sort({ dayOfWeek: 1 })
+        .lean();
+
+    if (!entries.length) throw new NotFoundError("No schedule found for this teacher");
+
+    // Group by day
+    const sorted = {};
+    DAYS_OF_WEEK.forEach(day => { sorted[day] = []; });
+    entries.forEach(entry => {
+        if (sorted[entry.dayOfWeek]) sorted[entry.dayOfWeek].push(entry);
+    });
+    DAYS_OF_WEEK.forEach(day => {
+        sorted[day].sort((a, b) => (a.timeSlotId?.slotNumber || 0) - (b.timeSlotId?.slotNumber || 0));
+    });
+
+    return sorted;
 };
 
 
@@ -211,7 +225,7 @@ export const getUserTimetable = async (schoolId, userId, role, platform) => {
             academicYear: new Date().getFullYear()
         }).lean();
 
-        if (!timetable) throw new NotFoundError("No timetable found for your class this year");;
+        if (!timetable) throw new NotFoundError("No timetable found for your class this year");
         query.timetableId = timetable._id;
     } else {
         throw new ForbiddenError("Only teachers and students can access timetable");

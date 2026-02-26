@@ -29,14 +29,14 @@ const corsOptions = {
     origin: ['http://localhost:5173', 'http://localhost:8081'], // Add frontend URL here
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization']
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-platform']
 };
 
 // WebSocket (Socket.io) Setup 
 // Setting up real-time communication for things like live attendance updates.
 const io = initSocket(server, corsOptions);
 
-// Store io instance on the app object
+// Store io instance on the app object to make it accessible in request handlers
 app.set('io', io);
 
 
@@ -46,17 +46,13 @@ app.use(cookieParser());     // Parse cookies (needed for refresh tokens)
 app.use(express.json()); // Parses incoming JSON payloads
 app.use(express.text({ type: 'text/plain' })); // Let's receive plain text for certain NFC readers
 
-// Store io instance on the app object to make it accessible in request handlers
-app.set('io', io);
-
-
 // Static File Serving 
 // Making the 'uploads' and 'resource' directories publicly accessible.
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 app.use('/resource', express.static(path.join(__dirname, '../resource')));
 
 
-// Response Logger (temporary - for testing)
+// Response Logger
 app.use((req, res, next) => {
     const start = Date.now();
     const originalJson = res.json.bind(res);
@@ -68,7 +64,6 @@ app.use((req, res, next) => {
             url: req.originalUrl,
             status: res.statusCode,
             duration: `${duration}ms`,
-            body: JSON.stringify(body).substring(0, 500),
         });
         return originalJson(body);
     };

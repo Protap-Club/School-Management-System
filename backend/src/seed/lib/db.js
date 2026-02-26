@@ -1,40 +1,18 @@
-// Seeder Database Utility
-// Handles connecting to and disconnecting from MongoDB for seeding scripts.
+// DB connect/disconnect helpers for the seed CLI
+import mongoose from "mongoose";
+import dotenv from "dotenv";
+import { resolve, dirname } from "path";
+import { fileURLToPath } from "url";
 
-import mongoose from 'mongoose';
-import { conf } from '../../config/index.js';
-import logger from '../../config/logger.js';
+const __dir = dirname(fileURLToPath(import.meta.url));
+dotenv.config({ path: resolve(__dir, "../../../.env") });
 
-/**
- * Establishes a connection to the MongoDB database using the URI from config.
- */
 export const connectDB = async () => {
-    try {
-        if (mongoose.connection.readyState === 1) {
-            logger.info('Already connected to MongoDB.');
-            return;
-        }
-        logger.info('Connecting to MongoDB...');
-        await mongoose.connect(conf.MONGO_URI, { dbName: "Protap" });
-        logger.info('MongoDB connected successfully.');
-    } catch (error) {
-        logger.error({ err: error }, 'MongoDB connection error:');
-        process.exit(1);
-    }
+    await mongoose.connect(process.env.MONGO_URI, { dbName: "Protap" });
+    console.log(`DB connected  →  ${mongoose.connection.name}`);
 };
 
-/**
- * Disconnects from the MongoDB database.
- */
 export const disconnectDB = async () => {
-    try {
-        if (mongoose.connection.readyState === 0) {
-            logger.info('Already disconnected from MongoDB.');
-            return;
-        }
-        await mongoose.disconnect();
-        logger.info('MongoDB disconnected successfully.');
-    } catch (error) {
-        logger.error({ err: error }, 'Error disconnecting from MongoDB:');
-    }
+    await mongoose.disconnect();
+    console.log("DB disconnected");
 };

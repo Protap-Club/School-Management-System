@@ -54,16 +54,6 @@ export const createTimetable = asyncHandler(async (req, res) => {
     logger.info(`Timetable created: ${result._id}`);
 });
 
-// Get all timetables (Admin sees all, Teacher sees assigned)
-export const getTimetables = asyncHandler(async (req, res) => {
-    const teacherId = req.user.role === USER_ROLES.TEACHER ? req.user._id : null;
-    const result = await timetableService.getTimetables(req.schoolId, teacherId);
-    res.status(200).json({
-        success: true,
-        data: result
-    });
-});
-
 // Get specific timetable with entries
 export const getTimetableById = asyncHandler(async (req, res) => {
     const result = await timetableService.getTimetableById(req.schoolId, req.params.id);
@@ -99,17 +89,6 @@ export const addEntry = asyncHandler(async (req, res) => {
     res.status(201).json({
         success: true,
         message: "Entry created",
-        data: result
-    });
-});
-
-// Sync entries in bulk
-export const syncTimetableEntries = asyncHandler(async (req, res) => {
-    const timetableId = req.params.id;
-    const result = await timetableService.createEntries(req.schoolId, timetableId, req.body.entries);
-    res.status(200).json({
-        success: true,
-        message: "Entries processed",
         data: result
     });
 });
