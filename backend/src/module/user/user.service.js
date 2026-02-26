@@ -1,8 +1,9 @@
 import User from "./model/User.model.js";
+import TeacherProfile from "./model/TeacherProfile.model.js";
 import { PROFILE_CONFIG } from "../../config/profiles.js";
 import { sendCredentialsEmail } from "../../utils/email.util.js";
-import { USER_ROLES } from "../../constants/userRoles.js";
 import { BadRequestError, NotFoundError, ConflictError, ForbiddenError } from "../../utils/customError.js";
+import { USER_ROLES, canManageRole } from "../../constants/userRoles.js";
 
 // Helper to build a query based on who is asking (The Filter Factory)
 const buildAccessQuery = (creator, filters = {}) => {
@@ -20,9 +21,26 @@ const buildAccessQuery = (creator, filters = {}) => {
     query.isArchived = isArchived !== undefined ? isArchived : false;
 
     if (name) query.name = { $regex: name, $options: "i" };
-    if (role && role !== 'all') query.role = role;
-    // Only default to students for teachers if no explicit role was requested
-    else if (creator.role === 'teacher') query.role = 'student';
+
+    // Role-based scoping: what roles can you SEE?
+    if (role && role !== 'all') {
+        query.role = role;
+    } else {
+        // No explicit role filter — scope by the requester's role
+        switch (creator.role) {
+            case USER_ROLES.TEACHER:
+                query.role = USER_ROLES.STUDENT;
+                break;
+            case USER_ROLES.ADMIN:
+                query.role = { $in: [USER_ROLES.TEACHER, USER_ROLES.STUDENT] };
+                break;
+            case USER_ROLES.SUPER_ADMIN:
+                query.role = { $in: [USER_ROLES.ADMIN, USER_ROLES.TEACHER, USER_ROLES.STUDENT] };
+                break;
+            default:
+                query.role = USER_ROLES.STUDENT;
+        }
+    }
 
     return query;
 };
@@ -34,6 +52,10 @@ export const createUser = async (creator, userData) => {
     // Ensure name is present
     if (!name) throw new BadRequestError("Name is required");
 
+    // Hierarchy check: creator can only create roles below their own
+    if (!canManageRole(creator.role, role)) {
+        throw new ForbiddenError(`You cannot create a user with role '${role}'. You can only create roles below your own.`);
+    }
     // Determine correct school context - use provided schoolId or fallback to creator's schoolId
     const targetSchoolId = userData.schoolId || creator.schoolId;
 
@@ -90,6 +112,37 @@ export const getUsers = async (creator, filters = {}) => {
     const { page = 0, pageSize = 25, ...queryFilters } = filters;
     const query = buildAccessQuery(creator, queryFilters);
 
+    // For teachers: restrict to students from their assigned classes only
+    if (creator.role === USER_ROLES.TEACHER && (query.role === USER_ROLES.STUDENT || !queryFilters.role)) {
+        const teacherProfile = await TeacherProfile.findOne({ userId: creator._id })
+            .select("assignedClasses")
+            .lean();
+
+        if (teacherProfile?.assignedClasses?.length) {
+            // Build $or conditions for each assigned class (standard + section)
+            const classConditions = teacherProfile.assignedClasses.map(cls => ({
+                "profile.standard": cls.standard,
+                "profile.section": cls.section
+            }));
+
+            // We need to use aggregation or post-filter via studentProfile
+            // First, get student IDs from StudentProfile that match the teacher's classes
+            const { default: StudentProfile } = await import("./model/StudentProfile.model.js");
+            const matchingStudentProfiles = await StudentProfile.find({
+                schoolId: creator.schoolId,
+                $or: teacherProfile.assignedClasses.map(cls => ({
+                    standard: cls.standard,
+                    section: cls.section
+                }))
+            }).select("userId").lean();
+
+            const allowedStudentIds = matchingStudentProfiles.map(sp => sp.userId);
+            query._id = query._id
+                ? { $in: allowedStudentIds.filter(id => query._id.$in?.includes(id.toString())) }
+                : { $in: allowedStudentIds };
+        }
+    }
+
     // Get total count for pagination
     const totalCount = await User.countDocuments(query);
 
@@ -104,6 +157,7 @@ export const getUsers = async (creator, filters = {}) => {
         .lean();
 
     return {
+        totalCount,
         users: users.map(u => ({
             _id: u._id,
             name: u.name,
@@ -114,7 +168,6 @@ export const getUsers = async (creator, filters = {}) => {
             profile: u.studentProfile || u.teacherProfile
         })),
         pagination: {
-            totalCount,
             page: Number(page),
             pageSize: Number(pageSize),
             totalPages: Math.ceil(totalCount / Number(pageSize))
@@ -122,9 +175,9 @@ export const getUsers = async (creator, filters = {}) => {
     };
 };
 
-// GET SINGLE USER BY ID
-export const getUserById = async (creator, userId) => {
-    const user = await User.findOne({ _id: userId, schoolId: creator.schoolId })
+// GET MY PROFILE (for mobile — teacher/student self-view)
+export const getMyProfile = async (userId) => {
+    const user = await User.findById(userId)
         .select("-password")
         .populate("schoolId", "name code")
         .populate("studentProfile")
@@ -140,7 +193,7 @@ export const getUserById = async (creator, userId) => {
         role: user.role,
         schoolId: user.schoolId,
         isActive: user.isActive,
-        profile: user.studentProfile || user.teacherProfile
+        profile: user.studentProfile || user.teacherProfile || user.adminProfile || null
     };
 };
 
@@ -183,78 +236,3 @@ export const hardDeleteUsers = async (creator, userIds) => {
     return { deleteResult: { deletedCount: result.deletedCount } };
 };
 
-export const getMyProfile = async (userId, role, schoolId, platform) => {
-
-    // 1. Basic field validation
-    if (!userId || !role || !schoolId || !platform) {
-        throw new BadRequestError("All fields are required");
-    }
-
-    // 2. Super admin has no profile
-    if (role === USER_ROLES.SUPER_ADMIN) {
-        throw new ForbiddenError("Super admins do not have a profile");
-    }
-
-    // 3. Platform + role access rules
-    if (platform === "mobile" && role === USER_ROLES.ADMIN) {
-        throw new ForbiddenError("Access Denied: Admins cannot access profile via mobile");
-    }
-
-    if (platform === "web" && role === USER_ROLES.STUDENT) {
-        throw new ForbiddenError("Access Denied: Students cannot access profile via web");
-    }
-
-    // 4. Role based profile populate
-    const profileVirtualMap = {
-        [USER_ROLES.STUDENT]: {
-            path: "studentProfile",
-            select: "rollNumber standard section admissionDate year fatherName motherName address"
-        },
-        [USER_ROLES.TEACHER]: {
-            path: "teacherProfile",
-            select: "qualification joiningDate"
-        },
-        [USER_ROLES.ADMIN]: {
-            path: "adminProfile",
-            select: "department"
-        },
-    };
-
-    const profilePopulate = profileVirtualMap[role] || null;
-
-    // 5. Build query — NO .lean() so virtuals work
-    const user = await User.findOne({ _id: userId, schoolId, isArchived: false })
-        .select("name email role contactNo avatarUrl")
-        .populate("schoolId", "name code")
-        .populate(profilePopulate);
-
-
-
-    // 6. User not found
-    if (!user) {
-        throw new NotFoundError("User not found");
-    }
-
-    // 7. Active check
-    if (user.isActive === false) {
-        throw new ForbiddenError("Your account has been deactivated");
-    }
-
-    // 8. Convert to plain object WITH virtuals resolved
-    const userObj = user.toObject({ virtuals: true });
-
-    // 9. Return clean response
-    return {
-        _id: userObj._id,
-        name: userObj.name,
-        email: userObj.email,
-        role: userObj.role,
-        contactNo: userObj.contactNo,
-        avatarUrl: userObj.avatarUrl,
-        mustChangePassword: userObj.mustChangePassword,
-        lastLoginAt: userObj.lastLoginAt,
-        isActive: userObj.isActive,
-        school: userObj.schoolId,
-        profile: userObj.studentProfile || userObj.teacherProfile || userObj.adminProfile || null
-    };
-}

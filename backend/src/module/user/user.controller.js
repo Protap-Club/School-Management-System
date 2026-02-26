@@ -33,6 +33,15 @@ export const getUserById = asyncHandler(async (req, res) => {
     });
 });
 
+// Get my own profile (for mobile — teacher/student self-view)
+export const getMyProfile = asyncHandler(async (req, res) => {
+    const result = await userService.getMyProfile(req.user._id);
+    res.status(200).json({
+        success: true,
+        data: result
+    });
+});
+
 // Toggle user archive status (bulk and single supported)
 export const toggleUserStatus = asyncHandler(async (req, res) => {
     const { userIds, isArchived } = req.body;

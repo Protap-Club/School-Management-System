@@ -3,6 +3,7 @@ import User from "../module/user/model/User.model.js";
 import { conf } from "../config/index.js";
 import logger from "../config/logger.js";
 import { NotFoundError, UnauthorizedError, ForbiddenError } from "../utils/customError.js";
+import { USER_ROLES } from "../constants/userRoles.js";
 
 const checkAuth = async (req, res, next) => {
     try {
@@ -29,12 +30,13 @@ const checkAuth = async (req, res, next) => {
 
         req.user = findUser;
 
-        // Attach platform from header (default to web)
-        req.platform = req.headers["x-platform"] === "mobile" ? "mobile" : "web";
-        req.schoolId = findUser.schoolId; // Attach schoolId directly for easier access
+        // Attach platform from header
+        const platform = req.headers["x-platform"];
+        req.platform = platform === "mobile" ? "mobile" : "web";
 
-        // Admin Access Guard for Mobile
-        if (req.platform === "mobile" && findUser.role === "ADMIN") {
+        // Mobile Rule Guard
+        const MOBILE_ALLOWED_ROLES = [USER_ROLES.TEACHER, USER_ROLES.STUDENT];
+        if (req.platform === "mobile" && !MOBILE_ALLOWED_ROLES.includes(req.user.role)) {
             throw new ForbiddenError("Admin access is not available on mobile");
         }
         next();
