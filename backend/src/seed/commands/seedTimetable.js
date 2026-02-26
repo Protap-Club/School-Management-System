@@ -61,6 +61,7 @@ const seedTimetable = async () => {
 
         entries.push({
             timetableId,
+            schoolId: school._id,
             dayOfWeek: e.day,
             timeSlotId,
             subject,

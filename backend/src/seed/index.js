@@ -14,6 +14,7 @@ const commands = {
     "seed-attendance": () => import("./commands/seedAttendance.js"),
     "seed-calendar": () => import("./commands/seedCalendar.js"),
     "seed-notices": () => import("./commands/seedNotices.js"),
+    "cleanup": () => import("./commands/cleanup.js"),
 };
 
 const showHelp = () => {
@@ -34,6 +35,7 @@ COMMANDS:
   seed-attendance     Creates sample attendance for class 10-A
   seed-calendar       Creates holidays, exams, and school events
   seed-notices        Creates notices and notice groups
+  cleanup             Removes ALL Navrachna data (run before re-seeding)
   help                Show this help message
 
 DEPENDENCY ORDER (if running individually):

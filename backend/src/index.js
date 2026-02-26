@@ -36,7 +36,7 @@ const corsOptions = {
 // Setting up real-time communication for things like live attendance updates.
 const io = initSocket(server, corsOptions);
 
-// Store io instance on the app object
+// Store io instance on the app object to make it accessible in request handlers
 app.set('io', io);
 
 
@@ -45,10 +45,6 @@ app.use(cors(corsOptions)); // Enable Cross-Origin Resource Sharing
 app.use(cookieParser());     // Parse cookies (needed for refresh tokens)
 app.use(express.json()); // Parses incoming JSON payloads
 app.use(express.text({ type: 'text/plain' })); // Let's receive plain text for certain NFC readers
-
-// Store io instance on the app object to make it accessible in request handlers
-app.set('io', io);
-
 
 // Static File Serving 
 // Making the 'uploads' and 'resource' directories publicly accessible.
