@@ -52,7 +52,7 @@ app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 app.use('/resource', express.static(path.join(__dirname, '../resource')));
 
 
-// Response Logger (temporary - for testing)
+// Response Logger
 app.use((req, res, next) => {
     const start = Date.now();
     const originalJson = res.json.bind(res);
@@ -64,7 +64,6 @@ app.use((req, res, next) => {
             url: req.originalUrl,
             status: res.statusCode,
             duration: `${duration}ms`,
-            body: JSON.stringify(body).substring(0, 500),
         });
         return originalJson(body);
     };
