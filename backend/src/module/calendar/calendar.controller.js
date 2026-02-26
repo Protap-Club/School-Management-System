@@ -72,7 +72,6 @@ export const getEvents = asyncHandler(async (req, res) => {
     // Web: full response (unchanged)
     return res.status(200).json({
         success: true,
-        message: "Events fetched successfully",
         count: result.length,
         data: result
     });
@@ -99,7 +98,6 @@ export const getEventById = asyncHandler(async (req, res) => {
     // Web: full response (unchanged)
     return res.status(200).json({
         success: true,
-        message: "Event fetched successfully",
         data: result
     });
 });
@@ -131,8 +129,5 @@ export const deleteEvent = asyncHandler(async (req, res) => {
 
     await deleteCalendarEvent(id);
 
-    return res.status(200).json({
-        success: true,
-        message: "Event deleted successfully"
-    });
+    return res.status(204).end();
 });

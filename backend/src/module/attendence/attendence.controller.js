@@ -56,3 +56,18 @@ export const getTodayAttendance = asyncHandler(async (req, res) => {
         data: records
     });
 });
+
+// Get specific student's attendance by ID (mobile)
+export const getStudentAttendanceById = asyncHandler(async (req, res) => {
+    const { id: studentId } = req.params;
+    const schoolId = req.user.schoolId?._id || req.user.schoolId;
+
+    logger.info("Controller: Student attendance by ID request", { studentId, userId: req.user._id });
+
+    const result = await nfcService.getStudentAttendanceById(studentId, schoolId);
+
+    res.status(200).json({
+        success: true,
+        data: result
+    });
+});

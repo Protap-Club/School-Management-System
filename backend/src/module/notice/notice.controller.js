@@ -79,11 +79,8 @@ export const deleteNotice = asyncHandler(async (req, res) => {
         req.user._id
     );
 
-    res.status(200).json({
-        success: true,
-        message: "Notice deleted successfully",
-        data: result,
-    });
+    logger.info(`Notice deleted: ${req.params.id}`);
+    res.status(204).end();
 });
 
 
@@ -131,9 +128,6 @@ export const deleteGroup = asyncHandler(async (req, res) => {
         req.user._id
     );
 
-    res.status(200).json({
-        success: true,
-        message: "Group deleted successfully",
-        data: result,
-    });
+    logger.info(`Group deleted: ${req.params.groupId}`);
+    res.status(204).end();
 });

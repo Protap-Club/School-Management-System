@@ -66,14 +66,3 @@ export const getAvailableFeatures = asyncHandler(async (req, res) => {
         data: features 
     });
 });
-
-// Update school features
-export const updateSchoolFeatures = asyncHandler(async (req, res) => {
-    const result = await schoolService.updateSchoolFeatures(req.schoolId, req.body.features || req.body);
-    res.status(200).json({ 
-        success: true, 
-        message: "Features updated", 
-        data: result 
-    });
-    logger.info(`Features updated for school: ${req.schoolId}`);
-});

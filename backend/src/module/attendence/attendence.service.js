@@ -250,3 +250,17 @@ const getTeacherMobileAttendance = async (teacherUserId, schoolId) => {
 
     return { students };
 };
+
+// GET STUDENT ATTENDANCE BY ID (for mobile — fetches a specific student's attendance)
+export const getStudentAttendanceById = async (studentId, schoolId) => {
+    // Verify the student exists and belongs to the school
+    const student = await User.findOne({ _id: studentId, schoolId, role: USER_ROLES.STUDENT })
+        .select("_id name")
+        .lean();
+
+    if (!student) {
+        throw new NotFoundError("Student not found");
+    }
+
+    return await getStudentMobileAttendance(studentId, schoolId);
+};
