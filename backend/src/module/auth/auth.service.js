@@ -84,6 +84,7 @@ export const login = async (email, password, platform) => {
         schoolName: user.schoolId?.name,
         email: user.email,
         role: user.role,
+        avatarUrl: user.avatarUrl,
     };
 
     logger.info("Login successful", userResponse);

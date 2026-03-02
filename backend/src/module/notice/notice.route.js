@@ -1,8 +1,7 @@
 import express from "express";
 import multer from "multer";
-import path from "path";
-import fs from "fs";
-import { fileURLToPath } from "url";
+import { CloudinaryStorage } from "multer-storage-cloudinary";
+import cloudinary from "../../config/cloudinary.js";
 import {
     createNotice,
     getNotices,
@@ -26,54 +25,65 @@ import {
     groupIdParamsSchema,
 } from "./notice.validation.js";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// Multer config
-const noticesDir = path.join(__dirname, "../../../uploads/notices");
-if (!fs.existsSync(noticesDir)) {
-    fs.mkdirSync(noticesDir, { recursive: true });
-}
-
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => cb(null, noticesDir),
-    filename: (req, file, cb) => {
-        const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
-        const ext = path.extname(file.originalname).toLowerCase();
-        cb(null, `notice_${uniqueSuffix}${ext}`);
-    },
+// Cloudinary Storage for Notice Attachments
+const noticeStorage = new CloudinaryStorage({
+    cloudinary,
+    params: async (req, file) => {
+        // Namespace per school: schools/{schoolId}/notices
+        const folder = req.schoolId ? `schools/${req.schoolId}/notices` : 'schools/default/notices';
+        
+        const isImageOrVideo = file.mimetype.startsWith('image/') || file.mimetype.startsWith('video/');
+        
+        if (isImageOrVideo) {
+            return {
+                folder,
+                resource_type: 'auto',
+            };
+        } else {
+            // For PDFs and documents, strictly use 'raw' to avoid "Allow delivery of PDF" security blocks.
+            // access_mode: 'public' is required so that raw resources are accessible without authentication (no 401).
+            const ext = file.originalname.split('.').pop();
+            const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+            return {
+                folder,
+                resource_type: 'raw',
+                access_mode: 'public',
+                public_id: `file_${uniqueSuffix}.${ext}`
+            };
+        }
+    }
 });
 
 const ALLOWED_MIMETYPES = [
     "application/pdf",
-    "application/msword",
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    "application/vnd.ms-powerpoint",
-    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-    "application/vnd.ms-excel",
-    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    "text/plain",
-    "text/csv",
-    "image/png",
+    "application/msword", // doc
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document", // docx
     "image/jpeg",
     "image/jpg",
+    "image/png",
+    "application/vnd.ms-powerpoint", // ppt
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation", // pptx
+    "application/vnd.ms-excel", // xls
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", // xlsx
     "video/mp4",
-    "video/quicktime",
-    "video/x-msvideo",
+    "video/quicktime", // mov
+    "video/x-msvideo", // avi
+    "text/csv",
+    "text/plain" // txt
 ];
 
 const fileFilter = (req, file, cb) => {
     if (ALLOWED_MIMETYPES.includes(file.mimetype)) {
         cb(null, true);
     } else {
-        cb(new Error("File type not allowed. Supported: PDF, DOC, DOCX, PPT, PPTX, XLS, XLSX, TXT, CSV, PNG, JPG, JPEG, MP4, MOV, AVI"), false);
+        cb(new Error("File type not allowed. Supported: PDF, DOC, DOCX, JPG, JPEG, PNG, PPT, PPTX, XLSX, XLS, MP4, MOV, AVI, CSV, TXT"), false);
     }
 };
 
 const upload = multer({
-    storage,
+    storage: noticeStorage,
     fileFilter,
-    limits: { fileSize: 25 * 1024 * 1024 },
+    limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit as requested
 });
 
 const router = express.Router();

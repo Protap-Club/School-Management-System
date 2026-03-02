@@ -40,6 +40,10 @@ const schoolSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
+    logoPublicId: {
+      type: String,
+      trim: true,
+    },
     theme: {
       accentColor: {
         type: String,

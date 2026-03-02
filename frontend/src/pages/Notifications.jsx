@@ -28,7 +28,9 @@ const NotificationItem = ({ notification }) => {
   return (
     <div className={`p-4 rounded-xl border ${config.bg} border-l-4 ${config.border} shadow-sm transition-all hover:shadow-md cursor-pointer group`}>
       <div className="flex items-start gap-4">
-        <div className="mt-1 flex-shrink-0 bg-white p-2 rounded-full shadow-sm">{config.icon}</div>
+        <div className="mt-1 shrink-0 bg-white p-2 rounded-full shadow-sm">
+          {getIcon()}
+        </div>
         <div className="flex-1">
           <div className="flex justify-between items-start">
             <h3 className="font-semibold text-gray-900">{notification.title || 'Notice'}</h3>
@@ -38,9 +40,15 @@ const NotificationItem = ({ notification }) => {
           </div>
           <p className="text-gray-600 text-sm mt-1 leading-relaxed">{notification.message}</p>
           {notification.attachment && (
-            <div className="mt-3 flex items-center gap-2 text-xs text-gray-500 bg-white/50 p-2 rounded border border-gray-200 w-fit">
-              <FaFileAlt size={10} /><span>{notification.attachment.originalName}</span>
-            </div>
+            <a
+              href={notification.attachment.secure_url || notification.attachment.path || '#'}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-3 flex items-center gap-2 text-xs text-blue-600 bg-blue-50 hover:bg-blue-100 transition-colors p-2 rounded border border-blue-100 w-fit cursor-pointer"
+            >
+              <FaFileAlt size={10} />
+              <span className="font-medium hover:underline">{notification.attachment.originalName || notification.attachment.filename}</span>
+            </a>
           )}
           <div className="mt-2 text-xs text-gray-400 capitalize">
             From: {notification.createdBy?.name || 'Admin'} ({notification.createdBy?.role})

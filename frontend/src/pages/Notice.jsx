@@ -11,7 +11,13 @@ import {
     FaSearch, FaHistory, FaEye, FaDownload, FaFileVideo, FaFileCode, FaFileCsv
 } from 'react-icons/fa';
 
-const ALLOWED_EXTENSIONS = ['pdf', 'doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx', 'txt', 'csv', 'iti', 'png', 'jpg', 'jpeg', 'mp4', 'mov', 'avi'];
+
+
+// Allowed file extensions
+const ALLOWED_EXTENSIONS = ['pdf', 'doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx', 'txt', 'csv', // Documents
+                            'png', 'jpg', 'jpeg', // Images
+                            'mp4', 'mov', 'avi'   // Videos
+];
 const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg'];
 const VIDEO_EXTENSIONS = ['mp4', 'mov', 'avi'];
 
@@ -93,6 +99,7 @@ const Notice = () => {
     const { data: allUsersData } = useAllUsers();
     const { data: groupsData } = useGroups();
     const createNoticeMutation = useCreateNotice();
+    const isSending = createNoticeMutation.isPending;
     const deleteNoticeMutation = useDeleteNotice();
     const createGroupMutation = useCreateGroup();
     const deleteGroupMutation = useDeleteGroup();
@@ -111,7 +118,18 @@ const Notice = () => {
         const file = e.target.files[0];
         if (!file) return;
         const ext = file.name.split('.').pop().toLowerCase();
-        if (!ALLOWED_EXTENSIONS.includes(ext)) { showToast('error', 'Internal Server Error'); return; }
+        if (!ALLOWED_EXTENSIONS.includes(ext)) {
+            setToast({ type: 'error', text: 'Invalid file type. Check allowed formats.' });
+            setTimeout(() => setToast({ type: '', text: '' }), 3000);
+            return;
+        }
+
+        if (file.size > 10 * 1024 * 1024) { // 10MB Limit
+            setToast({ type: 'error', text: 'File is too large. Max size is 10MB.' });
+            setTimeout(() => setToast({ type: '', text: '' }), 3000);
+            return;
+        }
+
         setAttachment(file);
         if (IMAGE_EXTENSIONS.includes(ext)) {
             const reader = new FileReader();
@@ -340,10 +358,24 @@ const Notice = () => {
                                 </div>
                             </div>
                             <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
-                                {renderSectionHeader(<FaPaperclip />, 'from-amber-100 to-orange-100', 'text-amber-600', 'Attachment', 'JPG,JPEG,PNG,PPT,PPTX,DOC,DOCX,XLXS,XLS,MP4,MOV,AVI,ITI,CSV,TXT')}
+                                <div className="px-6 py-5 border-b border-gray-100 flex items-center gap-4">
+                                    <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-amber-100 to-orange-100 flex items-center justify-center">
+                                        <FaPaperclip className="text-amber-600" size={18} />
+                                    </div>
+                                    <div>
+                                        <h2 className="text-lg font-semibold text-gray-900">Attachment</h2>
+                                        <p className="text-sm text-gray-500">JPG, JPEG, PNG, PPT, PPTX, DOC, DOCX, XLSX, XLS, MP4, MOV, AVI, CSV, TXT (Max 10MB)</p>
+                                    </div>
+                                </div>
                                 <div className="p-6">
-                                    <input type="file" ref={fileInputRef} onChange={handleFileUpload}
-                                        accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.csv,.iti,.png,.jpg,.jpeg,.mp4,.mov,.avi" className="hidden" />
+                                    <input
+                                        type="file"
+                                        ref={fileInputRef}
+                                        onChange={handleFileUpload}
+                                        accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.csv,.png,.jpg,.jpeg,.mp4,.mov,.avi"
+                                        className="hidden"
+                                    />
+
                                     {!attachment ? (
                                         <button onClick={() => fileInputRef.current?.click()}
                                             className="w-full group flex flex-col items-center justify-center gap-3 px-6 py-8 border-2 border-dashed border-gray-200 rounded-xl hover:border-gray-300 hover:bg-gray-50 transition-all cursor-pointer">
@@ -373,12 +405,24 @@ const Notice = () => {
                             </div>
                         </div>
                         <div className="space-y-6">
-                            <div className="bg-white rounded-2xl border border-gray-200 p-6">
-                                <h3 className="text-lg font-semibold text-gray-900 mb-4">Ready to Send?</h3>
-                                <p className="text-sm text-gray-500 mb-6">Click send to choose your recipients and deliver this notice.</p>
-                                <button onClick={handleSendClick} disabled={!message.trim()}
-                                    className="w-full flex items-center justify-center gap-2 bg-primary hover:bg-primary-hover text-white font-medium py-3 px-4 rounded-xl shadow-lg shadow-primary/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none">
-                                    <FaPaperPlane size={14} /> Send Notice
+                            <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
+                                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                                    <span className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center">
+                                        <FaPaperPlane className="text-emerald-600" size={14} />
+                                    </span>
+                                    Ready to Send?
+                                </h3>
+                                <p className="text-sm text-gray-500 mb-6">
+                                    Click send to choose your recipients and deliver this notice immediately.
+                                </p>
+                                <button
+                                    onClick={handleSendClick}
+                                    disabled={!message.trim()}
+                                    className="relative w-full overflow-hidden group flex items-center justify-center gap-2 bg-linear-to-r from-primary to-indigo-600 hover:from-primary-hover hover:to-indigo-700 text-white font-medium py-3.5 px-4 rounded-xl shadow-lg shadow-primary/30 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none hover:-translate-y-0.5"
+                                >
+                                    <div className="absolute inset-0 w-full h-full bg-white/20 scale-x-0 group-hover:scale-x-100 origin-left transition-transform duration-300 ease-out"></div>
+                                    <FaPaperPlane className="relative z-10 group-hover:rotate-12 transition-transform duration-300" size={14} />
+                                    <span className="relative z-10">Send Notice</span>
                                 </button>
                             </div>
                             <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl border border-gray-200 p-6">
@@ -480,7 +524,77 @@ const Notice = () => {
                                     <h3 className="text-lg font-medium text-gray-900">No history found</h3>
                                     <p className="text-gray-500 text-sm mt-1">Try adjusting your filters or search terms</p>
                                 </div>
-                            ) : filteredHistory.map(renderHistoryItem)}
+                            ) : (
+                                filteredHistory.map(item => (
+                                    <div key={item.id} className="bg-white rounded-2xl border border-gray-200 p-5 hover:shadow-md transition-shadow group">
+                                        <div className="flex flex-col md:flex-row gap-4 items-start md:items-center">
+                                            {/* Icon */}
+                                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${item.type === 'notice' ? 'bg-blue-100 text-blue-600' : 'bg-amber-100 text-amber-600'
+                                                }`}>
+                                                {item.type === 'notice' ? <FaPaperPlane size={16} /> : <FaPaperclip size={16} />}
+                                            </div>
+
+                                            {/* Content */}
+                                            <div className="flex-1 min-w-0 grid grid-cols-1 md:grid-cols-12 gap-4 w-full">
+                                                {/* Details */}
+                                                <div className="md:col-span-5">
+                                                    <div className="flex items-center gap-2 mb-1">
+                                                        <h3 className="text-base font-semibold text-gray-900 truncate">{item.title}</h3>
+                                                        {item.attachment && item.attachment.filename && (
+                                                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">
+                                                                <FaPaperclip className="mr-1" size={10} />
+                                                                1
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <p className="text-sm text-gray-500 line-clamp-2">{item.message}</p>
+                                                </div>
+
+                                                {/* Sent To */}
+                                                <div className="md:col-span-3 flex items-center">
+                                                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                                                        <div className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center">
+                                                            {(item.recipientType === 'users' || item.recipientType === 'students') ? <FaUserFriends size={10} /> : <FaUsers size={10} />}
+                                                        </div>
+                                                        <span className="truncate max-w-[150px]" title={getRecipientLabel(item)}>{getRecipientLabel(item)}</span>
+                                                    </div>
+                                                </div>
+
+                                                {/* Status & Date */}
+                                                <div className="md:col-span-4 flex items-center justify-between md:justify-end gap-6">
+                                                    <div className="text-right">
+                                                        <div className="text-sm font-medium text-emerald-600 flex items-center justify-end gap-1">
+                                                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                                            Sent
+                                                        </div>
+                                                        <div className="text-xs text-gray-400 mt-1">
+                                                            {new Date(item.createdAt).toLocaleDateString()} • {new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Actions */}
+                                                    <div className="flex items-center gap-1 transition-opacity">
+                                                        <button
+                                                            onClick={() => setViewItem(item)}
+                                                            className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                                            title="View Details"
+                                                        >
+                                                            <FaEye size={16} />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleDeleteHistory(item._id)}
+                                                            className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                                            title="Delete"
+                                                        >
+                                                            <FaTrash size={16} />
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))
+                            )}
                         </div>
                     </div>
                 )}
@@ -508,17 +622,26 @@ const Notice = () => {
                                 {viewItem.attachment && viewItem.attachment.filename && (
                                     <div>
                                         <h5 className="text-sm font-medium text-gray-900 mb-3">Attachment</h5>
-                                        <div className="flex items-center justify-between p-3 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-10 h-10 bg-white border border-gray-100 rounded-lg flex items-center justify-center">
-                                                    {getFileIcon(viewItem.attachment.originalName || viewItem.attachment.filename)}
+                                        <div className="space-y-2">
+                                            <a
+                                                href={viewItem.attachment.secure_url || viewItem.attachment.path || '#'}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="flex items-center justify-between p-3 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors cursor-pointer group"
+                                            >
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-10 h-10 bg-white border border-gray-100 rounded-lg flex items-center justify-center">
+                                                        {getFileIcon(viewItem.attachment.originalName || viewItem.attachment.filename)}
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-sm font-medium text-gray-900 group-hover:text-primary transition-colors">{viewItem.attachment.originalName || viewItem.attachment.filename}</p>
+                                                        <p className="text-xs text-gray-500">{((viewItem.attachment.size || 0) / 1024).toFixed(1)} KB</p>
+                                                    </div>
                                                 </div>
-                                                <div>
-                                                    <p className="text-sm font-medium text-gray-900">{viewItem.attachment.originalName || viewItem.attachment.filename}</p>
-                                                    <p className="text-xs text-gray-500">{((viewItem.attachment.size || 0) / 1024).toFixed(1)} KB</p>
+                                                <div className="p-2 text-gray-400 group-hover:text-primary group-hover:bg-primary/5 rounded-lg transition-colors">
+                                                    <FaDownload size={14} />
                                                 </div>
-                                            </div>
-                                            <a href={viewItem.attachment.path} target="_blank" rel="noopener noreferrer" className="p-2 text-gray-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-colors"><FaDownload size={14} /></a>
+                                            </a>
                                         </div>
                                     </div>
                                 )}
@@ -569,9 +692,29 @@ const Notice = () => {
                             )}
                         </div>
                         <div className="px-6 py-4 border-t border-gray-100 flex gap-3">
-                            <button onClick={() => setShowSendModal(false)} className="flex-1 px-4 py-2.5 border border-gray-200 text-gray-700 font-medium rounded-xl hover:bg-gray-50 transition-colors">Cancel</button>
-                            <button onClick={handleFinalSend} className="flex-1 px-4 py-2.5 bg-primary hover:bg-primary-hover text-white font-medium rounded-xl transition-colors flex items-center justify-center gap-2">
-                                <FaPaperPlane size={12} /> Send Now
+                            <button
+                                onClick={() => setShowSendModal(false)}
+                                disabled={isSending}
+                                className="flex-1 px-4 py-2.5 border border-gray-200 text-gray-700 font-medium rounded-xl hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleFinalSend}
+                                disabled={isSending}
+                                className="flex-1 px-4 py-2.5 bg-primary hover:bg-primary-hover text-white font-medium rounded-xl transition-colors flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+                            >
+                                {isSending ? (
+                                    <>
+                                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                                        Sending...
+                                    </>
+                                ) : (
+                                    <>
+                                        <FaPaperPlane size={12} />
+                                        Send Now
+                                    </>
+                                )}
                             </button>
                         </div>
                     </div>

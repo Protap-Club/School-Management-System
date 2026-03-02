@@ -3,7 +3,13 @@ import { useAuth } from '../../features/auth';
 import { useSidebar } from '../../state';
 import api from '../../api/axios';
 import { useNavigate } from 'react-router-dom';
-import { FaSignOutAlt, FaChevronDown, FaBell } from 'react-icons/fa';
+import {headerContent} from '../../config/headerContent.js';
+import { FaBars, FaUserCircle, FaSignOutAlt, FaBuilding, FaChevronDown, FaSearch, FaBell } from 'react-icons/fa';
+import AvatarUploadModal from './AvatarUploadModal';
+import { useDispatch } from 'react-redux';
+import { setUser } from '../../features/auth/authSlice';
+import { useReceivedNotices } from '../../features/notices';
+import { useQueryClient } from '@tanstack/react-query';
 
 const ROLE_GRADIENTS = {
     super_admin: 'from-purple-600 to-blue-600',
@@ -15,20 +21,26 @@ const Header = () => {
     const { user, logout } = useAuth();
     const { toggleSidebar } = useSidebar();
     const navigate = useNavigate();
+    const dispatch = useDispatch();
+    const queryClient = useQueryClient();
     const [schoolBranding, setSchoolBranding] = useState(null);
     const [dropdownOpen, setDropdownOpen] = useState(false);
+    const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
     const dropdownRef = useRef(null);
-    const [unreadCount, setUnreadCount] = useState(0);
 
-    useEffect(() => {
-        const storedCount = localStorage.getItem('unreadNotifications');
-        if (storedCount === null) {
-            setUnreadCount(3);
-            localStorage.setItem('unreadNotifications', '3');
-        } else {
-            setUnreadCount(parseInt(storedCount, 10));
-        }
-    }, []);
+    // Fetch real received notices to get unread count
+    const { data: noticesResponse } = useReceivedNotices();
+    const [lastReadTime, setLastReadTime] = useState(() => {
+        const stored = localStorage.getItem('lastReadNoticesAt');
+        return stored ? parseInt(stored, 10) : null;
+    });
+
+    // Derive unread count based on lastReadTime
+    const unreadCount = noticesResponse?.data
+        ? (lastReadTime
+            ? noticesResponse.data.filter(n => new Date(n.createdAt).getTime() > lastReadTime).length
+            : noticesResponse.data.length)
+        : 0;
 
     useEffect(() => {
         const handleClickOutside = (event) => {
@@ -40,20 +52,40 @@ const Header = () => {
 
     useEffect(() => {
         const fetchBranding = async () => {
-            if (!user) return;
-            try {
-                const response = await api.get('/school/');
-                if (response.data.success && response.data.data) setSchoolBranding(response.data.data);
-            } catch (error) { console.error('Failed to fetch branding', error); }
+            if (user) {
+                try {
+                    const response = await api.get('/school');
+                    if (response.data.success && response.data.data) {
+                        setSchoolBranding(response.data.data);
+                    }
+                } catch (error) {
+                    console.error('Failed to fetch branding', error);
+                }
+            }
         };
         fetchBranding();
         window.addEventListener('settingsUpdated', fetchBranding);
         return () => window.removeEventListener('settingsUpdated', fetchBranding);
     }, [user]);
 
+    const handleUploadSuccess = (newAvatarUrl) => {
+        if (user) {
+            dispatch(setUser({ ...user, avatarUrl: newAvatarUrl }));
+            // Invalidate query to prevent old cache from overwriting Redux on remounts
+            queryClient.invalidateQueries({ queryKey: ['auth', 'user'] });
+        }
+    };
+
+    const handleLogout = () => {
+        logout();
+        navigate('/login');
+    };
+
     const handleNotificationClick = () => {
-        setUnreadCount(0);
-        localStorage.setItem('unreadNotifications', '0');
+        // Mark as read by saving the current time
+        const now = Date.now();
+        localStorage.setItem('lastReadNoticesAt', now.toString());
+        setLastReadTime(now);
         navigate('/notifications');
     };
 
@@ -69,9 +101,13 @@ const Header = () => {
                     <img src="/menus.png" alt="Menu" className="w-5 h-5" />
                 </button>
                 <div className="flex items-center gap-3">
-                    {logo ? (
-                        <img src={logo.startsWith('/') ? `http://localhost:5000${logo}` : logo}
-                            alt="Logo" className="h-10 w-auto object-contain" onError={(e) => { e.target.style.display = 'none'; }} />
+                    {headerContent.logo ? (
+                        <img
+                            src={headerContent.logo}
+                            alt="Logo"
+                            className="h-10 w-auto object-contain"
+                            onError={(e) => { e.target.style.display = 'none'; }}
+                        />
                     ) : (
                         <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white shadow-sm">
                             <span className="font-bold text-lg">{(title || 'SM').substring(0, 2).toUpperCase()}</span>
@@ -90,13 +126,27 @@ const Header = () => {
                         </span>
                     )}
                 </button>
-                <div className="relative" ref={dropdownRef}>
-                    <button onClick={() => setDropdownOpen(!dropdownOpen)}
-                        className="flex items-center gap-3 p-1.5 rounded-full hover:bg-gray-50 transition-all border border-transparent hover:border-gray-200 focus:outline-none">
-                        <div className={`w-9 h-9 rounded-full bg-gradient-to-r ${roleGradient} flex items-center justify-center text-white font-bold shadow-sm`}>
-                            {user?.name?.charAt(0).toUpperCase()}
-                        </div>
-                        <div className="hidden md:flex flex-col items-start mr-1">
+
+                {/* User Profile */}
+                <div className="relative flex items-center gap-1" ref={dropdownRef}>
+                    <button
+                        onClick={() => setIsUploadModalOpen(true)}
+                        className={`w-9 h-9 rounded-full bg-gradient-to-r ${getRoleGradient()} flex items-center justify-center text-white font-bold shadow-sm overflow-hidden hover:ring-2 hover:ring-blue-100 transition-all focus:outline-none shrink-0`}
+                        title="Change Profile Picture"
+                    >
+                        {user?.avatarUrl ? (
+                            <img src={user.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                        ) : (
+                            user?.name?.charAt(0).toUpperCase() || 'U'
+                        )}
+                    </button>
+
+                    <button
+                        onClick={() => setDropdownOpen(!dropdownOpen)}
+                        className="flex items-center gap-2 p-1.5 pr-2 rounded-full hover:bg-gray-50 transition-all border border-transparent hover:border-gray-200 focus:outline-none"
+                        title="Account Menu"
+                    >
+                        <div className="hidden md:flex flex-col items-start ml-1">
                             <span className="text-sm font-semibold text-gray-700 leading-tight">{user?.name}</span>
                             <span className="text-xs text-gray-500 capitalize">{user?.role?.replace('_', ' ')}</span>
                         </div>
@@ -123,6 +173,13 @@ const Header = () => {
                     )}
                 </div>
             </div>
+
+            <AvatarUploadModal
+                user={user}
+                isOpen={isUploadModalOpen}
+                onClose={() => setIsUploadModalOpen(false)}
+                onUploadSuccess={handleUploadSuccess}
+            />
         </header>
     );
 };

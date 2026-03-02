@@ -2,7 +2,7 @@ import School from "./School.model.js";
 import { isValidFeatureKey, SCHOOL_FEATURES } from "../../constants/featureFlags.js";
 import { ConflictError, NotFoundError, BadRequestError } from "../../utils/customError.js";
 import logger from "../../config/logger.js";
-import { deleteFile } from "../../middlewares/upload.middleware.js";
+import { deleteFromCloudinary } from "../../middlewares/upload.middleware.js";
 
 
 // Creates a school. 
@@ -85,15 +85,16 @@ export const getSchoolBranding = async (schoolId) => {
     return { branding: school || defaultBranding };
 };
 
-export const updateLogo = async (schoolId, filePath) => {
+export const updateLogo = async (schoolId, logoUrl, logoPublicId) => {
     const school = await School.findById(schoolId);
     if (!school) throw new NotFoundError("School not found");
 
-    const oldLogo = school.logoUrl;
-    school.logoUrl = filePath;
+    const oldLogoPublicId = school.logoPublicId || school.logoUrl; // Fallback to URL parsing inside deleteFromCloudinary if legacy
+    school.logoUrl = logoUrl;
+    school.logoPublicId = logoPublicId;
     await school.save();
 
-    if (oldLogo) await deleteFile(oldLogo);
+    if (oldLogoPublicId) await deleteFromCloudinary(oldLogoPublicId);
 
     return { logoUrl: school.logoUrl };
 };

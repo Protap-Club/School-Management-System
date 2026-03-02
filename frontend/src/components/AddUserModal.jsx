@@ -41,16 +41,27 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
 
     useEffect(() => {
         const fetchSchoolDetails = async () => {
-            if (!isOpen || !user?.schoolId) return;
-            if (typeof user.schoolId === 'object' && user.schoolId.name) {
-                setSchoolName(user.schoolId.name);
-                setFormData(prev => ({ ...prev, schoolId: user.schoolId._id }));
-            } else {
-                setFormData(prev => ({ ...prev, schoolId: user.schoolId }));
-                try {
-                    const response = await api.get('/school/');
-                    setSchoolName(response.data.success && response.data.data?.school?.name ? response.data.data.school.name : 'School');
-                } catch { setSchoolName('School'); }
+            if (isOpen && user?.schoolId) {
+                // Case 1: schoolId is already a populated object with name
+                if (typeof user.schoolId === 'object' && user.schoolId.name) {
+                    setSchoolName(user.schoolId.name);
+                    setFormData(prev => ({ ...prev, schoolId: user.schoolId._id }));
+                }
+                // Case 2: schoolId is just an ID string - fetch the name
+                else {
+                    setFormData(prev => ({ ...prev, schoolId: user.schoolId }));
+                    try {
+                        const response = await api.get('/school');
+                        if (response.data.success && response.data.data?.school?.name) {
+                            setSchoolName(response.data.data.school.name);
+                        } else {
+                            setSchoolName('School');
+                        }
+                    } catch (err) {
+                        console.error('Failed to fetch school name', err);
+                        setSchoolName('School');
+                    }
+                }
             }
         };
         fetchSchoolDetails();

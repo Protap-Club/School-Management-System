@@ -47,8 +47,8 @@ app.use(express.json()); // Parses incoming JSON payloads
 app.use(express.text({ type: 'text/plain' })); // Let's receive plain text for certain NFC readers
 
 // Static File Serving 
-// Making the 'uploads' and 'resource' directories publicly accessible.
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+// 'resource' directory for static brand assets (protap.png)
+// File uploads (logos, notices, avatars) are now served via Cloudinary CDN
 app.use('/resource', express.static(path.join(__dirname, '../resource')));
 
 

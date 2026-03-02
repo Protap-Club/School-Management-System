@@ -1,6 +1,7 @@
 import * as userService from "./user.service.js";
 import asyncHandler from "../../utils/asyncHandler.js"; // Wrapper for async route handlers
 import logger from "../../config/logger.js"; // Import the logger
+import { BadRequestError } from "../../utils/customError.js";
 
 // Create a new user with associated profile
 export const createUser = asyncHandler(async (req, res) => {
@@ -84,4 +85,20 @@ export const userProfile = asyncHandler(async (req, res) => {
         success: true,
         data: result
     });
+});
+
+// Upload user avatar
+export const uploadAvatar = asyncHandler(async (req, res) => {
+    if (!req.file) throw new BadRequestError("No file uploaded");
+    // Cloudinary returns the full URL in req.file.path and public_id in req.file.filename
+    const avatarUrl = req.file.path;
+    const avatarPublicId = req.file.filename;
+    
+    const result = await userService.updateAvatar(req.user._id, avatarUrl, avatarPublicId);
+    res.status(200).json({ 
+        success: true, 
+        message: "Avatar uploaded", 
+        data: result 
+    });
+    logger.info(`Avatar uploaded for user: ${req.user._id}`);
 });

@@ -2,8 +2,11 @@ import User from "./model/User.model.js";
 import TeacherProfile from "./model/TeacherProfile.model.js";
 import { PROFILE_CONFIG } from "../../config/profiles.js";
 import { sendCredentialsEmail } from "../../utils/email.util.js";
-import { BadRequestError, NotFoundError, ConflictError, ForbiddenError } from "../../utils/customError.js";
+import { ForbiddenError } from "../../utils/customError.js";
 import { USER_ROLES, canManageRole } from "../../constants/userRoles.js";
+import { BadRequestError, NotFoundError, ConflictError } from "../../utils/customError.js";
+import { deleteFromCloudinary } from "../../middlewares/upload.middleware.js";
+import logger from "../../config/logger.js";
 
 // Helper to build a query based on who is asking (The Filter Factory)
 const buildAccessQuery = (creator, filters = {}) => {
@@ -236,3 +239,22 @@ export const hardDeleteUsers = async (creator, userIds) => {
     return { deleteResult: { deletedCount: result.deletedCount } };
 };
 
+//     return { deleteResult: { deletedCount: result.deletedCount } };
+// };
+
+// UPDATE AVATAR
+export const updateAvatar = async (userId, avatarUrl, avatarPublicId) => {
+    const user = await User.findById(userId);
+    if (!user) throw new NotFoundError("User not found");
+
+    const oldAvatarPublicId = user.avatarPublicId || user.avatarUrl; // Fallback for legacy URLs
+    user.avatarUrl = avatarUrl;
+    user.avatarPublicId = avatarPublicId;
+    await user.save();
+
+    // Clean up old avatar from Cloudinary
+    if (oldAvatarPublicId) await deleteFromCloudinary(oldAvatarPublicId);
+
+    logger.info(`Avatar updated for user: ${userId}`);
+    return { avatarUrl: user.avatarUrl };
+};
