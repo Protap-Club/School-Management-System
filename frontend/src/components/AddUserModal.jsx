@@ -58,7 +58,7 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
                 else {
                     setFormData(prev => ({ ...prev, schoolId: user.schoolId }));
                     try {
-                        const response = await api.get('/school/profile');
+                        const response = await api.get('/school');
                         if (response.data.success && response.data.data?.school?.name) {
                             setSchoolName(response.data.data.school.name);
                         } else {

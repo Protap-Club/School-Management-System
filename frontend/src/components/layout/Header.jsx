@@ -4,29 +4,36 @@ import { useSidebar } from '../../state';
 import api from '../../api/axios';
 import { useNavigate } from 'react-router-dom';
 import { FaBars, FaUserCircle, FaSignOutAlt, FaBuilding, FaChevronDown, FaSearch, FaBell } from 'react-icons/fa';
+import AvatarUploadModal from './AvatarUploadModal';
+import { useDispatch } from 'react-redux';
+import { setUser } from '../../features/auth/authSlice';
+import { useReceivedNotices } from '../../features/notices';
+import { useQueryClient } from '@tanstack/react-query';
 
 const Header = ({ onSearch, searchValue }) => {
     const { user, logout } = useAuth();
     const { toggleSidebar } = useSidebar();
     const navigate = useNavigate();
+    const dispatch = useDispatch();
+    const queryClient = useQueryClient();
     const [schoolBranding, setSchoolBranding] = useState(null);
     const [dropdownOpen, setDropdownOpen] = useState(false);
+    const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
     const dropdownRef = useRef(null);
 
-    // Notification Badge State
-    const [unreadCount, setUnreadCount] = useState(0);
+    // Fetch real received notices to get unread count
+    const { data: noticesResponse } = useReceivedNotices();
+    const [lastReadTime, setLastReadTime] = useState(() => {
+        const stored = localStorage.getItem('lastReadNoticesAt');
+        return stored ? parseInt(stored, 10) : null;
+    });
 
-    // Initialize notification count on mount
-    useEffect(() => {
-        const storedCount = localStorage.getItem('unreadNotifications');
-        if (storedCount === null) {
-            // Default simulated unread count
-            setUnreadCount(3);
-            localStorage.setItem('unreadNotifications', '3');
-        } else {
-            setUnreadCount(parseInt(storedCount, 10));
-        }
-    }, []);
+    // Derive unread count based on lastReadTime
+    const unreadCount = noticesResponse?.data
+        ? (lastReadTime
+            ? noticesResponse.data.filter(n => new Date(n.createdAt).getTime() > lastReadTime).length
+            : noticesResponse.data.length)
+        : 0;
 
     // Close dropdown when clicking outside
     useEffect(() => {
@@ -47,7 +54,7 @@ const Header = ({ onSearch, searchValue }) => {
         const fetchBranding = async () => {
             if (user) {
                 try {
-                    const response = await api.get('/school/profile');
+                    const response = await api.get('/school');
                     if (response.data.success && response.data.data) {
                         setSchoolBranding(response.data.data);
                     }
@@ -64,14 +71,24 @@ const Header = ({ onSearch, searchValue }) => {
         return () => window.removeEventListener('settingsUpdated', fetchBranding);
     }, [user]);
 
+    const handleUploadSuccess = (newAvatarUrl) => {
+        if (user) {
+            dispatch(setUser({ ...user, avatarUrl: newAvatarUrl }));
+            // Invalidate query to prevent old cache from overwriting Redux on remounts
+            queryClient.invalidateQueries({ queryKey: ['auth', 'user'] });
+        }
+    };
+
     const handleLogout = () => {
         logout();
         navigate('/login');
     };
 
     const handleNotificationClick = () => {
-        setUnreadCount(0);
-        localStorage.setItem('unreadNotifications', '0');
+        // Mark as read by saving the current time
+        const now = Date.now();
+        localStorage.setItem('lastReadNoticesAt', now.toString());
+        setLastReadTime(now);
         navigate('/notifications');
     };
 
@@ -154,15 +171,25 @@ const Header = ({ onSearch, searchValue }) => {
                 </button>
 
                 {/* User Profile */}
-                <div className="relative" ref={dropdownRef}>
+                <div className="relative flex items-center gap-1" ref={dropdownRef}>
+                    <button
+                        onClick={() => setIsUploadModalOpen(true)}
+                        className={`w-9 h-9 rounded-full bg-gradient-to-r ${getRoleGradient()} flex items-center justify-center text-white font-bold shadow-sm overflow-hidden hover:ring-2 hover:ring-blue-100 transition-all focus:outline-none shrink-0`}
+                        title="Change Profile Picture"
+                    >
+                        {user?.avatarUrl ? (
+                            <img src={user.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                        ) : (
+                            user?.name?.charAt(0).toUpperCase() || 'U'
+                        )}
+                    </button>
+
                     <button
                         onClick={() => setDropdownOpen(!dropdownOpen)}
-                        className="flex items-center gap-3 p-1.5 rounded-full hover:bg-gray-50 transition-all border border-transparent hover:border-gray-200 focus:outline-none"
+                        className="flex items-center gap-2 p-1.5 pr-2 rounded-full hover:bg-gray-50 transition-all border border-transparent hover:border-gray-200 focus:outline-none"
+                        title="Account Menu"
                     >
-                        <div className={`w-9 h-9 rounded-full bg-gradient-to-r ${getRoleGradient()} flex items-center justify-center text-white font-bold shadow-sm`}>
-                            {user?.name?.charAt(0).toUpperCase()}
-                        </div>
-                        <div className="hidden md:flex flex-col items-start mr-1">
+                        <div className="hidden md:flex flex-col items-start ml-1">
                             <span className="text-sm font-semibold text-gray-700 leading-tight">{user?.name}</span>
                             <span className="text-xs text-gray-500 capitalize">{user?.role?.replace('_', ' ')}</span>
                         </div>
@@ -197,6 +224,13 @@ const Header = ({ onSearch, searchValue }) => {
                     )}
                 </div>
             </div>
+
+            <AvatarUploadModal
+                user={user}
+                isOpen={isUploadModalOpen}
+                onClose={() => setIsUploadModalOpen(false)}
+                onUploadSuccess={handleUploadSuccess}
+            />
         </header>
     );
 };

@@ -3,6 +3,79 @@ import { Notice, NoticeGroup } from "./Notice.model.js";
 import { BadRequestError, NotFoundError, ConflictError } from "../../utils/customError.js";
 import logger from "../../config/logger.js";
 import { deleteFromCloudinary } from "../../middlewares/upload.middleware.js";
+import cloudinary from "../../config/cloudinary.js";
+
+/**
+ * Generates a private, short-lived download URL for a Cloudinary raw resource.
+ *
+ * WHY private_download_url instead of cloudinary.url()?
+ * - cloudinary.url() generates CDN URLs. For raw resources, Cloudinary's CDN
+ *   enforces access control regardless of the sign_url flag, returning 401.
+ * - cloudinary.utils.private_download_url() generates an API-level URL that
+ *   embeds authentication in the query string (timestamp + signature). This
+ *   bypasses CDN restrictions entirely and works for ALL private raw files.
+ *
+ * Falls back to the stored secure_url if public_id is missing.
+ */
+const getSignedUrl = (attachment) => {
+    if (!attachment) return null;
+    try {
+        // The most reliable source for public_id is the stored secure_url.
+        // Cloudinary raw secure_url format:
+        //   https://res.cloudinary.com/{cloud}/raw/upload/{version?}/{public_id}.{ext}
+        // We extract everything after /raw/upload/ (skipping optional version segment).
+        let publicId = null;
+        const storedUrl = attachment.secure_url || attachment.path;
+
+        if (storedUrl && storedUrl.includes('res.cloudinary.com')) {
+            const match = storedUrl.match(/\/raw\/upload\/(?:v\d+\/)?(.+)$/);
+            if (match && match[1]) {
+                publicId = match[1]; // full path e.g. "schools/abc/notices/file_123.pdf"
+            }
+        }
+
+        // Fallback to stored public_id or filename if URL parsing fails
+        if (!publicId) {
+            publicId = attachment.public_id || attachment.filename;
+        }
+
+        if (!publicId) return storedUrl;
+
+        // Extract extension so Cloudinary sends the correct Content-Type header.
+        const ext = publicId.split('.').pop().toLowerCase();
+
+        // private_download_url goes through api.cloudinary.com — it embeds
+        // credentials in the signature so CDN access-control is bypassed entirely.
+        // Works for ALL raw files regardless of their CDN access mode setting.
+        return cloudinary.utils.private_download_url(publicId, ext, {
+            resource_type: 'raw',
+            expires_at: Math.floor(Date.now() / 1000) + 3600, // 1 hour
+        });
+    } catch (err) {
+        logger.warn(`Failed to generate signed download URL: ${err.message}`);
+        return attachment.secure_url || attachment.path;
+    }
+};
+
+/**
+ * Enriches a notice (or array of notices) by replacing the attachment URL
+ * with a freshly signed URL so the client can open/download the file.
+ */
+const enrichWithSignedUrls = (notices) => {
+    if (Array.isArray(notices)) {
+        return notices.map(n => {
+            if (n.attachment) {
+                n.attachment = { ...n.attachment, secure_url: getSignedUrl(n.attachment) };
+            }
+            return n;
+        });
+    }
+    // Single notice
+    if (notices?.attachment) {
+        notices.attachment = { ...notices.attachment, secure_url: getSignedUrl(notices.attachment) };
+    }
+    return notices;
+};
 
 // NOTICE SERVICES
 
@@ -30,6 +103,8 @@ export const createNotice = async (schoolId, userId, data, file) => {
         createdBy: userId,
         title: data.title || "",
         message: data.message,
+        recipientType: data.recipientType,
+        type: attachment ? "file" : "notice",
         recipients,
         attachment,
     });
@@ -58,15 +133,17 @@ export const getNotices = async (schoolId, userId, filters = {}) => {
         }
     }
 
-    return await Notice.find(query)
+    const results = await Notice.find(query)
         .populate("createdBy", "name email role")
         .sort({ createdAt: -1 })
         .lean();
+
+    return enrichWithSignedUrls(results);
 };
 
 // Get notices received by a user
 export const getReceivedNotices = async (schoolId, userId) => {
-    return await Notice.find({
+    const results = await Notice.find({
         schoolId,
         createdBy: { $ne: userId },
         $or: [
@@ -78,6 +155,8 @@ export const getReceivedNotices = async (schoolId, userId) => {
         .sort({ createdAt: -1 })
         .limit(50)
         .lean();
+
+    return enrichWithSignedUrls(results);
 };
 
 // Get a single notice by ID
@@ -94,7 +173,7 @@ export const getNoticeById = async (schoolId, noticeId) => {
         throw new NotFoundError("Notice not found");
     }
 
-    return notice;
+    return enrichWithSignedUrls(notice);
 };
 
 // Permanently delete a notice

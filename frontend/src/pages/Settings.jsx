@@ -62,7 +62,7 @@ const Settings = () => {
 
     const fetchSettings = async () => {
         try {
-            const response = await api.get('/school/profile');
+            const response = await api.get('/school');
             if (response.data.success && response.data.data?.school) {
                 const school = response.data.data.school;
                 setSettings({
@@ -83,7 +83,7 @@ const Settings = () => {
         setFeaturesLoading(true);
         try {
             // Get features from the profile endpoint - features are part of school data
-            const response = await api.get('/school/profile');
+            const response = await api.get('/school');
             if (response.data.success && response.data.data?.school) {
                 setFeatures(response.data.data.school.features || {});
             }
@@ -132,7 +132,7 @@ const Settings = () => {
 
         try {
             // Update theme via profile endpoint
-            await api.put('/school/profile', { theme: { accentColor: colorValue } });
+            await api.put('/school', { theme: { accentColor: colorValue } });
             setMessage({ type: 'success', text: 'Theme updated!' });
             setTimeout(() => setMessage({ type: '', text: '' }), 2000);
         } catch (error) {
@@ -145,12 +145,18 @@ const Settings = () => {
         if (!file) return;
 
         if (!file.type.startsWith('image/')) {
-            setMessage({ type: 'error', text: 'Internal Server Error' });
+            setMessage({ type: 'error', text: 'Please select an image file.' });
+            return;
+        }
+
+        const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+        if (!allowedTypes.includes(file.mimetype || file.type)) {
+            setMessage({ type: 'error', text: 'Invalid file type. Only JPG, PNG, and WEBP are allowed.' });
             return;
         }
 
         if (file.size > 2 * 1024 * 1024) {
-            setMessage({ type: 'error', text: 'Internal Server Error' });
+            setMessage({ type: 'error', text: 'File is too large. Max size is 2MB.' });
             return;
         }
 
@@ -161,7 +167,7 @@ const Settings = () => {
             const formData = new FormData();
             formData.append('logo', file);
 
-            const response = await api.put('/school/logo', formData, {
+            const response = await api.post('/school/logo', formData, {
                 headers: {
                     'Content-Type': 'multipart/form-data'
                 }
@@ -172,9 +178,15 @@ const Settings = () => {
                 setSettings(prev => ({ ...prev, logoUrl }));
                 setMessage({ type: 'success', text: 'Logo uploaded successfully!' });
                 window.dispatchEvent(new Event('settingsUpdated'));
+                
+                // Clear success message after 3 seconds
+                setTimeout(() => setMessage({ type: '', text: '' }), 3000);
             }
         } catch (error) {
-            setMessage({ type: 'error', text: 'Internal Server Error' });
+            setMessage({ 
+                type: 'error', 
+                text: error.response?.data?.message || 'Failed to upload logo' 
+            });
         } finally {
             setUploading(false);
         }

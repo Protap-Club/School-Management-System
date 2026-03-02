@@ -31,27 +31,52 @@ const noticeStorage = new CloudinaryStorage({
     params: async (req, file) => {
         // Namespace per school: schools/{schoolId}/notices
         const folder = req.schoolId ? `schools/${req.schoolId}/notices` : 'schools/default/notices';
-        return {
-            folder,
-            resource_type: 'auto', // Handles documents like PDF/Word
-            allowed_formats: [
-                'pdf', 'doc', 'docx'
-            ],
-        };
+        
+        const isImageOrVideo = file.mimetype.startsWith('image/') || file.mimetype.startsWith('video/');
+        
+        if (isImageOrVideo) {
+            return {
+                folder,
+                resource_type: 'auto',
+            };
+        } else {
+            // For PDFs and documents, strictly use 'raw' to avoid "Allow delivery of PDF" security blocks.
+            // access_mode: 'public' is required so that raw resources are accessible without authentication (no 401).
+            const ext = file.originalname.split('.').pop();
+            const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+            return {
+                folder,
+                resource_type: 'raw',
+                access_mode: 'public',
+                public_id: `file_${uniqueSuffix}.${ext}`
+            };
+        }
     }
 });
 
 const ALLOWED_MIMETYPES = [
     "application/pdf",
-    "application/msword",
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    "application/msword", // doc
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document", // docx
+    "image/jpeg",
+    "image/jpg",
+    "image/png",
+    "application/vnd.ms-powerpoint", // ppt
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation", // pptx
+    "application/vnd.ms-excel", // xls
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", // xlsx
+    "video/mp4",
+    "video/quicktime", // mov
+    "video/x-msvideo", // avi
+    "text/csv",
+    "text/plain" // txt
 ];
 
 const fileFilter = (req, file, cb) => {
     if (ALLOWED_MIMETYPES.includes(file.mimetype)) {
         cb(null, true);
     } else {
-        cb(new Error("File type not allowed. Supported: PDF, DOC, DOCX"), false);
+        cb(new Error("File type not allowed. Supported: PDF, DOC, DOCX, JPG, JPEG, PNG, PPT, PPTX, XLSX, XLS, MP4, MOV, AVI, CSV, TXT"), false);
     }
 };
 

@@ -41,7 +41,7 @@ import {
 
 // Allowed file extensions
 const ALLOWED_EXTENSIONS = [
-    'pdf', 'doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx', 'txt', 'csv', 'iti', // Documents
+    'pdf', 'doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx', 'txt', 'csv', // Documents
     'png', 'jpg', 'jpeg', // Images
     'mp4', 'mov', 'avi'   // Videos
 ];
@@ -106,6 +106,7 @@ const Notice = () => {
     const { data: allUsersData } = useAllUsers();
     const { data: groupsData } = useGroups();
     const createNoticeMutation = useCreateNotice();
+    const isSending = createNoticeMutation.isPending;
     const deleteNoticeMutation = useDeleteNotice();
     const createGroupMutation = useCreateGroup();
     const deleteGroupMutation = useDeleteGroup();
@@ -125,7 +126,13 @@ const Notice = () => {
 
         const ext = file.name.split('.').pop().toLowerCase();
         if (!ALLOWED_EXTENSIONS.includes(ext)) {
-            setToast({ type: 'error', text: 'Internal Server Error' });
+            setToast({ type: 'error', text: 'Invalid file type. Check allowed formats.' });
+            setTimeout(() => setToast({ type: '', text: '' }), 3000);
+            return;
+        }
+
+        if (file.size > 10 * 1024 * 1024) { // 10MB Limit
+            setToast({ type: 'error', text: 'File is too large. Max size is 10MB.' });
             setTimeout(() => setToast({ type: '', text: '' }), 3000);
             return;
         }
@@ -416,7 +423,7 @@ const Notice = () => {
                                     </div>
                                     <div>
                                         <h2 className="text-lg font-semibold text-gray-900">Attachment</h2>
-                                        <p className="text-sm text-gray-500">JPG,JPEG,PNG,PPT,PPTX,DOC,DOCX,XLXS,XLS,MP4,MOV,AVI,ITI,CSV,TXT</p>
+                                        <p className="text-sm text-gray-500">JPG, JPEG, PNG, PPT, PPTX, DOC, DOCX, XLSX, XLS, MP4, MOV, AVI, CSV, TXT (Max 10MB)</p>
                                     </div>
                                 </div>
                                 <div className="p-6">
@@ -424,7 +431,7 @@ const Notice = () => {
                                         type="file"
                                         ref={fileInputRef}
                                         onChange={handleFileUpload}
-                                        accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.csv,.iti,.png,.jpg,.jpeg,.mp4,.mov,.avi"
+                                        accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.csv,.png,.jpg,.jpeg,.mp4,.mov,.avi"
                                         className="hidden"
                                     />
 
@@ -472,18 +479,24 @@ const Notice = () => {
 
                         {/* Send Section - Right Column */}
                         <div className="space-y-6">
-                            <div className="bg-white rounded-2xl border border-gray-200 p-6">
-                                <h3 className="text-lg font-semibold text-gray-900 mb-4">Ready to Send?</h3>
+                            <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
+                                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                                    <span className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center">
+                                        <FaPaperPlane className="text-emerald-600" size={14} />
+                                    </span>
+                                    Ready to Send?
+                                </h3>
                                 <p className="text-sm text-gray-500 mb-6">
-                                    Click send to choose your recipients and deliver this notice.
+                                    Click send to choose your recipients and deliver this notice immediately.
                                 </p>
                                 <button
                                     onClick={handleSendClick}
                                     disabled={!message.trim()}
-                                    className="w-full flex items-center justify-center gap-2 bg-primary hover:bg-primary-hover text-white font-medium py-3 px-4 rounded-xl shadow-lg shadow-primary/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
+                                    className="relative w-full overflow-hidden group flex items-center justify-center gap-2 bg-linear-to-r from-primary to-indigo-600 hover:from-primary-hover hover:to-indigo-700 text-white font-medium py-3.5 px-4 rounded-xl shadow-lg shadow-primary/30 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none hover:-translate-y-0.5"
                                 >
-                                    <FaPaperPlane size={14} />
-                                    Send Notice
+                                    <div className="absolute inset-0 w-full h-full bg-white/20 scale-x-0 group-hover:scale-x-100 origin-left transition-transform duration-300 ease-out"></div>
+                                    <FaPaperPlane className="relative z-10 group-hover:rotate-12 transition-transform duration-300" size={14} />
+                                    <span className="relative z-10">Send Notice</span>
                                 </button>
                             </div>
 
@@ -768,7 +781,7 @@ const Notice = () => {
                                                     </div>
 
                                                     {/* Actions */}
-                                                    <div className="flex items-center gap-1 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <div className="flex items-center gap-1 transition-opacity">
                                                         <button
                                                             onClick={() => setViewItem(item)}
                                                             className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
@@ -834,20 +847,25 @@ const Notice = () => {
                                     <div>
                                         <h5 className="text-sm font-medium text-gray-900 mb-3">Attachment</h5>
                                         <div className="space-y-2">
-                                            <div className="flex items-center justify-between p-3 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors">
+                                            <a
+                                                href={viewItem.attachment.secure_url || viewItem.attachment.path || '#'}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="flex items-center justify-between p-3 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors cursor-pointer group"
+                                            >
                                                 <div className="flex items-center gap-3">
                                                     <div className="w-10 h-10 bg-white border border-gray-100 rounded-lg flex items-center justify-center">
                                                         {getFileIcon(viewItem.attachment.originalName || viewItem.attachment.filename)}
                                                     </div>
                                                     <div>
-                                                        <p className="text-sm font-medium text-gray-900">{viewItem.attachment.originalName || viewItem.attachment.filename}</p>
+                                                        <p className="text-sm font-medium text-gray-900 group-hover:text-primary transition-colors">{viewItem.attachment.originalName || viewItem.attachment.filename}</p>
                                                         <p className="text-xs text-gray-500">{((viewItem.attachment.size || 0) / 1024).toFixed(1)} KB</p>
                                                     </div>
                                                 </div>
-                                                <a href={viewItem.attachment.path} target="_blank" rel="noopener noreferrer" className="p-2 text-gray-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-colors">
+                                                <div className="p-2 text-gray-400 group-hover:text-primary group-hover:bg-primary/5 rounded-lg transition-colors">
                                                     <FaDownload size={14} />
-                                                </a>
-                                            </div>
+                                                </div>
+                                            </a>
                                         </div>
                                     </div>
                                 )}
@@ -1228,16 +1246,27 @@ const Notice = () => {
                         <div className="px-6 py-4 border-t border-gray-100 flex gap-3">
                             <button
                                 onClick={() => setShowSendModal(false)}
-                                className="flex-1 px-4 py-2.5 border border-gray-200 text-gray-700 font-medium rounded-xl hover:bg-gray-50 transition-colors"
+                                disabled={isSending}
+                                className="flex-1 px-4 py-2.5 border border-gray-200 text-gray-700 font-medium rounded-xl hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 Cancel
                             </button>
                             <button
                                 onClick={handleFinalSend}
-                                className="flex-1 px-4 py-2.5 bg-primary hover:bg-primary-hover text-white font-medium rounded-xl transition-colors flex items-center justify-center gap-2"
+                                disabled={isSending}
+                                className="flex-1 px-4 py-2.5 bg-primary hover:bg-primary-hover text-white font-medium rounded-xl transition-colors flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
                             >
-                                <FaPaperPlane size={12} />
-                                Send Now
+                                {isSending ? (
+                                    <>
+                                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                                        Sending...
+                                    </>
+                                ) : (
+                                    <>
+                                        <FaPaperPlane size={12} />
+                                        Send Now
+                                    </>
+                                )}
                             </button>
                         </div>
                     </div>
