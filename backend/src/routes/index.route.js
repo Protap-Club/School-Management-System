@@ -6,6 +6,7 @@ import attendanceRoutes from "../module/attendence/attendance.route.js";
 import noticeRoutes from "../module/notice/notice.route.js";
 import calendarRoutes from "../module/calendar/calendar.route.js";
 import timetableRoutes from "../module/timetable/timetable.route.js";
+import feesRoutes from "../module/fees/fees.route.js";
 import { checkAuth } from "../middlewares/auth.middleware.js";
 
 const router = express.Router();
@@ -24,6 +25,7 @@ router.use("/school", schoolRoutes);
 router.use("/notices", noticeRoutes);
 router.use("/calendar", calendarRoutes);
 router.use("/timetables", timetableRoutes);
+router.use("/fees", feesRoutes);
 
 export default router;
 
