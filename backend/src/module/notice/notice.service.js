@@ -5,6 +5,8 @@ import logger from "../../config/logger.js";
 import { USER_ROLES } from "../../constants/userRoles.js";
 import { deleteFromCloudinary } from "../../middlewares/upload.middleware.js";
 import cloudinary from "../../config/cloudinary.js";
+import StudentProfile from "../user/model/StudentProfile.model.js";
+import TeacherProfile from "../user/model/TeacherProfile.model.js";
 
 /**
  * Generates a private, short-lived download URL for a Cloudinary raw resource.
@@ -93,8 +95,8 @@ export const createNotice = async (schoolId, userId, data, file) => {
         filename: file.filename, // Using Cloudinary public_id as filename for legacy consistency if needed
         originalName: file.originalname,
         path: file.path,
-        secure_url: file.path, 
-        public_id: file.filename, 
+        secure_url: file.path,
+        public_id: file.filename,
         size: file.size,
         mimetype: file.mimetype,
     } : null;
@@ -126,9 +128,9 @@ export const getNotices = async (user, platform, filters = {}) => {
     // Platform-specific logic
     if (platform === 'mobile') {
         if (user.role === USER_ROLES.STUDENT) {
-            return await getStudentMobileNotices(schoolId, userId);
+            return await getStudentMobileNotices(schoolId, user);
         } else if (user.role === USER_ROLES.TEACHER) {
-            return await getTeacherMobileNotices(schoolId, userId);
+            return await getTeacherMobileNotices(schoolId, user);
         } else {
             // ADMIN or others restricted on mobile notice view
             throw new ForbiddenError("Only students and teachers can access mobile notices");
@@ -161,13 +163,38 @@ export const getNotices = async (user, platform, filters = {}) => {
 };
 
 // Get notices received by a user
-export const getReceivedNotices = async (schoolId, userId) => {
+export const getReceivedNotices = async (schoolId, user) => {
+    const userId = user._id;
+    const role = user.role;
+
+    // 1. Gather all target strings/IDs the user is a part of
+    const targetRecipients = [userId.toString()]; // User's own ID
+
+    // 2. Fetch User's Groups
+    const userGroups = await NoticeGroup.find({ schoolId, members: userId, isActive: true }).select('_id').lean();
+    userGroups.forEach(g => targetRecipients.push(g._id.toString()));
+
+    // 3. Fetch User's Classes (if student or teacher)
+    if (role === USER_ROLES.STUDENT) {
+        const profile = await StudentProfile.findOne({ schoolId, userId }).lean();
+        if (profile && profile.standard && profile.section) {
+            targetRecipients.push(`${profile.standard}-${profile.section}`);
+        }
+    } else if (role === USER_ROLES.TEACHER) {
+        const profile = await TeacherProfile.findOne({ schoolId, userId }).lean();
+        if (profile && Array.isArray(profile.assignedClasses)) {
+            profile.assignedClasses.forEach(c => {
+                targetRecipients.push(`${c.standard}-${c.section}`);
+            });
+        }
+    }
+
     const results = await Notice.find({
         schoolId,
         createdBy: { $ne: userId },
         $or: [
             { recipients: { $size: 0 } },  // Sent to all
-            { recipients: userId }          // Sent to me
+            { recipients: { $in: targetRecipients } } // Sent to me, my class, or my group
         ],
     })
         .populate("createdBy", "name email role")
@@ -286,14 +313,14 @@ export const deleteGroup = async (schoolId, groupId, userId) => {
 // ─── MOBILE HELPERS ─────────────────────────────────────────────
 
 // STUDENT: Returns only received notices
-const getStudentMobileNotices = async (schoolId, userId) => {
-    return await getReceivedNotices(schoolId, userId);
+const getStudentMobileNotices = async (schoolId, user) => {
+    return await getReceivedNotices(schoolId, user);
 };
 
 // TEACHER: Returns received + history (sent) notices
-const getTeacherMobileNotices = async (schoolId, userId) => {
-    const received = await getReceivedNotices(schoolId, userId);
-    const history = await Notice.find({ schoolId, createdBy: userId })
+const getTeacherMobileNotices = async (schoolId, user) => {
+    const received = await getReceivedNotices(schoolId, user);
+    const history = await Notice.find({ schoolId, createdBy: user._id })
         .populate("createdBy", "name email role")
         .sort({ createdAt: -1 })
         .limit(20) // Limit mobile history to recent 20
