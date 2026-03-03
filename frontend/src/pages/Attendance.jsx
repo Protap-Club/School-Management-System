@@ -6,7 +6,8 @@ import api from '../api/axios';
 import { connectSocket, disconnectSocket } from '../api/socket';
 import {
   FaUserGraduate, FaCalendarAlt, FaCheckCircle, FaTimesCircle, FaClock,
-  FaUsers, FaSearch, FaWifi, FaChevronDown, FaUserTie, FaClipboardList
+  FaUsers, FaSearch, FaWifi, FaChevronDown, FaUserTie, FaClipboardList,
+  FaChevronLeft, FaChevronRight
 } from 'react-icons/fa';
 import StudentHistoryModal from '../components/attendance/StudentHistoryModal';
 
@@ -22,6 +23,7 @@ const STAT_CARDS = [
   { icon: FaCheckCircle, label: 'Present Today', key: 'present', color: 'text-green-600' },
   { icon: FaTimesCircle, label: 'Absent Today', key: 'absent', color: 'text-red-600' },
 ];
+const ITEMS_PER_PAGE = 15;
 
 const buildAttendanceMap = (attendanceData) => {
   const map = {};
@@ -65,6 +67,49 @@ const Attendance = () => {
   const [socketConnected, setSocketConnected] = useState(false);
   const [expandedClasses, setExpandedClasses] = useState({});
   const [selectedStudent, setSelectedStudent] = useState(null);
+  const [teacherPage, setTeacherPage] = useState(0);
+  const [classPages, setClassPages] = useState({});
+
+  const getClassPage = (classId) => classPages[classId] || 0;
+  const setClassPage = (classId, page) => setClassPages(prev => ({ ...prev, [classId]: page }));
+
+  const PaginationControls = ({ currentPage, totalItems, onPageChange }) => {
+    const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
+    if (totalPages <= 1) return null;
+    const start = currentPage * ITEMS_PER_PAGE + 1;
+    const end = Math.min((currentPage + 1) * ITEMS_PER_PAGE, totalItems);
+    return (
+      <div className="px-4 py-3 border-t border-gray-100 flex flex-col sm:flex-row justify-between items-center gap-3 bg-gray-50/50">
+        <div className="text-xs text-gray-500">
+          Showing <span className="font-medium text-gray-700">{start}</span> to <span className="font-medium text-gray-700">{end}</span> of <span className="font-medium text-gray-700">{totalItems}</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <button onClick={() => onPageChange(Math.max(0, currentPage - 1))} disabled={currentPage === 0}
+            className="px-2.5 py-1.5 text-xs text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:hover:bg-transparent rounded-md transition-colors font-medium">
+            <FaChevronLeft size={10} />
+          </button>
+          {[...Array(Math.min(5, totalPages))].map((_, i) => {
+            let pageNum;
+            if (totalPages <= 5) pageNum = i;
+            else if (currentPage < 3) pageNum = i;
+            else if (currentPage > totalPages - 4) pageNum = totalPages - 5 + i;
+            else pageNum = currentPage - 2 + i;
+            if (pageNum >= totalPages) return null;
+            return (
+              <button key={pageNum} onClick={() => onPageChange(pageNum)}
+                className={`min-w-[28px] h-7 px-2 flex items-center justify-center rounded-md text-xs font-medium transition-colors ${currentPage === pageNum ? 'bg-gray-900 text-white' : 'text-gray-600 hover:bg-gray-100'}`}>
+                {pageNum + 1}
+              </button>
+            );
+          })}
+          <button onClick={() => onPageChange(Math.min(totalPages - 1, currentPage + 1))} disabled={currentPage >= totalPages - 1}
+            className="px-2.5 py-1.5 text-xs text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:hover:bg-transparent rounded-md transition-colors font-medium">
+            <FaChevronRight size={10} />
+          </button>
+        </div>
+      </div>
+    );
+  };
 
   const today = useMemo(() => new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }), []);
   const getStudentStatus = useCallback((studentId) => attendanceMap[studentId]?.status || 'unmarked', [attendanceMap]);
@@ -246,9 +291,12 @@ const Attendance = () => {
                               <th className="px-6 py-3">Student</th><th className="px-6 py-3">Roll No</th><th className="px-6 py-3">Status</th>
                             </tr>
                           </thead>
-                          <tbody className="divide-y divide-gray-50">{group.students.map(student => renderStudentRow(student, true))}</tbody>
+                          <tbody className="divide-y divide-gray-50">
+                            {group.students.slice(getClassPage(group.id) * ITEMS_PER_PAGE, (getClassPage(group.id) + 1) * ITEMS_PER_PAGE).map(student => renderStudentRow(student, true))}
+                          </tbody>
                         </table>
                       </div>
+                      <PaginationControls currentPage={getClassPage(group.id)} totalItems={group.students.length} onPageChange={(p) => setClassPage(group.id, p)} />
                     </div>
                   )}
                 </div>
@@ -272,9 +320,12 @@ const Attendance = () => {
                     <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-50">{students.map(student => renderStudentRow(student, false))}</tbody>
+                <tbody className="divide-y divide-gray-50">
+                  {students.slice(teacherPage * ITEMS_PER_PAGE, (teacherPage + 1) * ITEMS_PER_PAGE).map(student => renderStudentRow(student, false))}
+                </tbody>
               </table>
             </div>
+            <PaginationControls currentPage={teacherPage} totalItems={students.length} onPageChange={setTeacherPage} />
           </div>
         )}
         <StudentHistoryModal student={selectedStudent} onClose={() => setSelectedStudent(null)} />
