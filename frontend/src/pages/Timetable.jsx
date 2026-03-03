@@ -3,15 +3,8 @@ import { useAuth } from '../features/auth';
 import DashboardLayout from '../layouts/DashboardLayout';
 import TimetableGrid from '../components/timetable/TimetableGrid';
 import TimetableModal from '../components/timetable/TimetableModal';
-import { FaCalendarAlt, FaChalkboardTeacher, FaLayerGroup, FaPlus, FaSpinner } from 'react-icons/fa';
+import { FaCalendarAlt, FaChalkboardTeacher, FaPlus, FaSpinner } from 'react-icons/fa';
 import { useTimetableData } from '../hooks/useTimetableData';
-import { TIMETABLE_STATUS } from '../api/timetable';
-
-const CREATE_FORM_FIELDS = [
-  { label: 'Standard', key: 'standard', type: 'text', placeholder: 'e.g. 10th' },
-  { label: 'Section', key: 'section', type: 'text', placeholder: 'e.g. A' },
-  { label: 'Academic Year', key: 'academicYear', type: 'number', min: '2000', max: '2100' },
-];
 
 const TimetablePage = () => {
   const { user } = useAuth();
@@ -20,11 +13,10 @@ const TimetablePage = () => {
 
   const {
     timeSlots, timetables, selectedTimetable, entries, teachers, availableClasses, loading, error,
-    addTimetable, removeTimetable, selectTimetable, addEntry, editEntry, removeEntry, fetchTeacherSchedule, clearError
+    addTimetable, selectTimetable, addEntry, editEntry, removeEntry, fetchTeacherSchedule, fetchMySchedule, clearError
   } = useTimetableData(user?.role, user?._id);
 
   // View state
-  const [activeTab, setActiveTab] = useState('class-timetable');
   const [adminViewMode, setAdminViewMode] = useState('class');
   const [selectedTeacherId, setSelectedTeacherId] = useState('');
   const [teacherScheduleData, setTeacherScheduleData] = useState(null);
@@ -51,11 +43,11 @@ const TimetablePage = () => {
     }
   }, [createState.open, availableClasses, createState.form.standard]);
 
-  const isTeacherScheduleView = (isTeacher && activeTab === 'my-timetable') || (!isTeacher && adminViewMode === 'teacher');
+  const isTeacherScheduleView = isTeacher || (!isTeacher && adminViewMode === 'teacher');
 
   useEffect(() => {
-    if (timetables.length > 0 && !selectedTimetable) selectTimetable(timetables[0]._id);
-  }, [timetables, selectedTimetable, selectTimetable]);
+    if (!isTeacher && timetables.length > 0 && !selectedTimetable) selectTimetable(timetables[0]._id);
+  }, [isTeacher, timetables, selectedTimetable, selectTimetable]);
 
   useEffect(() => {
     if (isTeacher && user?._id) setSelectedTeacherId(user._id);
@@ -64,13 +56,13 @@ const TimetablePage = () => {
 
   useEffect(() => {
     if (!isTeacherScheduleView) return;
-    const teacherId = isTeacher ? user?._id : selectedTeacherId;
-    if (!teacherId) return;
     (async () => {
-      const result = await fetchTeacherSchedule(teacherId);
+      const result = isTeacher
+        ? await fetchMySchedule()
+        : await fetchTeacherSchedule(selectedTeacherId);
       if (result.success) setTeacherScheduleData(result.data);
     })();
-  }, [isTeacher, activeTab, adminViewMode, selectedTeacherId, user, fetchTeacherSchedule]);
+  }, [isTeacher, adminViewMode, selectedTeacherId, fetchTeacherSchedule, fetchMySchedule, isTeacherScheduleView]);
 
   const displayEntries = useMemo(() => {
     if (isTeacherScheduleView) {
@@ -153,16 +145,12 @@ const TimetablePage = () => {
           <div className="flex flex-col md:flex-row gap-4 justify-between items-start md:items-center">
             {isTeacher ? (
               <>
-                <div className="flex bg-gray-100 p-1 rounded-xl">
-                  {renderTabButton('my-timetable', <FaChalkboardTeacher />, 'My Schedule', activeTab === 'my-timetable')}
-                  {renderTabButton('class-timetable', <FaLayerGroup />, 'Class Timetable', activeTab === 'class-timetable')}
+                <div className="flex bg-gray-100 p-1 rounded-xl items-center">
+                  <span className="px-4 py-2 rounded-lg text-sm font-medium bg-white text-primary shadow-sm flex items-center gap-2">
+                    <FaChalkboardTeacher />
+                    My Schedule
+                  </span>
                 </div>
-                {activeTab === 'class-timetable' && selectedTimetable && (
-                  <div className="flex items-center gap-2 ml-4 bg-gray-50 px-3 py-2 rounded-lg border border-gray-200">
-                    <span className="text-sm font-medium text-gray-600">Class:</span>
-                    <span className="text-sm font-semibold text-gray-800">{selectedTimetable.standard}-{selectedTimetable.section} ({selectedTimetable.academicYear})</span>
-                  </div>
-                )}
               </>
             ) : (
               <div className="flex flex-wrap items-center gap-4 bg-white p-2 rounded-xl border border-gray-100 shadow-sm">

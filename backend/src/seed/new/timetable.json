@@ -1,0 +1,1379 @@
+{
+  "timeSlots": [
+    {
+      "slotNumber": 1,
+      "startTime": "08:00 AM",
+      "endTime": "08:45 AM",
+      "slotType": "CLASS"
+    },
+    {
+      "slotNumber": 2,
+      "startTime": "08:45 AM",
+      "endTime": "09:30 AM",
+      "slotType": "CLASS"
+    },
+    {
+      "slotNumber": 3,
+      "startTime": "09:30 AM",
+      "endTime": "10:15 AM",
+      "slotType": "CLASS"
+    },
+    {
+      "slotNumber": 4,
+      "startTime": "10:15 AM",
+      "endTime": "10:45 AM",
+      "slotType": "BREAK"
+    },
+    {
+      "slotNumber": 5,
+      "startTime": "10:45 AM",
+      "endTime": "11:30 AM",
+      "slotType": "CLASS"
+    },
+    {
+      "slotNumber": 6,
+      "startTime": "11:30 AM",
+      "endTime": "12:15 PM",
+      "slotType": "CLASS"
+    },
+    {
+      "slotNumber": 7,
+      "startTime": "12:15 PM",
+      "endTime": "01:00 PM",
+      "slotType": "CLASS"
+    },
+    {
+      "slotNumber": 8,
+      "startTime": "01:00 PM",
+      "endTime": "01:45 PM",
+      "slotType": "CLASS"
+    }
+  ],
+  "timetables": [
+    {
+      "standard": "1",
+      "section": "A",
+      "academicYear": 2026,
+      "effectiveFrom": "2026-04-01"
+    },
+    {
+      "standard": "1",
+      "section": "B",
+      "academicYear": 2026,
+      "effectiveFrom": "2026-04-01"
+    },
+    {
+      "standard": "1",
+      "section": "C",
+      "academicYear": 2026,
+      "effectiveFrom": "2026-04-01"
+    },
+    {
+      "standard": "2",
+      "section": "A",
+      "academicYear": 2026,
+      "effectiveFrom": "2026-04-01"
+    },
+    {
+      "standard": "2",
+      "section": "B",
+      "academicYear": 2026,
+      "effectiveFrom": "2026-04-01"
+    },
+    {
+      "standard": "2",
+      "section": "C",
+      "academicYear": 2026,
+      "effectiveFrom": "2026-04-01"
+    },
+    {
+      "standard": "3",
+      "section": "A",
+      "academicYear": 2026,
+      "effectiveFrom": "2026-04-01"
+    },
+    {
+      "standard": "3",
+      "section": "B",
+      "academicYear": 2026,
+      "effectiveFrom": "2026-04-01"
+    },
+    {
+      "standard": "3",
+      "section": "C",
+      "academicYear": 2026,
+      "effectiveFrom": "2026-04-01"
+    },
+    {
+      "standard": "4",
+      "section": "A",
+      "academicYear": 2026,
+      "effectiveFrom": "2026-04-01"
+    },
+    {
+      "standard": "4",
+      "section": "B",
+      "academicYear": 2026,
+      "effectiveFrom": "2026-04-01"
+    },
+    {
+      "standard": "4",
+      "section": "C",
+      "academicYear": 2026,
+      "effectiveFrom": "2026-04-01"
+    },
+    {
+      "standard": "5",
+      "section": "A",
+      "academicYear": 2026,
+      "effectiveFrom": "2026-04-01"
+    },
+    {
+      "standard": "5",
+      "section": "B",
+      "academicYear": 2026,
+      "effectiveFrom": "2026-04-01"
+    },
+    {
+      "standard": "5",
+      "section": "C",
+      "academicYear": 2026,
+      "effectiveFrom": "2026-04-01"
+    },
+    {
+      "standard": "6",
+      "section": "A",
+      "academicYear": 2026,
+      "effectiveFrom": "2026-04-01"
+    },
+    {
+      "standard": "6",
+      "section": "B",
+      "academicYear": 2026,
+      "effectiveFrom": "2026-04-01"
+    },
+    {
+      "standard": "6",
+      "section": "C",
+      "academicYear": 2026,
+      "effectiveFrom": "2026-04-01"
+    },
+    {
+      "standard": "7",
+      "section": "A",
+      "academicYear": 2026,
+      "effectiveFrom": "2026-04-01"
+    },
+    {
+      "standard": "7",
+      "section": "B",
+      "academicYear": 2026,
+      "effectiveFrom": "2026-04-01"
+    },
+    {
+      "standard": "7",
+      "section": "C",
+      "academicYear": 2026,
+      "effectiveFrom": "2026-04-01"
+    },
+    {
+      "standard": "8",
+      "section": "A",
+      "academicYear": 2026,
+      "effectiveFrom": "2026-04-01"
+    },
+    {
+      "standard": "8",
+      "section": "B",
+      "academicYear": 2026,
+      "effectiveFrom": "2026-04-01"
+    },
+    {
+      "standard": "8",
+      "section": "C",
+      "academicYear": 2026,
+      "effectiveFrom": "2026-04-01"
+    },
+    {
+      "standard": "9",
+      "section": "A",
+      "academicYear": 2026,
+      "effectiveFrom": "2026-04-01"
+    },
+    {
+      "standard": "9",
+      "section": "B",
+      "academicYear": 2026,
+      "effectiveFrom": "2026-04-01"
+    },
+    {
+      "standard": "9",
+      "section": "C",
+      "academicYear": 2026,
+      "effectiveFrom": "2026-04-01"
+    },
+    {
+      "standard": "10",
+      "section": "A",
+      "academicYear": 2026,
+      "effectiveFrom": "2026-04-01"
+    },
+    {
+      "standard": "10",
+      "section": "B",
+      "academicYear": 2026,
+      "effectiveFrom": "2026-04-01"
+    },
+    {
+      "standard": "10",
+      "section": "C",
+      "academicYear": 2026,
+      "effectiveFrom": "2026-04-01"
+    },
+    {
+      "standard": "11",
+      "section": "A",
+      "academicYear": 2026,
+      "effectiveFrom": "2026-04-01"
+    },
+    {
+      "standard": "11",
+      "section": "B",
+      "academicYear": 2026,
+      "effectiveFrom": "2026-04-01"
+    },
+    {
+      "standard": "11",
+      "section": "C",
+      "academicYear": 2026,
+      "effectiveFrom": "2026-04-01"
+    },
+    {
+      "standard": "12",
+      "section": "A",
+      "academicYear": 2026,
+      "effectiveFrom": "2026-04-01"
+    },
+    {
+      "standard": "12",
+      "section": "B",
+      "academicYear": 2026,
+      "effectiveFrom": "2026-04-01"
+    },
+    {
+      "standard": "12",
+      "section": "C",
+      "academicYear": 2026,
+      "effectiveFrom": "2026-04-01"
+    }
+  ],
+  "teacherSubjects": {
+    "priya@nv.com": "Mathematics",
+    "amit@nv.com": "English",
+    "neha@nv.com": "Physics",
+    "rahul@nv.com": "History",
+    "kavita@nv.com": "Chemistry",
+    "vikram@nv.com": "Computer Science",
+    "lakshmi@nv.com": "Biology",
+    "arjun@nv.com": "Physical Education",
+    "deepa@nv.com": "Hindi",
+    "manish@nv.com": "Mathematics",
+    "ritu@nv.com": "Science",
+    "sanjay@nv.com": "English",
+    "anita@nv.com": "Social Studies",
+    "kiran@nv.com": "EVS",
+    "pankaj@nv.com": "Mathematics",
+    "meena@nv.com": "Hindi",
+    "rohit@nv.com": "Science",
+    "pooja@nv.com": "Mathematics",
+    "harsh@nv.com": "Geography",
+    "swati@nv.com": "Art & Craft"
+  },
+  "entries": [
+    {
+      "class": "1-A",
+      "day": "Monday",
+      "slot": 1,
+      "teacherEmail": "kiran@nv.com",
+      "room": "R101"
+    },
+    {
+      "class": "1-A",
+      "day": "Monday",
+      "slot": 2,
+      "teacherEmail": "meena@nv.com",
+      "room": "R101"
+    },
+    {
+      "class": "1-A",
+      "day": "Monday",
+      "slot": 3,
+      "teacherEmail": "swati@nv.com",
+      "room": "R101"
+    },
+    {
+      "class": "1-A",
+      "day": "Monday",
+      "slot": 5,
+      "teacherEmail": "kiran@nv.com",
+      "room": "R101"
+    },
+    {
+      "class": "1-A",
+      "day": "Monday",
+      "slot": 6,
+      "teacherEmail": "arjun@nv.com",
+      "room": "GYM"
+    },
+    {
+      "class": "1-A",
+      "day": "Monday",
+      "slot": 7,
+      "teacherEmail": "meena@nv.com",
+      "room": "R101"
+    },
+    {
+      "class": "1-A",
+      "day": "Tuesday",
+      "slot": 1,
+      "teacherEmail": "meena@nv.com",
+      "room": "R101"
+    },
+    {
+      "class": "1-A",
+      "day": "Tuesday",
+      "slot": 2,
+      "teacherEmail": "kiran@nv.com",
+      "room": "R101"
+    },
+    {
+      "class": "1-A",
+      "day": "Tuesday",
+      "slot": 3,
+      "teacherEmail": "swati@nv.com",
+      "room": "ART"
+    },
+    {
+      "class": "1-A",
+      "day": "Tuesday",
+      "slot": 5,
+      "teacherEmail": "meena@nv.com",
+      "room": "R101"
+    },
+    {
+      "class": "1-A",
+      "day": "Tuesday",
+      "slot": 6,
+      "teacherEmail": "kiran@nv.com",
+      "room": "R101"
+    },
+    {
+      "class": "1-A",
+      "day": "Wednesday",
+      "slot": 1,
+      "teacherEmail": "kiran@nv.com",
+      "room": "R101"
+    },
+    {
+      "class": "1-A",
+      "day": "Wednesday",
+      "slot": 2,
+      "teacherEmail": "meena@nv.com",
+      "room": "R101"
+    },
+    {
+      "class": "1-A",
+      "day": "Wednesday",
+      "slot": 3,
+      "teacherEmail": "arjun@nv.com",
+      "room": "GYM"
+    },
+    {
+      "class": "1-A",
+      "day": "Wednesday",
+      "slot": 5,
+      "teacherEmail": "kiran@nv.com",
+      "room": "R101"
+    },
+    {
+      "class": "1-A",
+      "day": "Wednesday",
+      "slot": 6,
+      "teacherEmail": "swati@nv.com",
+      "room": "ART"
+    },
+    {
+      "class": "1-A",
+      "day": "Thursday",
+      "slot": 1,
+      "teacherEmail": "meena@nv.com",
+      "room": "R101"
+    },
+    {
+      "class": "1-A",
+      "day": "Thursday",
+      "slot": 2,
+      "teacherEmail": "kiran@nv.com",
+      "room": "R101"
+    },
+    {
+      "class": "1-A",
+      "day": "Thursday",
+      "slot": 5,
+      "teacherEmail": "meena@nv.com",
+      "room": "R101"
+    },
+    {
+      "class": "1-A",
+      "day": "Thursday",
+      "slot": 6,
+      "teacherEmail": "kiran@nv.com",
+      "room": "R101"
+    },
+    {
+      "class": "1-A",
+      "day": "Friday",
+      "slot": 1,
+      "teacherEmail": "kiran@nv.com",
+      "room": "R101"
+    },
+    {
+      "class": "1-A",
+      "day": "Friday",
+      "slot": 2,
+      "teacherEmail": "meena@nv.com",
+      "room": "R101"
+    },
+    {
+      "class": "1-A",
+      "day": "Friday",
+      "slot": 3,
+      "teacherEmail": "swati@nv.com",
+      "room": "ART"
+    },
+    {
+      "class": "1-A",
+      "day": "Friday",
+      "slot": 5,
+      "teacherEmail": "meena@nv.com",
+      "room": "R101"
+    },
+    {
+      "class": "1-A",
+      "day": "Friday",
+      "slot": 6,
+      "teacherEmail": "arjun@nv.com",
+      "room": "GYM"
+    },
+    {
+      "class": "6-A",
+      "day": "Monday",
+      "slot": 1,
+      "teacherEmail": "manish@nv.com",
+      "room": "R601"
+    },
+    {
+      "class": "6-A",
+      "day": "Monday",
+      "slot": 2,
+      "teacherEmail": "sanjay@nv.com",
+      "room": "R601"
+    },
+    {
+      "class": "6-A",
+      "day": "Monday",
+      "slot": 3,
+      "teacherEmail": "ritu@nv.com",
+      "room": "LAB1"
+    },
+    {
+      "class": "6-A",
+      "day": "Monday",
+      "slot": 5,
+      "teacherEmail": "anita@nv.com",
+      "room": "R601"
+    },
+    {
+      "class": "6-A",
+      "day": "Monday",
+      "slot": 6,
+      "teacherEmail": "deepa@nv.com",
+      "room": "R601"
+    },
+    {
+      "class": "6-A",
+      "day": "Monday",
+      "slot": 7,
+      "teacherEmail": "swati@nv.com",
+      "room": "ART"
+    },
+    {
+      "class": "6-A",
+      "day": "Tuesday",
+      "slot": 1,
+      "teacherEmail": "sanjay@nv.com",
+      "room": "R601"
+    },
+    {
+      "class": "6-A",
+      "day": "Tuesday",
+      "slot": 2,
+      "teacherEmail": "manish@nv.com",
+      "room": "R601"
+    },
+    {
+      "class": "6-A",
+      "day": "Tuesday",
+      "slot": 3,
+      "teacherEmail": "deepa@nv.com",
+      "room": "R601"
+    },
+    {
+      "class": "6-A",
+      "day": "Tuesday",
+      "slot": 5,
+      "teacherEmail": "ritu@nv.com",
+      "room": "LAB1"
+    },
+    {
+      "class": "6-A",
+      "day": "Tuesday",
+      "slot": 6,
+      "teacherEmail": "anita@nv.com",
+      "room": "R601"
+    },
+    {
+      "class": "6-A",
+      "day": "Tuesday",
+      "slot": 7,
+      "teacherEmail": "arjun@nv.com",
+      "room": "GYM"
+    },
+    {
+      "class": "6-A",
+      "day": "Wednesday",
+      "slot": 1,
+      "teacherEmail": "manish@nv.com",
+      "room": "R601"
+    },
+    {
+      "class": "6-A",
+      "day": "Wednesday",
+      "slot": 2,
+      "teacherEmail": "ritu@nv.com",
+      "room": "LAB1"
+    },
+    {
+      "class": "6-A",
+      "day": "Wednesday",
+      "slot": 3,
+      "teacherEmail": "sanjay@nv.com",
+      "room": "R601"
+    },
+    {
+      "class": "6-A",
+      "day": "Wednesday",
+      "slot": 5,
+      "teacherEmail": "deepa@nv.com",
+      "room": "R601"
+    },
+    {
+      "class": "6-A",
+      "day": "Wednesday",
+      "slot": 6,
+      "teacherEmail": "manish@nv.com",
+      "room": "R601"
+    },
+    {
+      "class": "6-A",
+      "day": "Thursday",
+      "slot": 1,
+      "teacherEmail": "anita@nv.com",
+      "room": "R601"
+    },
+    {
+      "class": "6-A",
+      "day": "Thursday",
+      "slot": 2,
+      "teacherEmail": "sanjay@nv.com",
+      "room": "R601"
+    },
+    {
+      "class": "6-A",
+      "day": "Thursday",
+      "slot": 5,
+      "teacherEmail": "ritu@nv.com",
+      "room": "LAB1"
+    },
+    {
+      "class": "6-A",
+      "day": "Thursday",
+      "slot": 6,
+      "teacherEmail": "deepa@nv.com",
+      "room": "R601"
+    },
+    {
+      "class": "6-A",
+      "day": "Friday",
+      "slot": 1,
+      "teacherEmail": "sanjay@nv.com",
+      "room": "R601"
+    },
+    {
+      "class": "6-A",
+      "day": "Friday",
+      "slot": 2,
+      "teacherEmail": "manish@nv.com",
+      "room": "R601"
+    },
+    {
+      "class": "6-A",
+      "day": "Friday",
+      "slot": 3,
+      "teacherEmail": "anita@nv.com",
+      "room": "R601"
+    },
+    {
+      "class": "6-A",
+      "day": "Friday",
+      "slot": 5,
+      "teacherEmail": "deepa@nv.com",
+      "room": "R601"
+    },
+    {
+      "class": "6-A",
+      "day": "Friday",
+      "slot": 6,
+      "teacherEmail": "swati@nv.com",
+      "room": "ART"
+    },
+    {
+      "class": "9-A",
+      "day": "Monday",
+      "slot": 1,
+      "teacherEmail": "priya@nv.com",
+      "room": "R901"
+    },
+    {
+      "class": "9-A",
+      "day": "Monday",
+      "slot": 2,
+      "teacherEmail": "amit@nv.com",
+      "room": "R901"
+    },
+    {
+      "class": "9-A",
+      "day": "Monday",
+      "slot": 3,
+      "teacherEmail": "rahul@nv.com",
+      "room": "R901"
+    },
+    {
+      "class": "9-A",
+      "day": "Monday",
+      "slot": 5,
+      "teacherEmail": "vikram@nv.com",
+      "room": "COMP"
+    },
+    {
+      "class": "9-A",
+      "day": "Monday",
+      "slot": 6,
+      "teacherEmail": "harsh@nv.com",
+      "room": "R901"
+    },
+    {
+      "class": "9-A",
+      "day": "Monday",
+      "slot": 7,
+      "teacherEmail": "arjun@nv.com",
+      "room": "GYM"
+    },
+    {
+      "class": "9-A",
+      "day": "Tuesday",
+      "slot": 1,
+      "teacherEmail": "amit@nv.com",
+      "room": "R901"
+    },
+    {
+      "class": "9-A",
+      "day": "Tuesday",
+      "slot": 2,
+      "teacherEmail": "priya@nv.com",
+      "room": "R901"
+    },
+    {
+      "class": "9-A",
+      "day": "Tuesday",
+      "slot": 3,
+      "teacherEmail": "harsh@nv.com",
+      "room": "R901"
+    },
+    {
+      "class": "9-A",
+      "day": "Tuesday",
+      "slot": 5,
+      "teacherEmail": "rahul@nv.com",
+      "room": "R901"
+    },
+    {
+      "class": "9-A",
+      "day": "Tuesday",
+      "slot": 6,
+      "teacherEmail": "vikram@nv.com",
+      "room": "COMP"
+    },
+    {
+      "class": "9-A",
+      "day": "Wednesday",
+      "slot": 1,
+      "teacherEmail": "priya@nv.com",
+      "room": "R901"
+    },
+    {
+      "class": "9-A",
+      "day": "Wednesday",
+      "slot": 2,
+      "teacherEmail": "harsh@nv.com",
+      "room": "R901"
+    },
+    {
+      "class": "9-A",
+      "day": "Wednesday",
+      "slot": 3,
+      "teacherEmail": "amit@nv.com",
+      "room": "R901"
+    },
+    {
+      "class": "9-A",
+      "day": "Wednesday",
+      "slot": 5,
+      "teacherEmail": "rahul@nv.com",
+      "room": "R901"
+    },
+    {
+      "class": "9-A",
+      "day": "Wednesday",
+      "slot": 6,
+      "teacherEmail": "vikram@nv.com",
+      "room": "COMP"
+    },
+    {
+      "class": "9-A",
+      "day": "Thursday",
+      "slot": 1,
+      "teacherEmail": "rahul@nv.com",
+      "room": "R901"
+    },
+    {
+      "class": "9-A",
+      "day": "Thursday",
+      "slot": 2,
+      "teacherEmail": "priya@nv.com",
+      "room": "R901"
+    },
+    {
+      "class": "9-A",
+      "day": "Thursday",
+      "slot": 5,
+      "teacherEmail": "amit@nv.com",
+      "room": "R901"
+    },
+    {
+      "class": "9-A",
+      "day": "Thursday",
+      "slot": 6,
+      "teacherEmail": "harsh@nv.com",
+      "room": "R901"
+    },
+    {
+      "class": "9-A",
+      "day": "Friday",
+      "slot": 1,
+      "teacherEmail": "priya@nv.com",
+      "room": "R901"
+    },
+    {
+      "class": "9-A",
+      "day": "Friday",
+      "slot": 2,
+      "teacherEmail": "rahul@nv.com",
+      "room": "R901"
+    },
+    {
+      "class": "9-A",
+      "day": "Friday",
+      "slot": 3,
+      "teacherEmail": "amit@nv.com",
+      "room": "R901"
+    },
+    {
+      "class": "9-A",
+      "day": "Friday",
+      "slot": 5,
+      "teacherEmail": "vikram@nv.com",
+      "room": "COMP"
+    },
+    {
+      "class": "9-A",
+      "day": "Friday",
+      "slot": 6,
+      "teacherEmail": "arjun@nv.com",
+      "room": "GYM"
+    },
+    {
+      "class": "10-A",
+      "day": "Monday",
+      "slot": 1,
+      "teacherEmail": "priya@nv.com",
+      "room": "R1001"
+    },
+    {
+      "class": "10-A",
+      "day": "Monday",
+      "slot": 2,
+      "teacherEmail": "amit@nv.com",
+      "room": "R1001"
+    },
+    {
+      "class": "10-A",
+      "day": "Monday",
+      "slot": 3,
+      "teacherEmail": "neha@nv.com",
+      "room": "LAB2"
+    },
+    {
+      "class": "10-A",
+      "day": "Monday",
+      "slot": 5,
+      "teacherEmail": "kavita@nv.com",
+      "room": "LAB2"
+    },
+    {
+      "class": "10-A",
+      "day": "Monday",
+      "slot": 6,
+      "teacherEmail": "rahul@nv.com",
+      "room": "R1001"
+    },
+    {
+      "class": "10-A",
+      "day": "Monday",
+      "slot": 7,
+      "teacherEmail": "vikram@nv.com",
+      "room": "COMP"
+    },
+    {
+      "class": "10-A",
+      "day": "Tuesday",
+      "slot": 1,
+      "teacherEmail": "amit@nv.com",
+      "room": "R1001"
+    },
+    {
+      "class": "10-A",
+      "day": "Tuesday",
+      "slot": 2,
+      "teacherEmail": "priya@nv.com",
+      "room": "R1001"
+    },
+    {
+      "class": "10-A",
+      "day": "Tuesday",
+      "slot": 3,
+      "teacherEmail": "harsh@nv.com",
+      "room": "R1001"
+    },
+    {
+      "class": "10-A",
+      "day": "Tuesday",
+      "slot": 5,
+      "teacherEmail": "rahul@nv.com",
+      "room": "R1001"
+    },
+    {
+      "class": "10-A",
+      "day": "Tuesday",
+      "slot": 6,
+      "teacherEmail": "vikram@nv.com",
+      "room": "COMP"
+    },
+    {
+      "class": "10-A",
+      "day": "Tuesday",
+      "slot": 7,
+      "teacherEmail": "arjun@nv.com",
+      "room": "GYM"
+    },
+    {
+      "class": "10-A",
+      "day": "Wednesday",
+      "slot": 1,
+      "teacherEmail": "priya@nv.com",
+      "room": "R1001"
+    },
+    {
+      "class": "10-A",
+      "day": "Wednesday",
+      "slot": 2,
+      "teacherEmail": "neha@nv.com",
+      "room": "LAB2"
+    },
+    {
+      "class": "10-A",
+      "day": "Wednesday",
+      "slot": 3,
+      "teacherEmail": "kavita@nv.com",
+      "room": "LAB2"
+    },
+    {
+      "class": "10-A",
+      "day": "Wednesday",
+      "slot": 5,
+      "teacherEmail": "amit@nv.com",
+      "room": "R1001"
+    },
+    {
+      "class": "10-A",
+      "day": "Wednesday",
+      "slot": 6,
+      "teacherEmail": "harsh@nv.com",
+      "room": "R1001"
+    },
+    {
+      "class": "10-A",
+      "day": "Thursday",
+      "slot": 1,
+      "teacherEmail": "rahul@nv.com",
+      "room": "R1001"
+    },
+    {
+      "class": "10-A",
+      "day": "Thursday",
+      "slot": 2,
+      "teacherEmail": "priya@nv.com",
+      "room": "R1001"
+    },
+    {
+      "class": "10-A",
+      "day": "Thursday",
+      "slot": 3,
+      "teacherEmail": "vikram@nv.com",
+      "room": "COMP"
+    },
+    {
+      "class": "10-A",
+      "day": "Thursday",
+      "slot": 5,
+      "teacherEmail": "neha@nv.com",
+      "room": "LAB2"
+    },
+    {
+      "class": "10-A",
+      "day": "Thursday",
+      "slot": 6,
+      "teacherEmail": "amit@nv.com",
+      "room": "R1001"
+    },
+    {
+      "class": "10-A",
+      "day": "Friday",
+      "slot": 1,
+      "teacherEmail": "priya@nv.com",
+      "room": "R1001"
+    },
+    {
+      "class": "10-A",
+      "day": "Friday",
+      "slot": 2,
+      "teacherEmail": "rahul@nv.com",
+      "room": "R1001"
+    },
+    {
+      "class": "10-A",
+      "day": "Friday",
+      "slot": 3,
+      "teacherEmail": "kavita@nv.com",
+      "room": "LAB2"
+    },
+    {
+      "class": "10-A",
+      "day": "Friday",
+      "slot": 5,
+      "teacherEmail": "amit@nv.com",
+      "room": "R1001"
+    },
+    {
+      "class": "10-A",
+      "day": "Friday",
+      "slot": 6,
+      "teacherEmail": "harsh@nv.com",
+      "room": "R1001"
+    },
+    {
+      "class": "11-A",
+      "day": "Monday",
+      "slot": 1,
+      "teacherEmail": "priya@nv.com",
+      "room": "R1101"
+    },
+    {
+      "class": "11-A",
+      "day": "Monday",
+      "slot": 2,
+      "teacherEmail": "neha@nv.com",
+      "room": "LAB2"
+    },
+    {
+      "class": "11-A",
+      "day": "Monday",
+      "slot": 3,
+      "teacherEmail": "kavita@nv.com",
+      "room": "LAB2"
+    },
+    {
+      "class": "11-A",
+      "day": "Monday",
+      "slot": 5,
+      "teacherEmail": "lakshmi@nv.com",
+      "room": "LAB1"
+    },
+    {
+      "class": "11-A",
+      "day": "Monday",
+      "slot": 6,
+      "teacherEmail": "vikram@nv.com",
+      "room": "COMP"
+    },
+    {
+      "class": "11-A",
+      "day": "Monday",
+      "slot": 7,
+      "teacherEmail": "amit@nv.com",
+      "room": "R1101"
+    },
+    {
+      "class": "11-A",
+      "day": "Tuesday",
+      "slot": 1,
+      "teacherEmail": "neha@nv.com",
+      "room": "LAB2"
+    },
+    {
+      "class": "11-A",
+      "day": "Tuesday",
+      "slot": 2,
+      "teacherEmail": "priya@nv.com",
+      "room": "R1101"
+    },
+    {
+      "class": "11-A",
+      "day": "Tuesday",
+      "slot": 3,
+      "teacherEmail": "lakshmi@nv.com",
+      "room": "LAB1"
+    },
+    {
+      "class": "11-A",
+      "day": "Tuesday",
+      "slot": 5,
+      "teacherEmail": "kavita@nv.com",
+      "room": "LAB2"
+    },
+    {
+      "class": "11-A",
+      "day": "Tuesday",
+      "slot": 6,
+      "teacherEmail": "amit@nv.com",
+      "room": "R1101"
+    },
+    {
+      "class": "11-A",
+      "day": "Wednesday",
+      "slot": 1,
+      "teacherEmail": "priya@nv.com",
+      "room": "R1101"
+    },
+    {
+      "class": "11-A",
+      "day": "Wednesday",
+      "slot": 2,
+      "teacherEmail": "kavita@nv.com",
+      "room": "LAB2"
+    },
+    {
+      "class": "11-A",
+      "day": "Wednesday",
+      "slot": 3,
+      "teacherEmail": "neha@nv.com",
+      "room": "LAB2"
+    },
+    {
+      "class": "11-A",
+      "day": "Wednesday",
+      "slot": 5,
+      "teacherEmail": "vikram@nv.com",
+      "room": "COMP"
+    },
+    {
+      "class": "11-A",
+      "day": "Wednesday",
+      "slot": 6,
+      "teacherEmail": "lakshmi@nv.com",
+      "room": "LAB1"
+    },
+    {
+      "class": "11-A",
+      "day": "Thursday",
+      "slot": 1,
+      "teacherEmail": "amit@nv.com",
+      "room": "R1101"
+    },
+    {
+      "class": "11-A",
+      "day": "Thursday",
+      "slot": 2,
+      "teacherEmail": "priya@nv.com",
+      "room": "R1101"
+    },
+    {
+      "class": "11-A",
+      "day": "Thursday",
+      "slot": 3,
+      "teacherEmail": "neha@nv.com",
+      "room": "LAB2"
+    },
+    {
+      "class": "11-A",
+      "day": "Thursday",
+      "slot": 5,
+      "teacherEmail": "kavita@nv.com",
+      "room": "LAB2"
+    },
+    {
+      "class": "11-A",
+      "day": "Thursday",
+      "slot": 6,
+      "teacherEmail": "lakshmi@nv.com",
+      "room": "LAB1"
+    },
+    {
+      "class": "11-A",
+      "day": "Friday",
+      "slot": 1,
+      "teacherEmail": "priya@nv.com",
+      "room": "R1101"
+    },
+    {
+      "class": "11-A",
+      "day": "Friday",
+      "slot": 2,
+      "teacherEmail": "neha@nv.com",
+      "room": "LAB2"
+    },
+    {
+      "class": "11-A",
+      "day": "Friday",
+      "slot": 3,
+      "teacherEmail": "amit@nv.com",
+      "room": "R1101"
+    },
+    {
+      "class": "11-A",
+      "day": "Friday",
+      "slot": 5,
+      "teacherEmail": "kavita@nv.com",
+      "room": "LAB2"
+    },
+    {
+      "class": "11-A",
+      "day": "Friday",
+      "slot": 6,
+      "teacherEmail": "vikram@nv.com",
+      "room": "COMP"
+    },
+    {
+      "class": "12-A",
+      "day": "Monday",
+      "slot": 1,
+      "teacherEmail": "priya@nv.com",
+      "room": "R1201"
+    },
+    {
+      "class": "12-A",
+      "day": "Monday",
+      "slot": 2,
+      "teacherEmail": "neha@nv.com",
+      "room": "LAB2"
+    },
+    {
+      "class": "12-A",
+      "day": "Monday",
+      "slot": 3,
+      "teacherEmail": "kavita@nv.com",
+      "room": "LAB2"
+    },
+    {
+      "class": "12-A",
+      "day": "Monday",
+      "slot": 5,
+      "teacherEmail": "lakshmi@nv.com",
+      "room": "LAB1"
+    },
+    {
+      "class": "12-A",
+      "day": "Monday",
+      "slot": 6,
+      "teacherEmail": "vikram@nv.com",
+      "room": "COMP"
+    },
+    {
+      "class": "12-A",
+      "day": "Monday",
+      "slot": 7,
+      "teacherEmail": "amit@nv.com",
+      "room": "R1201"
+    },
+    {
+      "class": "12-A",
+      "day": "Tuesday",
+      "slot": 1,
+      "teacherEmail": "neha@nv.com",
+      "room": "LAB2"
+    },
+    {
+      "class": "12-A",
+      "day": "Tuesday",
+      "slot": 2,
+      "teacherEmail": "priya@nv.com",
+      "room": "R1201"
+    },
+    {
+      "class": "12-A",
+      "day": "Tuesday",
+      "slot": 3,
+      "teacherEmail": "lakshmi@nv.com",
+      "room": "LAB1"
+    },
+    {
+      "class": "12-A",
+      "day": "Tuesday",
+      "slot": 5,
+      "teacherEmail": "kavita@nv.com",
+      "room": "LAB2"
+    },
+    {
+      "class": "12-A",
+      "day": "Tuesday",
+      "slot": 6,
+      "teacherEmail": "amit@nv.com",
+      "room": "R1201"
+    },
+    {
+      "class": "12-A",
+      "day": "Wednesday",
+      "slot": 1,
+      "teacherEmail": "priya@nv.com",
+      "room": "R1201"
+    },
+    {
+      "class": "12-A",
+      "day": "Wednesday",
+      "slot": 2,
+      "teacherEmail": "kavita@nv.com",
+      "room": "LAB2"
+    },
+    {
+      "class": "12-A",
+      "day": "Wednesday",
+      "slot": 3,
+      "teacherEmail": "neha@nv.com",
+      "room": "LAB2"
+    },
+    {
+      "class": "12-A",
+      "day": "Wednesday",
+      "slot": 5,
+      "teacherEmail": "vikram@nv.com",
+      "room": "COMP"
+    },
+    {
+      "class": "12-A",
+      "day": "Wednesday",
+      "slot": 6,
+      "teacherEmail": "lakshmi@nv.com",
+      "room": "LAB1"
+    },
+    {
+      "class": "12-A",
+      "day": "Thursday",
+      "slot": 1,
+      "teacherEmail": "amit@nv.com",
+      "room": "R1201"
+    },
+    {
+      "class": "12-A",
+      "day": "Thursday",
+      "slot": 2,
+      "teacherEmail": "priya@nv.com",
+      "room": "R1201"
+    },
+    {
+      "class": "12-A",
+      "day": "Thursday",
+      "slot": 3,
+      "teacherEmail": "neha@nv.com",
+      "room": "LAB2"
+    },
+    {
+      "class": "12-A",
+      "day": "Thursday",
+      "slot": 5,
+      "teacherEmail": "kavita@nv.com",
+      "room": "LAB2"
+    },
+    {
+      "class": "12-A",
+      "day": "Thursday",
+      "slot": 6,
+      "teacherEmail": "lakshmi@nv.com",
+      "room": "LAB1"
+    },
+    {
+      "class": "12-A",
+      "day": "Friday",
+      "slot": 1,
+      "teacherEmail": "priya@nv.com",
+      "room": "R1201"
+    },
+    {
+      "class": "12-A",
+      "day": "Friday",
+      "slot": 2,
+      "teacherEmail": "neha@nv.com",
+      "room": "LAB2"
+    },
+    {
+      "class": "12-A",
+      "day": "Friday",
+      "slot": 3,
+      "teacherEmail": "amit@nv.com",
+      "room": "R1201"
+    },
+    {
+      "class": "12-A",
+      "day": "Friday",
+      "slot": 5,
+      "teacherEmail": "kavita@nv.com",
+      "room": "LAB2"
+    },
+    {
+      "class": "12-A",
+      "day": "Friday",
+      "slot": 6,
+      "teacherEmail": "vikram@nv.com",
+      "room": "COMP"
+    }
+  ]
+}

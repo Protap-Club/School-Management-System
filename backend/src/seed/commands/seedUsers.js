@@ -1,86 +1,70 @@
-// Seeds super admin, admins, teachers, and generates 1080 students
-import { createRequire } from "module";
 import User from "../../module/user/model/User.model.js";
 import School from "../../module/school/School.model.js";
 import logger from "../../config/logger.js";
+import { loadSeedJson } from "../lib/loadJson.js";
+import { buildStudentRecords } from "../lib/studentRecords.js";
 
-const require = createRequire(import.meta.url);
-const usersData = require("../data/users.json");
-const { defaultPassword } = require("../data/schools.json");
+const usersData = loadSeedJson("users.json");
+const { defaultPassword } = loadSeedJson("schools.json");
 
 const seedUsers = async () => {
-    logger.info("═══ Seeding Users ═══");
+  logger.info("=== Seeding Users ===");
 
-    const school = await School.findOne({ code: "NV" });
-    if (!school) throw new Error("School not found. Run seed-school first.");
+  const school = await School.findOne({ code: "NV" });
+  if (!school) throw new Error("School not found. Run seed-school first.");
 
-    // Clear all users belonging to this school
-    await User.deleteMany({ schoolId: school._id });
+  await User.deleteMany({ schoolId: school._id });
 
-    // Super Admin
-    const sa = await User.create({
-        ...usersData.superAdmin,
+  await User.create({
+    ...usersData.superAdmin,
+    password: defaultPassword,
+    schoolId: school._id,
+    isActive: true,
+  });
+
+  for (const admin of usersData.admins) {
+    await User.create({
+      ...admin,
+      password: defaultPassword,
+      schoolId: school._id,
+      isActive: true,
+    });
+  }
+
+  for (const teacher of usersData.teachers) {
+    await User.create({
+      ...teacher,
+      password: defaultPassword,
+      schoolId: school._id,
+      isActive: true,
+    });
+  }
+
+  const { studentConfig: cfg } = usersData;
+  const studentRecords = buildStudentRecords(usersData);
+  let totalStudents = 0;
+
+  for (const standard of cfg.standards) {
+    const studentBatch = [];
+    const standardStudents = studentRecords.filter((s) => s.standard === standard);
+    standardStudents.forEach((student) => {
+      totalStudents += 1;
+      const contactSuffix = String(1000000 + totalStudents).slice(-7);
+      studentBatch.push({
+        name: student.fullName,
+        email: student.email,
+        role: "student",
         password: defaultPassword,
         schoolId: school._id,
+        contactNo: `${cfg.basePhonePrefix}${contactSuffix}`,
         isActive: true,
+      });
     });
-    logger.info(`Super Admin → ${sa.email}`);
+    await User.create(studentBatch);
+    logger.info(`Students seeded for class ${standard}: ${studentBatch.length}`);
+  }
 
-    // Admins
-    for (const admin of usersData.admins) {
-        await User.create({
-            ...admin,
-            password: defaultPassword,
-            schoolId: school._id,
-            isActive: true,
-        });
-    }
-    logger.info(`Admins → ${usersData.admins.length}`);
-
-    // Teachers (role not in JSON — injected here)
-    for (const teacher of usersData.teachers) {
-        await User.create({
-            ...teacher,
-            role: "teacher",
-            password: defaultPassword,
-            schoolId: school._id,
-            isActive: true,
-        });
-    }
-    logger.info(`Teachers → ${usersData.teachers.length}`);
-
-    // Generate students from name pools
-    const { studentConfig: cfg, studentNamePools: pools } = usersData;
-    const firstNames = [...pools.maleFirstNames, ...pools.femaleFirstNames];
-    let count = 0;
-
-    for (let std = cfg.standardRange[0]; std <= cfg.standardRange[1]; std++) {
-        const batch = [];
-
-        for (const sec of cfg.sections) {
-            for (let roll = 1; roll <= cfg.studentsPerSection; roll++) {
-                count++;
-                const fn = firstNames[count % firstNames.length];
-                const ln = pools.lastNames[count % pools.lastNames.length];
-
-                batch.push({
-                    name: `${fn} ${ln}`,
-                    email: `${fn.toLowerCase()}${count}@${cfg.emailDomain}`,
-                    role: "student",
-                    password: defaultPassword,
-                    schoolId: school._id,
-                    contactNo: `+91-70${String(count).padStart(8, "0")}`,
-                    isActive: true,
-                });
-            }
-        }
-
-        // User.create triggers pre-save hook for password hashing
-        await User.create(batch);
-        logger.info(`Class ${std} → ${batch.length} students`);
-    }
-
-    logger.info(`Total users → ${1 + usersData.admins.length + usersData.teachers.length + count}`);
+  logger.info(`Users seeded -> super admin: 1, admins: ${usersData.admins.length}, teachers: ${usersData.teachers.length}, students: ${totalStudents}`);
 };
 
 export default seedUsers;

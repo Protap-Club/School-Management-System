@@ -13,6 +13,7 @@ export const useTimetableData = (userRole = 'admin', userId = null) => {
     // Determine if user is admin (can access all endpoints)
     const isAdmin = ['admin', 'super_admin'].includes(userRole);
     const isTeacher = userRole === 'teacher';
+    const isStudent = userRole === 'student';
 
     // State
     const [timeSlots, setTimeSlots] = useState([]);
@@ -143,18 +144,19 @@ export const useTimetableData = (userRole = 'admin', userId = null) => {
             // Time slots are accessible to all authenticated users
             await fetchTimeSlots();
 
-            // Admin and Teachers: fetch timetables list and teachers
-            // Teachers only see classes they're assigned to
+            // Admin: fetch timetables list and teachers
             if (isAdmin) {
                 await Promise.all([fetchTimetables(), fetchTeachers(), fetchAvailableClasses()]);
-            } else if (isTeacher && userId) {
-                // Pass userId as teacherId filter so teacher only sees their assigned classes
-                await Promise.all([fetchTimetables({ teacherId: userId }), fetchTeachers()]);
+            } else if ((isTeacher || isStudent) && userId) {
+                // Teacher/Student schedule is fetched on-demand via /timetables/schedule/me
+                setTimetables([]);
+                setSelectedTimetable(null);
+                setEntries([]);
             }
             setLoading(false);
         };
         init();
-    }, [fetchTimeSlots, fetchTimetables, fetchTeachers, fetchAvailableClasses, isAdmin, isTeacher, userId]);
+    }, [fetchTimeSlots, fetchTimetables, fetchTeachers, fetchAvailableClasses, isAdmin, isTeacher, isStudent, userId]);
 
     // ═══════════════════════════════════════════════════════════════
     // TimeSlot Operations
@@ -285,6 +287,19 @@ export const useTimetableData = (userRole = 'admin', userId = null) => {
         }
     }, []);
 
+    const fetchMySchedule = useCallback(async () => {
+        try {
+            setLoading(true);
+            const response = await timetableApi.getMySchedule();
+            return { success: true, data: response.data };
+        } catch (err) {
+            const message = err.response?.data?.message || 'Failed to fetch my schedule';
+            return { success: false, error: message };
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
     // ═══════════════════════════════════════════════════════════════
     // Helper: Select a timetable and load its entries
     // ═══════════════════════════════════════════════════════════════
@@ -332,6 +347,7 @@ export const useTimetableData = (userRole = 'admin', userId = null) => {
 
         // Teacher schedule
         fetchTeacherSchedule,
+        fetchMySchedule,
 
         // Utilities
         refreshTeachers: fetchTeachers,

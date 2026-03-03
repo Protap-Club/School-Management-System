@@ -1,4 +1,3 @@
-// Clears ALL Navrachna seed data from the database
 import School from "../../module/school/School.model.js";
 import User from "../../module/user/model/User.model.js";
 import AdminProfile from "../../module/user/model/AdminProfile.model.js";
@@ -11,48 +10,39 @@ import { Notice, NoticeGroup } from "../../module/notice/Notice.model.js";
 import logger from "../../config/logger.js";
 
 const cleanup = async () => {
-    logger.info("═══ Cleanup — Removing ALL Navrachna data ═══");
+  logger.info("=== Cleanup: removing seeded NV school data ===");
 
-    // Find all NV schools (handles orphan duplicates too)
-    const schools = await School.find({ code: "NV" }).select("_id");
-    const schoolIds = schools.map(s => s._id);
+  const schools = await School.find({ code: "NV" }).select("_id");
+  const schoolIds = schools.map((s) => s._id);
+  const usersInSchools = await User.find({ schoolId: { $in: schoolIds } }).select("_id");
+  const userIds = usersInSchools.map((u) => u._id);
 
-    if (schoolIds.length === 0) {
-        logger.info("No Navrachna school found. Nothing to clean.");
-        return;
-    }
+  await Notice.deleteMany({ schoolId: { $in: schoolIds } });
+  await NoticeGroup.deleteMany({ schoolId: { $in: schoolIds } });
 
-    // Also delete users with @nv.com emails to catch orphans from failed runs
-    const emailResult = await User.deleteMany({ email: { $regex: /@nv\.com$/i } });
-    logger.info(`Users (by email) → ${emailResult.deletedCount}`);
+  await CalendarEvent.deleteMany({ schoolId: { $in: schoolIds } });
 
-    const profileFilter = { schoolId: { $in: schoolIds } };
-    const ap = await AdminProfile.deleteMany(profileFilter);
-    const tp = await TeacherProfile.deleteMany(profileFilter);
-    const sp = await StudentProfile.deleteMany(profileFilter);
-    logger.info(`Profiles → admin: ${ap.deletedCount}, teacher: ${tp.deletedCount}, student: ${sp.deletedCount}`);
+  const timetables = await Timetable.find({ schoolId: { $in: schoolIds } }).select("_id");
+  await TimetableEntry.deleteMany({ timetableId: { $in: timetables.map((t) => t._id) } });
+  await Timetable.deleteMany({ schoolId: { $in: schoolIds } });
+  await TimeSlot.deleteMany({ schoolId: { $in: schoolIds } });
 
-    await TimeSlot.deleteMany({ schoolId: { $in: schoolIds } });
-    const tts = await Timetable.find({ schoolId: { $in: schoolIds } }).select("_id");
-    await TimetableEntry.deleteMany({ timetableId: { $in: tts.map(t => t._id) } });
-    await Timetable.deleteMany({ schoolId: { $in: schoolIds } });
-    logger.info("Timetable data → cleared");
+  await Attendance.deleteMany({ schoolId: { $in: schoolIds } });
 
-    await Attendance.deleteMany({ schoolId: { $in: schoolIds } });
-    logger.info("Attendance → cleared");
+  await StudentProfile.deleteMany({ schoolId: { $in: schoolIds } });
+  await TeacherProfile.deleteMany({ schoolId: { $in: schoolIds } });
+  await AdminProfile.deleteMany({ userId: { $in: userIds } });
 
-    await CalendarEvent.deleteMany({ schoolId: { $in: schoolIds } });
-    logger.info("Calendar events → cleared");
+  await User.deleteMany({
+    $or: [
+      { schoolId: { $in: schoolIds } },
+      { email: { $regex: /@nv\.com$/i } },
+    ],
+  });
 
-    await Notice.deleteMany({ schoolId: { $in: schoolIds } });
-    await NoticeGroup.deleteMany({ schoolId: { $in: schoolIds } });
-    logger.info("Notices → cleared");
-
-    // Delete the school itself last
-    await School.deleteMany({ code: "NV" });
-    logger.info("School → deleted");
-
-    logger.info("═══ Cleanup complete ═══");
+  await School.deleteMany({ code: "NV" });
+  logger.info("Cleanup completed");
 };
 
 export default cleanup;
+

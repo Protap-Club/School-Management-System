@@ -102,6 +102,11 @@ export const getTeacherSchedule = async (teacherId, academicYear = null) => {
     return response.data;
 };
 
+export const getMySchedule = async () => {
+    const response = await api.get('/timetables/schedule/me');
+    return response.data;
+};
+
 // ═══════════════════════════════════════════════════════════════
 // Helper: Get teachers for dropdown (uses existing users API)
 // ═══════════════════════════════════════════════════════════════

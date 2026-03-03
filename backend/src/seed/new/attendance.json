@@ -1,0 +1,9 @@
+{
+    "targetClass": {
+        "standard": "10",
+            "section": "A"
+    },
+    "dates": ["2026-02-23", "2026-02-24", "2026-02-25"],
+        "presentPercentage": 85,
+            "absentRemarks": "Absent without notice"
+}

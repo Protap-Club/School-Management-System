@@ -1,0 +1,274 @@
+{
+    "adminProfiles": [
+        {
+            "email": "sunita@nv.com",
+            "permissions": ["manage_users", "manage_school", "manage_notices", "manage_calendar", "manage_attendance", "manage_timetable", "manage_fees"],
+            "department": "Administration",
+            "employeeId": "NV-ADM-001"
+        },
+        {
+            "email": "anil@nv.com",
+            "permissions": ["manage_users", "manage_notices", "manage_calendar", "manage_attendance"],
+            "department": "Academic Affairs",
+            "employeeId": "NV-ADM-002"
+        }
+    ],
+        "teacherProfiles": [
+            {
+                "email": "priya@nv.com",
+                "employeeId": "NV-TCH-001",
+                "qualification": "M.Sc Mathematics, B.Ed",
+                "joiningDate": "2018-06-15",
+                "assignedClasses": [
+                    { "standard": "10", "section": "A", "subjects": ["Mathematics"] },
+                    { "standard": "10", "section": "B", "subjects": ["Mathematics"] },
+                    { "standard": "11", "section": "A", "subjects": ["Mathematics"] },
+                    { "standard": "12", "section": "A", "subjects": ["Mathematics"] }
+                ]
+            },
+            {
+                "email": "amit@nv.com",
+                "employeeId": "NV-TCH-002",
+                "qualification": "M.A English Literature, B.Ed",
+                "joiningDate": "2017-07-01",
+                "assignedClasses": [
+                    { "standard": "9", "section": "A", "subjects": ["English"] },
+                    { "standard": "9", "section": "B", "subjects": ["English"] },
+                    { "standard": "10", "section": "A", "subjects": ["English"] },
+                    { "standard": "10", "section": "C", "subjects": ["English"] }
+                ]
+            },
+            {
+                "email": "neha@nv.com",
+                "employeeId": "NV-TCH-003",
+                "qualification": "M.Sc Physics, B.Ed",
+                "joiningDate": "2019-04-10",
+                "assignedClasses": [
+                    { "standard": "11", "section": "A", "subjects": ["Physics"] },
+                    { "standard": "11", "section": "B", "subjects": ["Physics"] },
+                    { "standard": "12", "section": "A", "subjects": ["Physics"] },
+                    { "standard": "12", "section": "B", "subjects": ["Physics"] }
+                ]
+            },
+            {
+                "email": "rahul@nv.com",
+                "employeeId": "NV-TCH-004",
+                "qualification": "M.A History, B.Ed",
+                "joiningDate": "2016-08-20",
+                "assignedClasses": [
+                    { "standard": "9", "section": "A", "subjects": ["History"] },
+                    { "standard": "9", "section": "C", "subjects": ["History"] },
+                    { "standard": "10", "section": "A", "subjects": ["History"] },
+                    { "standard": "10", "section": "B", "subjects": ["History"] }
+                ]
+            },
+            {
+                "email": "kavita@nv.com",
+                "employeeId": "NV-TCH-005",
+                "qualification": "M.Sc Chemistry, B.Ed",
+                "joiningDate": "2020-01-05",
+                "assignedClasses": [
+                    { "standard": "11", "section": "A", "subjects": ["Chemistry"] },
+                    { "standard": "11", "section": "C", "subjects": ["Chemistry"] },
+                    { "standard": "12", "section": "A", "subjects": ["Chemistry"] },
+                    { "standard": "12", "section": "C", "subjects": ["Chemistry"] }
+                ]
+            },
+            {
+                "email": "vikram@nv.com",
+                "employeeId": "NV-TCH-006",
+                "qualification": "M.Tech Computer Science",
+                "joiningDate": "2021-03-15",
+                "assignedClasses": [
+                    { "standard": "9", "section": "A", "subjects": ["Computer Science"] },
+                    { "standard": "9", "section": "B", "subjects": ["Computer Science"] },
+                    { "standard": "10", "section": "A", "subjects": ["Computer Science"] },
+                    { "standard": "11", "section": "A", "subjects": ["Computer Science"] },
+                    { "standard": "12", "section": "A", "subjects": ["Computer Science"] }
+                ]
+            },
+            {
+                "email": "lakshmi@nv.com",
+                "employeeId": "NV-TCH-007",
+                "qualification": "M.Sc Biology, B.Ed",
+                "joiningDate": "2019-06-01",
+                "assignedClasses": [
+                    { "standard": "11", "section": "A", "subjects": ["Biology"] },
+                    { "standard": "11", "section": "B", "subjects": ["Biology"] },
+                    { "standard": "12", "section": "A", "subjects": ["Biology"] },
+                    { "standard": "12", "section": "B", "subjects": ["Biology"] }
+                ]
+            },
+            {
+                "email": "arjun@nv.com",
+                "employeeId": "NV-TCH-008",
+                "qualification": "B.P.Ed, M.P.Ed",
+                "joiningDate": "2015-04-01",
+                "assignedClasses": [
+                    { "standard": "1", "section": "A", "subjects": ["Physical Education"] },
+                    { "standard": "2", "section": "A", "subjects": ["Physical Education"] },
+                    { "standard": "3", "section": "A", "subjects": ["Physical Education"] },
+                    { "standard": "4", "section": "A", "subjects": ["Physical Education"] },
+                    { "standard": "5", "section": "A", "subjects": ["Physical Education"] },
+                    { "standard": "6", "section": "A", "subjects": ["Physical Education"] },
+                    { "standard": "7", "section": "A", "subjects": ["Physical Education"] },
+                    { "standard": "8", "section": "A", "subjects": ["Physical Education"] }
+                ]
+            },
+            {
+                "email": "deepa@nv.com",
+                "employeeId": "NV-TCH-009",
+                "qualification": "M.A Hindi, B.Ed",
+                "joiningDate": "2018-07-15",
+                "assignedClasses": [
+                    { "standard": "6", "section": "A", "subjects": ["Hindi"] },
+                    { "standard": "6", "section": "B", "subjects": ["Hindi"] },
+                    { "standard": "7", "section": "A", "subjects": ["Hindi"] },
+                    { "standard": "7", "section": "B", "subjects": ["Hindi"] },
+                    { "standard": "8", "section": "A", "subjects": ["Hindi"] }
+                ]
+            },
+            {
+                "email": "manish@nv.com",
+                "employeeId": "NV-TCH-010",
+                "qualification": "M.Sc Mathematics, B.Ed",
+                "joiningDate": "2020-06-10",
+                "assignedClasses": [
+                    { "standard": "6", "section": "A", "subjects": ["Mathematics"] },
+                    { "standard": "6", "section": "B", "subjects": ["Mathematics"] },
+                    { "standard": "7", "section": "A", "subjects": ["Mathematics"] },
+                    { "standard": "7", "section": "B", "subjects": ["Mathematics"] },
+                    { "standard": "8", "section": "A", "subjects": ["Mathematics"] }
+                ]
+            },
+            {
+                "email": "ritu@nv.com",
+                "employeeId": "NV-TCH-011",
+                "qualification": "M.Sc General Science, B.Ed",
+                "joiningDate": "2019-08-01",
+                "assignedClasses": [
+                    { "standard": "6", "section": "A", "subjects": ["Science"] },
+                    { "standard": "6", "section": "C", "subjects": ["Science"] },
+                    { "standard": "7", "section": "A", "subjects": ["Science"] },
+                    { "standard": "7", "section": "C", "subjects": ["Science"] },
+                    { "standard": "8", "section": "B", "subjects": ["Science"] }
+                ]
+            },
+            {
+                "email": "sanjay@nv.com",
+                "employeeId": "NV-TCH-012",
+                "qualification": "M.A English, B.Ed",
+                "joiningDate": "2017-04-01",
+                "assignedClasses": [
+                    { "standard": "6", "section": "A", "subjects": ["English"] },
+                    { "standard": "6", "section": "B", "subjects": ["English"] },
+                    { "standard": "7", "section": "A", "subjects": ["English"] },
+                    { "standard": "8", "section": "A", "subjects": ["English"] },
+                    { "standard": "8", "section": "C", "subjects": ["English"] }
+                ]
+            },
+            {
+                "email": "anita@nv.com",
+                "employeeId": "NV-TCH-013",
+                "qualification": "M.A Social Studies, B.Ed",
+                "joiningDate": "2016-06-15",
+                "assignedClasses": [
+                    { "standard": "6", "section": "A", "subjects": ["Social Studies"] },
+                    { "standard": "7", "section": "A", "subjects": ["Social Studies"] },
+                    { "standard": "8", "section": "A", "subjects": ["Social Studies"] },
+                    { "standard": "8", "section": "B", "subjects": ["Social Studies"] }
+                ]
+            },
+            {
+                "email": "kiran@nv.com",
+                "employeeId": "NV-TCH-014",
+                "qualification": "B.Ed Primary Education",
+                "joiningDate": "2018-04-01",
+                "assignedClasses": [
+                    { "standard": "1", "section": "A", "subjects": ["English", "EVS"] },
+                    { "standard": "1", "section": "B", "subjects": ["English", "EVS"] },
+                    { "standard": "1", "section": "C", "subjects": ["English", "EVS"] },
+                    { "standard": "2", "section": "A", "subjects": ["English", "EVS"] },
+                    { "standard": "2", "section": "B", "subjects": ["English", "EVS"] }
+                ]
+            },
+            {
+                "email": "pankaj@nv.com",
+                "employeeId": "NV-TCH-015",
+                "qualification": "B.Ed Primary Education",
+                "joiningDate": "2019-04-01",
+                "assignedClasses": [
+                    { "standard": "2", "section": "C", "subjects": ["Mathematics", "Hindi"] },
+                    { "standard": "3", "section": "A", "subjects": ["Mathematics", "Hindi"] },
+                    { "standard": "3", "section": "B", "subjects": ["Mathematics", "Hindi"] },
+                    { "standard": "3", "section": "C", "subjects": ["Mathematics", "Hindi"] }
+                ]
+            },
+            {
+                "email": "meena@nv.com",
+                "employeeId": "NV-TCH-016",
+                "qualification": "B.Ed Primary Education",
+                "joiningDate": "2020-04-01",
+                "assignedClasses": [
+                    { "standard": "1", "section": "A", "subjects": ["Mathematics", "Hindi"] },
+                    { "standard": "1", "section": "B", "subjects": ["Mathematics", "Hindi"] },
+                    { "standard": "1", "section": "C", "subjects": ["Mathematics", "Hindi"] },
+                    { "standard": "2", "section": "A", "subjects": ["Mathematics", "Hindi"] }
+                ]
+            },
+            {
+                "email": "rohit@nv.com",
+                "employeeId": "NV-TCH-017",
+                "qualification": "B.Ed Primary Education",
+                "joiningDate": "2021-04-01",
+                "assignedClasses": [
+                    { "standard": "4", "section": "A", "subjects": ["English", "Science"] },
+                    { "standard": "4", "section": "B", "subjects": ["English", "Science"] },
+                    { "standard": "4", "section": "C", "subjects": ["English", "Science"] },
+                    { "standard": "5", "section": "A", "subjects": ["English", "Science"] }
+                ]
+            },
+            {
+                "email": "pooja@nv.com",
+                "employeeId": "NV-TCH-018",
+                "qualification": "B.Ed Primary Education",
+                "joiningDate": "2020-08-01",
+                "assignedClasses": [
+                    { "standard": "4", "section": "A", "subjects": ["Mathematics", "Hindi"] },
+                    { "standard": "4", "section": "B", "subjects": ["Mathematics", "Hindi"] },
+                    { "standard": "5", "section": "A", "subjects": ["Mathematics", "Hindi"] },
+                    { "standard": "5", "section": "B", "subjects": ["Mathematics", "Hindi"] },
+                    { "standard": "5", "section": "C", "subjects": ["Mathematics", "Hindi"] }
+                ]
+            },
+            {
+                "email": "harsh@nv.com",
+                "employeeId": "NV-TCH-019",
+                "qualification": "M.A Geography, B.Ed",
+                "joiningDate": "2022-01-10",
+                "assignedClasses": [
+                    { "standard": "8", "section": "A", "subjects": ["Geography"] },
+                    { "standard": "8", "section": "B", "subjects": ["Geography"] },
+                    { "standard": "9", "section": "A", "subjects": ["Geography"] },
+                    { "standard": "9", "section": "B", "subjects": ["Geography"] },
+                    { "standard": "10", "section": "A", "subjects": ["Geography"] }
+                ]
+            },
+            {
+                "email": "swati@nv.com",
+                "employeeId": "NV-TCH-020",
+                "qualification": "M.F.A Fine Arts, B.Ed",
+                "joiningDate": "2017-06-01",
+                "assignedClasses": [
+                    { "standard": "1", "section": "A", "subjects": ["Art & Craft"] },
+                    { "standard": "2", "section": "A", "subjects": ["Art & Craft"] },
+                    { "standard": "3", "section": "A", "subjects": ["Art & Craft"] },
+                    { "standard": "4", "section": "A", "subjects": ["Art & Craft"] },
+                    { "standard": "5", "section": "A", "subjects": ["Art & Craft"] },
+                    { "standard": "6", "section": "A", "subjects": ["Drawing"] },
+                    { "standard": "7", "section": "A", "subjects": ["Drawing"] },
+                    { "standard": "8", "section": "A", "subjects": ["Drawing"] }
+                ]
+            }
+        ]
+}

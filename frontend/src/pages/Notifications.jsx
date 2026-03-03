@@ -29,7 +29,7 @@ const NotificationItem = ({ notification }) => {
     <div className={`p-4 rounded-xl border ${config.bg} border-l-4 ${config.border} shadow-sm transition-all hover:shadow-md cursor-pointer group`}>
       <div className="flex items-start gap-4">
         <div className="mt-1 shrink-0 bg-white p-2 rounded-full shadow-sm">
-          {getIcon()}
+          {config.icon}
         </div>
         <div className="flex-1">
           <div className="flex justify-between items-start">

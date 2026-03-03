@@ -1,0 +1,24 @@
+{
+  "defaultPassword": "Demo@123",
+  "school": {
+    "name": "Navrachna International School",
+    "code": "NV",
+    "address": "South Bopal, Ahmedabad, Gujarat 380058, India",
+    "contactEmail": "office@navrachnainternational.edu.in",
+    "contactPhone": "+91-79-35102000",
+    "isActive": true,
+    "theme": {
+      "accentColor": "#0f766e"
+    },
+    "features": {
+      "attendance": true,
+      "fees": true,
+      "timetable": true,
+      "library": true,
+      "transport": true,
+      "notice": true,
+      "calendar": true
+    }
+  }
+}
+
