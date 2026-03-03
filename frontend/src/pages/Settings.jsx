@@ -97,7 +97,7 @@ const Settings = () => {
         }
     };
 
-    const handleToggleFeature = async (featureKey) => {
+    const handleToggleFeature = useCallback(async (featureKey) => {
         if (!currentSchoolId || togglingFeature) return;
         setTogglingFeature(featureKey);
         const newValue = !features[featureKey];
@@ -118,16 +118,6 @@ const Settings = () => {
         try { await api.put('/school/', { theme: { accentColor: colorValue } }); showMessage('success', 'Theme updated!'); }
         catch (error) { console.error('Failed to save theme', error); }
     }, [updateTheme, showMessage]);
-
-        try {
-            // Update theme via profile endpoint
-            await api.put('/school', { theme: { accentColor: colorValue } });
-            setMessage({ type: 'success', text: 'Theme updated!' });
-            setTimeout(() => setMessage({ type: '', text: '' }), 2000);
-        } catch (error) {
-            console.error('Failed to save theme', error);
-        }
-    };
 
     const handleFileUpload = async (e) => {
         const file = e.target.files[0];
@@ -165,14 +155,14 @@ const Settings = () => {
                 setSettings(prev => ({ ...prev, logoUrl: response.data.data.logoUrl }));
                 showMessage('success', 'Logo uploaded successfully!');
                 window.dispatchEvent(new Event('settingsUpdated'));
-                
+
                 // Clear success message after 3 seconds
                 setTimeout(() => setMessage({ type: '', text: '' }), 3000);
             }
         } catch (error) {
-            setMessage({ 
-                type: 'error', 
-                text: error.response?.data?.message || 'Failed to upload logo' 
+            setMessage({
+                type: 'error',
+                text: error.response?.data?.message || 'Failed to upload logo'
             });
         } finally {
             setUploading(false);

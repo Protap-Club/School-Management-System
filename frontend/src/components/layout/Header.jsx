@@ -3,7 +3,7 @@ import { useAuth } from '../../features/auth';
 import { useSidebar } from '../../state';
 import api from '../../api/axios';
 import { useNavigate } from 'react-router-dom';
-import {headerContent} from '../../config/headerContent.js';
+import { headerContent } from '../../config/headerContent.js';
 import { FaBars, FaUserCircle, FaSignOutAlt, FaBuilding, FaChevronDown, FaSearch, FaBell } from 'react-icons/fa';
 import AvatarUploadModal from './AvatarUploadModal';
 import { useDispatch } from 'react-redux';
@@ -131,7 +131,7 @@ const Header = () => {
                 <div className="relative flex items-center gap-1" ref={dropdownRef}>
                     <button
                         onClick={() => setIsUploadModalOpen(true)}
-                        className={`w-9 h-9 rounded-full bg-gradient-to-r ${getRoleGradient()} flex items-center justify-center text-white font-bold shadow-sm overflow-hidden hover:ring-2 hover:ring-blue-100 transition-all focus:outline-none shrink-0`}
+                        className={`w-9 h-9 rounded-full bg-gradient-to-r ${roleGradient} flex items-center justify-center text-white font-bold shadow-sm overflow-hidden hover:ring-2 hover:ring-blue-100 transition-all focus:outline-none shrink-0`}
                         title="Change Profile Picture"
                     >
                         {user?.avatarUrl ? (
