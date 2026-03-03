@@ -40,6 +40,15 @@ export const deleteTimeSlot = asyncHandler(async (req, res) => {
 
 // Timetable Controllers
 
+// Fetch list of all timetables for a school
+export const getTimetables = asyncHandler(async (req, res) => {
+    const result = await timetableService.getTimetables(req.schoolId, req.query);
+    res.status(200).json({
+        success: true,
+        data: result
+    });
+});
+
 // Create a new timetable (Header only)
 export const createTimetable = asyncHandler(async (req, res) => {
     const result = await timetableService.createTimetable(req.schoolId, req.body);

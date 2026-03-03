@@ -58,12 +58,6 @@ export const createTimetable = async (data) => {
     return response.data;
 };
 
-export const updateTimetableStatus = async (id, status) => {
-    // status: "DRAFT" | "PUBLISHED"
-    const response = await api.patch(`/timetables/${id}/status`, { status });
-    return response.data;
-};
-
 export const deleteTimetable = async (id) => {
     const response = await api.delete(`/timetables/${id}`);
     return response.data;

@@ -5,10 +5,12 @@ import StudentProfile from "../user/model/StudentProfile.model.js";
 
 // TIMESLOT SERVICES
 
+// Fetches all bell schedule time slots for a specific school
 export const getTimeSlots = async (schoolId) => {
     return await TimeSlot.find({ schoolId }).sort({ slotNumber: 1 }).lean();
 };
 
+// Creates a new time slot ensuring no duplicate slot numbers exist
 export const createTimeSlot = async (schoolId, data) => {
     const exists = await TimeSlot.exists({ schoolId, slotNumber: data.slotNumber });
     if (exists) throw new ConflictError(`Slot #${data.slotNumber} already exists`);
@@ -18,6 +20,7 @@ export const createTimeSlot = async (schoolId, data) => {
     return slot;
 };
 
+// Updates an existing time slot and validates slot number uniqueness
 export const updateTimeSlot = async (schoolId, id, data) => {
     // Check if new slot number conflicts
     if (data.slotNumber) {
@@ -40,6 +43,7 @@ export const updateTimeSlot = async (schoolId, id, data) => {
     return slot;
 };
 
+// Deletes a time slot if it is not currently linked to any timetable entries
 export const deleteTimeSlot = async (schoolId, id) => {
     // Check if slot is in use
     const inUse = await TimetableEntry.exists({ timeSlotId: id });
@@ -52,6 +56,17 @@ export const deleteTimeSlot = async (schoolId, id) => {
 
 // TIMETABLE SERVICES
 
+// Retrieves all timetable headers for a specific school with optional filters
+export const getTimetables = async (schoolId, filters = {}) => {
+    const query = { schoolId };
+    if (filters.standard) query.standard = filters.standard;
+    if (filters.section) query.section = filters.section;
+    if (filters.academicYear) query.academicYear = filters.academicYear;
+
+    return await Timetable.find(query).sort({ academicYear: -1, standard: 1, section: 1 }).lean();
+};
+
+// Retrieves a full timetable by ID including all populated entry details
 export const getTimetableById = async (schoolId, id) => {
     const timetable = await Timetable.findOne({ _id: id, schoolId }).lean();
     if (!timetable) throw new NotFoundError("Timetable not found");
@@ -65,6 +80,7 @@ export const getTimetableById = async (schoolId, id) => {
     return { timetable, entries };
 };
 
+// Initializes a new timetable header for a specific class and academic year
 export const createTimetable = async (schoolId, data) => {
     const exists = await Timetable.exists({
         schoolId,
@@ -80,6 +96,7 @@ export const createTimetable = async (schoolId, data) => {
     return timetable;
 };
 
+// Permanently removes a timetable and all associated schedule entries
 export const deleteTimetable = async (schoolId, id) => {
     const timetable = await Timetable.findOne({ _id: id, schoolId });
     if (!timetable) throw new NotFoundError("Timetable not found");
@@ -90,6 +107,7 @@ export const deleteTimetable = async (schoolId, id) => {
 };
 
 // ENTRY SERVICES
+// Bulk creates multiple schedule entries while checking for teacher availability conflicts
 export const createEntries = async (schoolId, timetableId, entries) => {
     const timetable = await Timetable.findOne({ _id: timetableId, schoolId });
     if (!timetable) throw new NotFoundError("Timetable not found");
@@ -143,6 +161,7 @@ export const createEntries = async (schoolId, timetableId, entries) => {
     return { created: created.length, failed };
 };
 
+// Updates a single schedule entry with role-based access control and conflict checks
 export const updateEntry = async (schoolId, id, updates, userId, userRole) => {
     const entry = await TimetableEntry.findOne({ _id: id, schoolId }).lean();
     if (!entry) throw new NotFoundError("Entry not found");
@@ -174,6 +193,7 @@ export const updateEntry = async (schoolId, id, updates, userId, userRole) => {
     return updated;
 };
 
+// Deletes a specific timetable entry by its unique ID
 export const deleteEntry = async (schoolId, id) => {
     const entry = await TimetableEntry.findOneAndDelete({ _id: id, schoolId });
     if (!entry) throw new NotFoundError("Entry not found");
@@ -181,6 +201,7 @@ export const deleteEntry = async (schoolId, id) => {
 };
 
 // TEACHER SCHEDULE
+// Generates a day-wise grouped schedule view for a specific teacher
 export const getTeacherSchedule = async (schoolId, teacherId) => {
     const entries = await TimetableEntry.find({ schoolId, teacherId })
         .populate("timetableId", "standard section academicYear")
@@ -204,6 +225,7 @@ export const getTeacherSchedule = async (schoolId, teacherId) => {
 };
 
 
+// Fetches a grouped and formatted schedule based on user role and platform context
 export const getUserTimetable = async (schoolId, userId, role, platform) => {
     if (!userId || !schoolId || !role || !platform) {
         throw new BadRequestError("userId, schoolId, role, and platform are required");

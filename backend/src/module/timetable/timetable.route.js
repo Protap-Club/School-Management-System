@@ -1,6 +1,7 @@
 import express from "express";
 import {
     createTimetable,
+    getTimetables,
     getTimetableById,
     deleteTimetable,
     createTimeSlot,
@@ -53,6 +54,7 @@ router.delete("/entries/:entryId", checkWebOnly, checkRole([USER_ROLES.ADMIN]), 
 
 // Timetable CRUD
 router.post("/", checkWebOnly, checkRole([USER_ROLES.ADMIN]), validate(createTimetableSchema), createTimetable);
+router.get("/", checkRole([USER_ROLES.ADMIN, USER_ROLES.TEACHER]), getTimetables);
 router.get("/:id", validate(timetableIdParamsSchema), getTimetableById);
 router.delete("/:id", checkWebOnly, checkRole([USER_ROLES.ADMIN]), validate(timetableIdParamsSchema), deleteTimetable);
 

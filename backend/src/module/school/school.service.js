@@ -1,4 +1,6 @@
 import School from "./School.model.js";
+import StudentProfile from "../user/model/StudentProfile.model.js";
+import { TimetableEntry } from "../timetable/Timetable.model.js";
 import { isValidFeatureKey, SCHOOL_FEATURES } from "../../constants/featureFlags.js";
 import { ConflictError, NotFoundError, BadRequestError } from "../../utils/customError.js";
 import logger from "../../config/logger.js";
@@ -17,11 +19,11 @@ export const createSchool = async (creatorId, schoolData) => {
     });
 
     const data = {
-        name : newSchool.name,
-        isActive : newSchool.isActive,
-        code : newSchool.code,
-        schoolId : newSchool._id,
-        _id : newSchool._id,
+        name: newSchool.name,
+        isActive: newSchool.isActive,
+        code: newSchool.code,
+        schoolId: newSchool._id,
+        _id: newSchool._id,
     }
 
     logger.info(`School Created: ${newSchool.name}`);
@@ -43,11 +45,11 @@ export const updateSchool = async (schoolId, updateData) => {
     if (!updated) throw new NotFoundError("School not found");
 
     const data = {
-        name : updated.name,
-        isActive : updated.isActive,
-        code : updated.code,
-        schoolId : updated._id,
-        _id : updated._id,
+        name: updated.name,
+        isActive: updated.isActive,
+        code: updated.code,
+        schoolId: updated._id,
+        _id: updated._id,
     }
 
     return { school: data };
@@ -122,4 +124,21 @@ export const hasFeature = async (schoolId, featureKey) => {
     if (!schoolId) return false;
     const school = await School.findById(schoolId).select(`features.${featureKey}`).lean();
     return school?.features?.[featureKey] === true;
+};
+
+// Gets unique standards, sections, subjects and rooms for a school
+export const getSchoolClasses = async (schoolId) => {
+    const [standards, sections, subjects, rooms] = await Promise.all([
+        StudentProfile.distinct("standard", { schoolId }),
+        StudentProfile.distinct("section", { schoolId }),
+        TimetableEntry.distinct("subject", { schoolId }),
+        TimetableEntry.distinct("roomNumber", { schoolId })
+    ]);
+
+    return {
+        standards: standards.sort(),
+        sections: sections.sort(),
+        subjects: subjects.filter(Boolean).sort(),
+        rooms: rooms.filter(Boolean).sort()
+    };
 };

@@ -59,10 +59,15 @@ const seedTimetable = async () => {
         // Get subject from teacherSubjects map
         const subject = ttData.teacherSubjects[e.teacherEmail] || "Unknown";
 
+        const DAY_MAP = {
+            'Monday': 'Mon', 'Tuesday': 'Tue', 'Wednesday': 'Wed',
+            'Thursday': 'Thu', 'Friday': 'Fri', 'Saturday': 'Sat'
+        };
+
         entries.push({
             timetableId,
             schoolId: school._id,
-            dayOfWeek: e.day,
+            dayOfWeek: DAY_MAP[e.day] || e.day,
             timeSlotId,
             subject,
             teacherId,

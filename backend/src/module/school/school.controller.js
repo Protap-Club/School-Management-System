@@ -85,3 +85,12 @@ export const updateFeatures = asyncHandler(async (req, res) => {
     });
     logger.info(`Features updated for school: ${req.schoolId}`);
 });
+
+// Get unique classes and sections for the school
+export const getSchoolClasses = asyncHandler(async (req, res) => {
+    const result = await schoolService.getSchoolClasses(req.schoolId);
+    res.status(200).json({
+        success: true,
+        data: result
+    });
+});

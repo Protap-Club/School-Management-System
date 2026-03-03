@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import * as timetableApi from '../api/timetable';
+import * as schoolApi from '../api/school';
 import { DEFAULT_TIME_SLOTS } from '../api/timetable';
 
 /**
@@ -19,6 +20,7 @@ export const useTimetableData = (userRole = 'admin', userId = null) => {
     const [selectedTimetable, setSelectedTimetable] = useState(null);
     const [entries, setEntries] = useState([]);
     const [teachers, setTeachers] = useState([]);
+    const [availableClasses, setAvailableClasses] = useState({ standards: [], sections: [], subjects: [], rooms: [] });
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
@@ -29,7 +31,8 @@ export const useTimetableData = (userRole = 'admin', userId = null) => {
     const fetchTimeSlots = useCallback(async () => {
         try {
             const response = await timetableApi.getTimeSlots();
-            let slots = response.data?.slots || [];
+            // Backend returns { success, data: [...] }
+            let slots = response.data || [];
 
             // If no slots exist and user is admin, create default slots
             if (slots.length === 0 && isAdmin) {
@@ -74,7 +77,8 @@ export const useTimetableData = (userRole = 'admin', userId = null) => {
     const fetchTimetables = useCallback(async (filters = {}) => {
         try {
             const response = await timetableApi.getTimetables(filters);
-            setTimetables(response.data?.timetables || []);
+            // Backend returns { success, data: [...] }
+            setTimetables(response.data || []);
         } catch (err) {
             console.error('Failed to fetch timetables:', err);
             setError(err.response?.data?.message || 'Failed to fetch timetables');
@@ -86,8 +90,7 @@ export const useTimetableData = (userRole = 'admin', userId = null) => {
             const response = await timetableApi.getTeachers();
             console.log('DEBUG fetchTeachers response:', response);
             // Backend returns { success: true, data: { users: [...], pagination: {...} } }
-            // So response is { success, data: { users } }, so response.data is { users: [...] }
-            const teachersList = response.data?.users || response?.users || [];
+            const teachersList = response.data?.users || [];
             console.log('DEBUG teachers extracted:', teachersList);
             setTeachers(teachersList);
             if (teachersList.length === 0) {
@@ -99,6 +102,18 @@ export const useTimetableData = (userRole = 'admin', userId = null) => {
             setTeachers([]);
         }
     }, []);
+
+    const fetchAvailableClasses = useCallback(async () => {
+        if (!isAdmin) return;
+        try {
+            const response = await schoolApi.getSchoolClasses();
+            if (response.success) {
+                setAvailableClasses(response.data);
+            }
+        } catch (err) {
+            console.error('Failed to fetch school classes:', err);
+        }
+    }, [isAdmin]);
 
     const fetchTimetableById = useCallback(async (id) => {
         if (!id) return;
@@ -131,7 +146,7 @@ export const useTimetableData = (userRole = 'admin', userId = null) => {
             // Admin and Teachers: fetch timetables list and teachers
             // Teachers only see classes they're assigned to
             if (isAdmin) {
-                await Promise.all([fetchTimetables(), fetchTeachers()]);
+                await Promise.all([fetchTimetables(), fetchTeachers(), fetchAvailableClasses()]);
             } else if (isTeacher && userId) {
                 // Pass userId as teacherId filter so teacher only sees their assigned classes
                 await Promise.all([fetchTimetables({ teacherId: userId }), fetchTeachers()]);
@@ -139,7 +154,7 @@ export const useTimetableData = (userRole = 'admin', userId = null) => {
             setLoading(false);
         };
         init();
-    }, [fetchTimeSlots, fetchTimetables, fetchTeachers, isAdmin, isTeacher, userId]);
+    }, [fetchTimeSlots, fetchTimetables, fetchTeachers, fetchAvailableClasses, isAdmin, isTeacher, userId]);
 
     // ═══════════════════════════════════════════════════════════════
     // TimeSlot Operations
@@ -192,20 +207,6 @@ export const useTimetableData = (userRole = 'admin', userId = null) => {
             return { success: false, error: message };
         }
     }, [fetchTimetables]);
-
-    const updateStatus = useCallback(async (id, status) => {
-        try {
-            const response = await timetableApi.updateTimetableStatus(id, status);
-            await fetchTimetables();
-            if (selectedTimetable?._id === id) {
-                setSelectedTimetable(prev => ({ ...prev, status }));
-            }
-            return { success: true, data: response.data };
-        } catch (err) {
-            const message = err.response?.data?.message || 'Failed to update status';
-            return { success: false, error: message };
-        }
-    }, [fetchTimetables, selectedTimetable]);
 
     const removeTimetable = useCallback(async (id) => {
         try {
@@ -308,6 +309,7 @@ export const useTimetableData = (userRole = 'admin', userId = null) => {
         selectedTimetable,
         entries,
         teachers,
+        availableClasses,
         loading,
         error,
 
@@ -319,7 +321,6 @@ export const useTimetableData = (userRole = 'admin', userId = null) => {
 
         // Timetable operations
         addTimetable,
-        updateStatus,
         removeTimetable,
         selectTimetable,
         refreshTimetables: fetchTimetables,
@@ -334,6 +335,7 @@ export const useTimetableData = (userRole = 'admin', userId = null) => {
 
         // Utilities
         refreshTeachers: fetchTeachers,
+        refreshAvailableClasses: fetchAvailableClasses,
         clearError: () => setError(null)
     };
 };
