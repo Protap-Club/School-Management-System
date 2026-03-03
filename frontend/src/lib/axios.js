@@ -70,6 +70,9 @@ api.interceptors.response.use(
                 const { data } = await api.post('/auth/refresh');
 
                 const newToken = data.token;
+                if (!newToken) {
+                    throw new Error('No token returned from refresh');
+                }
                 localStorage.setItem('token', newToken);
 
                 // Update the failed request and replay the queue

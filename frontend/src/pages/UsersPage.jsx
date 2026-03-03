@@ -37,7 +37,7 @@ const UsersPage = () => {
 
     // View / filter state
     const [selectedRole, setSelectedRole] = useState('all');
-    const [pageSize, setPageSize] = useState(25);
+    const [pageSize, setPageSize] = useState(15);
     const [page, setPage] = useState(0);
     const [showArchived, setShowArchived] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
@@ -84,9 +84,13 @@ const UsersPage = () => {
             if (showArchived) params.append('isArchived', 'true');
             const response = await api.get(`/users?${params}`);
             if (response.data.success) {
-                const usersData = response.data.data?.users || response.data.data || [];
+                const result = response.data.data;
+                const usersData = result?.users || [];
                 setUsers(Array.isArray(usersData) ? usersData : []);
-                setPagination(response.data.pagination);
+                setPagination({
+                    totalCount: result?.totalCount || 0,
+                    totalPages: result?.pagination?.totalPages || 0,
+                });
             }
         } catch (error) { console.error('Failed to fetch users', error); setUsers([]); }
         finally { setLoading(false); }
@@ -431,7 +435,7 @@ const UsersPage = () => {
                                     </div>
                                     <select value={pageSize} onChange={(e) => handlePageSizeChange(e.target.value)}
                                         className="px-2 py-1 border border-gray-200 rounded-md text-xs text-gray-600 bg-white focus:outline-none focus:ring-1 focus:ring-gray-300">
-                                        {[25, 50, 100].map(n => <option key={n} value={n}>{n} / page</option>)}
+                                        {[15, 30, 50].map(n => <option key={n} value={n}>{n} / page</option>)}
                                     </select>
                                 </div>
                             )}
