@@ -6,7 +6,8 @@ const roleValues = ['super_admin', 'admin', 'teacher', 'student'];
 export const createUserSchema = z.object({
     body: z.object({
         name: z.string().nonempty('Name is required'),
-        email: z.string().email('Invalid email address'),
+        email: z.string().trim().email('Invalid email address'),
+        contactNo: z.string().optional(),
         role: z.enum(roleValues, { errorMap: () => ({ message: `Role must be one of: ${roleValues.join(', ')}` }) }),
         password: z.string().min(6).optional(),
         schoolId: objectIdSchema.optional(),
@@ -16,7 +17,7 @@ export const createUserSchema = z.object({
         rollNumber: z.string().optional(),
         standard: z.string().optional(),
         section: z.string().optional(),
-        year: z.number().optional(),
+        year: z.coerce.number().optional(),
         admissionDate: z.string().optional(),
         fatherName: z.string().optional(),
         fatherContact: z.string().optional(),

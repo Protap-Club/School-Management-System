@@ -77,9 +77,33 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
         setError('');
         try {
             const fullName = `${formData.firstName} ${formData.middleName ? formData.middleName + ' ' : ''}${formData.lastName}`.trim();
-            const payload = { ...formData, name: fullName, role: roleToAdd };
-            delete payload.firstName; delete payload.middleName; delete payload.lastName;
-            if (payload.year) payload.year = parseInt(payload.year);
+
+            // Clean up the payload: remove empty strings, trim crucial fields
+            const payload = {
+                name: fullName,
+                role: roleToAdd,
+                email: formData.email.trim(),
+                schoolId: formData.schoolId || user?.schoolId
+            };
+
+            // Add role-specific fields
+            if (roleToAdd === 'admin') {
+                if (formData.department) payload.department = formData.department;
+            } else if (roleToAdd === 'teacher') {
+                if (formData.standard) payload.standard = formData.standard;
+                if (formData.section) payload.section = formData.section;
+                // Note: assignedClasses will be constructed on backend from standard/section if provided
+            } else if (roleToAdd === 'student') {
+                const studentFields = ['rollNumber', 'standard', 'section', 'fatherName', 'fatherContact', 'motherName', 'motherContact'];
+                studentFields.forEach(field => {
+                    if (formData[field]) payload[field] = formData[field];
+                });
+                if (formData.year) payload.year = parseInt(formData.year);
+            }
+
+            // Global optional fields
+            if (formData.contactNo) payload.contactNo = formData.contactNo;
+
             await api.post('/users', payload);
             onSuccess();
             onClose();
@@ -138,19 +162,19 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
                             {renderSectionHeader('bg-blue-500', 'Personal Details')}
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <InputField label="First Name" name="firstName" value={formData.firstName} onChange={handleChange} required placeholder="John" />
-                                <InputField label="Middle Name" name="middleName" placeholder="M." />
-                                <InputField label="Last Name" name="lastName" required placeholder="Doe" />
+                                <InputField label="Middle Name" name="middleName" value={formData.middleName} onChange={handleChange} placeholder="M." />
+                                <InputField label="Last Name" name="lastName" value={formData.lastName} onChange={handleChange} required placeholder="Doe" />
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <InputField label="Email Address" name="email" type="email" required placeholder="john@example.com" />
-                                <InputField label="Contact Number" name="contactNo" placeholder="+91 98765 43210" />
+                                <InputField label="Email Address" name="email" type="email" value={formData.email} onChange={handleChange} required placeholder="john@example.com" />
+                                <InputField label="Contact Number" name="contactNo" value={formData.contactNo} onChange={handleChange} placeholder="+91 98765 43210" />
                             </div>
                         </div>
                         {roleToAdd === 'admin' && (
                             <div className="space-y-4">
                                 {renderSectionHeader('bg-purple-500', 'Professional Details')}
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <InputField label="Department" name="department" required placeholder="e.g. Administration" />
+                                    <InputField label="Department" name="department" value={formData.department} onChange={handleChange} required placeholder="e.g. Administration" />
                                 </div>
                             </div>
                         )}
@@ -168,10 +192,10 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
                                 <div className="space-y-4">
                                     {renderSectionHeader('bg-emerald-500', 'Student Academic Details')}
                                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                                        <InputField label="Roll Number" name="rollNumber" required placeholder="e.g. 101" />
-                                        <InputField label="Class" name="standard" required placeholder="e.g. 10th" />
-                                        <InputField label="Section" name="section" required placeholder="e.g. A" />
-                                        <InputField label="Year" name="year" type="number" required min="1" max="6" />
+                                        <InputField label="Roll Number" name="rollNumber" value={formData.rollNumber} onChange={handleChange} required placeholder="e.g. 101" />
+                                        <InputField label="Class" name="standard" value={formData.standard} onChange={handleChange} required placeholder="e.g. 10th" />
+                                        <InputField label="Section" name="section" value={formData.section} onChange={handleChange} required placeholder="e.g. A" />
+                                        <InputField label="Year" name="year" type="number" value={formData.year} onChange={handleChange} required min="1" max="6" />
                                     </div>
                                 </div>
                                 <div className="space-y-4">
@@ -182,8 +206,8 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
                                                 <span className="text-lg">{p.emoji}</span> {p.label}
                                             </h5>
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                <InputField label="Name" name={p.nameField} placeholder={p.namePlaceholder} />
-                                                <InputField label="Contact" name={p.contactField} placeholder={p.contactPlaceholder} />
+                                                <InputField label="Name" name={p.nameField} value={formData[p.nameField]} onChange={handleChange} placeholder={p.namePlaceholder} />
+                                                <InputField label="Contact" name={p.contactField} value={formData[p.contactField]} onChange={handleChange} placeholder={p.contactPlaceholder} />
                                             </div>
                                         </div>
                                     ))}
