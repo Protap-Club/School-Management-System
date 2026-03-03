@@ -1,5 +1,5 @@
 import multer from 'multer';
-import { CloudinaryStorage } from 'multer-storage-cloudinary';
+import CloudinaryStorage from 'multer-storage-cloudinary';
 import cloudinary from '../config/cloudinary.js';
 import logger from "../config/logger.js";
 import { ValidationError } from "../utils/customError.js";
@@ -83,7 +83,7 @@ export const deleteFromCloudinary = async (cloudinaryUrl) => {
             .replace(/\.[^.]+$/, '');      // Remove extension
 
         const result = await cloudinary.uploader.destroy(publicId);
-        
+
         if (result.result === 'ok') {
             logger.info(`Cloudinary file deleted: ${publicId}`);
             return true;

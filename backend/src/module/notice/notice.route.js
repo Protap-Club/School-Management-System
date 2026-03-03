@@ -1,6 +1,6 @@
 import express from "express";
 import multer from "multer";
-import { CloudinaryStorage } from "multer-storage-cloudinary";
+import CloudinaryStorage from "multer-storage-cloudinary";
 import cloudinary from "../../config/cloudinary.js";
 import {
     createNotice,
@@ -31,9 +31,9 @@ const noticeStorage = new CloudinaryStorage({
     params: async (req, file) => {
         // Namespace per school: schools/{schoolId}/notices
         const folder = req.schoolId ? `schools/${req.schoolId}/notices` : 'schools/default/notices';
-        
+
         const isImageOrVideo = file.mimetype.startsWith('image/') || file.mimetype.startsWith('video/');
-        
+
         if (isImageOrVideo) {
             return {
                 folder,
