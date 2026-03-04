@@ -341,8 +341,49 @@ Registered in `backend/src/routes/index.route.js`:
 | `/api/v1/school`   | School        | ✅ JWT        | CRUD, branding, feature toggles                 |
 | `/api/v1/notices`  | Notice        | ✅ JWT        | Announcements                                   |
 | `/api/v1/calendar` | Calendar      | ✅ JWT        | Calendar events                                 |
-| `/api/v1/timetables`| Timetable    | ✅ JWT        | Schedules                                       |
+| `/api/v1/timetables`| Timetable    | ✅ JWT        | Schedules, time slots, entries                  |
 | `/api/v1/fees`     | Fees          | ✅ JWT        | Fee management                                  |
+
+### Users Module — Endpoint Access Rules
+
+| Endpoint                | Method  | Roles                              | Platform | Description                          |
+|------------------------|---------|-------------------------------------|----------|--------------------------------------|
+| `/users`               | POST    | Super Admin, Admin, Teacher         | Web      | Create user (teacher creates student only) |
+| `/users`               | GET     | Super Admin, Admin, Teacher         | Both     | List users (role-scoped visibility)  |
+| `/users/:id`           | GET     | Super Admin, Admin, Teacher         | Both     | Get user by ID                       |
+| `/users/archive`       | PATCH   | Super Admin, Admin, Teacher         | Web      | Archive/restore users (soft delete)  |
+| `/users/me/avatar`     | PATCH   | All roles                           | Both     | Upload own avatar                    |
+| `/users/me/profile`    | GET     | All roles                           | Both     | Get own profile with role-specific data |
+
+> **Notes:**
+> - Teachers can only see students in their assigned classes.
+> - Admins can see teachers and students. Super admins can see all roles.
+> - All queries are scoped by `schoolId` — no cross-school data leakage.
+> - Hard delete (`DELETE /users`) is implemented but commented out for now.
+
+### Timetable Module — Endpoint Access Rules
+
+| Endpoint                           | Method  | Roles                              | Platform | Description                            |
+|------------------------------------|---------|-------------------------------------|----------|----------------------------------------|
+| `/timetables/schedule/me`          | GET     | Teacher, Student                    | Both     | Get own schedule (day-grouped)         |
+| `/timetables/schedule/:teacherId`  | GET     | Admin                               | Web      | View any teacher's schedule            |
+| `/timetables/slots`               | GET     | All roles                           | Both     | View bell schedule time slots          |
+| `/timetables/slots`               | POST    | Admin                               | Web      | Create a time slot                     |
+| `/timetables/slots/:id`           | PUT     | Admin                               | Web      | Update a time slot                     |
+| `/timetables/slots/:id`           | DELETE  | Admin                               | Web      | Delete a time slot                     |
+| `/timetables/:id/entries`         | POST    | Admin                               | Web      | Add entry to a timetable               |
+| `/timetables/entries/:entryId`    | PATCH   | Admin                               | Web      | Update a timetable entry               |
+| `/timetables/entries/:entryId`    | DELETE  | Admin                               | Web      | Delete a timetable entry               |
+| `/timetables`                     | POST    | Admin                               | Web      | Create timetable (header)              |
+| `/timetables`                     | GET     | Admin                               | Web      | List all timetables                    |
+| `/timetables/:id`                 | GET     | Admin                               | Web      | Get timetable with entries             |
+| `/timetables/:id`                 | DELETE  | Admin                               | Web      | Delete timetable + all entries         |
+
+> **Notes:**
+> - Only admin can create, edit, or delete timetables, entries, and time slots.
+> - Teachers and students view their own schedules via `/schedule/me`.
+> - Student timetable is resolved from their `standard` + `section` (via StudentProfile) using the most recent `academicYear`.
+> - Mobile responses for `/schedule/me` return a simplified shape (subject, teacher name, room, times only).
 
 ---
 
