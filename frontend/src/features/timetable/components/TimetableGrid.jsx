@@ -1,6 +1,6 @@
 import React from 'react';
 import { FaPlus, FaMapMarkerAlt, FaChalkboardTeacher } from 'react-icons/fa';
-import { DAYS_OF_WEEK } from '../../api/timetable';
+import { DAYS_OF_WEEK } from '..';
 
 const TimetableGrid = ({
   entries = [],

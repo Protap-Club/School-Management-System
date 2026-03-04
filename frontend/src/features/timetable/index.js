@@ -12,15 +12,16 @@ export {
     useTimetables,
     useTimetable,
     useCreateTimetable,
-    useUpdateTimetableStatus,
     useDeleteTimetable,
     // Entries
-    useSyncTimetableEntries,
+    useCreateEntry,
     useUpdateEntry,
     useDeleteEntry,
     // Schedule
     useMySchedule,
+    useTeacherSchedule,
     useTeachers,
+    useAvailableClasses,
 } from './api/queries';
 
 // Constants

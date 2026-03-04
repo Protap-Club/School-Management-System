@@ -1,33 +1,35 @@
-// Users TanStack Query Hooks
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { usersApi } from './api';
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { usersApi } from "./api";
 
 export const userKeys = {
-    all: ['users'],
-    lists: () => [...userKeys.all, 'list'],
+    all: ["users"],
+    lists: () => [...userKeys.all, "list"],
     list: (filters) => [...userKeys.lists(), filters],
-    archived: () => [...userKeys.all, 'archived'],
+    detail: (id) => [...userKeys.all, "detail", id],
 };
 
-// Get users with filters
-export const useUsers = ({ role = 'all', page = 0, pageSize = 25 } = {}) => {
+export const useUsers = ({ role = "all", page = 0, pageSize = 25, name } = {}) => {
     return useQuery({
-        queryKey: userKeys.list({ role, page, pageSize }),
-        queryFn: () => usersApi.getUsers({ role, page, pageSize }),
-        keepPreviousData: true,
+        queryKey: userKeys.list({ role, page, pageSize, name, isArchived: false }),
+        queryFn: () => usersApi.getUsers({ role, page, pageSize, name, isArchived: false }),
     });
 };
 
-// Get archived users
-export const useArchivedUsers = ({ role = 'all', page = 0, pageSize = 25 } = {}) => {
+export const useArchivedUsers = ({ role = "all", page = 0, pageSize = 25, name } = {}) => {
     return useQuery({
-        queryKey: [...userKeys.archived(), { role, page, pageSize }],
-        queryFn: () => usersApi.getUsers({ role, page, pageSize, archived: true }),
-        keepPreviousData: true,
+        queryKey: userKeys.list({ role, page, pageSize, name, isArchived: true }),
+        queryFn: () => usersApi.getUsers({ role, page, pageSize, name, isArchived: true }),
     });
 };
 
-// Create user mutation
+export const useUserById = (id) => {
+    return useQuery({
+        queryKey: userKeys.detail(id),
+        queryFn: () => usersApi.getUserById(id),
+        enabled: Boolean(id),
+    });
+};
+
 export const useCreateUser = () => {
     const queryClient = useQueryClient();
     return useMutation({
@@ -38,44 +40,20 @@ export const useCreateUser = () => {
     });
 };
 
-// Toggle user status (archive/restore) - single user
 export const useToggleUserStatus = () => {
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: usersApi.toggleUserStatus,
+        mutationFn: ({ userId, isArchived }) => usersApi.toggleArchive({ userIds: [userId], isArchived }),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: userKeys.all });
         },
     });
 };
 
-// Toggle user status (archive/restore) - bulk
 export const useToggleUsersStatus = () => {
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: usersApi.toggleUsersStatus,
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: userKeys.all });
-        },
-    });
-};
-
-// Delete user permanently - single
-export const useDeleteUser = () => {
-    const queryClient = useQueryClient();
-    return useMutation({
-        mutationFn: usersApi.deleteUser,
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: userKeys.all });
-        },
-    });
-};
-
-// Delete users permanently - bulk
-export const useDeleteUsers = () => {
-    const queryClient = useQueryClient();
-    return useMutation({
-        mutationFn: usersApi.deleteUsers,
+        mutationFn: usersApi.toggleArchive,
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: userKeys.all });
         },

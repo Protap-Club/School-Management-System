@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { FaTimes, FaUserPlus, FaBuilding } from 'react-icons/fa';
-import api from '../api/axios';
-import { useAuth } from '../features/auth';
+import api from '../../../lib/axios';
+import { useAuth } from '../../../features/auth';
+import { useCreateUser } from '../api/queries';
 
 const InputField = ({ label, name, value, onChange, type = "text", required = false, ...props }) => (
     <div className="space-y-1">
@@ -32,6 +33,7 @@ const INITIAL_FORM = {
 
 const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
     const { user } = useAuth();
+    const createUserMutation = useCreateUser();
     const [formData, setFormData] = useState({ ...INITIAL_FORM });
     const [schoolName, setSchoolName] = useState('');
     const [loading, setLoading] = useState(false);
@@ -104,8 +106,8 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
             // Global optional fields
             if (formData.contactNo) payload.contactNo = formData.contactNo;
 
-            await api.post('/users', payload);
-            onSuccess();
+            await createUserMutation.mutateAsync(payload);
+            if (onSuccess) onSuccess();
             onClose();
             setFormData({ ...INITIAL_FORM, schoolId: user?.schoolId || '' });
         } catch (err) {

@@ -7,11 +7,11 @@ import { lazy, Suspense } from 'react';
 // Lazy load pages for code-splitting
 const Login = lazy(() => import('../pages/Login'));
 const Dashboard = lazy(() => import('../pages/Dashboard'));
-const UsersPage = lazy(() => import('../pages/UsersPage'));
+const UsersPage = lazy(() => import('../features/users/UsersPage'));
 const Settings = lazy(() => import('../pages/Settings'));
 const Attendance = lazy(() => import('../pages/Attendance'));
 const Notice = lazy(() => import('../pages/Notice'));
-const TimetablePage = lazy(() => import('../pages/Timetable'));
+const TimetablePage = lazy(() => import('../features/timetable/TimetablePage'));
 const Calendar = lazy(() => import('../pages/Calendar'));
 const Notifications = lazy(() => import('../pages/Notifications'));
 

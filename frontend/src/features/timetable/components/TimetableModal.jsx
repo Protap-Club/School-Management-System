@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { FaTimes, FaSpinner, FaChevronDown, FaSearch } from 'react-icons/fa';
-import { DAY_MAP_REVERSE } from '../../api/timetable';
+import { DAY_MAP_REVERSE } from '..';
 
 const EMPTY_FORM = { subject: '', teacherId: '', roomNumber: '', notes: '' };
 
