@@ -8,7 +8,7 @@ import { pages, PageLoader } from './routes';
 
 function App() {
     // Destructure lazy-loaded page components
-    const { Login, Dashboard, UsersPage, Settings, Attendance, Notice, TimetablePage, Calendar, Notifications } = pages;
+    const { Login, Dashboard, UsersPage, Settings, Attendance, Notice, TimetablePage, Calendar, Notifications, Fees } = pages;
 
     return (
         <Router>
@@ -102,6 +102,16 @@ function App() {
                             </ProtectedRoute>
                         }
                     />
+                    <Route
+                        path="/admin/fees"
+                        element={
+                            <ProtectedRoute allowedRoles={['admin']}>
+                                <RequireFeature feature="fees">
+                                    <Fees />
+                                </RequireFeature>
+                            </ProtectedRoute>
+                        }
+                    />
 
                     {/* Teacher Routes */}
                     <Route
@@ -148,6 +158,16 @@ function App() {
                             <ProtectedRoute allowedRoles={['teacher']}>
                                 <RequireFeature feature="calendar">
                                     <Calendar />
+                                </RequireFeature>
+                            </ProtectedRoute>
+                        }
+                    />
+                    <Route
+                        path="/teacher/fees"
+                        element={
+                            <ProtectedRoute allowedRoles={['teacher']}>
+                                <RequireFeature feature="fees">
+                                    <Fees />
                                 </RequireFeature>
                             </ProtectedRoute>
                         }

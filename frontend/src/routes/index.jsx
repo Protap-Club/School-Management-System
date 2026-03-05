@@ -14,6 +14,7 @@ const Notice = lazy(() => import('../pages/Notice'));
 const TimetablePage = lazy(() => import('../features/timetable/TimetablePage'));
 const Calendar = lazy(() => import('../pages/Calendar'));
 const Notifications = lazy(() => import('../pages/Notifications'));
+const Fees = lazy(() => import('../pages/Fees'));
 
 // Loading fallback component
 const PageLoader = () => (
@@ -51,6 +52,7 @@ export const routes = {
         notice: '/admin/notice',
         timetable: '/admin/timetable',
         calendar: '/admin/calendar',
+        fees: '/admin/fees',
         notifications: '/notifications',
     },
 
@@ -61,6 +63,7 @@ export const routes = {
         notice: '/teacher/notice',
         timetable: '/teacher/timetable',
         calendar: '/teacher/calendar',
+        fees: '/teacher/fees',
     },
 };
 
@@ -75,6 +78,7 @@ export const pages = {
     TimetablePage,
     Calendar,
     Notifications,
+    Fees,
 };
 
 // Export utilities
