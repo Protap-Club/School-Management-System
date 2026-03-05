@@ -235,6 +235,9 @@ const UsersPage = () => {
                         onToggleDropdown={toggleDropdown}
                         onRowClick={(u) => setSelectedUser(u)}
                         roleLabels={ROLE_LABELS}
+                        currentPage={page}
+                        totalItems={currentData?.totalCount || filteredUsers.length}
+                        onPageChange={setPage}
                     />
                 </div>
             </div>

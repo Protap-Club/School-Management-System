@@ -7,7 +7,7 @@ import { connectSocket, disconnectSocket } from '../api/socket';
 import {
   FaUserGraduate, FaCalendarAlt, FaCheckCircle, FaTimesCircle, FaClock,
   FaUsers, FaSearch, FaWifi, FaChevronDown, FaUserTie, FaClipboardList,
-  FaChevronLeft, FaChevronRight
+  FaChevronLeft, FaChevronRight, FaToggleOn, FaToggleOff
 } from 'react-icons/fa';
 import StudentHistoryModal from '../components/attendance/StudentHistoryModal';
 
@@ -69,6 +69,7 @@ const Attendance = () => {
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [teacherPage, setTeacherPage] = useState(0);
   const [classPages, setClassPages] = useState({});
+  const [manualOverrides, setManualOverrides] = useState({});
 
   const getClassPage = (classId) => classPages[classId] || 0;
   const setClassPage = (classId, page) => setClassPages(prev => ({ ...prev, [classId]: page }));
@@ -112,7 +113,40 @@ const Attendance = () => {
   };
 
   const today = useMemo(() => new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }), []);
-  const getStudentStatus = useCallback((studentId) => attendanceMap[studentId]?.status || 'unmarked', [attendanceMap]);
+  const getStudentStatus = useCallback((studentId) => {
+    if (manualOverrides[studentId] !== undefined) {
+      return manualOverrides[studentId] ? 'present' : 'absent';
+    }
+    return attendanceMap[studentId]?.status || 'unmarked';
+  }, [attendanceMap, manualOverrides]);
+
+  const handleManualToggle = useCallback((studentId, e) => {
+    e.stopPropagation();
+    const originalStatus = attendanceMap[studentId]?.status || 'unmarked';
+    const wasOriginallyPresent = originalStatus === 'present';
+
+    setManualOverrides(prev => {
+      const currentOverride = prev[studentId];
+      if (currentOverride === undefined) {
+        return { ...prev, [studentId]: !wasOriginallyPresent };
+      } else {
+        return { ...prev, [studentId]: !currentOverride };
+      }
+    });
+
+    // Update stats OUTSIDE the updater to avoid React StrictMode double-fire
+    setStats(prev => {
+      const currentOverride = manualOverrides[studentId];
+      const wasPresent = currentOverride !== undefined ? currentOverride : wasOriginallyPresent;
+      const willBePresent = !wasPresent;
+      if (willBePresent === wasPresent) return prev;
+      return {
+        ...prev,
+        present: prev.present + (willBePresent ? 1 : -1),
+        absent: Math.max(0, prev.absent + (willBePresent ? -1 : 1)),
+      };
+    });
+  }, [attendanceMap, manualOverrides]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -179,7 +213,7 @@ const Attendance = () => {
     );
   }
 
-  const renderStudentRow = (student, showRollNo = false) => {
+  const renderStudentRow = (student, showRollNo = false, showToggle = false) => {
     const status = getStudentStatus(student._id);
     const isPresent = status === 'present';
     return (
@@ -205,6 +239,21 @@ const Attendance = () => {
             {STATUS_LABELS[status]}
           </span>
         </td>
+        {showToggle && (
+          <td className="px-6 py-4">
+            <button
+              onClick={(e) => handleManualToggle(student._id, e)}
+              className="flex items-center transition-colors focus:outline-none"
+              title={isPresent ? 'Mark Absent' : 'Mark Present'}
+            >
+              {isPresent ? (
+                <FaToggleOn className="text-green-500" size={36} />
+              ) : (
+                <FaToggleOff className="text-gray-400" size={36} />
+              )}
+            </button>
+          </td>
+        )}
       </tr>
     );
   };
@@ -318,10 +367,11 @@ const Attendance = () => {
                     <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Student</th>
                     <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Email</th>
                     <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
+                    <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Mark Manually</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
-                  {students.slice(teacherPage * ITEMS_PER_PAGE, (teacherPage + 1) * ITEMS_PER_PAGE).map(student => renderStudentRow(student, false))}
+                  {students.slice(teacherPage * ITEMS_PER_PAGE, (teacherPage + 1) * ITEMS_PER_PAGE).map(student => renderStudentRow(student, false, true))}
                 </tbody>
               </table>
             </div>
