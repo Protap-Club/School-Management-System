@@ -6,14 +6,9 @@ import { loadSeedJson } from "../lib/loadJson.js";
 
 const attData = loadSeedJson("attendance.json");
 
-const toDateKey = (date) => date.toISOString().slice(0, 10);
-
-const isWorkingDay = (date, allowedDays, excluded) => {
-  const shortDays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-  const day = shortDays[date.getDay()];
-  return allowedDays.includes(day) && !excluded.has(toDateKey(date));
-};
-
+/**
+ * Simple deterministic hash so results are reproducible across runs.
+ */
 const hashInt = (input) => {
   let h = 2166136261;
   for (let i = 0; i < input.length; i++) {
@@ -23,40 +18,33 @@ const hashInt = (input) => {
   return Math.abs(h >>> 0);
 };
 
-const workingDatesInRange = (start, end, workingDays, excludedDates) => {
-  const dates = [];
-  const cursor = new Date(start);
-  const endDate = new Date(end);
-  const excluded = new Set(excludedDates);
-
-  while (cursor <= endDate) {
-    if (isWorkingDay(cursor, workingDays, excluded)) {
-      dates.push(new Date(cursor));
-    }
-    cursor.setDate(cursor.getDate() + 1);
-  }
-  return dates;
-};
-
 const seedAttendance = async () => {
   logger.info("=== Seeding Attendance ===");
 
   const school = await School.findOne({ code: "NV" });
   if (!school) throw new Error("School not found. Run seed-school first.");
 
-  const profiles = await StudentProfile.find({ schoolId: school._id }).select("userId standard");
+  const profiles = await StudentProfile.find({ schoolId: school._id }).select(
+    "userId standard section"
+  );
   if (!profiles.length) {
     logger.warn("No student profiles found. Run seed-profiles first.");
     return;
   }
 
-  const dates = workingDatesInRange(
-    attData.range.startDate,
-    attData.range.endDate,
-    attData.workingDays,
-    attData.excludeDates || []
-  );
+  // Parse configuration from the simplified attendance.json
+  const dates = (attData.dates || []).map((d) => new Date(d));
+  if (!dates.length) {
+    logger.warn("No dates in attendance.json, skipping attendance seeding.");
+    return;
+  }
 
+  const presentPct = (attData.presentPercentage ?? 85) / 100;
+  const defaultRemarks = attData.absentRemarks || "Absent without notice";
+  const targetStandard = attData.targetClass?.standard;
+  const targetSection = attData.targetClass?.section;
+
+  // Clean up existing records for these dates
   const dateValues = dates.map((d) => {
     const dt = new Date(d);
     dt.setUTCHours(0, 0, 0, 0);
@@ -69,45 +57,85 @@ const seedAttendance = async () => {
   });
 
   const records = [];
-  profiles.forEach((profile, idx) => {
-    const prob = attData.presentProbabilityByStandard[profile.standard] ?? 0.9;
-    dates.forEach((date) => {
-      const dateKey = toDateKey(date);
-      const key = `${profile.userId.toString()}-${dateKey}-${idx}`;
+  const BATCH_SIZE = 500;
+  let totalInserted = 0;
+
+  for (const profile of profiles) {
+    // Apply the configured presentPercentage to target class,
+    // use a slightly different rate for other classes
+    const isTarget =
+      targetStandard &&
+      profile.standard === targetStandard &&
+      (!targetSection || profile.section === targetSection);
+    const prob = isTarget ? presentPct : 0.9;
+
+    for (const date of dates) {
+      const dateKey = date.toISOString().slice(0, 10);
+      const key = `${profile.userId.toString()}-${dateKey}`;
       const ratio = (hashInt(key) % 1000) / 1000;
       const isPresent = ratio <= prob;
+
       let checkInTime = null;
       let markedBy = "Manual";
       let remarks = null;
 
       if (isPresent) {
-        const spread = hashInt(`${key}-in`) % attData.checkInWindow.maxSpreadMinutes;
-        const hh = attData.checkInWindow.startHour;
-        const mm = attData.checkInWindow.startMinute + spread;
-        checkInTime = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), hh, mm, 0, 0));
+        // Generate a spread for check-in time between 7:30 – 8:15 AM
+        const spread = hashInt(`${key}-in`) % 45;
+        checkInTime = new Date(
+          Date.UTC(
+            date.getUTCFullYear(),
+            date.getUTCMonth(),
+            date.getUTCDate(),
+            7,
+            30 + spread,
+            0,
+            0
+          )
+        );
         markedBy = spread % 4 === 0 ? "Manual" : "NFC";
       } else {
-        remarks = attData.absenceReasons[hashInt(`${key}-reason`) % attData.absenceReasons.length];
+        remarks = defaultRemarks;
       }
 
       records.push({
         studentId: profile.userId,
         schoolId: school._id,
-        date: new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 0, 0, 0, 0)),
+        date: new Date(
+          Date.UTC(
+            date.getUTCFullYear(),
+            date.getUTCMonth(),
+            date.getUTCDate(),
+            0,
+            0,
+            0,
+            0
+          )
+        ),
         status: isPresent ? "Present" : "Absent",
         checkInTime,
         markedBy,
         remarks,
       });
-    });
-  });
 
-  if (records.length) {
-    await Attendance.insertMany(records, { ordered: false });
+      // Flush in batches to avoid memory pressure
+      if (records.length >= BATCH_SIZE) {
+        await Attendance.insertMany(records, { ordered: false });
+        totalInserted += records.length;
+        records.length = 0;
+      }
+    }
   }
 
-  logger.info(`Attendance records seeded: ${records.length} across ${dates.length} working days`);
+  // Insert remaining records
+  if (records.length) {
+    await Attendance.insertMany(records, { ordered: false });
+    totalInserted += records.length;
+  }
+
+  logger.info(
+    `Attendance records seeded: ${totalInserted} for ${profiles.length} students across ${dates.length} dates`
+  );
 };
 
 export default seedAttendance;
-
