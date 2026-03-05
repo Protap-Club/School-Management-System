@@ -41,7 +41,17 @@ const TimetableGrid = ({
   };
   const formatTime = (time) => {
     if (!time) return '';
-    const [hours, minutes] = time.split(':').map(Number);
+    // If it already has AM/PM, just return it (or normalize if needed)
+    if (time.toLowerCase().includes('am') || time.toLowerCase().includes('pm')) {
+      return time;
+    }
+    const parts = time.split(':');
+    if (parts.length < 2) return time;
+    const hours = parseInt(parts[0], 10);
+    const minutes = parseInt(parts[1], 10);
+
+    if (isNaN(hours) || isNaN(minutes)) return time;
+
     const period = hours >= 12 ? 'PM' : 'AM';
     const hour12 = hours % 12 || 12;
     return `${hour12.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')} ${period}`;
