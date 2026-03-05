@@ -69,7 +69,13 @@ const Attendance = () => {
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [teacherPage, setTeacherPage] = useState(0);
   const [classPages, setClassPages] = useState({});
-  const [manualOverrides, setManualOverrides] = useState({});
+  const [manualOverrides, setManualOverrides] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('attendance_overrides')) || {};
+    } catch {
+      return {};
+    }
+  });
 
   const getClassPage = (classId) => classPages[classId] || 0;
   const setClassPage = (classId, page) => setClassPages(prev => ({ ...prev, [classId]: page }));
@@ -125,14 +131,8 @@ const Attendance = () => {
     const originalStatus = attendanceMap[studentId]?.status || 'unmarked';
     const wasOriginallyPresent = originalStatus === 'present';
 
-    setManualOverrides(prev => {
-      const currentOverride = prev[studentId];
-      if (currentOverride === undefined) {
-        return { ...prev, [studentId]: !wasOriginallyPresent };
-      } else {
-        return { ...prev, [studentId]: !currentOverride };
-      }
-    });
+    // We handle state update at the bottom for persistence consistency
+
 
     // Update stats OUTSIDE the updater to avoid React StrictMode double-fire
     setStats(prev => {
@@ -145,6 +145,18 @@ const Attendance = () => {
         present: prev.present + (willBePresent ? 1 : -1),
         absent: Math.max(0, prev.absent + (willBePresent ? -1 : 1)),
       };
+    });
+
+    // Persist to localStorage
+    setManualOverrides(current => {
+      const updated = { ...current };
+      if (current[studentId] === undefined) {
+        updated[studentId] = !wasOriginallyPresent;
+      } else {
+        updated[studentId] = !current[studentId];
+      }
+      localStorage.setItem('attendance_overrides', JSON.stringify(updated));
+      return updated;
     });
   }, [attendanceMap, manualOverrides]);
 
@@ -167,8 +179,19 @@ const Attendance = () => {
         if (studentRes.data.success) {
           const studentData = studentRes.data.data.users || [];
           setStudents(studentData);
-          const { map, presentCount } = buildAttendanceMap(attendanceData);
+          const { map } = buildAttendanceMap(attendanceData);
           setAttendanceMap(map);
+
+          // Calculate stats considering manual overrides
+          let presentCount = 0;
+          studentData.forEach(s => {
+            const originalStatus = map[s._id]?.status || 'unmarked';
+            const isPresent = manualOverrides[s._id] !== undefined
+              ? manualOverrides[s._id]
+              : (originalStatus === 'present');
+            if (isPresent) presentCount++;
+          });
+
           setStats({ total: studentData.length, present: presentCount, absent: Math.max(0, studentData.length - presentCount) });
           if (isAdmin) setGroupedClasses(buildClassGroups(studentData, teacherData));
         }
