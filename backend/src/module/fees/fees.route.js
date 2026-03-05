@@ -37,6 +37,7 @@ import {
 } from "./fees.validation.js";
 
 const router = express.Router();
+console.error("[CRITICAL_DEBUG] fees.route.js evaluation");
 
 // Global middleware for all fee routes
 router.use(extractSchoolId);
@@ -78,7 +79,7 @@ router.post(
 router.get(
     "/structures",
     checkWebOnly,
-    checkRole([USER_ROLES.ADMIN]),
+    checkRole([USER_ROLES.ADMIN, USER_ROLES.TEACHER]),
     validate(getFeeStructuresQuerySchema),
     getFeeStructures
 );
@@ -86,7 +87,7 @@ router.get(
 router.put(
     "/structures/:id",
     checkWebOnly,
-    checkRole([USER_ROLES.ADMIN]),
+    checkRole([USER_ROLES.ADMIN, USER_ROLES.TEACHER]),
     validate(updateFeeStructureSchema),
     updateFeeStructure
 );
@@ -94,7 +95,7 @@ router.put(
 router.delete(
     "/structures/:id",
     checkWebOnly,
-    checkRole([USER_ROLES.ADMIN]),
+    checkRole([USER_ROLES.ADMIN, USER_ROLES.TEACHER]),
     validate(feeStructureIdParamsSchema),
     deleteFeeStructure
 );
@@ -103,7 +104,7 @@ router.delete(
 router.post(
     "/structures/:id/generate",
     checkWebOnly,
-    checkRole([USER_ROLES.ADMIN]),
+    checkRole([USER_ROLES.ADMIN, USER_ROLES.TEACHER]),
     validate(generateAssignmentsSchema),
     generateAssignments
 );
@@ -111,7 +112,7 @@ router.post(
 router.patch(
     "/assignments/:id",
     checkWebOnly,
-    checkRole([USER_ROLES.ADMIN]),
+    checkRole(["admin", "teacher"]),
     validate(updateAssignmentSchema),
     updateAssignment
 );
@@ -120,7 +121,7 @@ router.patch(
 router.post(
     "/assignments/:id/pay",
     checkWebOnly,
-    checkRole([USER_ROLES.ADMIN]),
+    checkRole(["admin", "teacher"]),
     validate(recordPaymentSchema),
     recordPayment
 );

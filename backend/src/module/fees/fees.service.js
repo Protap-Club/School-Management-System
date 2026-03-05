@@ -1,7 +1,8 @@
 import { FeeStructure, FeeAssignment, FeePayment } from "./Fee.model.js";
 import StudentProfile from "../user/model/StudentProfile.model.js";
 import TeacherProfile from "../user/model/TeacherProfile.model.js";
-import { NotFoundError, ConflictError, BadRequestError } from "../../utils/customError.js";
+import { USER_ROLES } from "../../constants/userRoles.js";
+import { NotFoundError, ConflictError, BadRequestError, ForbiddenError } from "../../utils/customError.js";
 import logger from "../../config/logger.js";
 
 // ═══════════════════════════════════════════════════════════════
@@ -19,7 +20,7 @@ export const createFeeStructure = async (schoolId, data, userId) => {
 
     if (exists) {
         throw new ConflictError(
-            `${data.feeType} fee already exists for ${data.standard}-${data.section} (${data.academicYear})`
+            `${data.feeType} fee already exists for ${data.standard} - ${data.section}(${data.academicYear})`
         );
     }
 
@@ -29,15 +30,42 @@ export const createFeeStructure = async (schoolId, data, userId) => {
         createdBy: userId,
     });
 
-    logger.info(`FeeStructure created: ${structure._id} (${structure.feeType} for ${structure.standard}-${structure.section})`);
+    logger.info(`FeeStructure created: ${structure._id} (${structure.feeType} for ${structure.standard} - ${structure.section})`);
     return structure;
 };
 
-export const getFeeStructures = async (schoolId, filters = {}) => {
+export const getFeeStructures = async (schoolId, filters = {}, user = {}) => {
     const query = { schoolId };
+
+    // If Teacher, strictly filter by their assigned classes
+    if (user.role === USER_ROLES.TEACHER) {
+        const profile = await TeacherProfile.findOne({ userId: user._id, schoolId }).lean();
+        if (!profile || !profile.assignedClasses || profile.assignedClasses.length === 0) {
+            return [];
+        }
+
+        // Apply manual filters to the assigned classes list
+        let classFilters = profile.assignedClasses.map(c => ({
+            standard: c.standard,
+            section: c.section
+        }));
+
+        if (filters.standard) {
+            classFilters = classFilters.filter(c => c.standard === filters.standard);
+        }
+        if (filters.section) {
+            classFilters = classFilters.filter(c => c.section === filters.section);
+        }
+
+        if (classFilters.length === 0) return [];
+        query.$or = classFilters;
+    } else {
+        // Admin filters
+        if (filters.standard) query.standard = filters.standard;
+        if (filters.section) query.section = filters.section;
+    }
+
     if (filters.academicYear) query.academicYear = Number(filters.academicYear);
-    if (filters.standard) query.standard = filters.standard;
-    if (filters.section) query.section = filters.section;
     if (filters.feeType) query.feeType = filters.feeType;
     if (filters.isActive !== undefined) query.isActive = filters.isActive === "true";
 
@@ -46,39 +74,72 @@ export const getFeeStructures = async (schoolId, filters = {}) => {
         .lean();
 };
 
-export const updateFeeStructure = async (schoolId, id, data) => {
+export const updateFeeStructure = async (schoolId, id, data, user) => {
     // Prevent updating key fields that define uniqueness
     const { schoolId: _, feeType: __, standard: ___, section: ____, academicYear: _____, ...safeUpdates } = data;
 
+    const query = { _id: id, schoolId };
+
+    // Teacher check
+    if (user && user.role === USER_ROLES.TEACHER) {
+        const profile = await TeacherProfile.findOne({ userId: user._id, schoolId }).lean();
+        if (!profile) throw new ForbiddenError("Teacher profile not found");
+        const classFilters = profile.assignedClasses.map(c => ({ standard: c.standard, section: c.section }));
+        if (classFilters.length === 0) throw new ForbiddenError("No classes assigned to you");
+        query.$or = classFilters;
+    }
+
     const structure = await FeeStructure.findOneAndUpdate(
-        { _id: id, schoolId },
+        query,
         safeUpdates,
         { new: true, runValidators: true }
     );
 
     if (!structure) throw new NotFoundError("Fee structure not found");
-    logger.info(`FeeStructure updated: ${id}`);
+    logger.info(`FeeStructure updated: ${id} `);
     return structure;
 };
 
-export const deleteFeeStructure = async (schoolId, id) => {
+export const deleteFeeStructure = async (schoolId, id, user) => {
     // Block deletion if any assignments exist for this structure
     const hasAssignments = await FeeAssignment.exists({ feeStructureId: id });
     if (hasAssignments) {
         throw new ConflictError("Cannot delete: fee assignments already exist for this structure. Deactivate it instead.");
     }
 
-    const structure = await FeeStructure.findOneAndDelete({ _id: id, schoolId });
+    const query = { _id: id, schoolId };
+
+    // Teacher check
+    if (user && user.role === USER_ROLES.TEACHER) {
+        const profile = await TeacherProfile.findOne({ userId: user._id, schoolId }).lean();
+        if (!profile) throw new ForbiddenError("Teacher profile not found");
+        const classFilters = profile.assignedClasses.map(c => ({ standard: c.standard, section: c.section }));
+        if (classFilters.length === 0) throw new ForbiddenError("No classes assigned to you");
+        query.$or = classFilters;
+    }
+
+    const structure = await FeeStructure.findOneAndDelete(query);
     if (!structure) throw new NotFoundError("Fee structure not found");
-    logger.info(`FeeStructure deleted: ${id}`);
+    logger.info(`FeeStructure deleted: ${id} `);
 };
 
 // ═══════════════════════════════════════════════════════════════
 // ADMIN — Assignment Generation
 // ═══════════════════════════════════════════════════════════════
 
-export const generateAssignments = async (schoolId, feeStructureId, month, year, userId) => {
-    const structure = await FeeStructure.findOne({ _id: feeStructureId, schoolId, isActive: true });
+export const generateAssignments = async (schoolId, feeStructureId, month, year, userId, user) => {
+    const query = { _id: feeStructureId, schoolId, isActive: true };
+
+    // Teacher check
+    if (user && user.role === USER_ROLES.TEACHER) {
+        const profile = await TeacherProfile.findOne({ userId: user._id, schoolId }).lean();
+        if (!profile) throw new ForbiddenError("Teacher profile not found");
+        const classFilters = profile.assignedClasses.map(c => ({ standard: c.standard, section: c.section }));
+        if (classFilters.length === 0) throw new ForbiddenError("No classes assigned to you");
+        query.$or = classFilters;
+    }
+
+    const structure = await FeeStructure.findOne(query);
     if (!structure) throw new NotFoundError("Active fee structure not found");
 
     // Validate the month is applicable for this fee
@@ -96,7 +157,7 @@ export const generateAssignments = async (schoolId, feeStructureId, month, year,
         .lean();
 
     if (students.length === 0) {
-        throw new NotFoundError(`No students found in ${structure.standard}-${structure.section}`);
+        return { total: 0, created: 0, skipped: 0, message: "No students found in this class" };
     }
 
     // Calculate due date
@@ -140,9 +201,23 @@ export const generateAssignments = async (schoolId, feeStructureId, month, year,
 // ADMIN — Assignment Management
 // ═══════════════════════════════════════════════════════════════
 
-export const updateAssignment = async (schoolId, assignmentId, data) => {
+export const updateAssignment = async (schoolId, assignmentId, data, user) => {
     const assignment = await FeeAssignment.findOne({ _id: assignmentId, schoolId });
     if (!assignment) throw new NotFoundError("Fee assignment not found");
+
+    // Teacher check: must be assigned to this student's class
+    if (user && user.role === USER_ROLES.TEACHER) {
+        const [teacherProfile, studentProfile] = await Promise.all([
+            TeacherProfile.findOne({ userId: user._id, schoolId }).lean(),
+            StudentProfile.findOne({ userId: assignment.studentId, schoolId }).lean(),
+        ]);
+
+        if (!studentProfile) throw new ForbiddenError("Student profile not found");
+        const hasAccess = teacherProfile?.assignedClasses?.some(
+            (c) => c.standard === studentProfile.standard && c.section === studentProfile.section
+        );
+        if (!hasAccess) throw new ForbiddenError("You can only update fees for your assigned classes");
+    }
 
     // Allow updating discount, remarks, status (waived)
     if (data.discount !== undefined) {
@@ -164,7 +239,7 @@ export const updateAssignment = async (schoolId, assignmentId, data) => {
     }
 
     await assignment.save();
-    logger.info(`FeeAssignment updated: ${assignmentId}`);
+    logger.info(`FeeAssignment updated: ${assignmentId} `);
     return assignment;
 };
 
@@ -176,12 +251,26 @@ export const updateAssignment = async (schoolId, assignmentId, data) => {
 const generateReceiptNumber = (schoolId) => {
     const shortId = String(schoolId).slice(-4).toUpperCase();
     const timestamp = Date.now().toString(36).toUpperCase();
-    return `RCP-${shortId}-${timestamp}`;
+    return `RCP - ${shortId} -${timestamp} `;
 };
 
-export const recordPayment = async (schoolId, assignmentId, paymentData, recordedBy) => {
+export const recordPayment = async (schoolId, assignmentId, paymentData, recordedBy, user) => {
     const assignment = await FeeAssignment.findOne({ _id: assignmentId, schoolId });
     if (!assignment) throw new NotFoundError("Fee assignment not found");
+
+    // Teacher check: must be assigned to this student's class
+    if (user && user.role === USER_ROLES.TEACHER) {
+        const [teacherProfile, studentProfile] = await Promise.all([
+            TeacherProfile.findOne({ userId: user._id, schoolId }).lean(),
+            StudentProfile.findOne({ userId: assignment.studentId, schoolId }).lean(),
+        ]);
+
+        if (!studentProfile) throw new ForbiddenError("Student profile not found");
+        const hasAccess = teacherProfile?.assignedClasses?.some(
+            (c) => c.standard === studentProfile.standard && c.section === studentProfile.section
+        );
+        if (!hasAccess) throw new ForbiddenError("You can only record payments for your assigned classes");
+    }
 
     if (assignment.status === "PAID") {
         throw new ConflictError("This fee is already fully paid");
@@ -192,7 +281,7 @@ export const recordPayment = async (schoolId, assignmentId, paymentData, recorde
 
     const remaining = assignment.netAmount - assignment.paidAmount;
     if (paymentData.amount > remaining) {
-        throw new BadRequestError(`Payment amount (${paymentData.amount}) exceeds remaining balance (${remaining})`);
+        throw new BadRequestError(`Payment amount(${paymentData.amount}) exceeds remaining balance(${remaining})`);
     }
 
     // Create payment record
@@ -305,7 +394,7 @@ export const getAllClassesFeeOverview = async (schoolId, academicYear, month) =>
     for (const a of assignments) {
         const fs = a.feeStructureId;
         if (!fs) continue;
-        const key = `${fs.standard}-${fs.section}`;
+        const key = `${fs.standard} -${fs.section} `;
         if (!classMap[key]) {
             classMap[key] = {
                 standard: fs.standard,
