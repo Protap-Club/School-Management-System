@@ -79,8 +79,18 @@ const userSchema = new mongoose.Schema(
     refreshTokenHash: {
       type: String,
       select: false,
+      index: true,
     },
     refreshTokenExpiresAt: {
+      type: Date,
+      select: false,
+    },
+    previousRefreshTokenHash: {
+      type: String,
+      select: false,
+      index: true,
+    },
+    previousRefreshTokenExpiresAt: {
       type: Date,
       select: false,
     },
