@@ -9,21 +9,6 @@ import { buildStudentRecords } from "../lib/studentRecords.js";
 
 const usersData = loadSeedJson("users.json");
 const profilesData = loadSeedJson("profiles.json");
-const timetableData = loadSeedJson("timetable.json");
-
-const addAssignment = (map, email, standard, section, subject) => {
-  if (!email) return;
-  if (!map[email]) map[email] = new Map();
-  const classKey = `${standard}-${section}`;
-  if (!map[email].has(classKey)) {
-    map[email].set(classKey, {
-      standard,
-      section,
-      subjects: new Set(),
-    });
-  }
-  if (subject) map[email].get(classKey).subjects.add(subject);
-};
 
 const admissionDateForIndex = (baseDate, rangeDays, index) => {
   const date = new Date(baseDate);
@@ -41,6 +26,7 @@ const seedProfiles = async () => {
   await TeacherProfile.deleteMany({ schoolId: school._id });
   await StudentProfile.deleteMany({ schoolId: school._id });
 
+  // --- Admin Profiles ---
   for (const admin of profilesData.adminProfiles) {
     const user = await User.findOne({ email: admin.email, schoolId: school._id });
     if (!user) {
@@ -56,28 +42,8 @@ const seedProfiles = async () => {
     });
   }
 
-  const assignmentMap = {};
-  const { standards, sections, classTypeByStandard, weeklyTemplateByClassType, subjectTeacherPools } = timetableData;
-
-  for (const standard of standards) {
-    for (const section of sections) {
-      const classKey = `${standard}-${section}`;
-      const classTeacherEmail = profilesData.classTeacherMap?.[classKey];
-      addAssignment(assignmentMap, classTeacherEmail, standard, section, "Class Teacher Hour");
-
-      const classType = classTypeByStandard[standard];
-      const weeklyTemplate = weeklyTemplateByClassType[classType];
-      Object.values(weeklyTemplate).forEach((subjects) => {
-        subjects.forEach((subject) => {
-          const teacherPool = subjectTeacherPools[subject] || [];
-          if (!teacherPool.length) return;
-          const poolIndex = (Number(standard) + (section === "A" ? 0 : 1)) % teacherPool.length;
-          addAssignment(assignmentMap, teacherPool[poolIndex], standard, section, subject);
-        });
-      });
-    }
-  }
-
+  // --- Teacher Profiles ---
+  // Use assignedClasses directly from profiles.json (no timetable computation needed)
   for (const tp of profilesData.teacherProfiles) {
     const user = await User.findOne({ email: tp.email, schoolId: school._id });
     if (!user) {
@@ -85,27 +51,21 @@ const seedProfiles = async () => {
       continue;
     }
 
-    const classesMap = assignmentMap[tp.email] || new Map();
-    const assignedClasses = [...classesMap.values()].map((item) => ({
-      standard: item.standard,
-      section: item.section,
-      subjects: [...item.subjects],
-    }));
-
     await TeacherProfile.create({
       userId: user._id,
       schoolId: school._id,
       employeeId: tp.employeeId,
       qualification: tp.qualification,
       joiningDate: new Date(tp.joiningDate),
-      assignedClasses,
+      assignedClasses: tp.assignedClasses || [],
     });
   }
 
+  // --- Student Profiles ---
   const { studentConfig: cfg } = usersData;
   const studentRecords = buildStudentRecords(usersData);
   let counter = 0;
-  const admissionBase = new Date(cfg.admissionDateStart);
+  const admissionBase = new Date(cfg.admissionDateStart || cfg.admissionDate);
 
   for (const standard of cfg.standards) {
     const standardStudents = studentRecords.filter((s) => s.standard === standard);
@@ -121,7 +81,7 @@ const seedProfiles = async () => {
         standard: student.standard,
         section: student.section,
         year: cfg.year,
-        admissionDate: admissionDateForIndex(admissionBase, cfg.admissionDateRangeDays, counter),
+        admissionDate: admissionDateForIndex(admissionBase, cfg.admissionDateRangeDays || 30, counter),
         fatherName: student.fatherName,
         fatherContact: `+91-98${String(10000000 + counter).slice(-8)}`,
         motherName: student.motherName,
