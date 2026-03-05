@@ -91,9 +91,10 @@ export const updateLogo = async (schoolId, logoUrl, logoPublicId) => {
     const school = await School.findById(schoolId);
     if (!school) throw new NotFoundError("School not found");
 
-    const oldLogoPublicId = school.logoPublicId || school.logoUrl; // Fallback to URL parsing inside deleteFromCloudinary if legacy
+    const oldLogoPublicId = school.logoPublicId || school.logoUrl;
     school.logoUrl = logoUrl;
     school.logoPublicId = logoPublicId;
+    
     await school.save();
 
     if (oldLogoPublicId) await deleteFromCloudinary(oldLogoPublicId);

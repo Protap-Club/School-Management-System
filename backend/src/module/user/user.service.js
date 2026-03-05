@@ -10,9 +10,9 @@ import logger from "../../config/logger.js";
 
 // Defines which user roles each role is allowed to view/manage.
 const VIEWABLE_ROLES = Object.freeze({
-    [USER_ROLES.TEACHER]: [USER_ROLES.STUDENT],
-    [USER_ROLES.ADMIN]: [USER_ROLES.TEACHER, USER_ROLES.STUDENT],
-    [USER_ROLES.SUPER_ADMIN]: [USER_ROLES.ADMIN, USER_ROLES.TEACHER, USER_ROLES.STUDENT],
+    [USER_ROLES.TEACHER]: [USER_ROLES.TEACHER, USER_ROLES.STUDENT],
+    [USER_ROLES.ADMIN]: [USER_ROLES.ADMIN, USER_ROLES.TEACHER, USER_ROLES.STUDENT],
+    [USER_ROLES.SUPER_ADMIN]: [USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN, USER_ROLES.TEACHER, USER_ROLES.STUDENT],
 });
 
 // Helper to build a scoped query based on who is asking.
@@ -309,11 +309,12 @@ export const updateAvatar = async (userId, avatarUrl, avatarPublicId) => {
     const oldAvatarPublicId = user.avatarPublicId || user.avatarUrl; // Fallback for legacy URLs
     user.avatarUrl = avatarUrl;
     user.avatarPublicId = avatarPublicId;
+    
     await user.save();
 
     // Clean up old avatar from Cloudinary
     if (oldAvatarPublicId) await deleteFromCloudinary(oldAvatarPublicId);
 
-    logger.info(`Avatar updated for user: ${userId}`);
+    logger.info(`Avatar uploaded for user: ${userId}`);
     return { avatarUrl: user.avatarUrl };
 };

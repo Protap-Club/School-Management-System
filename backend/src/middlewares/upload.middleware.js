@@ -1,21 +1,19 @@
 import multer from 'multer';
-import CloudinaryStorage from 'multer-storage-cloudinary';
+import cloudinaryStorage from 'multer-storage-cloudinary';
 import cloudinary from '../config/cloudinary.js';
 import logger from "../config/logger.js";
 import { ValidationError } from "../utils/customError.js";
 
-// --- Cloudinary Storage for School Logos ---
-const logoStorage = new CloudinaryStorage({
-    cloudinary,
-    params: async (req, file) => {
-        // Namespace per school: schools/{schoolId}/logo
+// --- Cloudinary Storage for School Logos (Legacy v2.2.1) ---
+const logoStorage = cloudinaryStorage({
+    cloudinary: { v2: cloudinary },
+    folder: function (req, file, cb) {
         const folder = req.schoolId ? `schools/${req.schoolId}/logo` : 'schools/default/logo';
-        return {
-            folder,
-            allowed_formats: ['jpg', 'jpeg', 'png', 'webp'],
-            transformation: [{ quality: 'auto', fetch_format: 'auto' }],
-        };
+        logger.info(`Logo storage folder: ${folder}`);
+        cb(undefined, folder);
     },
+    allowedFormats: ['jpg', 'jpeg', 'png', 'webp'],
+    transformation: [{ quality: 'auto', fetch_format: 'auto' }]
 });
 
 // Validate File Type
@@ -35,14 +33,12 @@ export const upload = multer({
 });
 
 
-// --- Cloudinary Storage for User Avatars ---
-const avatarStorage = new CloudinaryStorage({
-    cloudinary,
-    params: {
-        folder: 'users/avatars', // Namespace for user avatars
-        allowed_formats: ['jpg', 'jpeg', 'png', 'webp'],
-        transformation: [{ width: 300, height: 300, crop: 'fill', gravity: 'face', quality: 'auto', fetch_format: 'auto' }],
-    },
+// --- Cloudinary Storage for User Avatars (Legacy v2.2.1) ---
+const avatarStorage = cloudinaryStorage({
+    cloudinary: { v2: cloudinary },
+    folder: 'users/avatars',
+    allowedFormats: ['jpg', 'jpeg', 'png', 'webp'],
+    transformation: [{ width: 300, height: 300, crop: 'fill', gravity: 'face', quality: 'auto', fetch_format: 'auto' }]
 });
 
 export const avatarUpload = multer({
@@ -53,34 +49,25 @@ export const avatarUpload = multer({
 
 
 // --- Cloudinary Deletion Utility ---
-/**
- * Deletes a file from Cloudinary by its public_id.
- * Extracts the public_id from a full Cloudinary URL.
- * @param {string} cloudinaryUrl - The full Cloudinary URL (or old local path)
- */
 export const deleteFromCloudinary = async (cloudinaryUrl) => {
     try {
         if (!cloudinaryUrl) return false;
 
-        // Skip deletion for old local paths (e.g., "/uploads/logos/...")
         if (cloudinaryUrl.startsWith('/uploads')) {
             logger.info(`Skipping deletion of legacy local path: ${cloudinaryUrl}`);
             return false;
         }
 
-        // Extract public_id from Cloudinary URL
-        // URL format: https://res.cloudinary.com/{cloud}/image/upload/v{version}/{public_id}.{ext}
         const parts = cloudinaryUrl.split('/upload/');
         if (parts.length < 2) {
             logger.warn(`Could not parse Cloudinary URL for deletion: ${cloudinaryUrl}`);
             return false;
         }
 
-        // Remove version prefix (v1234567890/) and file extension
         const pathAfterUpload = parts[1];
         const publicId = pathAfterUpload
-            .replace(/^v\d+\//, '')       // Remove version
-            .replace(/\.[^.]+$/, '');      // Remove extension
+            .replace(/^v\d+\//, '')       
+            .replace(/\.[^.]+$/, '');      
 
         const result = await cloudinary.uploader.destroy(publicId);
 
