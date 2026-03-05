@@ -117,15 +117,17 @@ const Header = () => {
                 </div>
             </div>
             <div className="flex items-center gap-3">
-                <button onClick={handleNotificationClick}
-                    className="p-2 lg:p-2.5 rounded-full text-gray-500 hover:bg-gray-100 hover:text-blue-600 transition-all focus:outline-none focus:ring-2 focus:ring-blue-100 relative group" title="Notifications">
-                    <FaBell className="w-5 h-5" />
-                    {unreadCount > 0 && (
-                        <span className="absolute top-1.5 right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white ring-2 ring-white animate-pulse-subtle">
-                            {unreadCount > 9 ? '9+' : unreadCount}
-                        </span>
-                    )}
-                </button>
+                {user?.role !== 'super_admin' && (
+                    <button onClick={handleNotificationClick}
+                        className="p-2 lg:p-2.5 rounded-full text-gray-500 hover:bg-gray-100 hover:text-blue-600 transition-all focus:outline-none focus:ring-2 focus:ring-blue-100 relative group" title="Notifications">
+                        <FaBell className="w-5 h-5" />
+                        {unreadCount > 0 && (
+                            <span className="absolute top-1.5 right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white ring-2 ring-white animate-pulse-subtle">
+                                {unreadCount > 9 ? '9+' : unreadCount}
+                            </span>
+                        )}
+                    </button>
+                )}
 
                 {/* User Profile */}
                 <div className="relative flex items-center gap-1" ref={dropdownRef}>

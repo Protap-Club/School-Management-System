@@ -1,21 +1,59 @@
-import React, { useState, useEffect } from 'react';
-import { FaTimes, FaUser, FaIdCard, FaBuilding, FaLayerGroup, FaEnvelope, FaPhone, FaChalkboardTeacher } from 'react-icons/fa';
+import React, { useState, useEffect, useMemo } from 'react';
+import {
+  FaTimes, FaUser, FaIdCard, FaBuilding, FaLayerGroup, FaEnvelope, FaPhone,
+  FaChalkboardTeacher, FaChevronLeft, FaChevronRight, FaClock, FaCheck,
+  FaTimesCircle, FaExclamationTriangle
+} from 'react-icons/fa';
 
-const STATUS_BADGE = {
-  present: 'bg-green-100 text-green-700',
-  absent: 'bg-red-100 text-red-700',
-  late: 'bg-orange-100 text-orange-700',
+const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+const STATUS_CONFIG = {
+  present: {
+    color: 'bg-emerald-500 text-white',
+    light: 'bg-emerald-50 border-emerald-200',
+    icon: <FaCheck className="text-emerald-600" />,
+    iconBg: 'bg-emerald-100',
+    textColor: 'text-emerald-600',
+    legendColor: 'bg-emerald-500'
+  },
+  absent: {
+    color: 'bg-red-500 text-white',
+    light: 'bg-red-50 border-red-200',
+    icon: <FaTimesCircle className="text-red-600" />,
+    iconBg: 'bg-red-100',
+    textColor: 'text-red-600',
+    legendColor: 'bg-red-500'
+  },
+  late: {
+    color: 'bg-amber-500 text-white',
+    light: 'bg-amber-50 border-amber-200',
+    icon: <FaExclamationTriangle className="text-amber-600" />,
+    iconBg: 'bg-amber-100',
+    textColor: 'text-amber-600',
+    legendColor: 'bg-amber-500'
+  },
 };
-const STAT_ITEMS = [
-  { key: 'present', label: 'Present', bg: 'bg-green-50', border: 'border-green-100', labelColor: 'text-green-600', valueColor: 'text-green-700' },
-  { key: 'absent', label: 'Absent', bg: 'bg-red-50', border: 'border-red-100', labelColor: 'text-red-600', valueColor: 'text-red-700' },
-  { key: 'late', label: 'Late', bg: 'bg-orange-50', border: 'border-orange-100', labelColor: 'text-orange-600', valueColor: 'text-orange-700' },
+
+const LEGEND_ITEMS = [
+  { label: 'Present', color: 'bg-emerald-500' },
+  { label: 'Late', color: 'bg-amber-500' },
+  { label: 'Absent', color: 'bg-red-500' },
+  { label: 'No Data', color: 'bg-gray-200' },
 ];
+
+const STAT_CARDS = [
+  { key: 'present', label: 'Present', ...STATUS_CONFIG.present },
+  { key: 'late', label: 'Late', ...STATUS_CONFIG.late },
+  { key: 'absent', label: 'Absent', ...STATUS_CONFIG.absent },
+];
+
 const UserDetailModal = ({ user, onClose }) => {
   if (!user) return null;
 
+  const [currentDate, setCurrentDate] = useState(new Date());
   const [history, setHistory] = useState([]);
-  const [stats, setStats] = useState({ present: 0, absent: 0, late: 0 });
+  const [stats, setStats] = useState({ present: 0, absent: 0, late: 0, total: 0 });
+  const [selectedDay, setSelectedDay] = useState(null);
 
   useEffect(() => { generateMockHistory(); }, [user]);
 
@@ -24,112 +62,219 @@ const UserDetailModal = ({ user, onClose }) => {
     const today = new Date();
     let present = 0, absent = 0, late = 0;
 
-    for (let i = 0; i < 30; i++) {
+    for (let i = 0; i < 90; i++) {
       const date = new Date(today);
       date.setDate(today.getDate() - i);
-      if (date.getDay() === 0 || date.getDay() === 6) continue;
+      if (date.getDay() === 0 || date.getDay() === 6 || date > today) continue;
 
       const r = Math.random();
-      const status = r > 0.8 ? 'absent' : r > 0.7 ? 'late' : 'present';
+      const status = r > 0.85 ? 'absent' : r > 0.75 ? 'late' : 'present';
       if (status === 'present') present++;
       if (status === 'absent') absent++;
       if (status === 'late') late++;
 
-      mockData.push({ date: date.toISOString().split('T')[0], status, checkIn: status !== 'absent' ? '08:30 AM' : '-' });
+      let checkIn = '-';
+      if (status === 'present') checkIn = `8:${(Math.floor(Math.random() * 20) + 20).toString().padStart(2, '0')} AM`;
+      else if (status === 'late') checkIn = `9:${Math.floor(Math.random() * 30).toString().padStart(2, '0')} AM`;
+
+      mockData.push({ date: date.toISOString().split('T')[0], status, checkIn });
     }
     setHistory(mockData);
-    setStats({ present, absent, late });
+    setStats({ present, absent, late, total: present + absent + late });
   };
 
-  const isStudent = user.role === 'student';
-  const isTeacher = user.role === 'teacher';
+  const attendanceByDate = useMemo(() => Object.fromEntries(history.map(r => [r.date, r])), [history]);
 
-  const renderInfoCard = (icon, label, value, textSize = 'text-lg') => (
-    <div className="p-3 bg-white rounded-xl border border-gray-100 shadow-sm">
-      <div className="flex items-center gap-2 text-gray-500 text-xs uppercase font-bold mb-1">{icon} {label}</div>
-      <p className={`${textSize} font-semibold text-gray-800`}>{value || '-'}</p>
-    </div>
-  );
+  const formatDate = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 
-  const renderParentCard = (emoji, label, name, contact) => (
-    <div className="p-3 bg-white rounded-xl border border-gray-100 shadow-sm">
-      <div className="flex items-center gap-2 text-gray-500 text-xs uppercase font-bold mb-1">
-        <span className={`${emoji === '👨' ? 'text-orange-500' : 'text-pink-500'}`}>{emoji}</span> {label}
+  const nextMonth = () => {
+    const next = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1);
+    if (next <= new Date()) setCurrentDate(next);
+  };
+
+  const today = new Date();
+  const todayStr = formatDate(today);
+  const daysInMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
+  const firstDay = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).getDay();
+
+  const calendarDays = [];
+  for (let i = 0; i < firstDay; i++) {
+    calendarDays.push(<div key={`empty-${i}`} className="h-10 bg-gray-50/50 rounded"></div>);
+  }
+  for (let day = 1; day <= daysInMonth; day++) {
+    const dateObj = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
+    const dateStr = formatDate(dateObj);
+    const record = attendanceByDate[dateStr];
+    const isToday = dateStr === todayStr;
+    const isFuture = dateObj > today;
+    const isWeekend = dateObj.getDay() === 0 || dateObj.getDay() === 6;
+    const cfg = record ? STATUS_CONFIG[record.status] : null;
+
+    calendarDays.push(
+      <div key={day} onClick={() => record && setSelectedDay(record)}
+        className={`h-10 rounded-lg flex items-center justify-center text-sm font-medium transition-all
+          ${cfg ? 'cursor-pointer hover:scale-105 hover:shadow-md ' + cfg.color : ''}
+          ${!record && !isFuture && !isWeekend ? 'bg-gray-100 text-gray-400' : ''}
+          ${isFuture ? 'bg-gray-50 text-gray-300' : ''}
+          ${isWeekend && !record ? 'bg-gray-50 text-gray-300' : ''}
+          ${isToday && !record ? 'ring-2 ring-blue-500 ring-offset-1' : ''}
+          ${isToday && record ? 'ring-2 ring-white ring-offset-2 ring-offset-blue-500' : ''}`}
+        title={record ? `${record.status} - ${record.checkIn}` : isWeekend ? 'Weekend' : isFuture ? 'Future' : 'No data'}>
+        {day}
       </div>
-      <p className="text-sm font-semibold text-gray-800">{name || '-'}</p>
-      <div className="flex items-center gap-1 text-xs text-gray-500 mt-0.5"><FaPhone size={10} /> {contact || '-'}</div>
-    </div>
-  );
+    );
+  }
+
+  const attendancePercentage = stats.total > 0 ? Math.round(((stats.present + stats.late) / stats.total) * 100) : 0;
+
+  const isStudent = user.role === 'student';
+
+  const profileBadges = [
+    { icon: <FaIdCard className="text-blue-500" />, label: isStudent ? 'Roll:' : 'ID:', value: isStudent ? user.profile?.rollNumber : `#${user._id?.slice(-6).toUpperCase()}` },
+    { icon: <FaEnvelope className="text-purple-500" />, label: 'Email:', value: user.email },
+    { icon: <FaPhone className="text-emerald-500" />, label: 'Phone:', value: user.phoneNumber || '-' },
+  ];
+
+  if (isStudent) {
+    profileBadges.push(
+      { icon: <FaBuilding className="text-orange-500" />, label: 'Class:', value: user.profile?.standard },
+      { icon: <FaLayerGroup className="text-indigo-500" />, label: 'Section:', value: user.profile?.section }
+    );
+  }
 
   return (
     <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[60] p-4 animate-fadeIn">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
-        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-6 text-white shrink-0">
+      <div className="bg-white rounded-3xl shadow-2xl max-w-4xl w-full max-h-[95vh] overflow-hidden flex flex-col">
+        {/* Modal Header */}
+        <div className="bg-gradient-to-r from-blue-600 to-indigo-700 p-6 text-white shrink-0">
           <div className="flex justify-between items-start">
-            <div className="flex items-center gap-4">
-              <div className="w-16 h-16 bg-white/20 backdrop-blur rounded-full flex items-center justify-center text-2xl font-bold border-2 border-white/30">
-                {user.name?.charAt(0) || 'U'}
+            <div className="flex items-center gap-5">
+              <div className="w-16 h-16 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center text-2xl font-bold border-2 border-white/30 shadow-lg">
+                {user.avatarUrl ? (
+                  <img src={user.avatarUrl} alt="Avatar" className="w-full h-full object-cover rounded-2xl" />
+                ) : (
+                  user.name?.charAt(0) || 'U'
+                )}
               </div>
               <div>
-                <h2 className="text-2xl font-bold">{user.name}</h2>
-                <p className="text-blue-100 uppercase text-xs font-bold tracking-wider mb-1">{user.role}</p>
-                <div className="flex items-center gap-2 text-blue-50 text-sm"><FaEnvelope size={12} /> {user.email}</div>
+                <h2 className="text-2xl font-bold tracking-tight">{user.name}</h2>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="px-2 py-0.5 bg-white/20 rounded text-[10px] font-bold uppercase tracking-wider">{user.role?.replace('_', ' ')}</span>
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                  <span className="text-blue-100 text-xs font-medium">Active Member</span>
+                </div>
               </div>
             </div>
-            <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-lg transition-colors"><FaTimes size={20} /></button>
+            <button onClick={onClose} className="p-2.5 hover:bg-white/10 rounded-xl transition-all"><FaTimes size={20} /></button>
           </div>
         </div>
-        <div className="p-6 grid grid-cols-2 lg:grid-cols-4 gap-4 bg-gray-50 border-b border-gray-100 shrink-0">
-          {isStudent ? (
-            <>
-              {renderInfoCard(<FaIdCard className="text-blue-500" />, 'Roll No', user.profile?.rollNumber)}
-              {renderInfoCard(<FaBuilding className="text-purple-500" />, 'Class', user.profile?.standard)}
-              {renderInfoCard(<FaLayerGroup className="text-orange-500" />, 'Section', user.profile?.section)}
-              {renderParentCard('👨', 'Father', user.profile?.fatherName, user.profile?.fatherContact)}
-              {renderParentCard('👩', 'Mother', user.profile?.motherName, user.profile?.motherContact)}
-            </>
-          ) : (
-            <>
-              {renderInfoCard(<FaIdCard className="text-blue-500" />, 'ID', `#${user._id?.slice(-6).toUpperCase()}`)}
-              {renderInfoCard(<FaPhone className="text-purple-500" />, 'Contact', user.phoneNumber)}
-              {isTeacher && renderInfoCard(<FaChalkboardTeacher className="text-orange-500" />, 'Class Teacher',
-                user.profile?.standard ? `${user.profile.standard} - ${user.profile.section}` : '-')}
-            </>
-          )}
-          {renderInfoCard(<FaUser className="text-emerald-500" />, 'Status', 'Active')}
+
+        {/* Action Bar / Badges */}
+        <div className="px-6 py-4 flex flex-wrap gap-3 bg-gray-50 border-b border-gray-100 shrink-0">
+          {profileBadges.map(({ icon, label, value }) => (
+            <div key={label} className="flex items-center gap-2 px-3 py-2 bg-white rounded-xl border border-gray-200 text-xs shadow-sm shadow-gray-100/50">
+              {icon}<span className="text-gray-500 font-medium">{label}</span>
+              <span className="font-bold text-gray-800">{value || '-'}</span>
+            </div>
+          ))}
+          <div className={`ml-auto flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold
+            ${attendancePercentage >= 90 ? 'bg-emerald-100 text-emerald-700' : attendancePercentage >= 75 ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'}`}>
+            <FaUser className="text-[10px]" />{attendancePercentage}% Presence (90 Days)
+          </div>
         </div>
-        <div className="p-6 overflow-y-auto">
-          <h3 className="text-lg font-bold text-gray-800 mb-4">Activity History (Last 30 Days)</h3>
-          <div className="flex gap-4 mb-6">
-            {STAT_ITEMS.map(({ key, label, bg, border, labelColor, valueColor }) => (
-              <div key={key} className={`flex-1 ${bg} p-4 rounded-xl border ${border} text-center`}>
-                <p className={`${labelColor} text-sm font-medium`}>{label}</p>
-                <p className={`text-2xl font-bold ${valueColor}`}>{stats[key]}</p>
+
+        {/* Content Area */}
+        <div className="flex-1 overflow-hidden flex">
+          {/* Main Calendar View */}
+          <div className="flex-1 p-6 overflow-y-auto border-r border-gray-100 custom-scrollbar">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-bold text-gray-800">Activity Calendar</h3>
+              <div className="flex items-center gap-4 bg-gray-100 p-1 rounded-xl">
+                <button onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1))}
+                  className="p-2 hover:bg-white rounded-lg text-gray-600 shadow-sm transition-all"><FaChevronLeft size={12} /></button>
+                <span className="text-sm font-bold text-gray-700 min-w-[120px] text-center">
+                  {currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                </span>
+                <button onClick={nextMonth}
+                  className="p-2 hover:bg-white rounded-lg text-gray-600 shadow-sm transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                  disabled={new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1) > new Date()}>
+                  <FaChevronRight size={12} /></button>
               </div>
-            ))}
-          </div>
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr>
-                <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase rounded-l-lg bg-gray-50">Date</th>
-                <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase bg-gray-50">Status</th>
-                <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase rounded-r-lg bg-gray-50">Check In</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50">
-              {history.map((record, index) => (
-                <tr key={index} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-4 py-3 text-sm text-gray-600">
-                    {new Date(record.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium capitalize ${STATUS_BADGE[record.status]}`}>{record.status}</span>
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-500 font-mono">{record.checkIn}</td>
-                </tr>
+            </div>
+
+            <div className="grid grid-cols-7 gap-2 mb-3">
+              {WEEKDAYS.map(day => (
+                <div key={day} className="h-10 flex items-center justify-center text-[10px] font-black text-gray-400 uppercase tracking-widest">{day}</div>
               ))}
-            </tbody>
-          </table>
+            </div>
+            <div className="grid grid-cols-7 gap-2">{calendarDays}</div>
+
+            <div className="flex items-center justify-center gap-6 mt-8 pt-6 border-t border-gray-100">
+              {LEGEND_ITEMS.map(({ label, color }) => (
+                <div key={label} className="flex items-center gap-2 text-[11px] font-bold text-gray-500 uppercase tracking-wider">
+                  <div className={`w-3.5 h-3.5 rounded-md ${color} shadow-sm`}></div>{label}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Sidebar Summary */}
+          <div className="w-80 p-6 bg-gray-50/50 overflow-y-auto shrink-0 custom-scrollbar">
+            <div className="mb-8">
+              <h4 className="text-[11px] font-black text-gray-400 uppercase tracking-[0.2em] mb-4">Quick Stats</h4>
+              <div className="grid grid-cols-1 gap-3">
+                {STAT_CARDS.map(({ key, label, icon, iconBg, textColor }) => (
+                  <div key={key} className="bg-white p-4 rounded-2xl border border-gray-100 flex items-center gap-4 shadow-sm shadow-gray-200/50">
+                    <div className={`w-12 h-12 rounded-xl ${iconBg} flex items-center justify-center text-xl`}>{icon}</div>
+                    <div>
+                      <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">{label}</p>
+                      <p className={`text-2xl font-black ${textColor}`}>{stats[key]}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <h4 className="text-[11px] font-black text-gray-400 uppercase tracking-[0.2em] mb-4">Selected Day Details</h4>
+            {selectedDay ? (
+              <div className={`p-5 rounded-2xl border-2 transition-all animate-fadeIn ${STATUS_CONFIG[selectedDay.status]?.light || 'bg-white border-gray-100'}`}>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <div className={`w-2 h-2 rounded-full ${STATUS_CONFIG[selectedDay.status]?.legendColor}`}></div>
+                    <span className="text-xs font-black uppercase tracking-widest text-gray-700">{selectedDay.status}</span>
+                  </div>
+                  <button onClick={() => setSelectedDay(null)} className="text-gray-400 hover:text-gray-600 transition-colors"><FaTimes size={12} /></button>
+                </div>
+                <div className="space-y-3">
+                  <p className="text-sm font-bold text-gray-800 leading-tight">
+                    {new Date(selectedDay.date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                  </p>
+                  {selectedDay.checkIn !== '-' ? (
+                    <div className="flex items-center gap-3 p-3 bg-white/60 rounded-xl border border-white/80">
+                      <FaClock className="text-gray-400" />
+                      <div>
+                        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Check-in Time</p>
+                        <p className="text-sm font-bold text-gray-800">{selectedDay.checkIn}</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="p-3 bg-red-50/50 rounded-xl border border-red-100/50 italic text-[11px] text-red-500 font-medium text-center">
+                      No records found for this academic day.
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-10 px-6 bg-white/50 border-2 border-dashed border-gray-200 rounded-3xl">
+                <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <FaUser className="text-gray-400" size={16} />
+                </div>
+                <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider leading-relaxed">
+                  Select a day in the calendar to view full details
+                </p>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
