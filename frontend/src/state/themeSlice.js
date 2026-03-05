@@ -58,6 +58,9 @@ export const applyThemeToDOM = (color) => {
     root.style.setProperty('--primary-rgb', hexToRgb(color));
     root.style.setProperty('--primary-hover', darkenHex(color, 15));
     root.style.setProperty('--primary-hover-rgb', hexToRgb(darkenHex(color, 15)));
+    
+    // Also override shadcn variables so standard tailwind classes (bg-primary) work
+    root.style.setProperty('--primary', color);
 };
 
 export default themeSlice.reducer;

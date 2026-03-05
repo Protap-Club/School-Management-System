@@ -23,35 +23,34 @@ import TeacherProfile from "../user/model/TeacherProfile.model.js";
 const getSignedUrl = (attachment) => {
     if (!attachment) return null;
     try {
-        // The most reliable source for public_id is the stored secure_url.
-        // Cloudinary raw secure_url format:
-        //   https://res.cloudinary.com/{cloud}/raw/upload/{version?}/{public_id}.{ext}
-        // We extract everything after /raw/upload/ (skipping optional version segment).
-        let publicId = null;
         const storedUrl = attachment.secure_url || attachment.path;
+        if (!storedUrl) return null;
 
-        if (storedUrl && storedUrl.includes('res.cloudinary.com')) {
-            const match = storedUrl.match(/\/raw\/upload\/(?:v\d+\/)?(.+)$/);
-            if (match && match[1]) {
-                publicId = match[1]; // full path e.g. "schools/abc/notices/file_123.pdf"
-            }
-        }
+        // If it's not a Cloudinary URL, return as is
+        if (!storedUrl.includes('res.cloudinary.com')) return storedUrl;
 
-        // Fallback to stored public_id or filename if URL parsing fails
+        // Detect resource type from URL
+        let resourceType = 'raw';
+        if (storedUrl.includes('/image/upload/')) resourceType = 'image';
+        if (storedUrl.includes('/video/upload/')) resourceType = 'video';
+
+        let publicId = attachment.public_id || attachment.filename;
+        
+        // If publicId is missing, try to extract it from URL
         if (!publicId) {
-            publicId = attachment.public_id || attachment.filename;
+            const match = storedUrl.match(new RegExp(`\\/${resourceType}\\/upload\\/(?:v\\d+\\/)?(.+)$`));
+            if (match && match[1]) publicId = match[1];
         }
 
         if (!publicId) return storedUrl;
 
-        // Extract extension so Cloudinary sends the correct Content-Type header.
+        // Extract extension
         const ext = publicId.split('.').pop().toLowerCase();
 
-        // private_download_url goes through api.cloudinary.com — it embeds
-        // credentials in the signature so CDN access-control is bypassed entirely.
-        // Works for ALL raw files regardless of their CDN access mode setting.
+        // Standardize: always generate a signed download URL for raw components to be safe
+        // For private assets, this is the only way to avoid 401/403.
         return cloudinary.utils.private_download_url(publicId, ext, {
-            resource_type: 'raw',
+            resource_type: resourceType,
             expires_at: Math.floor(Date.now() / 1000) + 3600, // 1 hour
         });
     } catch (err) {
@@ -90,16 +89,24 @@ export const createNotice = async (schoolId, userId, data, file) => {
         : (data.recipients || []);
 
     // Build attachment if file exists
-    // Cloudinary returns the full URL in file.path and public_id in file.filename
-    const attachment = file ? {
-        filename: file.filename, // Using Cloudinary public_id as filename for legacy consistency if needed
-        originalName: file.originalname,
-        path: file.path,
-        secure_url: file.path,
-        public_id: file.filename,
-        size: file.size,
-        mimetype: file.mimetype,
-    } : null;
+    // Cloudinary returns the full URL in file.path/secure_url and public_id in file.filename/public_id
+    let attachment = null;
+    if (file) {
+        const fileUrl = file.path || file.secure_url || file.url;
+        const filePublicId = file.filename || file.public_id;
+
+        console.log(`[DEBUG] Notice attachment extracted - URL: ${fileUrl}, PublicID: ${filePublicId}`);
+
+        attachment = {
+            filename: filePublicId,
+            originalName: file.originalname,
+            path: fileUrl,
+            secure_url: fileUrl,
+            public_id: filePublicId,
+            size: file.size,
+            mimetype: file.mimetype,
+        };
+    }
 
     const notice = await Notice.create({
         schoolId,

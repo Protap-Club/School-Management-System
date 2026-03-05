@@ -5,6 +5,7 @@ import api from '../../api/axios';
 const AvatarUploadModal = ({ user, isOpen, onClose, onUploadSuccess }) => {
     const [file, setFile] = useState(null);
     const [preview, setPreview] = useState(null);
+    const [refreshKey, setRefreshKey] = useState(() => Date.now());
     const [error, setError] = useState('');
     const [uploading, setUploading] = useState(false);
     const [toastMessage, setToastMessage] = useState('');
@@ -57,13 +58,14 @@ const AvatarUploadModal = ({ user, isOpen, onClose, onUploadSuccess }) => {
             const formData = new FormData();
             formData.append('avatar', file);
 
-            const response = await api.patch('/users/avatar', formData, {
+            const response = await api.patch('/users/me/avatar', formData, {
                 headers: { 'Content-Type': 'multipart/form-data' }
             });
 
             if (response.data.success) {
                 // Show toast inside modal before closing
                 setToastMessage('Avatar uploaded successfully!');
+                setRefreshKey(Date.now());
                 
                 setTimeout(() => {
                     // Update Redux/Context (which might unmount/rerender parent) 
@@ -72,7 +74,7 @@ const AvatarUploadModal = ({ user, isOpen, onClose, onUploadSuccess }) => {
                 }, 2000); // Wait 2 seconds before closing
             }
         } catch (err) {
-            setError(err.response?.data?.message || 'Failed to upload avatar.');
+            setError(err.response?.data?.error?.message || err.response?.data?.message || 'Failed to upload avatar.');
         } finally {
             setUploading(false);
         }
@@ -102,7 +104,7 @@ const AvatarUploadModal = ({ user, isOpen, onClose, onUploadSuccess }) => {
                     <div className="relative w-48 h-48 mb-6 group">
                         {displayImage ? (
                             <img
-                                src={displayImage}
+                                src={displayImage.startsWith('data:') ? displayImage : `${displayImage}${displayImage.includes('?') ? '&' : '?'}t=${refreshKey}`}
                                 alt="Avatar Preview"
                                 className="w-full h-full object-cover rounded-2xl border-4 border-gray-50 shadow-sm"
                             />

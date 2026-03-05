@@ -73,8 +73,8 @@ export const batchDeleteUsers = asyncHandler(async (req, res) => {
 export const uploadAvatar = asyncHandler(async (req, res) => {
     if (!req.file) throw new BadRequestError("No file uploaded");
 
-    const avatarUrl = req.file.path;
-    const avatarPublicId = req.file.filename;
+    const avatarUrl = req.file.path || req.file.secure_url || req.file.url;
+    const avatarPublicId = req.file.filename || req.file.public_id;
 
     const result = await userService.updateAvatar(req.user._id, avatarUrl, avatarPublicId);
     logger.info(`Avatar uploaded for user: ${req.user._id}`);
