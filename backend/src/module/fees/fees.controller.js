@@ -21,7 +21,7 @@ export const createFeeStructure = asyncHandler(async (req, res) => {
 });
 
 export const getFeeStructures = asyncHandler(async (req, res) => {
-    const result = await feesService.getFeeStructures(req.schoolId, req.query);
+    const result = await feesService.getFeeStructures(req.schoolId, req.query, req.user);
     res.status(200).json({
         success: true,
         data: result,
@@ -29,7 +29,7 @@ export const getFeeStructures = asyncHandler(async (req, res) => {
 });
 
 export const updateFeeStructure = asyncHandler(async (req, res) => {
-    const result = await feesService.updateFeeStructure(req.schoolId, req.params.id, req.body);
+    const result = await feesService.updateFeeStructure(req.schoolId, req.params.id, req.body, req.user);
     res.status(200).json({
         success: true,
         message: "Fee structure updated",
@@ -38,7 +38,7 @@ export const updateFeeStructure = asyncHandler(async (req, res) => {
 });
 
 export const deleteFeeStructure = asyncHandler(async (req, res) => {
-    await feesService.deleteFeeStructure(req.schoolId, req.params.id);
+    await feesService.deleteFeeStructure(req.schoolId, req.params.id, req.user);
     res.status(204).end();
 });
 
@@ -53,7 +53,8 @@ export const generateAssignments = asyncHandler(async (req, res) => {
         req.params.id,
         month,
         year,
-        req.user._id
+        req.user._id,
+        req.user
     );
     res.status(201).json({
         success: true,
@@ -64,7 +65,7 @@ export const generateAssignments = asyncHandler(async (req, res) => {
 });
 
 export const updateAssignment = asyncHandler(async (req, res) => {
-    const result = await feesService.updateAssignment(req.schoolId, req.params.id, req.body);
+    const result = await feesService.updateAssignment(req.schoolId, req.params.id, req.body, req.user);
     res.status(200).json({
         success: true,
         message: "Fee assignment updated",
@@ -81,7 +82,8 @@ export const recordPayment = asyncHandler(async (req, res) => {
         req.schoolId,
         req.params.id,
         req.body,
-        req.user._id
+        req.user._id,
+        req.user
     );
     res.status(201).json({
         success: true,

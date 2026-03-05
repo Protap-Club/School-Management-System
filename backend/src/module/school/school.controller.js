@@ -49,8 +49,8 @@ export const getMySchoolBranding = asyncHandler(async (req, res) => {
 export const uploadSchoolLogo = asyncHandler(async (req, res) => {
     if (!req.file) throw new BadRequestError("No file uploaded");
     // Cloudinary returns the full URL in req.file.path and public_id in req.file.filename
-    const logoUrl = req.file.path;
-    const logoPublicId = req.file.filename;
+    const logoUrl = req.file.path || req.file.secure_url || req.file.url;
+    const logoPublicId = req.file.filename || req.file.public_id;
 
     const result = await schoolService.updateLogo(req.schoolId, logoUrl, logoPublicId);
     res.status(200).json({

@@ -7,7 +7,7 @@ import { UserFilters } from './components/UserFilters';
 import { BulkActionsBar } from './components/BulkActionsBar';
 import { UsersTable } from './components/UsersTable';
 import { useAuth } from '../auth';
-import { FaUserShield, FaChalkboardTeacher, FaUserGraduate, FaCheck, FaTimes, FaEdit, FaArchive, FaUndo } from 'react-icons/fa';
+import { FaUserShield, FaChalkboardTeacher, FaUserGraduate, FaCheck, FaTimes, FaEdit, FaArchive, FaUndo, FaEye } from 'react-icons/fa';
 import {
     useUsers,
     useArchivedUsers,
@@ -67,6 +67,7 @@ const UsersPage = () => {
     // Modals
     const [activeModal, setActiveModal] = useState(null);
     const [selectedUser, setSelectedUser] = useState(null);
+    const [modalMode, setModalMode] = useState('view');
     const [activeDropdown, setActiveDropdown] = useState(null);
     const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 });
     const [deleteConfirm, setDeleteConfirm] = useState({ open: false, users: [], isBulk: false });
@@ -199,7 +200,10 @@ const UsersPage = () => {
                         canArchive={isAdminOrAbove}
                         onEdit={() => {
                             const user = filteredUsers.find(u => selectedUsers.includes(u._id));
-                            if (user) setSelectedUser(user);
+                            if (user) {
+                                setModalMode('edit');
+                                setSelectedUser(user);
+                            }
                         }}
                         onDelete={handleBulkDeleteClick}
                         onCancel={exitSelectionMode}
@@ -237,7 +241,7 @@ const UsersPage = () => {
                         allowedRoles={allowedRoles}
                         activeDropdown={activeDropdown}
                         onToggleDropdown={toggleDropdown}
-                        onRowClick={(u) => setSelectedUser(u)}
+                        onRowClick={(u) => { setModalMode('view'); setSelectedUser(u); }}
                         roleLabels={ROLE_LABELS}
                         currentPage={page}
                         totalItems={currentData?.totalCount || filteredUsers.length}
@@ -255,8 +259,8 @@ const UsersPage = () => {
                         {renderDropdownBtn(() => { const user = getDropdownUser(); if (user) handleSelectAction(user._id); },
                             <FaCheck size={11} className="text-gray-400" />, 'Select', 'text-gray-700 hover:bg-gray-50')}
 
-                        {renderDropdownBtn(() => { const user = getDropdownUser(); if (user) setSelectedUser(user); setActiveDropdown(null); },
-                            <FaEdit size={11} className="text-gray-400" />, 'View Details', 'text-gray-700 hover:bg-gray-50')}
+                        {renderDropdownBtn(() => { const user = getDropdownUser(); if (user) { setModalMode('view'); setSelectedUser(user); } setActiveDropdown(null); },
+                            <FaEye size={11} className="text-gray-400" />, 'View Details', 'text-gray-700 hover:bg-gray-50')}
 
                         {isAdminOrAbove && (
                             <>
@@ -282,7 +286,12 @@ const UsersPage = () => {
                 roleToAdd={activeModal}
                 onSuccess={() => showMessage('success', 'User created successfully')}
             />
-            <UserDetailModal user={selectedUser} onClose={() => setSelectedUser(null)} />
+            <UserDetailModal
+                user={selectedUser}
+                onClose={() => { setSelectedUser(null); setModalMode('view'); }}
+                initialMode={modalMode}
+                onSuccess={(msg) => showMessage('success', msg || 'User updated successfully')}
+            />
 
             {/* Delete/Archive Confirmation */}
             {deleteConfirm.open && (

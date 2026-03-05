@@ -34,6 +34,7 @@ const seedUsers = async () => {
   for (const teacher of usersData.teachers) {
     await User.create({
       ...teacher,
+      role: "teacher",
       password: defaultPassword,
       schoolId: school._id,
       isActive: true,

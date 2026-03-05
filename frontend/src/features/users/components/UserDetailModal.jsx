@@ -2,8 +2,9 @@ import React, { useState, useEffect, useMemo } from 'react';
 import {
   FaTimes, FaUser, FaIdCard, FaBuilding, FaLayerGroup, FaEnvelope, FaPhone,
   FaChalkboardTeacher, FaChevronLeft, FaChevronRight, FaClock, FaCheck,
-  FaTimesCircle, FaExclamationTriangle
+  FaTimesCircle, FaExclamationTriangle, FaEdit, FaSave, FaUndo
 } from 'react-icons/fa';
+import { useUpdateUser } from '../api/queries';
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -47,15 +48,68 @@ const STAT_CARDS = [
   { key: 'absent', label: 'Absent', ...STATUS_CONFIG.absent },
 ];
 
-const UserDetailModal = ({ user, onClose }) => {
+const UserDetailModal = ({ user, onClose, initialMode = 'view', onSuccess }) => {
   if (!user) return null;
 
+  const updateUserMutation = useUpdateUser();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [history, setHistory] = useState([]);
   const [stats, setStats] = useState({ present: 0, absent: 0, late: 0, total: 0 });
   const [selectedDay, setSelectedDay] = useState(null);
 
-  useEffect(() => { generateMockHistory(); }, [user]);
+  // Editing state
+  const [isEditing, setIsEditing] = useState(initialMode === 'edit');
+  const [editForm, setEditForm] = useState({
+    name: user.name || '',
+    email: user.email || '',
+    contactNo: user.contactNo || '',
+    rollNumber: user.profile?.rollNumber || '',
+    standard: user.profile?.standard || '',
+    section: user.profile?.section || '',
+  });
+
+  useEffect(() => {
+    generateMockHistory();
+    setEditForm({
+      name: user.name || '',
+      email: user.email || '',
+      contactNo: user.contactNo || '',
+      rollNumber: user.profile?.rollNumber || '',
+      standard: user.profile?.standard || '',
+      section: user.profile?.section || '',
+    });
+  }, [user]);
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setEditForm(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleSave = async () => {
+    try {
+      const payload = {
+        _id: user._id,
+        name: editForm.name,
+        email: editForm.email,
+        contactNo: editForm.contactNo,
+      };
+
+      if (user.role === 'student') {
+        payload.profile = {
+          ...user.profile,
+          rollNumber: editForm.rollNumber,
+          standard: editForm.standard,
+          section: editForm.section,
+        };
+      }
+
+      await updateUserMutation.mutateAsync(payload);
+      if (onSuccess) onSuccess('User profile updated successfully');
+      setIsEditing(false);
+    } catch (error) {
+      console.error('Failed to update user', error);
+    }
+  };
 
   const generateMockHistory = () => {
     const mockData = [];
@@ -130,15 +184,33 @@ const UserDetailModal = ({ user, onClose }) => {
   const isStudent = user.role === 'student';
 
   const profileBadges = [
-    { icon: <FaIdCard className="text-blue-500" />, label: isStudent ? 'Roll:' : 'ID:', value: isStudent ? user.profile?.rollNumber : `#${user._id?.slice(-6).toUpperCase()}` },
-    { icon: <FaEnvelope className="text-purple-500" />, label: 'Email:', value: user.email },
-    { icon: <FaPhone className="text-emerald-500" />, label: 'Phone:', value: user.phoneNumber || '-' },
+    {
+      icon: <FaIdCard className="text-blue-500" />,
+      label: isStudent ? 'Roll:' : 'ID:',
+      value: isStudent ? user.profile?.rollNumber : `#${user._id?.slice(-6).toUpperCase()}`,
+      field: 'rollNumber',
+      editable: isStudent
+    },
+    {
+      icon: <FaEnvelope className="text-purple-500" />,
+      label: 'Email:',
+      value: user.email,
+      field: 'email',
+      editable: true
+    },
+    {
+      icon: <FaPhone className="text-emerald-500" />,
+      label: 'Phone:',
+      value: user.contactNo || user.phoneNumber || '-',
+      field: 'contactNo',
+      editable: true
+    },
   ];
 
   if (isStudent) {
     profileBadges.push(
-      { icon: <FaBuilding className="text-orange-500" />, label: 'Class:', value: user.profile?.standard },
-      { icon: <FaLayerGroup className="text-indigo-500" />, label: 'Section:', value: user.profile?.section }
+      { icon: <FaBuilding className="text-orange-500" />, label: 'Class:', value: user.profile?.standard, field: 'standard', editable: true },
+      { icon: <FaLayerGroup className="text-indigo-500" />, label: 'Section:', value: user.profile?.section, field: 'section', editable: true }
     );
   }
 
@@ -157,30 +229,80 @@ const UserDetailModal = ({ user, onClose }) => {
                 )}
               </div>
               <div>
-                <h2 className="text-2xl font-bold tracking-tight">{user.name}</h2>
+                {isEditing ? (
+                  <input
+                    name="name"
+                    value={editForm.name}
+                    onChange={handleInputChange}
+                    className="bg-white/10 border-b border-white/30 text-2xl font-bold tracking-tight outline-none focus:border-white w-full py-1"
+                  />
+                ) : (
+                  <h2 className="text-2xl font-bold tracking-tight">{user.name}</h2>
+                )}
                 <div className="flex items-center gap-2 mt-1">
                   <span className="px-2 py-0.5 bg-white/20 rounded text-[10px] font-bold uppercase tracking-wider">{user.role?.replace('_', ' ')}</span>
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-                  <span className="text-blue-100 text-xs font-medium">Active Member</span>
+                  {!isEditing && (
+                    <>
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                      <span className="text-blue-100 text-xs font-medium">Active Member</span>
+                    </>
+                  )}
                 </div>
               </div>
             </div>
-            <button onClick={onClose} className="p-2.5 hover:bg-white/10 rounded-xl transition-all"><FaTimes size={20} /></button>
+            <div className="flex items-center gap-2">
+              {isEditing ? (
+                <>
+                  <button
+                    onClick={handleSave}
+                    disabled={updateUserMutation.isPending}
+                    className="flex items-center gap-2 px-4 py-2 bg-emerald-500 hover:bg-emerald-600 rounded-xl transition-all font-bold text-sm"
+                  >
+                    {updateUserMutation.isPending ? 'Saving...' : <><FaSave size={14} /> Save</>}
+                  </button>
+                  <button
+                    onClick={() => setIsEditing(false)}
+                    className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 rounded-xl transition-all font-bold text-sm"
+                  >
+                    <FaUndo size={14} /> Cancel
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={() => setIsEditing(true)}
+                  className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 rounded-xl transition-all font-bold text-sm"
+                >
+                  <FaEdit size={14} /> Edit Profile
+                </button>
+              )}
+              <button onClick={onClose} className="p-2.5 hover:bg-white/10 rounded-xl transition-all ml-2"><FaTimes size={20} /></button>
+            </div>
           </div>
         </div>
 
         {/* Action Bar / Badges */}
         <div className="px-6 py-4 flex flex-wrap gap-3 bg-gray-50 border-b border-gray-100 shrink-0">
-          {profileBadges.map(({ icon, label, value }) => (
+          {profileBadges.map(({ icon, label, value, field, editable }) => (
             <div key={label} className="flex items-center gap-2 px-3 py-2 bg-white rounded-xl border border-gray-200 text-xs shadow-sm shadow-gray-100/50">
               {icon}<span className="text-gray-500 font-medium">{label}</span>
-              <span className="font-bold text-gray-800">{value || '-'}</span>
+              {isEditing && editable ? (
+                <input
+                  name={field}
+                  value={editForm[field]}
+                  onChange={handleInputChange}
+                  className="font-bold text-gray-800 outline-none border-b border-blue-200 focus:border-blue-500 w-24"
+                />
+              ) : (
+                <span className="font-bold text-gray-800">{value || '-'}</span>
+              )}
             </div>
           ))}
-          <div className={`ml-auto flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold
-            ${attendancePercentage >= 90 ? 'bg-emerald-100 text-emerald-700' : attendancePercentage >= 75 ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'}`}>
-            <FaUser className="text-[10px]" />{attendancePercentage}% Presence (90 Days)
-          </div>
+          {!isEditing && (
+            <div className={`ml-auto flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold
+              ${attendancePercentage >= 90 ? 'bg-emerald-100 text-emerald-700' : attendancePercentage >= 75 ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'}`}>
+              <FaUser className="text-[10px]" />{attendancePercentage}% Presence (90 Days)
+            </div>
+          )}
         </div>
 
         {/* Content Area */}

@@ -309,11 +309,12 @@ export const updateAvatar = async (userId, avatarUrl, avatarPublicId) => {
     const oldAvatarPublicId = user.avatarPublicId || user.avatarUrl; // Fallback for legacy URLs
     user.avatarUrl = avatarUrl;
     user.avatarPublicId = avatarPublicId;
+    
     await user.save();
 
     // Clean up old avatar from Cloudinary
     if (oldAvatarPublicId) await deleteFromCloudinary(oldAvatarPublicId);
 
-    logger.info(`Avatar updated for user: ${userId}`);
+    logger.info(`Avatar uploaded for user: ${userId}`);
     return { avatarUrl: user.avatarUrl };
 };

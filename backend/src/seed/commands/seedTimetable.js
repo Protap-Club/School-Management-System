@@ -6,85 +6,102 @@ import { loadSeedJson } from "../lib/loadJson.js";
 
 const ttData = loadSeedJson("timetable.json");
 
+// Map full day names from seed data → short codes used in the schema enum
+const DAY_MAP = {
+  Monday: "Mon",
+  Tuesday: "Tue",
+  Wednesday: "Wed",
+  Thursday: "Thu",
+  Friday: "Fri",
+  Saturday: "Sat",
+};
+
 const seedTimetable = async () => {
   logger.info("=== Seeding Timetable ===");
 
   const school = await School.findOne({ code: "NV" });
   if (!school) throw new Error("School not found. Run seed-school first.");
 
+  // Clean up existing timetable data
   const existing = await Timetable.find({ schoolId: school._id }).select("_id");
   await TimetableEntry.deleteMany({ timetableId: { $in: existing.map((t) => t._id) } });
   await Timetable.deleteMany({ schoolId: school._id });
   await TimeSlot.deleteMany({ schoolId: school._id });
 
-  const slots = await TimeSlot.insertMany(ttData.timeSlots.map((slot) => ({ ...slot, schoolId: school._id })));
-  const classSlots = slots.filter((slot) => slot.slotType === "CLASS");
+  // 1. Create TimeSlots
+  const slots = await TimeSlot.insertMany(
+    ttData.timeSlots.map((slot) => ({ ...slot, schoolId: school._id }))
+  );
   const slotByNumber = {};
   slots.forEach((slot) => {
     slotByNumber[slot.slotNumber] = slot;
   });
 
-  const timetableHeaders = [];
-  ttData.standards.forEach((standard) => {
-    ttData.sections.forEach((section) => {
-      timetableHeaders.push({
-        schoolId: school._id,
-        standard,
-        section,
-        academicYear: ttData.academicYear,
-      });
-    });
-  });
-
+  // 2. Create Timetable headers from the explicit timetables array
+  const timetableHeaders = ttData.timetables.map((tt) => ({
+    schoolId: school._id,
+    standard: tt.standard,
+    section: tt.section,
+    academicYear: tt.academicYear,
+  }));
   const createdTimetables = await Timetable.insertMany(timetableHeaders);
+
+  // Build lookup: "standard-section" → timetable _id
   const timetableMap = {};
   createdTimetables.forEach((item) => {
     timetableMap[`${item.standard}-${item.section}`] = item._id;
   });
 
-  const teacherEmails = new Set();
-  Object.values(ttData.subjectTeacherPools).forEach((arr) => arr.forEach((email) => teacherEmails.add(email)));
-  const teachers = await User.find({ schoolId: school._id, email: { $in: [...teacherEmails] } }).select("_id email");
+  // 3. Resolve teacher emails → user _ids
+  const teacherEmails = [...new Set(ttData.entries.map((e) => e.teacherEmail))];
+  const teachers = await User.find({
+    schoolId: school._id,
+    email: { $in: teacherEmails },
+  }).select("_id email");
   const teacherIdByEmail = {};
   teachers.forEach((t) => {
     teacherIdByEmail[t.email] = t._id;
   });
 
+  // 4. Create TimetableEntry documents from the explicit entries array
   const entries = [];
-  for (const standard of ttData.standards) {
-    for (const section of ttData.sections) {
-      const classKey = `${standard}-${section}`;
-      const timetableId = timetableMap[classKey];
-      const classType = ttData.classTypeByStandard[standard];
-      const weekly = ttData.weeklyTemplateByClassType[classType];
-      let roomNo = 1;
-
-      for (const day of ttData.workingDays) {
-        const subjects = weekly[day];
-        subjects.forEach((subject, idx) => {
-          const slot = classSlots[idx];
-          if (!slot) return;
-          const pool = ttData.subjectTeacherPools[subject] || [];
-          if (!pool.length) return;
-
-          const poolIdx = (idx + Number(standard) + (section === "A" ? 0 : 1)) % pool.length;
-          const teacherEmail = pool[poolIdx];
-          const teacherId = teacherIdByEmail[teacherEmail];
-          if (!teacherId) return;
-
-          entries.push({
-            schoolId: school._id,
-            timetableId,
-            dayOfWeek: day,
-            timeSlotId: slotByNumber[slot.slotNumber]._id,
-            subject,
-            teacherId,
-            roomNumber: `${ttData.roomByStandard[standard]}-R${String(roomNo).padStart(2, "0")}`,
-          });
-          roomNo = roomNo === 4 ? 1 : roomNo + 1;
-        });
-      }
+  for (const entry of ttData.entries) {
+    const timetableId = timetableMap[entry.class];
+    if (!timetableId) {
+      logger.warn(`No timetable found for class: ${entry.class}, skipping entry`);
+      continue;
     }
+
+    const dayShort = DAY_MAP[entry.day];
+    if (!dayShort) {
+      logger.warn(`Unknown day: ${entry.day}, skipping entry`);
+      continue;
+    }
+
+    const slot = slotByNumber[entry.slot];
+    if (!slot) {
+      logger.warn(`No time slot with number: ${entry.slot}, skipping entry`);
+      continue;
+    }
+
+    const teacherId = teacherIdByEmail[entry.teacherEmail];
+    if (!teacherId) {
+      logger.warn(`Teacher not found: ${entry.teacherEmail}, skipping entry`);
+      continue;
+    }
+
+    // Look up the subject from teacherSubjects map
+    const subject = ttData.teacherSubjects[entry.teacherEmail] || "Unknown";
+
+    entries.push({
+      schoolId: school._id,
+      timetableId,
+      dayOfWeek: dayShort,
+      timeSlotId: slot._id,
+      subject,
+      teacherId,
+      roomNumber: entry.room || "",
+    });
   }
 
   if (entries.length) {
@@ -97,4 +114,3 @@ const seedTimetable = async () => {
 };
 
 export default seedTimetable;
-
