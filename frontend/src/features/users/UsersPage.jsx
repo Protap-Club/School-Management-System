@@ -93,7 +93,7 @@ const UsersPage = () => {
     // Dropdown close logic
     useEffect(() => {
         const handleClickOutside = (event) => {
-            if (dropdownRef.current && !dropdownRef.current.contains(event.target)) setActiveDropdown(null);
+            // Only handle sort menu here, activeDropdown portal has its own backdrop
             if (sortMenuRef.current && !sortMenuRef.current.contains(event.target)) setShowSortMenu(false);
         };
         document.addEventListener('mousedown', handleClickOutside);
@@ -168,7 +168,7 @@ const UsersPage = () => {
         </button>
     );
 
-    const getDropdownUser = () => filteredUsers.find(u => u._id === activeDropdown);
+    const getDropdownUser = () => filteredUsers.find(u => String(u._id) === String(activeDropdown));
 
     return (
         <DashboardLayout>
@@ -196,7 +196,11 @@ const UsersPage = () => {
                     <BulkActionsBar
                         selectedCount={selectedUsers.length}
                         showArchived={showArchived}
-                        onEdit={() => { }} // Remove edit inside list or wait
+                        canArchive={isAdminOrAbove}
+                        onEdit={() => {
+                            const user = filteredUsers.find(u => selectedUsers.includes(u._id));
+                            if (user) setSelectedUser(user);
+                        }}
                         onDelete={handleBulkDeleteClick}
                         onCancel={exitSelectionMode}
                     />
@@ -247,25 +251,23 @@ const UsersPage = () => {
                 <>
                     <div className="fixed inset-0 z-[99]" onClick={() => setActiveDropdown(null)} />
                     <div style={{ position: 'fixed', top: dropdownPosition.top, left: dropdownPosition.left }}
-                        className="w-36 bg-white rounded-lg shadow-xl border border-gray-100 py-1 z-[100] animate-fadeIn">
+                        className="w-40 bg-white rounded-lg shadow-xl border border-gray-100 py-1 z-[100] animate-fadeIn">
                         {renderDropdownBtn(() => { const user = getDropdownUser(); if (user) handleSelectAction(user._id); },
                             <FaCheck size={11} className="text-gray-400" />, 'Select', 'text-gray-700 hover:bg-gray-50')}
-                        {!showArchived ? (
+
+                        {renderDropdownBtn(() => { const user = getDropdownUser(); if (user) setSelectedUser(user); setActiveDropdown(null); },
+                            <FaEdit size={11} className="text-gray-400" />, 'View Details', 'text-gray-700 hover:bg-gray-50')}
+
+                        {isAdminOrAbove && (
                             <>
-                                {renderDropdownBtn(() => { const user = getDropdownUser(); if (user) setSelectedUser(user); setActiveDropdown(null); },
-                                    <FaEdit size={11} className="text-gray-400" />, 'View Details', 'text-gray-700 hover:bg-gray-50')}
-                                {isAdminOrAbove && (
-                                    <>
-                                        <div className="h-px bg-gray-100 my-1"></div>
-                                        {renderDropdownBtn(() => { const user = getDropdownUser(); if (user) handleDeleteClick(user); },
-                                            <FaArchive size={11} />, 'Archive', 'text-red-600 hover:bg-red-50')}
-                                    </>
+                                <div className="h-px bg-gray-100 my-1"></div>
+                                {!showArchived ? (
+                                    renderDropdownBtn(() => { const user = getDropdownUser(); if (user) handleDeleteClick(user); },
+                                        <FaArchive size={11} />, 'Archive', 'text-red-600 hover:bg-red-50')
+                                ) : (
+                                    renderDropdownBtn(() => handleRestore(activeDropdown),
+                                        <FaUndo size={11} />, 'Restore', 'text-emerald-600 hover:bg-emerald-50')
                                 )}
-                            </>
-                        ) : (
-                            <>
-                                {renderDropdownBtn(() => handleRestore(activeDropdown),
-                                    <FaUndo size={11} />, 'Restore', 'text-emerald-600 hover:bg-emerald-50')}
                             </>
                         )}
                     </div>

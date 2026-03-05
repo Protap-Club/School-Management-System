@@ -4,6 +4,7 @@ import { FaEdit, FaArchive, FaTimes, FaUndo } from 'react-icons/fa';
 export const BulkActionsBar = ({
     selectedCount,
     showArchived,
+    canArchive = true,
     onEdit,
     onDelete,
     onCancel
@@ -29,15 +30,17 @@ export const BulkActionsBar = ({
                     </button>
                 )}
 
-                <button
-                    onClick={onDelete}
-                    disabled={selectedCount === 0}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 text-white rounded-md transition-colors text-sm font-medium disabled:opacity-50 ${showArchived ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-red-600 hover:bg-red-700'}`}
-                >
-                    {showArchived ? <FaUndo size={11} /> : <FaArchive size={11} />}
-                    {showArchived ? 'Restore' : 'Archive'}
-                    {selectedCount > 1 && ` (${selectedCount})`}
-                </button>
+                {canArchive && (
+                    <button
+                        onClick={onDelete}
+                        disabled={selectedCount === 0}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 text-white rounded-md transition-colors text-sm font-medium disabled:opacity-50 ${showArchived ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-red-600 hover:bg-red-700'}`}
+                    >
+                        {showArchived ? <FaUndo size={11} /> : <FaArchive size={11} />}
+                        {showArchived ? 'Restore' : 'Archive'}
+                        {selectedCount > 1 && ` (${selectedCount})`}
+                    </button>
+                )}
 
                 <button
                     onClick={onCancel}
