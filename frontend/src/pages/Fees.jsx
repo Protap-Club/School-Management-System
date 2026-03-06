@@ -91,7 +91,7 @@ const Fees = () => {
     const { data: classData, isLoading: classLoading } = useClassOverview(
         selectedClass?.standard, selectedClass?.section, overviewYear, overviewMonth
     );
-    const { data: yearlyData, isLoading: yearlyLoading } = useYearlySummary(isAdmin ? summaryYear : null);
+    const { data: yearlyData, isLoading: yearlyLoading } = useYearlySummary(summaryYear, isAdmin);
     const { data: studentData, isLoading: studentLoading } = useStudentFeeHistory(
         selectedStudent?.studentId, overviewYear
     );
@@ -130,6 +130,7 @@ const Fees = () => {
     const classStudents = classData?.data?.students || [];
     const classSummary = classData?.data?.summary || {};
     const yearlyBreakdown = yearlyData?.data?.monthlyBreakdown || [];
+    const typeBreakdown = yearlyData?.data?.typeBreakdown || [];
     const yearTotal = yearlyData?.data?.yearTotal || {};
     const studentFees = studentData?.data?.fees || [];
     const studentSummary = studentData?.data?.summary || {};
@@ -328,16 +329,16 @@ const Fees = () => {
                                 <table className="w-full text-sm">
                                     <thead>
                                         <tr className="border-b border-gray-100">
-                                            {['Class', 'Students', 'Total Due', 'Collected', 'Pending', 'Collection %', ''].map(h => (
+                                            {['Class', 'Students', 'Total Due', 'Collected', 'Waived', 'Pending', 'Collection %', 'Action'].map(h => (
                                                 <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">{h}</th>
                                             ))}
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-50">
                                         {isLoadingOverview ? (
-                                            Array.from({ length: 4 }).map((_, i) => <SkeletonRow key={i} cols={7} />)
+                                            Array.from({ length: 4 }).map((_, i) => <SkeletonRow key={i} cols={8} />)
                                         ) : overviewClasses.length === 0 ? (
-                                            <tr><td colSpan={7}><EmptyState icon={FaEye} title="No fee data" subtitle="Generate assignments first to see overview" /></td></tr>
+                                            <tr><td colSpan={8}><EmptyState icon={FaEye} title="No fee data" subtitle="Generate assignments first to see overview" /></td></tr>
                                         ) : (
                                             overviewClasses.map(cls => {
                                                 const pct = cls.totalDue > 0 ? Math.round((cls.totalCollected / cls.totalDue) * 100) : 0;
@@ -347,6 +348,7 @@ const Fees = () => {
                                                         <td className="px-4 py-3 text-gray-600">{cls.studentCount}</td>
                                                         <td className="px-4 py-3 font-medium">₹{cls.totalDue?.toLocaleString()}</td>
                                                         <td className="px-4 py-3 text-emerald-600 font-medium">₹{cls.totalCollected?.toLocaleString()}</td>
+                                                        <td className="px-4 py-3 text-red-600 font-medium">₹{cls.totalWaived?.toLocaleString()}</td>
                                                         <td className="px-4 py-3 text-amber-600 font-medium">₹{cls.totalPending?.toLocaleString()}</td>
                                                         <td className="px-4 py-3">
                                                             <div className="flex items-center gap-2">
@@ -398,9 +400,9 @@ const Fees = () => {
                                     </thead>
                                     <tbody className="divide-y divide-gray-50">
                                         {classLoading ? (
-                                            Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} cols={7} />)
+                                            Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} cols={8} />)
                                         ) : classStudents.length === 0 ? (
-                                            <tr><td colSpan={7}><EmptyState icon={FaEye} title="No students" subtitle="No fee assignments for this class/month" /></td></tr>
+                                            <tr><td colSpan={8}><EmptyState icon={FaEye} title="No students" subtitle="No fee assignments for this class/month" /></td></tr>
                                         ) : (
                                             classStudents.flatMap(student =>
                                                 student.fees.map((fee, idx) => (
@@ -453,6 +455,7 @@ const Fees = () => {
                                 <div className="flex gap-4 text-sm">
                                     <div className="text-center px-4 py-2 bg-gray-50 rounded-xl"><p className="text-xs text-gray-500">Total Due</p><p className="text-lg font-bold">₹{(studentSummary.totalDue || 0).toLocaleString()}</p></div>
                                     <div className="text-center px-4 py-2 bg-emerald-50 rounded-xl"><p className="text-xs text-gray-500">Paid</p><p className="text-lg font-bold text-emerald-600">₹{(studentSummary.totalPaid || 0).toLocaleString()}</p></div>
+                                    <div className="text-center px-4 py-2 bg-red-50 rounded-xl"><p className="text-xs text-gray-500">Waived</p><p className="text-lg font-bold text-red-600">₹{(studentSummary.totalWaived || 0).toLocaleString()}</p></div>
                                     <div className="text-center px-4 py-2 bg-amber-50 rounded-xl"><p className="text-xs text-gray-500">Pending</p><p className="text-lg font-bold text-amber-600">₹{(studentSummary.totalPending || 0).toLocaleString()}</p></div>
                                 </div>
                             </div>
@@ -460,7 +463,7 @@ const Fees = () => {
                                 <table className="w-full text-sm">
                                     <thead>
                                         <tr className="border-b border-gray-100">
-                                            {['Month', 'Fee Type', 'Amount', 'Paid', 'Status', 'Due Date', 'Payments', 'Actions'].map(h => (
+                                            {['Month', 'Fee Type', 'Amount', 'Paid', 'Waived', 'Status', 'Due Date', 'Payments', 'Actions'].map(h => (
                                                 <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">{h}</th>
                                             ))}
                                         </tr>
@@ -477,6 +480,7 @@ const Fees = () => {
                                                     <td className="px-4 py-3 text-gray-600">{fee.name || fee.feeType}</td>
                                                     <td className="px-4 py-3 font-medium">₹{fee.amount?.toLocaleString()}</td>
                                                     <td className="px-4 py-3 text-emerald-600">₹{fee.paid?.toLocaleString()}</td>
+                                                    <td className="px-4 py-3 text-red-600">₹{Math.max(0, (fee.amount || 0) - (fee.paid || 0) * (['PAID', 'WAIVED'].includes((fee.status || '').toUpperCase()) ? 1 : 0)).toLocaleString()}</td>
                                                     <td className="px-4 py-3"><StatusBadge status={fee.status} /></td>
                                                     <td className="px-4 py-3 text-gray-500 text-xs">{fee.dueDate ? new Date(fee.dueDate).toLocaleDateString() : '-'}</td>
                                                     <td className="px-4 py-3">
@@ -502,52 +506,131 @@ const Fees = () => {
 
                 {/* ── TAB: Yearly Summary ────────────────────────────── */}
                 {activeTab === 'yearly' && (
-                    <div className="space-y-4">
-                        <div className="bg-white rounded-2xl border border-gray-200 p-5">
-                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
-                                <h2 className="text-xl font-bold text-gray-900">Yearly Fee Summary</h2>
-                                <input type="number" value={summaryYear} onChange={(e) => setSummaryYear(Number(e.target.value))}
-                                    className="px-3 py-2 text-sm border border-gray-200 rounded-lg w-24 focus:ring-primary focus:border-primary" min={2000} max={2100} />
-                            </div>
-                            {/* Year totals */}
-                            {yearTotal.totalDue > 0 && (
-                                <div className="grid grid-cols-3 gap-4 mb-6">
-                                    <div className="bg-gray-50 rounded-xl p-4 text-center"><p className="text-xs text-gray-500 mb-1">Total Due</p><p className="text-2xl font-bold text-gray-900">₹{yearTotal.totalDue?.toLocaleString()}</p></div>
-                                    <div className="bg-emerald-50 rounded-xl p-4 text-center"><p className="text-xs text-gray-500 mb-1">Total Collected</p><p className="text-2xl font-bold text-emerald-600">₹{yearTotal.totalCollected?.toLocaleString()}</p></div>
-                                    <div className="bg-primary/5 rounded-xl p-4 text-center"><p className="text-xs text-gray-500 mb-1">Collection Rate</p><p className="text-2xl font-bold text-primary">{yearTotal.collectionRate || 0}%</p></div>
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <div className="lg:col-span-2 space-y-6">
+                            <div className="bg-white rounded-2xl border border-gray-200 p-5">
+                                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+                                    <div>
+                                        <h2 className="text-xl font-bold text-gray-900">Yearly Collection Breakdown</h2>
+                                        <p className="text-sm text-gray-500">Monthly breakdown of fee collection</p>
+                                    </div>
+                                    <input type="number" value={summaryYear} onChange={(e) => setSummaryYear(Number(e.target.value))}
+                                        className="px-3 py-2 text-sm border border-gray-200 rounded-lg w-28 focus:ring-primary focus:border-primary font-medium" min={2000} max={2100} />
                                 </div>
-                            )}
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-sm">
-                                    <thead>
-                                        <tr className="border-b border-gray-100">
-                                            {['Month', 'Total Due', 'Total Collected', 'Collection Rate'].map(h => (
-                                                <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">{h}</th>
-                                            ))}
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-gray-50">
-                                        {yearlyLoading ? (
-                                            Array.from({ length: 6 }).map((_, i) => <SkeletonRow key={i} cols={4} />)
-                                        ) : yearlyBreakdown.length === 0 ? (
-                                            <tr><td colSpan={4}><EmptyState icon={FaChartBar} title="No data" subtitle="No fee data for this year" /></td></tr>
-                                        ) : (
-                                            yearlyBreakdown.map(m => (
-                                                <tr key={m.month} className="hover:bg-gray-50/50 transition-colors">
-                                                    <td className="px-4 py-3 font-medium text-gray-900">{m.label}</td>
-                                                    <td className="px-4 py-3">₹{m.totalDue?.toLocaleString()}</td>
-                                                    <td className="px-4 py-3 text-emerald-600 font-medium">₹{m.totalCollected?.toLocaleString()}</td>
-                                                    <td className="px-4 py-3">
-                                                        <div className="flex items-center gap-2">
-                                                            <div className="w-20 h-1.5 bg-gray-100 rounded-full overflow-hidden"><div className="h-full bg-emerald-500 rounded-full" style={{ width: `${m.collectionRate}%` }}></div></div>
-                                                            <span className="text-xs font-medium text-gray-600">{m.collectionRate}%</span>
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                            ))
-                                        )}
-                                    </tbody>
-                                </table>
+
+                                {/* Year totals */}
+                                {yearTotal.totalDue > 0 && (
+                                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
+                                        <div className="bg-gray-50 border border-gray-100 rounded-2xl p-4 text-center">
+                                            <p className="text-xs font-semibold text-gray-500 mb-1 uppercase tracking-wider">Total Due</p>
+                                            <p className="text-xl font-bold text-gray-900">₹{(yearTotal.totalDue || 0).toLocaleString()}</p>
+                                        </div>
+                                        <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-4 text-center">
+                                            <p className="text-xs font-semibold text-emerald-600 mb-1 uppercase tracking-wider">Collected</p>
+                                            <p className="text-xl font-bold text-emerald-700">₹{(yearTotal.totalCollected || 0).toLocaleString()}</p>
+                                        </div>
+                                        <div className="bg-red-50 border border-red-100 rounded-2xl p-4 text-center">
+                                            <p className="text-xs font-semibold text-red-600 mb-1 uppercase tracking-wider">Waived</p>
+                                            <p className="text-xl font-bold text-red-700">₹{(yearTotal.totalWaived || 0).toLocaleString()}</p>
+                                        </div>
+                                        <div className="bg-amber-50 border border-amber-100 rounded-2xl p-4 text-center">
+                                            <p className="text-xs font-semibold text-amber-600 mb-1 uppercase tracking-wider">Pending</p>
+                                            <p className="text-xl font-bold text-amber-700">₹{(yearTotal.totalPending || 0).toLocaleString()}</p>
+                                        </div>
+                                        <div className="bg-primary/5 border border-primary/10 rounded-2xl p-4 text-center col-span-2 sm:col-span-1">
+                                            <p className="text-xs font-semibold text-primary mb-1 uppercase tracking-wider">Rate</p>
+                                            <p className="text-xl font-bold text-primary">{yearTotal.collectionRate || 0}%</p>
+                                        </div>
+                                    </div>
+                                )}
+
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-sm">
+                                        <thead>
+                                            <tr className="border-b border-gray-100">
+                                                {['Month', 'Due', 'Collected', 'Waived', 'Pending', 'Collection Rate'].map(h => (
+                                                    <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">{h}</th>
+                                                ))}
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-50">
+                                            {yearlyLoading ? (
+                                                Array.from({ length: 6 }).map((_, i) => <SkeletonRow key={i} cols={6} />)
+                                            ) : yearlyBreakdown.length === 0 ? (
+                                                <tr><td colSpan={6}><EmptyState icon={FaChartBar} title="No data" subtitle="No fee data for this year" /></td></tr>
+                                            ) : (
+                                                yearlyBreakdown.map(m => (
+                                                    <tr key={m.month} className="hover:bg-gray-50/50 transition-colors">
+                                                        <td className="px-4 py-3 font-semibold text-gray-900">{m.label}</td>
+                                                        <td className="px-4 py-3 text-gray-600">₹{(m.totalDue || 0).toLocaleString()}</td>
+                                                        <td className="px-4 py-3 text-emerald-600 font-medium">₹{(m.totalCollected || 0).toLocaleString()}</td>
+                                                        <td className="px-4 py-3 text-red-600">₹{(m.totalWaived || 0).toLocaleString()}</td>
+                                                        <td className="px-4 py-3 text-amber-600">₹{(m.totalPending || 0).toLocaleString()}</td>
+                                                        <td className="px-4 py-3">
+                                                            <div className="flex items-center gap-3">
+                                                                <div className="w-16 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                                                                    <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${m.collectionRate}%` }}></div>
+                                                                </div>
+                                                                <span className="text-xs font-bold text-gray-700">{m.collectionRate}%</span>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                ))
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Sidebar: Breakdown by Type */}
+                        <div className="space-y-6">
+                            <div className="bg-white rounded-2xl border border-gray-200 p-5">
+                                <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                                    <span className="w-1.5 h-6 bg-primary rounded-full"></span>
+                                    Breakdown by Fee Type
+                                </h3>
+                                <div className="space-y-3">
+                                    {yearlyLoading ? (
+                                        Array.from({ length: 4 }).map((_, i) => (
+                                            <div key={i} className="h-20 bg-gray-50 rounded-xl animate-pulse" />
+                                        ))
+                                    ) : typeBreakdown.length === 0 ? (
+                                        <p className="text-sm text-gray-500 text-center py-4">No type data available</p>
+                                    ) : (
+                                        typeBreakdown.map(item => (
+                                            <div key={item.type} className="p-3.5 bg-gray-50 border border-gray-100 rounded-xl hover:shadow-sm transition-all group">
+                                                <div className="flex justify-between items-start mb-2">
+                                                    <div>
+                                                        <p className="text-sm font-bold text-gray-900 group-hover:text-primary transition-colors">{item.type}</p>
+                                                        <p className="text-[10px] text-gray-500 uppercase font-bold tracking-tight">Rate: {item.collectionRate}%</p>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <p className="text-xs font-bold text-emerald-600">₹{(item.totalCollected || 0).toLocaleString()}</p>
+                                                        <p className="text-[10px] text-gray-400">of ₹{(item.totalDue || 0).toLocaleString()}</p>
+                                                    </div>
+                                                </div>
+                                                <div className="w-full h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                                                    <div className="h-full bg-primary rounded-full" style={{ width: `${item.collectionRate}%` }}></div>
+                                                </div>
+                                                <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2">
+                                                    {(item.totalPending || 0) > 0 && (
+                                                        <p className="text-[10px] text-amber-600 font-semibold flex items-center gap-1">
+                                                            <span className="w-1 h-1 bg-amber-400 rounded-full"></span>
+                                                            Pending: ₹{(item.totalPending || 0).toLocaleString()}
+                                                        </p>
+                                                    )}
+                                                    {(item.totalWaived || 0) > 0 && (
+                                                        <p className="text-[10px] text-red-600 font-semibold flex items-center gap-1">
+                                                            <span className="w-1 h-1 bg-red-400 rounded-full"></span>
+                                                            Waived: ₹{(item.totalWaived || 0).toLocaleString()}
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
                             </div>
                         </div>
                     </div>
