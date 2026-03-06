@@ -17,9 +17,12 @@ const REFRESH_COOKIE_OPTIONS = {
 export const login = asyncHandler(async (req, res) => {
     const { email, password } = req.body;
     const platform = req.headers["x-platform"] === "mobile" ? "mobile" : "web";
-    logger.info("Controller: Login request received", { email, platform, bodyKeys: Object.keys(req.body || {}), rawEmail: JSON.stringify(email) });
+    const metadata = {
+        userAgent: req.headers["user-agent"],
+        ip: req.ip || req.headers["x-forwarded-for"] || req.connection.remoteAddress,
+    };
 
-    const result = await authService.login(email, password, platform);
+    const result = await authService.login(email, password, platform, metadata);
 
     logger.info("Controller: Login successful, sending response", {
         email,
@@ -49,7 +52,12 @@ export const refresh = asyncHandler(async (req, res) => {
         throw new UnauthorizedError("Refresh token is missing");
     }
 
-    const result = await authService.refreshAccessToken(oldRefreshToken);
+    const metadata = {
+        userAgent: req.headers["user-agent"],
+        ip: req.ip || req.headers["x-forwarded-for"] || req.connection.remoteAddress,
+    };
+
+    const result = await authService.refreshAccessToken(oldRefreshToken, metadata);
 
     // Set the new rotated refresh token cookie
     res.cookie("refreshToken", result.refreshToken, REFRESH_COOKIE_OPTIONS);

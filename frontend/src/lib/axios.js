@@ -52,27 +52,35 @@ api.interceptors.response.use(
             !originalRequest._retry &&
             !originalRequest.url?.includes('/auth/refresh')
         ) {
+            console.log('[Auth] Access token expired, attempting refresh...');
+
             // If a refresh is already in flight, queue this request
             if (isRefreshing) {
+                console.log('[Auth] Refresh already in progress, queuing request:', originalRequest.url);
                 return new Promise((resolve, reject) => {
                     failedQueue.push({ resolve, reject });
-                }).then((token) => {
-                    originalRequest.headers.Authorization = `Bearer ${token}`;
-                    return api(originalRequest);
-                });
+                })
+                    .then((token) => {
+                        originalRequest.headers.Authorization = `Bearer ${token}`;
+                        return api(originalRequest);
+                    })
+                    .catch((err) => Promise.reject(err));
             }
 
             originalRequest._retry = true;
             isRefreshing = true;
 
             try {
-                // Call refresh endpoint — cookie is sent automatically
-                const { data } = await api.post('/auth/refresh');
+                // Call refresh endpoint — HttpOnly cookie is sent automatically by the browser
+                // We use a clean axios post to avoid interceptor side effects if any
+                const { data } = await api.post('/auth/refresh', {}, { _retry: true });
 
                 const newToken = data.token;
                 if (!newToken) {
-                    throw new Error('No token returned from refresh');
+                    throw new Error('No access token returned from refresh');
                 }
+
+                console.log('[Auth] Refresh successful, replaying queued requests');
                 localStorage.setItem('token', newToken);
 
                 // Update the failed request and replay the queue
@@ -81,12 +89,16 @@ api.interceptors.response.use(
 
                 return api(originalRequest);
             } catch (refreshError) {
+                console.error('[Auth] Refresh failed:', refreshError.response?.data?.message || refreshError.message);
+                
                 // Refresh failed — session is truly expired
                 processQueue(refreshError, null);
                 localStorage.removeItem('token');
 
+                // Redirect to login if not already there
                 if (window.location.pathname !== '/login') {
-                    window.location.href = '/login';
+                    console.warn('[Auth] Redirecting to login...');
+                    window.location.href = '/login?expired=true';
                 }
 
                 return Promise.reject(refreshError);
