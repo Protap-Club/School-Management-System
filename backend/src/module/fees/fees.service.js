@@ -394,7 +394,7 @@ export const getAllClassesFeeOverview = async (schoolId, academicYear, month) =>
     for (const a of assignments) {
         const fs = a.feeStructureId;
         if (!fs) continue;
-        const key = `${fs.standard} -${fs.section} `;
+        const key = `${fs.standard}-${fs.section}`;
         if (!classMap[key]) {
             classMap[key] = {
                 standard: fs.standard,
@@ -402,12 +402,23 @@ export const getAllClassesFeeOverview = async (schoolId, academicYear, month) =>
                 totalDue: 0,
                 totalCollected: 0,
                 totalPending: 0,
+                totalWaived: 0,
                 studentCount: new Set(),
             };
         }
-        classMap[key].totalDue += a.netAmount;
-        classMap[key].totalCollected += a.paidAmount;
-        classMap[key].totalPending += a.netAmount - a.paidAmount;
+
+        const status = (a.status || "PENDING").toUpperCase();
+        const netAmt = a.netAmount || 0;
+        const paidAmt = a.paidAmount || 0;
+        const remaining = Math.max(0, netAmt - paidAmt);
+
+        const waivedAmt = (status === "WAIVED" || status === "PAID") ? remaining : 0;
+        const pendingAmt = (status !== "PAID" && status !== "WAIVED") ? remaining : 0;
+
+        classMap[key].totalDue += netAmt;
+        classMap[key].totalCollected += paidAmt;
+        classMap[key].totalPending += pendingAmt;
+        classMap[key].totalWaived += waivedAmt;
         classMap[key].studentCount.add(String(a.studentId));
     }
 
@@ -430,16 +441,50 @@ export const getYearlyFeeSummary = async (schoolId, academicYear) => {
     const assignments = await FeeAssignment.find({
         schoolId,
         academicYear: Number(academicYear),
-    }).lean();
+    })
+        .populate("feeStructureId", "feeType name")
+        .lean();
 
-    // Group by month
+    logger.info(`[DEBUG] getYearlyFeeSummary found ${assignments.length} assignments for year ${academicYear}`);
+
+    // Group by month and type
     const monthMap = {};
+    const typeMap = {};
+
     for (const a of assignments) {
-        if (!monthMap[a.month]) {
-            monthMap[a.month] = { totalDue: 0, totalCollected: 0 };
+        const status = (a.status || "PENDING").toUpperCase();
+        const netAmt = Number(a.netAmount) || 0;
+        const paidAmt = Number(a.paidAmount) || 0;
+        const remaining = Math.max(0, netAmt - paidAmt);
+
+        // Define status categories
+        const isSettled = ["PAID", "WAIVED"].includes(status);
+        
+        const waivedAmt = isSettled ? remaining : 0;
+        const pendingAmt = !isSettled ? remaining : 0;
+
+        // Monthly aggregation
+        const mKey = String(a.month);
+        if (!monthMap[mKey]) {
+            monthMap[mKey] = { totalDue: 0, totalCollected: 0, totalPending: 0, totalWaived: 0 };
         }
-        monthMap[a.month].totalDue += a.netAmount;
-        monthMap[a.month].totalCollected += a.paidAmount;
+        monthMap[mKey].totalDue += netAmt;
+        monthMap[mKey].totalCollected += paidAmt;
+        monthMap[mKey].totalPending += pendingAmt;
+        monthMap[mKey].totalWaived += waivedAmt;
+
+        // Type aggregation
+        const fs = a.feeStructureId;
+        if (fs) {
+            const type = fs.feeType || "OTHER";
+            if (!typeMap[type]) {
+                typeMap[type] = { totalDue: 0, totalCollected: 0, totalPending: 0, totalWaived: 0 };
+            }
+            typeMap[type].totalDue += netAmt;
+            typeMap[type].totalCollected += paidAmt;
+            typeMap[type].totalPending += pendingAmt;
+            typeMap[type].totalWaived += waivedAmt;
+        }
     }
 
     const monthlyBreakdown = Object.entries(monthMap)
@@ -449,20 +494,39 @@ export const getYearlyFeeSummary = async (schoolId, academicYear) => {
             label: MONTH_LABELS[Number(month)],
             totalDue: data.totalDue,
             totalCollected: data.totalCollected,
+            totalPending: data.totalPending,
+            totalWaived: data.totalWaived,
             collectionRate: data.totalDue > 0
-                ? Math.round((data.totalCollected / data.totalDue) * 100)
+                ? Number(((data.totalCollected / data.totalDue) * 100).toFixed(2))
                 : 0,
         }));
 
+    const typeBreakdown = Object.entries(typeMap)
+        .map(([type, data]) => ({
+            type,
+            totalDue: data.totalDue,
+            totalCollected: data.totalCollected,
+            totalPending: data.totalPending,
+            totalWaived: data.totalWaived,
+            collectionRate: data.totalDue > 0
+                ? Number(((data.totalCollected / data.totalDue) * 100).toFixed(2))
+                : 0,
+        }))
+        .sort((a, b) => b.totalDue - a.totalDue);
+
     const yearTotal = {
-        totalDue: monthlyBreakdown.reduce((s, m) => s + m.totalDue, 0),
-        totalCollected: monthlyBreakdown.reduce((s, m) => s + m.totalCollected, 0),
+        totalDue: monthlyBreakdown.reduce((s, m) => s + (m.totalDue || 0), 0),
+        totalCollected: monthlyBreakdown.reduce((s, m) => s + (m.totalCollected || 0), 0),
+        totalPending: monthlyBreakdown.reduce((s, m) => s + (m.totalPending || 0), 0),
+        totalWaived: monthlyBreakdown.reduce((s, m) => s + (m.totalWaived || 0), 0),
     };
+
     yearTotal.collectionRate = yearTotal.totalDue > 0
-        ? Math.round((yearTotal.totalCollected / yearTotal.totalDue) * 100)
+        ? Number(((yearTotal.totalCollected / yearTotal.totalDue) * 100).toFixed(2))
         : 0;
 
-    return { academicYear: Number(academicYear), monthlyBreakdown, yearTotal };
+    logger.info(`[DEBUG] getYearlyFeeSummary result breakdown count: ${monthlyBreakdown.length}, type count: ${typeBreakdown.length}`);
+    return { academicYear: Number(academicYear), monthlyBreakdown, typeBreakdown, yearTotal };
 };
 
 // ═══════════════════════════════════════════════════════════════
@@ -517,7 +581,10 @@ export const getStudentFeeHistory = async (schoolId, studentId, academicYear) =>
     const summary = {
         totalDue: fees.reduce((s, f) => s + f.amount, 0),
         totalPaid: fees.reduce((s, f) => s + f.paid, 0),
-        totalPending: fees.reduce((s, f) => s + (f.amount - f.paid), 0),
+        totalPending: fees.filter(f => !["PAID", "WAIVED"].includes((f.status || "").toUpperCase()))
+            .reduce((s, f) => s + Math.max(0, f.amount - f.paid), 0),
+        totalWaived: fees.filter(f => ["PAID", "WAIVED"].includes((f.status || "").toUpperCase()))
+            .reduce((s, f) => s + Math.max(0, f.amount - f.paid), 0),
     };
 
     return { summary, fees };

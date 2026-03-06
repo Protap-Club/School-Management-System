@@ -98,25 +98,60 @@ export const refreshAccessToken = async (oldRefreshToken) => {
 
     const oldHash = hashToken(oldRefreshToken);
 
-    // Find user by the stored refresh token hash
-    const user = await User.findOne({ refreshTokenHash: oldHash })
-        .select("+refreshTokenHash +refreshTokenExpiresAt")
+    // Step 1: Try finding user by CURRENT refresh token hash
+    let user = await User.findOne({ refreshTokenHash: oldHash })
+        .select("+refreshTokenHash +refreshTokenExpiresAt +previousRefreshTokenHash +previousRefreshTokenExpiresAt")
         .populate("schoolId", "name code");
 
+    let isGracePeriod = false;
+
+    // Step 2: If not found, check the PREVIOUS hash (Grace Period)
     if (!user) {
-        // Token not found — could be reuse after rotation. No user to clear, just reject.
+        user = await User.findOne({ previousRefreshTokenHash: oldHash })
+            .select("+refreshTokenHash +refreshTokenExpiresAt +previousRefreshTokenHash +previousRefreshTokenExpiresAt")
+            .populate("schoolId", "name code");
+        
+        if (user) {
+            isGracePeriod = true;
+            logger.info("Refresh attempt using previous token (Grace Period match)", { userId: user._id });
+        }
+    }
+
+    if (!user) {
+        logger.warn("Refresh failed: No matching token hash found in database", { 
+            hashSnippet: oldHash.substring(0, 8) 
+        });
         throw new UnauthorizedError("Invalid refresh token");
     }
 
-    // Check expiry
-    if (!user.refreshTokenExpiresAt || user.refreshTokenExpiresAt < new Date()) {
-        // Expired — clear stored token and reject
-        await User.updateOne(
-            { _id: user._id },
-            { $unset: { refreshTokenHash: "", refreshTokenExpiresAt: "" } }
-        );
+    // Step 3: Check expiry based on which match was found
+    const expiry = isGracePeriod ? user.previousRefreshTokenExpiresAt : user.refreshTokenExpiresAt;
+    
+    // Add 60s grace to previous token expiry if it's a grace period match
+    const now = new Date();
+    const effectiveExpiry = isGracePeriod 
+        ? new Date(expiry.getTime() + 60 * 1000) 
+        : expiry;
+
+    if (!effectiveExpiry || effectiveExpiry < now) {
+        logger.warn("Refresh failed: Token expired", { 
+            userId: user._id, 
+            isGracePeriod, 
+            expiry,
+            now 
+        });
+        
+        // Only clear if it was the CURRENT token that expired
+        if (!isGracePeriod) {
+            await User.updateOne(
+                { _id: user._id },
+                { $unset: { refreshTokenHash: "", refreshTokenExpiresAt: "" } }
+            );
+        }
         throw new UnauthorizedError("Refresh token has expired, please login again");
     }
+
+    logger.info("Token refresh successful", { userId: user._id, isGracePeriod });
 
     // Token Rotation 
     // Issue new tokens and invalidate the old one

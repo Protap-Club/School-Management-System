@@ -26,14 +26,23 @@ export const hashToken = (token) => {
 };
 
 // Store refresh token hash + expiry on the user document.
+// Moves current token to 'previous' to support a short grace period during rotation.
 export const saveRefreshTokenToUser = async (userId, refreshToken) => {
-    const refreshTokenHash = hashToken(refreshToken);
-    const refreshTokenExpiresAt = new Date(
-        Date.now() + REFRESH_TOKEN_EXPIRY_DAYS * 24 * 60 * 60 * 1000
-    );
+    const user = await User.findById(userId).select("+refreshTokenHash +refreshTokenExpiresAt");
+    
+    const newHash = hashToken(refreshToken);
+    const newExpiresAt = new Date(Date.now() + REFRESH_TOKEN_EXPIRY_DAYS * 24 * 60 * 60 * 1000);
 
-    await User.updateOne(
-        { _id: userId },
-        { $set: { refreshTokenHash, refreshTokenExpiresAt } }
-    );
+    const updateData = {
+        refreshTokenHash: newHash,
+        refreshTokenExpiresAt: newExpiresAt
+    };
+
+    // If there was a current token, move it to 'previous'
+    if (user && user.refreshTokenHash) {
+        updateData.previousRefreshTokenHash = user.refreshTokenHash;
+        updateData.previousRefreshTokenExpiresAt = user.refreshTokenExpiresAt;
+    }
+
+    await User.updateOne({ _id: userId }, { $set: updateData });
 };
