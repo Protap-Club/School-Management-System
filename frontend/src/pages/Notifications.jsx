@@ -2,7 +2,8 @@ import React, { useState, useMemo } from 'react';
 import DashboardLayout from '../layouts/DashboardLayout';
 import { useAuth } from '../features/auth';
 import { useReceivedNotices } from '../features/notices';
-import { FaBell, FaInfoCircle, FaClock, FaChevronDown, FaFileAlt } from 'react-icons/fa';
+import { useNavigate } from 'react-router-dom';
+import { FaBell, FaInfoCircle, FaClock, FaChevronDown, FaFileAlt, FaArrowRight, FaPaperclip } from 'react-icons/fa';
 
 const TIME_UNITS = [
   [31536000, 'year'], [2592000, 'month'], [86400, 'day'], [3600, 'hour'], [60, 'minute']
@@ -23,10 +24,13 @@ const NOTIFICATION_TYPE_CONFIG = {
   default: { icon: <FaInfoCircle className="text-blue-500" size={20} />, bg: 'bg-blue-50 border-blue-100', border: 'border-l-blue-500' },
 };
 
-const NotificationItem = ({ notification }) => {
+const NotificationItem = ({ notification, onNavigate }) => {
   const config = NOTIFICATION_TYPE_CONFIG[notification.type] || NOTIFICATION_TYPE_CONFIG.default;
   return (
-    <div className={`p-4 rounded-xl border ${config.bg} border-l-4 ${config.border} shadow-sm transition-all hover:shadow-md cursor-pointer group`}>
+    <div
+      onClick={onNavigate}
+      className={`p-4 rounded-xl border ${config.bg} border-l-4 ${config.border} shadow-sm transition-all hover:shadow-md cursor-pointer group`}
+    >
       <div className="flex items-start gap-4">
         <div className="mt-1 shrink-0 bg-white p-2 rounded-full shadow-sm">
           {config.icon}
@@ -38,20 +42,25 @@ const NotificationItem = ({ notification }) => {
               <FaClock size={10} /> {getRelativeTime(notification.createdAt)}
             </span>
           </div>
-          <p className="text-gray-600 text-sm mt-1 leading-relaxed">{notification.message}</p>
-          {notification.attachment && (
-            <a
-              href={notification.attachment.secure_url || notification.attachment.path || '#'}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-3 flex items-center gap-2 text-xs text-blue-600 bg-blue-50 hover:bg-blue-100 transition-colors p-2 rounded border border-blue-100 w-fit cursor-pointer"
-            >
-              <FaFileAlt size={10} />
-              <span className="font-medium hover:underline">{notification.attachment.originalName || notification.attachment.filename}</span>
-            </a>
+          <p className="text-gray-600 text-sm mt-1 leading-relaxed line-clamp-2">{notification.message}</p>
+
+          {/* Attachment hint — user must go to Notice Board to download */}
+          {notification.attachment?.filename && (
+            <div className="mt-2 flex items-center gap-2 text-xs text-gray-500 bg-white/70 px-2 py-1.5 rounded border border-gray-100 w-fit">
+              <FaPaperclip size={10} />
+              <span className="font-medium">{notification.attachment.originalName || notification.attachment.filename}</span>
+              <span className="text-gray-400">(open Notice Board to download)</span>
+            </div>
           )}
-          <div className="mt-2 text-xs text-gray-400 capitalize">
-            From: {notification.createdBy?.name || 'Admin'} ({notification.createdBy?.role})
+
+          <div className="mt-2 flex items-center justify-between">
+            <div className="text-xs text-gray-400 capitalize">
+              From: {notification.createdBy?.name || 'Admin'} ({notification.createdBy?.role})
+            </div>
+            {/* CTA: visually signals the card is clickable */}
+            <span className="text-xs font-medium text-primary flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+              View in Notice Board <FaArrowRight size={10} />
+            </span>
           </div>
         </div>
       </div>
@@ -61,12 +70,21 @@ const NotificationItem = ({ notification }) => {
 
 const Notifications = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [visibleCount, setVisibleCount] = useState(5);
   const { data: noticesResponse, isLoading } = useReceivedNotices();
-  const notifications = noticesResponse?.data || [];
+  const notifications = Array.isArray(noticesResponse?.data)
+    ? noticesResponse.data
+    : (noticesResponse?.data?.received || []);
   const visibleNotifications = useMemo(() => notifications.slice(0, visibleCount), [notifications, visibleCount]);
   const hasMore = visibleCount < notifications.length;
-  const userRole = user?.role || 'student';
+  const userRole = user?.role || 'teacher';
+
+  // Navigate to the role-specific Notice page and open the Received tab
+  const handleNavigateToNotice = () => {
+    const rolePath = userRole === 'admin' ? '/admin/notice' : '/teacher/notice';
+    navigate(rolePath, { state: { tab: 'received' } });
+  };
 
   return (
     <DashboardLayout>
@@ -87,7 +105,20 @@ const Notifications = () => {
           {isLoading ? (
             <div className="text-center py-12 text-gray-500">Loading notifications...</div>
           ) : visibleNotifications.length > 0 ? (
-            visibleNotifications.map((notification) => <NotificationItem key={notification._id} notification={notification} />)
+            <>
+              {/* Info banner */}
+              <div className="flex items-center gap-3 p-3 bg-blue-50 border border-blue-100 rounded-xl text-sm text-blue-700">
+                <FaInfoCircle className="shrink-0" size={14} />
+                <span>Click any notice to open it in the <strong>Notice Board</strong> where you can read the full message and download attachments.</span>
+              </div>
+              {visibleNotifications.map((notification) => (
+                <NotificationItem
+                  key={notification._id}
+                  notification={notification}
+                  onNavigate={handleNavigateToNotice}
+                />
+              ))}
+            </>
           ) : (
             <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-12 text-center">
               <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-400"><FaBell size={32} /></div>

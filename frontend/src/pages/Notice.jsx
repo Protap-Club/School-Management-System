@@ -1,14 +1,16 @@
-import React, { useState, useRef, useMemo, useCallback } from 'react';
+import React, { useState, useRef, useMemo, useCallback, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import DashboardLayout from '../layouts/DashboardLayout';
 import { useAuth } from '../features/auth';
 import {
     useNotices, useCreateNotice, useDeleteNotice, useGroups,
     useCreateGroup, useDeleteGroup, useClasses, useStudents, useTeachers, useAllUsers,
+    useReceivedNotices,
 } from '../features/notices';
 import {
     FaPaperPlane, FaUsers, FaPaperclip, FaTimes, FaCheck, FaFilePdf, FaFileWord,
     FaFilePowerpoint, FaFileExcel, FaFileAlt, FaImage, FaTrash, FaPlus, FaUserFriends,
-    FaSearch, FaHistory, FaEye, FaDownload, FaFileVideo, FaFileCode, FaFileCsv
+    FaSearch, FaHistory, FaEye, FaDownload, FaFileVideo, FaFileCode, FaFileCsv, FaBell
 } from 'react-icons/fa';
 
 
@@ -64,6 +66,16 @@ const Notice = () => {
 
     // Compose state
     const [activeTab, setActiveTab] = useState('compose');
+    const location = useLocation();
+
+    // Auto-switch to received tab if navigated from Notifications page
+    useEffect(() => {
+        if (location.state?.tab) {
+            setActiveTab(location.state.tab);
+            // Clear state so browser back doesn't re-trigger
+            window.history.replaceState({}, document.title);
+        }
+    }, [location.state]);
     const [message, setMessage] = useState('');
     const [attachment, setAttachment] = useState(null);
     const [attachmentPreview, setAttachmentPreview] = useState(null);
@@ -93,6 +105,7 @@ const Notice = () => {
 
     // Data hooks
     const { data: noticesData } = useNotices(historyFilters);
+    const { data: receivedData } = useReceivedNotices();
     const { data: classesData } = useClasses();
     const { data: studentsData } = useStudents();
     const { data: teachersData } = useTeachers();
@@ -110,6 +123,11 @@ const Notice = () => {
     const classes = classesData?.data || [];
     const groups = groupsData?.data || [];
     const historyItems = noticesData?.data || [];
+    // For received notices - backend returns { received, history } for teachers on mobile,
+    // but on web it always returns a flat array via /notices/received
+    const receivedItems = Array.isArray(receivedData?.data)
+        ? receivedData.data
+        : (receivedData?.data?.received || []);
 
     const showToast = useCallback((type, text) => { setToast({ type, text }); setTimeout(() => setToast({ type: '', text: '' }), 3000); }, []);
     const toggleSelection = (array, setArray, value) => { setArray(array.includes(value) ? array.filter(v => v !== value) : [...array, value]); };
@@ -184,6 +202,42 @@ const Notice = () => {
         try { await deleteGroupMutation.mutateAsync(groupId); showToast('success', 'Group deleted'); }
         catch (error) { showToast('error', error?.response?.data?.message || 'Failed to delete group'); }
     }, [deleteGroupMutation, showToast]);
+
+    /**
+     * Downloads a file from a cross-origin URL (Cloudinary) with the correct filename.
+     *
+     * WHY fetch → Blob instead of <a download href="...">?
+     * Browsers IGNORE the `download` attribute on <a> when the href is cross-origin
+     * (e.g. res.cloudinary.com). The browser just navigates to the URL and renders
+     * the raw binary, which is why users see "%PDF-1.7..." text.
+     *
+     * This function:
+     *  1. fetch() the file cross-origin (Cloudinary allows this via CORS headers)
+     *  2. Converts the response to a Blob
+     *  3. Creates a same-origin blob: URL → browser DOES honour `download` on same-origin
+     *  4. Clicks a temporary <a> to trigger the Save dialog with the correct filename
+     *  5. Revokes the blob URL to free memory
+     */
+    const handleDownload = useCallback(async (url, filename) => {
+        if (!url) { showToast('error', 'No file available to download'); return; }
+        try {
+            showToast('success', 'Download starting...');
+            const response = await fetch(url);
+            if (!response.ok) throw new Error(`Failed to fetch file: ${response.status}`);
+            const blob = await response.blob();
+            const blobUrl = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = blobUrl;
+            a.download = filename || 'download'; // browser WILL honour download on blob: URLs
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(blobUrl); // free memory
+        } catch (err) {
+            console.error('Download failed:', err);
+            showToast('error', 'Download failed. Try again.');
+        }
+    }, [showToast]);
 
     const filteredHistory = useMemo(() => {
         if (!historySearch) return historyItems;
@@ -281,48 +335,7 @@ const Notice = () => {
         </div>
     );
 
-    const renderHistoryItem = (item) => (
-        <div key={item.id} className="bg-white rounded-2xl border border-gray-200 p-5 hover:shadow-md transition-shadow group">
-            <div className="flex flex-col md:flex-row gap-4 items-start md:items-center">
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${item.type === 'notice' ? 'bg-blue-100 text-blue-600' : 'bg-amber-100 text-amber-600'}`}>
-                    {item.type === 'notice' ? <FaPaperPlane size={16} /> : <FaPaperclip size={16} />}
-                </div>
-                <div className="flex-1 min-w-0 grid grid-cols-1 md:grid-cols-12 gap-4 w-full">
-                    <div className="md:col-span-5">
-                        <div className="flex items-center gap-2 mb-1">
-                            <h3 className="text-base font-semibold text-gray-900 truncate">{item.title}</h3>
-                            {item.attachment && item.attachment.filename && (
-                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600"><FaPaperclip className="mr-1" size={10} />1</span>
-                            )}
-                        </div>
-                        <p className="text-sm text-gray-500 line-clamp-2">{item.message}</p>
-                    </div>
-                    <div className="md:col-span-3 flex items-center">
-                        <div className="flex items-center gap-2 text-sm text-gray-600">
-                            <div className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center">
-                                {(item.recipientType === 'users' || item.recipientType === 'students') ? <FaUserFriends size={10} /> : <FaUsers size={10} />}
-                            </div>
-                            <span className="truncate max-w-[150px]" title={getRecipientLabel(item)}>{getRecipientLabel(item)}</span>
-                        </div>
-                    </div>
-                    <div className="md:col-span-4 flex items-center justify-between md:justify-end gap-6">
-                        <div className="text-right">
-                            <div className="text-sm font-medium text-emerald-600 flex items-center justify-end gap-1">
-                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>Sent
-                            </div>
-                            <div className="text-xs text-gray-400 mt-1">
-                                {new Date(item.createdAt).toLocaleDateString()} • {new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                            </div>
-                        </div>
-                        <div className="flex items-center gap-1 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button onClick={() => setViewItem(item)} className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="View Details"><FaEye size={16} /></button>
-                            <button onClick={() => handleDeleteHistory(item._id)} className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Delete"><FaTrash size={16} /></button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    );
+
 
     return (
         <DashboardLayout>
@@ -340,9 +353,10 @@ const Notice = () => {
                     <p className="text-gray-500 mt-1">{isAdmin ? 'Send notices to the entire school, classes, or specific users' : 'Send notices to your students or groups'}</p>
                 </div>
                 <div className="flex gap-1 bg-gray-100 p-1 rounded-xl w-fit">
-                    {renderTabButton('compose', <FaPaperPlane />, 'Compose')}
+                    {(isAdmin || isTeacher) && renderTabButton('compose', <FaPaperPlane />, 'Compose')}
                     {(isTeacher || isAdmin) && renderTabButton('groups', <FaUserFriends />, 'Groups')}
-                    {renderTabButton('history', <FaHistory />, 'History')}
+                    {(isAdmin || isTeacher) && renderTabButton('history', <FaHistory />, 'History')}
+                    {renderTabButton('received', <FaPaperclip />, 'Received')}
                 </div>
 
                 {activeTab === 'compose' && (
@@ -599,6 +613,87 @@ const Notice = () => {
                     </div>
                 )}
 
+                {activeTab === 'received' && (
+                    <div className="space-y-4">
+                        <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+                            {renderSectionHeader(<FaPaperclip />, 'from-violet-100 to-purple-100', 'text-violet-500', 'Received Notices', 'Notices sent to you by admin or teachers')}
+                        </div>
+
+                        {receivedItems.length === 0 ? (
+                            <div className="bg-white rounded-2xl border border-gray-200 p-12 text-center">
+                                <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                                    <FaBell className="text-gray-300" size={24} />
+                                </div>
+                                <h3 className="text-lg font-medium text-gray-900">No notices received yet</h3>
+                                <p className="text-gray-500 text-sm mt-1">Notices sent to you will appear here</p>
+                            </div>
+                        ) : (
+                            receivedItems.map(item => (
+                                <div key={item._id} className="bg-white rounded-2xl border border-gray-200 p-5 hover:shadow-md transition-shadow">
+                                    <div className="flex flex-col md:flex-row gap-4 items-start">
+                                        {/* Type icon */}
+                                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${item.type === 'file' ? 'bg-amber-100 text-amber-600' : 'bg-blue-100 text-blue-600'}`}>
+                                            {item.type === 'file' ? <FaPaperclip size={16} /> : <FaPaperPlane size={16} />}
+                                        </div>
+
+                                        <div className="flex-1 min-w-0">
+                                            {/* Header row */}
+                                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
+                                                <div className="flex items-center gap-2 flex-wrap">
+                                                    <h3 className="text-base font-semibold text-gray-900 truncate">{item.title || 'Notice'}</h3>
+                                                    {item.attachment?.filename && (
+                                                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">
+                                                            <FaPaperclip className="mr-1" size={10} />1
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <div className="text-xs text-gray-400 flex-shrink-0">
+                                                    {new Date(item.createdAt).toLocaleDateString()} • {new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                </div>
+                                            </div>
+
+                                            {/* Sender */}
+                                            {item.createdBy && (
+                                                <div className="flex items-center gap-2 mb-3">
+                                                    <div className="w-6 h-6 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 text-xs font-bold flex-shrink-0">
+                                                        {(item.createdBy.name || 'U').charAt(0).toUpperCase()}
+                                                    </div>
+                                                    <span className="text-sm text-gray-600">{item.createdBy.name}</span>
+                                                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                                                        item.createdBy.role === 'admin' ? 'bg-red-50 text-red-600' : 'bg-indigo-50 text-indigo-600'
+                                                    }`}>{item.createdBy.role}</span>
+                                                </div>
+                                            )}
+
+                                            {/* Message body */}
+                                            <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap mb-3">{item.message}</p>
+
+                                            {/* Attachment */}
+                                            {item.attachment?.filename && (
+                                                <button
+                                                    onClick={() => handleDownload(
+                                                        item.attachment.secure_url || item.attachment.path,
+                                                        item.attachment.originalName || item.attachment.filename
+                                                    )}
+                                                    className="inline-flex items-center gap-2 px-3 py-2 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-xl text-sm text-gray-700 transition-colors group"
+                                                >
+                                                    <div className="w-7 h-7 bg-white border border-gray-100 rounded-lg flex items-center justify-center">
+                                                        {getFileIcon(item.attachment.originalName || item.attachment.filename)}
+                                                    </div>
+                                                    <span className="font-medium group-hover:text-primary transition-colors truncate max-w-[200px]">
+                                                        {item.attachment.originalName || item.attachment.filename}
+                                                    </span>
+                                                    <FaDownload className="text-gray-400 group-hover:text-primary transition-colors flex-shrink-0" size={12} />
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            ))
+                        )}
+                    </div>
+                )}
+
                 {viewItem && (
                     <div className={MODAL_OVERLAY}>
                         <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-fadeIn">
@@ -623,11 +718,12 @@ const Notice = () => {
                                     <div>
                                         <h5 className="text-sm font-medium text-gray-900 mb-3">Attachment</h5>
                                         <div className="space-y-2">
-                                            <a
-                                                href={viewItem.attachment.secure_url || viewItem.attachment.path || '#'}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="flex items-center justify-between p-3 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors cursor-pointer group"
+                                            <button
+                                                onClick={() => handleDownload(
+                                                    viewItem.attachment.secure_url || viewItem.attachment.path,
+                                                    viewItem.attachment.originalName || viewItem.attachment.filename
+                                                )}
+                                                className="w-full flex items-center justify-between p-3 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors cursor-pointer group text-left"
                                             >
                                                 <div className="flex items-center gap-3">
                                                     <div className="w-10 h-10 bg-white border border-gray-100 rounded-lg flex items-center justify-center">
@@ -641,7 +737,7 @@ const Notice = () => {
                                                 <div className="p-2 text-gray-400 group-hover:text-primary group-hover:bg-primary/5 rounded-lg transition-colors">
                                                     <FaDownload size={14} />
                                                 </div>
-                                            </a>
+                                            </button>
                                         </div>
                                     </div>
                                 )}

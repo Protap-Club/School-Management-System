@@ -64,18 +64,30 @@ export const deleteFromCloudinary = async (cloudinaryUrl) => {
             return false;
         }
 
-        const pathAfterUpload = parts[1];
-        const publicId = pathAfterUpload
-            .replace(/^v\d+\//, '')       
-            .replace(/\.[^.]+$/, '');      
+        // Detect resource_type from the URL segment BEFORE /upload/
+        // e.g. "https://res.cloudinary.com/<cloud>/raw/upload/..."  → 'raw'
+        //      "https://res.cloudinary.com/<cloud>/image/upload/..." → 'image'
+        let resourceType = 'image'; // Cloudinary default
+        if (parts[0].endsWith('/raw')) resourceType = 'raw';
+        else if (parts[0].endsWith('/video')) resourceType = 'video';
 
-        const result = await cloudinary.uploader.destroy(publicId);
+        const pathAfterUpload = parts[1];
+        let publicId = pathAfterUpload
+            .replace(/^v\d+\//, '');  // strip version prefix if present
+
+        // For raw files, the extension IS part of the public_id — do NOT strip it.
+        // For image/video files, the extension is NOT part of the public_id.
+        if (resourceType !== 'raw') {
+            publicId = publicId.replace(/\.[^.]+$/, ''); // strip extension for image/video
+        }
+
+        const result = await cloudinary.uploader.destroy(publicId, { resource_type: resourceType });
 
         if (result.result === 'ok') {
-            logger.info(`Cloudinary file deleted: ${publicId}`);
+            logger.info(`Cloudinary file deleted: ${publicId} (${resourceType})`);
             return true;
         } else {
-            logger.warn(`Cloudinary deletion returned: ${result.result} for ${publicId}`);
+            logger.warn(`Cloudinary deletion returned: ${result.result} for ${publicId} (${resourceType})`);
             return false;
         }
     } catch (error) {

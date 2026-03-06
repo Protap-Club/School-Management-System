@@ -28,14 +28,19 @@ import {
 // Cloudinary Storage for Notice Attachments
 const noticeStorage = cloudinaryStorage({
     cloudinary: { v2: cloudinary },
-    folder: function (req, file, cb) {
+    params: function (req, file, cb) {
         // Namespace per school: schools/{schoolId}/notices
         const folder = req.schoolId ? `schools/${req.schoolId}/notices` : 'schools/default/notices';
-        cb(null, folder);
-    },
-    params: {
-        resource_type: 'auto',
-        access_mode: 'public'
+        cb(null, {
+            folder,
+            // 'raw' is the correct type for PDFs, DOCX, XLSX etc.
+            // With 'auto', Cloudinary classifies PDFs as 'image', making the
+            // public_id unpredictable and the /download API endpoint return 404.
+            // With 'raw', the extension (.pdf, .docx) is embedded in the public_id
+            // and the CDN URL is always: res.cloudinary.com/<cloud>/raw/upload/<public_id>
+            resource_type: 'raw',
+            access_mode: 'public'
+        });
     }
 });
 
