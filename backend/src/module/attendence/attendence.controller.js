@@ -71,3 +71,19 @@ export const getStudentAttendanceById = asyncHandler(async (req, res) => {
         data: result
     });
 });
+
+// Mark attendance manually (teacher/admin toggle)
+export const markManual = asyncHandler(async (req, res) => {
+    const { studentId, status } = req.body;
+    const markerUserId = req.user._id;
+    const markerRole = req.user.role;
+    const schoolId = req.user.schoolId?._id || req.user.schoolId;
+
+    const result = await nfcService.markManualAttendance(markerUserId, markerRole, studentId, status, schoolId);
+
+    res.status(200).json({
+        success: true,
+        message: `Student marked as ${status}`,
+        data: result
+    });
+});
