@@ -25,7 +25,7 @@ const FEATURE_META = {
 
 const Settings = () => {
     const { user: currentUser } = useAuth();
-    const { updateTheme } = useTheme();
+    const { updateTheme, fetchBranding } = useTheme();
     const { refreshFeatures } = useFeatures();
     const isSuperAdmin = currentUser?.role === 'super_admin';
     const currentSchoolId = currentUser?.schoolId?._id || currentUser?.schoolId;
@@ -83,9 +83,14 @@ const Settings = () => {
     const handleColorSelect = useCallback(async (colorValue) => {
         setSettings(prev => ({ ...prev, theme: { ...prev.theme, accentColor: colorValue } }));
         updateTheme(colorValue);
-        try { await api.put('/school/', { theme: { accentColor: colorValue } }); showMessage('success', 'Theme updated!'); }
+        try {
+            await api.put('/school/', { theme: { accentColor: colorValue } });
+            showMessage('success', 'Theme updated!');
+            // Refresh branding data to stay in sync with server
+            fetchBranding();
+        }
         catch (error) { console.error('Failed to save theme', error); }
-    }, [updateTheme, showMessage]);
+    }, [updateTheme, showMessage, fetchBranding]);
 
     const handleFileUpload = async (e) => {
         const file = e.target.files[0];
