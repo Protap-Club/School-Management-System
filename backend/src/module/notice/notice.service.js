@@ -9,72 +9,88 @@ import StudentProfile from "../user/model/StudentProfile.model.js";
 import TeacherProfile from "../user/model/TeacherProfile.model.js";
 
 /**
- * Generates a private, short-lived download URL for a Cloudinary raw resource.
+ * Generates a download URL for a Cloudinary attachment.
  *
- * WHY private_download_url instead of cloudinary.url()?
- * - cloudinary.url() generates CDN URLs. For raw resources, Cloudinary's CDN
- *   enforces access control regardless of the sign_url flag, returning 401.
- * - cloudinary.utils.private_download_url() generates an API-level URL that
- *   embeds authentication in the query string (timestamp + signature). This
- *   bypasses CDN restrictions entirely and works for ALL private raw files.
+ * WHY we use direct CDN URLs instead of private_download_url:
+ * - `cloudinary.utils.private_download_url()` generates URLs under /v1_1/<cloud>/download
+ *   These ONLY work for assets explicitly stored as "private" in Cloudinary.
+ * - Our files use `access_mode: 'public'`, so the /download API returns 404.
+ * - The correct approach for public assets is the standard CDN URL with the
+ *   `fl_attachment` transformation flag, which triggers a browser download prompt.
  *
- * Falls back to the stored secure_url if public_id is missing.
+ * CDN URL format:
+ *   raw:   https://res.cloudinary.com/<cloud>/raw/upload/fl_attachment/<public_id>
+ *   image: https://res.cloudinary.com/<cloud>/image/upload/fl_attachment/<public_id>.<ext>
+ *
+ * Falls back to the stored secure_url if public_id and URL are missing.
  */
-const getSignedUrl = (attachment) => {
+const getDownloadUrl = (attachment) => {
     if (!attachment) return null;
     try {
         const storedUrl = attachment.secure_url || attachment.path;
         if (!storedUrl) return null;
 
-        // If it's not a Cloudinary URL, return as is
+        // If it's not a Cloudinary URL, return as-is (e.g. legacy local path)
         if (!storedUrl.includes('res.cloudinary.com')) return storedUrl;
 
-        // Detect resource type from URL
+        // Detect resource type from the stored URL path segment
         let resourceType = 'raw';
         if (storedUrl.includes('/image/upload/')) resourceType = 'image';
-        if (storedUrl.includes('/video/upload/')) resourceType = 'video';
+        else if (storedUrl.includes('/video/upload/')) resourceType = 'video';
 
+        // Prefer explicit public_id saved in DB; fall back to extracting from URL
         let publicId = attachment.public_id || attachment.filename;
-        
-        // If publicId is missing, try to extract it from URL
         if (!publicId) {
             const match = storedUrl.match(new RegExp(`\\/${resourceType}\\/upload\\/(?:v\\d+\\/)?(.+)$`));
             if (match && match[1]) publicId = match[1];
         }
 
+        // If we still couldn't determine the public_id, return the raw URL as fallback
         if (!publicId) return storedUrl;
 
-        // Extract extension
-        const ext = publicId.split('.').pop().toLowerCase();
-
-        // Standardize: always generate a signed download URL for raw components to be safe
-        // For private assets, this is the only way to avoid 401/403.
-        return cloudinary.utils.private_download_url(publicId, ext, {
+        // Return the plain Cloudinary CDN URL (no fl_attachment transformation).
+        //
+        // WHY NOT use fl_attachment here?
+        // - fl_attachment:<name> without extension → browser saves as "All Files" (no .pdf)
+        // - fl_attachment:name.pdf → Cloudinary URL router misinterprets the dot → HTTP 400
+        // - Even if Cloudinary served fl_attachment correctly, the frontend's cross-origin
+        //   <a download> attribute is IGNORED by browsers for cross-origin URLs (CORS rule).
+        //   The browser navigates to the URL raw instead of downloading — showing PDF binary text.
+        //
+        // CORRECT approach: return the plain CDN URL. The frontend will use fetch() → Blob
+        // → URL.createObjectURL() → programmatic <a> click. This:
+        //   ✅ Works cross-origin (fetch handles CORS, the blob URL is same-origin)
+        //   ✅ Preserves the original filename with .pdf extension
+        //   ✅ No HTTP 400 from Cloudinary URL parsing
+        //   ✅ Works in all browsers
+        const cdnUrl = cloudinary.url(publicId, {
             resource_type: resourceType,
-            expires_at: Math.floor(Date.now() / 1000) + 3600, // 1 hour
+            secure: true,
         });
+
+        return cdnUrl;
     } catch (err) {
-        logger.warn(`Failed to generate signed download URL: ${err.message}`);
+        logger.warn(`Failed to generate download URL: ${err.message}`);
         return attachment.secure_url || attachment.path;
     }
 };
 
 /**
  * Enriches a notice (or array of notices) by replacing the attachment URL
- * with a freshly signed URL so the client can open/download the file.
+ * with a fresh CDN download URL (with fl_attachment) so the client can download the file.
  */
 const enrichWithSignedUrls = (notices) => {
     if (Array.isArray(notices)) {
         return notices.map(n => {
             if (n.attachment) {
-                n.attachment = { ...n.attachment, secure_url: getSignedUrl(n.attachment) };
+                n.attachment = { ...n.attachment, secure_url: getDownloadUrl(n.attachment) };
             }
             return n;
         });
     }
     // Single notice
     if (notices?.attachment) {
-        notices.attachment = { ...notices.attachment, secure_url: getSignedUrl(notices.attachment) };
+        notices.attachment = { ...notices.attachment, secure_url: getDownloadUrl(notices.attachment) };
     }
     return notices;
 };
