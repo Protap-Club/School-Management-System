@@ -42,12 +42,16 @@ const buildClassGroups = (studentData, teacherData) => {
     const sec = student.profile?.section || '';
     const key = `${std} ${sec}`.trim();
     if (!groups[key]) {
-      const classTeacher = teacherData.find(t => String(t.profile?.standard) === String(std) && String(t.profile?.section) === String(sec));
+      const classTeacher = teacherData.find(t => t.profile?.assignedClasses?.some(ac => String(ac.standard) === String(std) && String(ac.section) === String(sec)));
       groups[key] = { id: key, standard: std, section: sec, teacher: classTeacher || null, students: [] };
     }
     groups[key].students.push(student);
   });
-  return Object.keys(groups).sort().reduce((acc, k) => { acc[k] = groups[k]; return acc; }, {});
+  return Object.keys(groups).sort((a, b) => {
+    const [stdA, secA = ''] = a.split(' ');
+    const [stdB, secB = ''] = b.split(' ');
+    return Number(stdA) - Number(stdB) || secA.localeCompare(secB);
+  }).reduce((acc, k) => { acc[k] = groups[k]; return acc; }, {});
 };
 
 const Attendance = () => {
@@ -69,9 +73,17 @@ const Attendance = () => {
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [teacherPage, setTeacherPage] = useState(0);
   const [classPages, setClassPages] = useState({});
+  const [statsModal, setStatsModal] = useState(null); // null | 'present' | 'absent'
+  const [statsModalPage, setStatsModalPage] = useState(0);
+  const [statsModalSearch, setStatsModalSearch] = useState('');
   const [manualOverrides, setManualOverrides] = useState(() => {
     try {
-      return JSON.parse(localStorage.getItem('attendance_overrides')) || {};
+      const stored = JSON.parse(localStorage.getItem('attendance_overrides'));
+      if (stored && stored.date === new Date().toISOString().slice(0, 10)) {
+        return stored.overrides || {};
+      }
+      localStorage.removeItem('attendance_overrides');
+      return {};
     } catch {
       return {};
     }
@@ -155,7 +167,7 @@ const Attendance = () => {
       } else {
         updated[studentId] = !current[studentId];
       }
-      localStorage.setItem('attendance_overrides', JSON.stringify(updated));
+      localStorage.setItem('attendance_overrides', JSON.stringify({ date: new Date().toISOString().slice(0, 10), overrides: updated }));
       return updated;
     });
   }, [attendanceMap, manualOverrides]);
@@ -163,7 +175,7 @@ const Attendance = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const studentRes = await api.get('/users?role=student&pageSize=500');
+        const studentRes = await api.get('/users?role=student&pageSize=2000');
         let teacherData = [];
         if (isAdmin) {
           try {
@@ -294,19 +306,26 @@ const Attendance = () => {
           </div>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {STAT_CARDS.map(({ icon: Icon, label, key, color }) => (
-            <div key={key} className="bg-white shadow-sm rounded-2xl p-5 border border-gray-100">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-gray-500 text-sm font-medium">{label}</p>
-                  <p className={`text-3xl font-bold ${color} mt-1`}>{stats[key]}</p>
+          {STAT_CARDS.map(({ icon: Icon, label, key, color }) => {
+            const isClickable = key === 'present' || key === 'absent';
+            return (
+              <div key={key}
+                className={`bg-white shadow-sm rounded-2xl p-5 border border-gray-100 transition-all duration-200 ${isClickable ? 'cursor-pointer hover:shadow-md hover:scale-[1.02]' : ''}`}
+                onClick={() => { if (isClickable) { setStatsModal(key); setStatsModalPage(0); setStatsModalSearch(''); } }}
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-gray-500 text-sm font-medium">{label}</p>
+                    <p className={`text-3xl font-bold ${color} mt-1`}>{stats[key]}</p>
+                  </div>
+                  <div className={`w-12 h-12 ${color.replace('text-', 'bg-').replace('-600', '-100')} rounded-xl flex items-center justify-center`}>
+                    <Icon className={color} size={24} />
+                  </div>
                 </div>
-                <div className={`w-12 h-12 ${color.replace('text-', 'bg-').replace('-600', '-100')} rounded-xl flex items-center justify-center`}>
-                  <Icon className={color} size={24} />
-                </div>
+                {isClickable && <p className="text-xs text-gray-400 mt-2">Click to view list →</p>}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
         {loading ? (
           <div className="p-12 text-center bg-white rounded-2xl border border-gray-100">
@@ -402,6 +421,113 @@ const Attendance = () => {
           </div>
         )}
         <StudentHistoryModal student={selectedStudent} onClose={() => setSelectedStudent(null)} />
+
+        {/* Stats Modal - Present/Absent Student List */}
+        {statsModal && (() => {
+          const isPresent = statsModal === 'present';
+          const filtered = students.filter(s => {
+            const status = getStudentStatus(s._id);
+            return isPresent ? status === 'present' : (status === 'absent' || status === 'unmarked');
+          }).filter(s => !statsModalSearch || s.name.toLowerCase().includes(statsModalSearch.toLowerCase()) || s.email?.toLowerCase().includes(statsModalSearch.toLowerCase()));
+          const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
+          const paged = filtered.slice(statsModalPage * ITEMS_PER_PAGE, (statsModalPage + 1) * ITEMS_PER_PAGE);
+          return (
+            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setStatsModal(null)}>
+              <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
+                {/* Header */}
+                <div className={`p-5 border-b border-gray-100 flex items-center justify-between ${isPresent ? 'bg-green-50' : 'bg-red-50'} rounded-t-2xl`}>
+                  <div className="flex items-center gap-3">
+                    {isPresent ? <FaCheckCircle className="text-green-600" size={22} /> : <FaTimesCircle className="text-red-600" size={22} />}
+                    <div>
+                      <h2 className={`text-lg font-bold ${isPresent ? 'text-green-800' : 'text-red-800'}`}>
+                        {isPresent ? 'Present' : 'Absent'} Students
+                      </h2>
+                      <p className="text-sm text-gray-500">{filtered.length} students</p>
+                    </div>
+                  </div>
+                  <button onClick={() => setStatsModal(null)} className="w-8 h-8 rounded-full bg-white shadow-sm flex items-center justify-center hover:bg-gray-100 transition-colors">
+                    <FaTimesCircle className="text-gray-400" size={16} />
+                  </button>
+                </div>
+                {/* Search */}
+                <div className="p-4 border-b border-gray-100">
+                  <div className="relative">
+                    <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={13} />
+                    <input type="text" placeholder="Search by name or email..." value={statsModalSearch}
+                      onChange={e => { setStatsModalSearch(e.target.value); setStatsModalPage(0); }}
+                      className="w-full pl-9 pr-4 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary" />
+                  </div>
+                </div>
+                {/* Student List */}
+                <div className="flex-1 overflow-y-auto">
+                  {paged.length === 0 ? (
+                    <div className="p-8 text-center text-gray-400">
+                      <p className="text-lg">No students found</p>
+                    </div>
+                  ) : (
+                    <table className="w-full text-left">
+                      <thead className="sticky top-0 bg-gray-50">
+                        <tr className="text-xs font-semibold text-gray-500 uppercase">
+                          <th className="px-5 py-3">#</th>
+                          <th className="px-5 py-3">Student</th>
+                          <th className="px-5 py-3">Class</th>
+                          <th className="px-5 py-3">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-50">
+                        {paged.map((student, idx) => {
+                          const status = getStudentStatus(student._id);
+                          return (
+                            <tr key={student._id} className="hover:bg-gray-50/50 transition-colors">
+                              <td className="px-5 py-3 text-sm text-gray-400">{statsModalPage * ITEMS_PER_PAGE + idx + 1}</td>
+                              <td className="px-5 py-3">
+                                <div className="flex items-center gap-3">
+                                  <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs ${isPresent ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                                    {student.name.charAt(0)}
+                                  </div>
+                                  <div>
+                                    <p className="font-medium text-gray-900 text-sm">{student.name}</p>
+                                    <p className="text-xs text-gray-500">{student.email}</p>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="px-5 py-3 text-sm text-gray-600">
+                                {student.profile?.standard || '-'} {student.profile?.section || ''}
+                              </td>
+                              <td className="px-5 py-3">
+                                <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium border ${STATUS_STYLES[status]}`}>
+                                  {STATUS_LABELS[status]}
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+                {/* Pagination */}
+                {totalPages > 1 && (
+                  <div className="px-4 py-3 border-t border-gray-100 flex justify-between items-center bg-gray-50/50 rounded-b-2xl">
+                    <span className="text-xs text-gray-500">
+                      Page {statsModalPage + 1} of {totalPages}
+                    </span>
+                    <div className="flex gap-1">
+                      <button disabled={statsModalPage === 0} onClick={() => setStatsModalPage(p => p - 1)}
+                        className="px-3 py-1.5 text-xs rounded-lg border border-gray-200 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                        <FaChevronLeft size={10} />
+                      </button>
+                      <button disabled={statsModalPage >= totalPages - 1} onClick={() => setStatsModalPage(p => p + 1)}
+                        className="px-3 py-1.5 text-xs rounded-lg border border-gray-200 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                        <FaChevronRight size={10} />
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })()}
       </div>
     </DashboardLayout>
   );
