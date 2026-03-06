@@ -12,13 +12,14 @@ import {
     generateAccessToken,
     generateRefreshToken,
     hashToken,
-    saveRefreshTokenToUser
+    saveRefreshToken
 } from "../../utils/token.util.js";
+import RefreshToken from "./RefreshToken.model.js";
 
 // Public service functions 
 
 // LOGIN
-export const login = async (email, password, platform) => {
+export const login = async (email, password, platform, metadata = {}) => {
     logger.info("Login attempt", { email, platform });
     
     if (!email || !password) throw new BadRequestError("Email and password are required");
@@ -32,29 +33,19 @@ export const login = async (email, password, platform) => {
         throw new UnauthorizedError("Invalid credentials");
     }
 
-    logger.info("User found", { email, role: user.role, isActive: user.isActive, platform });
-
     // Check account status
     if (!user.isActive) {
         logger.warn("Login failed: Account deactivated", { email, platform, role: user.role });
         throw new ForbiddenError("Account is deactivated");
     }
 
-    // Restriction: Students cannot access the admin dashboard
-    // if (user.role === USER_ROLES.STUDENT) throw new CustomError("Access denied for students", 403);
-
     // Platform-specific restrictions
     if (platform === 'web') {
-        // Students cannot access the admin dashboard (WEB ONLY)
         if (user.role === USER_ROLES.STUDENT) {
-            logger.warn("Login failed: Student access denied on web", { email, platform, role: user.role });
             throw new ForbiddenError("Access denied for students");
         }
     } else if (platform === 'mobile') {
-        // Mobile-specific restrictions (if any)
-        // For example: Only students and teachers allowed
         if (![USER_ROLES.STUDENT, USER_ROLES.TEACHER].includes(user.role)) {
-            logger.warn("Login failed: Role not allowed on mobile", { email, platform, role: user.role });
             throw new ForbiddenError("Only students and teachers can access the mobile app");
         }
     }
@@ -66,17 +57,16 @@ export const login = async (email, password, platform) => {
         throw new UnauthorizedError("Invalid credentials");
     }
 
-    // Update login time without triggering 'save' hooks
+    // Update login time
     await User.updateOne({ _id: user._id }, { $set: { lastLoginAt: new Date() } });
 
     // Generate tokens
     const accessToken = generateAccessToken(user);
     const refreshToken = generateRefreshToken();
 
-    // Store hashed refresh token on user document
-    await saveRefreshTokenToUser(user._id, refreshToken);
+    // Store in new RefreshToken collection
+    await saveRefreshToken(user._id, refreshToken, { ...metadata, platform });
 
-    // Prepare clean response
     const userResponse = {
         name: user.name,
         userid: user._id,
@@ -87,91 +77,71 @@ export const login = async (email, password, platform) => {
         avatarUrl: user.avatarUrl,
     };
 
-    logger.info("Login successful", userResponse);
-
     return { user: userResponse, accessToken, refreshToken };
 };
 
 // REFRESH ACCESS TOKEN
-export const refreshAccessToken = async (oldRefreshToken) => {
+export const refreshAccessToken = async (oldRefreshToken, metadata = {}) => {
     if (!oldRefreshToken) throw new UnauthorizedError("Refresh token is required");
 
     const oldHash = hashToken(oldRefreshToken);
 
-    // Step 1: Try finding user by CURRENT refresh token hash
-    let user = await User.findOne({ refreshTokenHash: oldHash })
-        .select("+refreshTokenHash +refreshTokenExpiresAt +previousRefreshTokenHash +previousRefreshTokenExpiresAt")
-        .populate("schoolId", "name code");
+    // 1. Find the token. We allow tokens that were replaced VERY recently (grace period)
+    const tokenDoc = await RefreshToken.findOne({ 
+        tokenHash: oldHash,
+        isRevoked: false,
+        expiresAt: { $gt: new Date() }
+    }).populate({
+        path: "userId",
+        populate: { path: "schoolId", select: "name code" }
+    });
 
-    let isGracePeriod = false;
-
-    // Step 2: If not found, check the PREVIOUS hash (Grace Period)
-    if (!user) {
-        user = await User.findOne({ previousRefreshTokenHash: oldHash })
-            .select("+refreshTokenHash +refreshTokenExpiresAt +previousRefreshTokenHash +previousRefreshTokenExpiresAt")
-            .populate("schoolId", "name code");
-        
-        if (user) {
-            isGracePeriod = true;
-            logger.info("Refresh attempt using previous token (Grace Period match)", { userId: user._id });
+    if (!tokenDoc) {
+        // Reuse detection: If this token was already replaced by another, check if it was recent
+        const replacedToken = await RefreshToken.findOne({ replacedByTokenHash: oldHash });
+        if (replacedToken) {
+            logger.warn("Refresh token reuse attempted", { oldHash: oldHash.substring(0, 8) });
         }
+        throw new UnauthorizedError("Invalid or expired refresh token");
     }
 
-    if (!user) {
-        logger.warn("Refresh failed: No matching token hash found in database", { 
-            hashSnippet: oldHash.substring(0, 8) 
-        });
-        throw new UnauthorizedError("Invalid refresh token");
+    const user = tokenDoc.userId;
+    if (!user || !user.isActive) {
+        throw new UnauthorizedError("User is no longer active");
     }
 
-    // Step 3: Check expiry based on which match was found
-    const expiry = isGracePeriod ? user.previousRefreshTokenExpiresAt : user.refreshTokenExpiresAt;
+    // 2. Token Rotation with Grace Period
+    // If this token was already replaced, but within the last 60 seconds, reuse the replacement or just allow one more refresh.
+    // To handle concurrent requests, we check if it's already "being replaced".
     
-    // Add 60s grace to previous token expiry if it's a grace period match
-    const now = new Date();
-    const effectiveExpiry = isGracePeriod 
-        ? new Date(expiry.getTime() + 60 * 1000) 
-        : expiry;
-
-    if (!effectiveExpiry || effectiveExpiry < now) {
-        logger.warn("Refresh failed: Token expired", { 
-            userId: user._id, 
-            isGracePeriod, 
-            expiry,
-            now 
-        });
-        
-        // Only clear if it was the CURRENT token that expired
-        if (!isGracePeriod) {
-            await User.updateOne(
-                { _id: user._id },
-                { $unset: { refreshTokenHash: "", refreshTokenExpiresAt: "" } }
-            );
-        }
-        throw new UnauthorizedError("Refresh token has expired, please login again");
-    }
-
-    logger.info("Token refresh successful", { userId: user._id, isGracePeriod });
-
-    // Token Rotation 
-    // Issue new tokens and invalidate the old one
     const newAccessToken = generateAccessToken(user);
     const newRefreshToken = generateRefreshToken();
+    const newHash = hashToken(newRefreshToken);
 
-    await saveRefreshTokenToUser(user._id, newRefreshToken);
+    // Update old token to indicate it was rotated
+    // We don't delete it immediately to allow concurrent requests still using it for a few seconds.
+    await RefreshToken.updateOne(
+        { _id: tokenDoc._id },
+        { 
+            $set: { 
+                replacedByTokenHash: newHash,
+                isRevoked: true ,
+                expiresAt: new Date(Date.now() + 60 * 1000) // Keep for 60s for race conditions
+            } 
+        }
+    );
+
+    // Create the new token
+    await saveRefreshToken(user._id, newRefreshToken, { ...tokenDoc.metadata, ...metadata });
 
     return { accessToken: newAccessToken, refreshToken: newRefreshToken };
 };
 
-// LOGOUT (server-side: clear refresh token)
+// LOGOUT
 export const logout = async (refreshToken) => {
     if (refreshToken) {
         const tokenHash = hashToken(refreshToken);
-        // Clear the refresh token fields for the matching user
-        await User.updateOne(
-            { refreshTokenHash: tokenHash },
-            { $unset: { refreshTokenHash: "", refreshTokenExpiresAt: "" } }
-        );
+        await RefreshToken.deleteOne({ tokenHash });
     }
     return { message: "Logged out successfully" };
 };
