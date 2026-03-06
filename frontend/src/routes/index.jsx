@@ -9,7 +9,7 @@ const Login = lazy(() => import('../pages/Login'));
 const Dashboard = lazy(() => import('../pages/Dashboard'));
 const UsersPage = lazy(() => import('../features/users/UsersPage'));
 const Settings = lazy(() => import('../pages/Settings'));
-const Attendance = lazy(() => import('../pages/Attendance'));
+const Attendance = lazy(() => import('../features/attendance/AttendancePage'));
 const Notice = lazy(() => import('../pages/Notice'));
 const TimetablePage = lazy(() => import('../features/timetable/TimetablePage'));
 const Calendar = lazy(() => import('../pages/Calendar'));

@@ -1,32 +1,43 @@
-// Attendance API Functions
+// Attendance API — all server calls for the attendance feature.
 import api from '../../../lib/axios';
 
 export const attendanceApi = {
-    // Get students
-    // GET /api/v1/users?role=student
+    /** Fetch all students (paginated). */
     getStudents: async () => {
-        const response = await api.get('/users?role=student&pageSize=100');
+        const response = await api.get('/users?role=student&pageSize=2000');
         return response.data;
     },
 
-    // Get teachers
-    // GET /api/v1/users?role=teacher
+    /** Fetch all teachers (paginated). */
     getTeachers: async () => {
-        const response = await api.get('/users?role=teacher&pageSize=100');
+        const response = await api.get('/users?role=teacher&pageSize=500');
         return response.data;
     },
 
-    // Link NFC tag to student
-    // POST /api/v1/attendance/nfc/link
+    /** Fetch today's attendance records for the current school. */
+    getTodayAttendance: async () => {
+        const response = await api.get('/attendance/today');
+        return response.data;
+    },
+
+    /** Link an NFC tag to a student. */
     linkNfcTag: async ({ userId, tagId }) => {
         const response = await api.post('/attendance/nfc/link', { userId, tagId });
         return response.data;
     },
 
-    // Mark attendance via NFC scan
-    // POST /api/v1/attendance/nfc
+    /** Mark attendance via NFC scan. */
     markNfcAttendance: async ({ tagId }) => {
         const response = await api.post('/attendance/nfc', { tagId });
+        return response.data;
+    },
+
+    /**
+     * Manually mark a student present or absent.
+     * @param {{ studentId: string, status: 'Present' | 'Absent' }} params
+     */
+    markManualAttendance: async ({ studentId, status }) => {
+        const response = await api.put('/attendance/manual', { studentId, status });
         return response.data;
     },
 };
