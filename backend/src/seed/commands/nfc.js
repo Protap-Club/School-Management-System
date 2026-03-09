@@ -8,7 +8,7 @@
  */
 
 import User from "../../module/user/model/User.model.js";
-import { NFC_TAGS } from "../data/nfcTags.js";
+import { NFC_TAGS } from "../new/nfcTags.js";
 import logger from "../../config/logger.js";
 
 const runNfcLink = async () => {
