@@ -25,7 +25,7 @@ const FEATURE_META = {
 
 const Settings = () => {
     const { user: currentUser } = useAuth();
-    const { updateTheme } = useTheme();
+    const { updateTheme, fetchBranding } = useTheme();
     const { refreshFeatures } = useFeatures();
     const isSuperAdmin = currentUser?.role === 'super_admin';
     const currentSchoolId = currentUser?.schoolId?._id || currentUser?.schoolId;
@@ -33,6 +33,7 @@ const Settings = () => {
 
     // Theme & logo state
     const [settings, setSettings] = useState({ logoUrl: '', theme: { accentColor: '#2563eb' } });
+    const [refreshKey, setRefreshKey] = useState(() => Date.now());
     const [loading, setLoading] = useState(true);
     const [uploading, setUploading] = useState(false);
     const [message, setMessage] = useState({ type: '', text: '' });
@@ -63,6 +64,7 @@ const Settings = () => {
         fetchSchoolData();
     }, [currentSchoolId, isSuperAdmin]);
 
+
     const handleToggleFeature = useCallback(async (featureKey) => {
         if (!currentSchoolId || togglingFeature) return;
         setTogglingFeature(featureKey);
@@ -74,35 +76,73 @@ const Settings = () => {
                 refreshFeatures();
                 showMessage('success', `${FEATURE_META[featureKey]?.label || featureKey} ${newValue ? 'enabled' : 'disabled'}`);
             }
-        } catch (error) { showMessage('error', 'Internal Server Error'); }
+        } catch { showMessage('error', 'Internal Server Error'); }
         finally { setTogglingFeature(null); }
     }, [currentSchoolId, togglingFeature, features, refreshFeatures, showMessage]);
 
     const handleColorSelect = useCallback(async (colorValue) => {
         setSettings(prev => ({ ...prev, theme: { ...prev.theme, accentColor: colorValue } }));
         updateTheme(colorValue);
-        try { await api.put('/school/', { theme: { accentColor: colorValue } }); showMessage('success', 'Theme updated!'); }
+        try {
+            await api.put('/school/', { theme: { accentColor: colorValue } });
+            showMessage('success', 'Theme updated!');
+            // Refresh branding data to stay in sync with server
+            fetchBranding();
+        }
         catch (error) { console.error('Failed to save theme', error); }
-    }, [updateTheme, showMessage]);
+    }, [updateTheme, showMessage, fetchBranding]);
 
-    const handleFileUpload = useCallback(async (e) => {
+    const handleFileUpload = async (e) => {
         const file = e.target.files[0];
         if (!file) return;
-        if (!file.type.startsWith('image/') || file.size > 2 * 1024 * 1024) { showMessage('error', 'Internal Server Error'); return; }
+
+        if (!file.type.startsWith('image/')) {
+            setMessage({ type: 'error', text: 'Please select an image file.' });
+            return;
+        }
+
+        const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+        if (!allowedTypes.includes(file.mimetype || file.type)) {
+            setMessage({ type: 'error', text: 'Invalid file type. Only JPG, PNG, and WEBP are allowed.' });
+            return;
+        }
+
+        if (file.size > 2 * 1024 * 1024) {
+            setMessage({ type: 'error', text: 'File is too large. Max size is 2MB.' });
+            return;
+        }
+
         setUploading(true);
         setMessage({ type: '', text: '' });
         try {
             const formData = new FormData();
             formData.append('logo', file);
-            const response = await api.post('/school/logo', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+            if (settings._id) formData.append('schoolId', settings._id);
+
+            const response = await api.put('/school/logo', formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data'
+                }
+            });
+
             if (response.data.success) {
                 setSettings(prev => ({ ...prev, logoUrl: response.data.data.logoUrl }));
+                setRefreshKey(Date.now());
                 showMessage('success', 'Logo uploaded successfully!');
                 window.dispatchEvent(new Event('settingsUpdated'));
+
+                // Clear success message after 3 seconds
+                setTimeout(() => setMessage({ type: '', text: '' }), 3000);
             }
-        } catch (error) { showMessage('error', 'Internal Server Error'); }
-        finally { setUploading(false); }
-    }, [showMessage]);
+        } catch (error) {
+            setMessage({
+                type: 'error',
+                text: error.response?.data?.error?.message || error.response?.data?.message || 'Failed to upload logo'
+            });
+        } finally {
+            setUploading(false);
+        }
+    };
 
     if (loading) {
         return (
@@ -227,13 +267,26 @@ const Settings = () => {
                                 <p className="text-sm text-gray-500">See how your branding looks</p>
                             </div>
                             <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
-                                <div className="p-4 flex items-center gap-3" style={{ backgroundColor: accentColor }}>
-                                    <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center p-1.5">
-                                        {settings.logoUrl ? (
-                                            <img src={settings.logoUrl.startsWith('/') ? `http://localhost:5000${settings.logoUrl}` : settings.logoUrl}
-                                                alt="Logo" className="h-full w-full object-contain" onError={(e) => { e.target.style.display = 'none'; }} />
-                                        ) : <span className="text-white font-bold text-lg">S</span>}
-                                    </div>
+                                <div
+                                    className="p-4 flex items-center gap-3"
+                                    style={{ backgroundColor: settings.theme?.accentColor || '#2563eb' }}
+                                >
+                                    {settings.logoUrl ? (
+                                        <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center p-1.5">
+                                            <img
+                                                src={`${settings.logoUrl}${settings.logoUrl.includes('?') ? '&' : '?'}t=${refreshKey}`}
+                                                alt="Logo"
+                                                className="h-full w-full object-contain"
+                                                onError={(e) => {
+                                                    e.target.style.display = 'none';
+                                                }}
+                                            />
+                                        </div>
+                                    ) : (
+                                        <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
+                                            <span className="text-white font-bold text-lg">S</span>
+                                        </div>
+                                    )}
                                     <div>
                                         <p className="text-white font-semibold text-sm">School Portal</p>
                                         <p className="text-white/70 text-xs">Management System</p>
@@ -268,5 +321,4 @@ const Settings = () => {
         </DashboardLayout>
     );
 };
-
 export default Settings;

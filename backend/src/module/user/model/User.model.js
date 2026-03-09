@@ -56,6 +56,10 @@ const userSchema = new mongoose.Schema(
     avatarUrl: {
       type: String,
       trim: true,
+    },
+    avatarPublicId: {
+      type: String,
+      trim: true,
     }, // Optional: Useful for UI/Profiles
 
     // Status & Security
@@ -71,15 +75,6 @@ const userSchema = new mongoose.Schema(
       type: Date,
     },
 
-    // Refresh Token 
-    refreshTokenHash: {
-      type: String,
-      select: false,
-    },
-    refreshTokenExpiresAt: {
-      type: Date,
-      select: false,
-    },
 
     // Archive & Audit Trail 
     isArchived: {

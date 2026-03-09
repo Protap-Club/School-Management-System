@@ -4,7 +4,7 @@ import api from '../lib/axios';
 
 // API function - features are part of school profile
 export const fetchSchoolFeatures = async () => {
-    const response = await api.get('/school/');
+    const response = await api.get('/school');
     return response.data;
 };
 

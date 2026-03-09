@@ -1,0 +1,29 @@
+{
+    "events": [
+        { "title": "Republic Day", "start": "2026-01-26", "end": "2026-01-26", "allDay": true, "type": "national", "description": "Republic Day — National Holiday" },
+        { "title": "Maha Shivaratri", "start": "2026-02-17", "end": "2026-02-17", "allDay": true, "type": "national", "description": "Maha Shivaratri — Hindu Festival" },
+        { "title": "Holi", "start": "2026-03-10", "end": "2026-03-11", "allDay": true, "type": "national", "description": "Holi — Festival of Colors" },
+        { "title": "Good Friday", "start": "2026-04-03", "end": "2026-04-03", "allDay": true, "type": "national", "description": "Good Friday" },
+        { "title": "Eid ul-Fitr", "start": "2026-03-31", "end": "2026-03-31", "allDay": true, "type": "national", "description": "Eid ul-Fitr — End of Ramadan" },
+        { "title": "Independence Day", "start": "2026-08-15", "end": "2026-08-15", "allDay": true, "type": "national", "description": "Independence Day — National Holiday" },
+        { "title": "Janmashtami", "start": "2026-08-25", "end": "2026-08-25", "allDay": true, "type": "national", "description": "Janmashtami — Birth of Lord Krishna" },
+        { "title": "Gandhi Jayanti", "start": "2026-10-02", "end": "2026-10-02", "allDay": true, "type": "national", "description": "Gandhi Jayanti — National Holiday" },
+        { "title": "Dussehra", "start": "2026-10-20", "end": "2026-10-20", "allDay": true, "type": "national", "description": "Dussehra — Vijayadashami" },
+        { "title": "Diwali", "start": "2026-11-08", "end": "2026-11-12", "allDay": true, "type": "national", "description": "Diwali — Festival of Lights (Dhanteras to Bhai Dooj)" },
+        { "title": "Christmas", "start": "2026-12-25", "end": "2026-12-25", "allDay": true, "type": "national", "description": "Christmas Day" },
+
+        { "title": "Unit Test 1", "start": "2026-07-15", "end": "2026-07-22", "allDay": true, "type": "exam", "description": "First unit test for all classes (1-12)" },
+        { "title": "Mid-Term Examination", "start": "2026-09-14", "end": "2026-09-25", "allDay": true, "type": "exam", "description": "Mid-term examination for all classes" },
+        { "title": "Unit Test 2", "start": "2026-11-23", "end": "2026-11-28", "allDay": true, "type": "exam", "description": "Second unit test for all classes" },
+        { "title": "Final Examination", "start": "2027-02-15", "end": "2027-02-28", "allDay": true, "type": "exam", "description": "Annual final examination for all classes" },
+
+        { "title": "Annual Sports Day", "start": "2026-12-12", "end": "2026-12-12", "allDay": true, "type": "event", "description": "Annual sports day — Inter-house competition" },
+        { "title": "Science Exhibition", "start": "2026-09-05", "end": "2026-09-05", "allDay": true, "type": "event", "description": "Annual science exhibition for classes 6-12" },
+        { "title": "Annual Day Function", "start": "2027-01-20", "end": "2027-01-20", "allDay": false, "type": "event", "description": "Annual day cultural program — 5:00 PM to 9:00 PM" },
+        { "title": "Parent-Teacher Meeting", "start": "2026-08-08", "end": "2026-08-08", "allDay": false, "type": "event", "description": "PTM for all classes — 9:00 AM to 1:00 PM" },
+
+        { "title": "Summer Vacation", "start": "2026-05-10", "end": "2026-06-15", "allDay": true, "type": "custom", "description": "Summer vacation for all students and staff" },
+        { "title": "Diwali Vacation", "start": "2026-11-06", "end": "2026-11-16", "allDay": true, "type": "custom", "description": "Extended Diwali break" },
+        { "title": "Winter Break", "start": "2026-12-24", "end": "2027-01-02", "allDay": true, "type": "custom", "description": "Winter holidays" }
+    ]
+}

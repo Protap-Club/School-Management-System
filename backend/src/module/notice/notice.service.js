@@ -3,6 +3,97 @@ import { Notice, NoticeGroup } from "./Notice.model.js";
 import { BadRequestError, NotFoundError, ConflictError, ForbiddenError } from "../../utils/customError.js";
 import logger from "../../config/logger.js";
 import { USER_ROLES } from "../../constants/userRoles.js";
+import { deleteFromCloudinary } from "../../middlewares/upload.middleware.js";
+import cloudinary from "../../config/cloudinary.js";
+import StudentProfile from "../user/model/StudentProfile.model.js";
+import TeacherProfile from "../user/model/TeacherProfile.model.js";
+
+/**
+ * Generates a download URL for a Cloudinary attachment.
+ *
+ * WHY we use direct CDN URLs instead of private_download_url:
+ * - `cloudinary.utils.private_download_url()` generates URLs under /v1_1/<cloud>/download
+ *   These ONLY work for assets explicitly stored as "private" in Cloudinary.
+ * - Our files use `access_mode: 'public'`, so the /download API returns 404.
+ * - The correct approach for public assets is the standard CDN URL with the
+ *   `fl_attachment` transformation flag, which triggers a browser download prompt.
+ *
+ * CDN URL format:
+ *   raw:   https://res.cloudinary.com/<cloud>/raw/upload/fl_attachment/<public_id>
+ *   image: https://res.cloudinary.com/<cloud>/image/upload/fl_attachment/<public_id>.<ext>
+ *
+ * Falls back to the stored secure_url if public_id and URL are missing.
+ */
+const getDownloadUrl = (attachment) => {
+    if (!attachment) return null;
+    try {
+        const storedUrl = attachment.secure_url || attachment.path;
+        if (!storedUrl) return null;
+
+        // If it's not a Cloudinary URL, return as-is (e.g. legacy local path)
+        if (!storedUrl.includes('res.cloudinary.com')) return storedUrl;
+
+        // Detect resource type from the stored URL path segment
+        let resourceType = 'raw';
+        if (storedUrl.includes('/image/upload/')) resourceType = 'image';
+        else if (storedUrl.includes('/video/upload/')) resourceType = 'video';
+
+        // Prefer explicit public_id saved in DB; fall back to extracting from URL
+        let publicId = attachment.public_id || attachment.filename;
+        if (!publicId) {
+            const match = storedUrl.match(new RegExp(`\\/${resourceType}\\/upload\\/(?:v\\d+\\/)?(.+)$`));
+            if (match && match[1]) publicId = match[1];
+        }
+
+        // If we still couldn't determine the public_id, return the raw URL as fallback
+        if (!publicId) return storedUrl;
+
+        // Return the plain Cloudinary CDN URL (no fl_attachment transformation).
+        //
+        // WHY NOT use fl_attachment here?
+        // - fl_attachment:<name> without extension → browser saves as "All Files" (no .pdf)
+        // - fl_attachment:name.pdf → Cloudinary URL router misinterprets the dot → HTTP 400
+        // - Even if Cloudinary served fl_attachment correctly, the frontend's cross-origin
+        //   <a download> attribute is IGNORED by browsers for cross-origin URLs (CORS rule).
+        //   The browser navigates to the URL raw instead of downloading — showing PDF binary text.
+        //
+        // CORRECT approach: return the plain CDN URL. The frontend will use fetch() → Blob
+        // → URL.createObjectURL() → programmatic <a> click. This:
+        //   ✅ Works cross-origin (fetch handles CORS, the blob URL is same-origin)
+        //   ✅ Preserves the original filename with .pdf extension
+        //   ✅ No HTTP 400 from Cloudinary URL parsing
+        //   ✅ Works in all browsers
+        const cdnUrl = cloudinary.url(publicId, {
+            resource_type: resourceType,
+            secure: true,
+        });
+
+        return cdnUrl;
+    } catch (err) {
+        logger.warn(`Failed to generate download URL: ${err.message}`);
+        return attachment.secure_url || attachment.path;
+    }
+};
+
+/**
+ * Enriches a notice (or array of notices) by replacing the attachment URL
+ * with a fresh CDN download URL (with fl_attachment) so the client can download the file.
+ */
+const enrichWithSignedUrls = (notices) => {
+    if (Array.isArray(notices)) {
+        return notices.map(n => {
+            if (n.attachment) {
+                n.attachment = { ...n.attachment, secure_url: getDownloadUrl(n.attachment) };
+            }
+            return n;
+        });
+    }
+    // Single notice
+    if (notices?.attachment) {
+        notices.attachment = { ...notices.attachment, secure_url: getDownloadUrl(notices.attachment) };
+    }
+    return notices;
+};
 
 // NOTICE SERVICES
 
@@ -14,19 +105,32 @@ export const createNotice = async (schoolId, userId, data, file) => {
         : (data.recipients || []);
 
     // Build attachment if file exists
-    const attachment = file ? {
-        filename: file.filename,
-        originalName: file.originalname,
-        path: `/uploads/notices/${file.filename}`,
-        size: file.size,
-        mimetype: file.mimetype,
-    } : null;
+    // Cloudinary returns the full URL in file.path/secure_url and public_id in file.filename/public_id
+    let attachment = null;
+    if (file) {
+        const fileUrl = file.path || file.secure_url || file.url;
+        const filePublicId = file.filename || file.public_id;
+
+        console.log(`[DEBUG] Notice attachment extracted - URL: ${fileUrl}, PublicID: ${filePublicId}`);
+
+        attachment = {
+            filename: filePublicId,
+            originalName: file.originalname,
+            path: fileUrl,
+            secure_url: fileUrl,
+            public_id: filePublicId,
+            size: file.size,
+            mimetype: file.mimetype,
+        };
+    }
 
     const notice = await Notice.create({
         schoolId,
         createdBy: userId,
         title: data.title || "",
         message: data.message,
+        recipientType: data.recipientType,
+        type: attachment ? "file" : "notice",
         recipients,
         attachment,
     });
@@ -47,9 +151,9 @@ export const getNotices = async (user, platform, filters = {}) => {
     // Platform-specific logic
     if (platform === 'mobile') {
         if (user.role === USER_ROLES.STUDENT) {
-            return await getStudentMobileNotices(schoolId, userId);
+            return await getStudentMobileNotices(schoolId, user);
         } else if (user.role === USER_ROLES.TEACHER) {
-            return await getTeacherMobileNotices(schoolId, userId);
+            return await getTeacherMobileNotices(schoolId, user);
         } else {
             // ADMIN or others restricted on mobile notice view
             throw new ForbiddenError("Only students and teachers can access mobile notices");
@@ -73,26 +177,55 @@ export const getNotices = async (user, platform, filters = {}) => {
         }
     }
 
-    return await Notice.find(query)
+    const results = await Notice.find(query)
         .populate("createdBy", "name email role")
         .sort({ createdAt: -1 })
         .lean();
+
+    return enrichWithSignedUrls(results);
 };
 
 // Get notices received by a user
-export const getReceivedNotices = async (schoolId, userId) => {
-    return await Notice.find({
+export const getReceivedNotices = async (schoolId, user) => {
+    const userId = user._id;
+    const role = user.role;
+
+    // 1. Gather all target strings/IDs the user is a part of
+    const targetRecipients = [userId.toString()]; // User's own ID
+
+    // 2. Fetch User's Groups
+    const userGroups = await NoticeGroup.find({ schoolId, members: userId, isActive: true }).select('_id').lean();
+    userGroups.forEach(g => targetRecipients.push(g._id.toString()));
+
+    // 3. Fetch User's Classes (if student or teacher)
+    if (role === USER_ROLES.STUDENT) {
+        const profile = await StudentProfile.findOne({ schoolId, userId }).lean();
+        if (profile && profile.standard && profile.section) {
+            targetRecipients.push(`${profile.standard}-${profile.section}`);
+        }
+    } else if (role === USER_ROLES.TEACHER) {
+        const profile = await TeacherProfile.findOne({ schoolId, userId }).lean();
+        if (profile && Array.isArray(profile.assignedClasses)) {
+            profile.assignedClasses.forEach(c => {
+                targetRecipients.push(`${c.standard}-${c.section}`);
+            });
+        }
+    }
+
+    const results = await Notice.find({
         schoolId,
         createdBy: { $ne: userId },
         $or: [
             { recipients: { $size: 0 } },  // Sent to all
-            { recipients: userId }          // Sent to me
+            { recipients: { $in: targetRecipients } } // Sent to me, my class, or my group
         ],
     })
         .populate("createdBy", "name email role")
         .sort({ createdAt: -1 })
         .limit(50)
         .lean();
+
+    return enrichWithSignedUrls(results);
 };
 
 // Get a single notice by ID
@@ -109,7 +242,7 @@ export const getNoticeById = async (schoolId, noticeId) => {
         throw new NotFoundError("Notice not found");
     }
 
-    return notice;
+    return enrichWithSignedUrls(notice);
 };
 
 // Permanently delete a notice
@@ -126,6 +259,12 @@ export const deleteNotice = async (schoolId, noticeId, userId) => {
 
     if (!notice) {
         throw new NotFoundError("Notice not found");
+    }
+
+    // Clean up the attachment from Cloudinary
+    if (notice.attachment) {
+        const publicIdToDelete = notice.attachment.public_id || notice.attachment.path;
+        await deleteFromCloudinary(publicIdToDelete);
     }
 
     logger.info(`Notice deleted: ${noticeId}`);
@@ -197,14 +336,14 @@ export const deleteGroup = async (schoolId, groupId, userId) => {
 // ─── MOBILE HELPERS ─────────────────────────────────────────────
 
 // STUDENT: Returns only received notices
-const getStudentMobileNotices = async (schoolId, userId) => {
-    return await getReceivedNotices(schoolId, userId);
+const getStudentMobileNotices = async (schoolId, user) => {
+    return await getReceivedNotices(schoolId, user);
 };
 
 // TEACHER: Returns received + history (sent) notices
-const getTeacherMobileNotices = async (schoolId, userId) => {
-    const received = await getReceivedNotices(schoolId, userId);
-    const history = await Notice.find({ schoolId, createdBy: userId })
+const getTeacherMobileNotices = async (schoolId, user) => {
+    const received = await getReceivedNotices(schoolId, user);
+    const history = await Notice.find({ schoolId, createdBy: user._id })
         .populate("createdBy", "name email role")
         .sort({ createdAt: -1 })
         .limit(20) // Limit mobile history to recent 20

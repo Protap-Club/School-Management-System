@@ -58,12 +58,6 @@ export const createTimetable = async (data) => {
     return response.data;
 };
 
-export const updateTimetableStatus = async (id, status) => {
-    // status: "DRAFT" | "PUBLISHED"
-    const response = await api.patch(`/timetables/${id}/status`, { status });
-    return response.data;
-};
-
 export const deleteTimetable = async (id) => {
     const response = await api.delete(`/timetables/${id}`);
     return response.data;
@@ -105,6 +99,11 @@ export const getTeacherSchedule = async (teacherId, academicYear = null) => {
         url += `?academicYear=${academicYear}`;
     }
     const response = await api.get(url);
+    return response.data;
+};
+
+export const getMySchedule = async () => {
+    const response = await api.get('/timetables/schedule/me');
     return response.data;
 };
 

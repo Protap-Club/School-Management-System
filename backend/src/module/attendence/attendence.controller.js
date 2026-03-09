@@ -29,11 +29,9 @@ export const markAttendance = asyncHandler(async (req, res) => {
         throw new BadRequestError("NFCID is Required");
     }
 
-    // Mark attendance in service
-    const schoolId = req.user ? req.user.schoolId : undefined;
-    if (!schoolId) {
-        throw new BadRequestError("Schoolid is required");
-    }
+    // schoolId is optional — service resolves it from the NFC-linked student record
+    // When using x-device-key bypass, req.user is undefined, which is fine
+    const schoolId = req.user?.schoolId;
 
     const result = await nfcService.markAttendanceByNfc(nfcUid, schoolId);
 
@@ -56,5 +54,36 @@ export const getTodayAttendance = asyncHandler(async (req, res) => {
     res.status(200).json({
         success: true,
         data: records
+    });
+});
+
+// Get specific student's attendance by ID (mobile)
+export const getStudentAttendanceById = asyncHandler(async (req, res) => {
+    const { id: studentId } = req.params;
+    const schoolId = req.user.schoolId?._id || req.user.schoolId;
+
+    logger.info("Controller: Student attendance by ID request", { studentId, userId: req.user._id });
+
+    const result = await nfcService.getStudentAttendanceById(studentId, schoolId);
+
+    res.status(200).json({
+        success: true,
+        data: result
+    });
+});
+
+// Mark attendance manually (teacher/admin toggle)
+export const markManual = asyncHandler(async (req, res) => {
+    const { studentId, status } = req.body;
+    const markerUserId = req.user._id;
+    const markerRole = req.user.role;
+    const schoolId = req.user.schoolId?._id || req.user.schoolId;
+
+    const result = await nfcService.markManualAttendance(markerUserId, markerRole, studentId, status, schoolId);
+
+    res.status(200).json({
+        success: true,
+        message: `Student marked as ${status}`,
+        data: result
     });
 });

@@ -28,9 +28,7 @@ export const noticesApi = {
         if (noticeData.attachment) {
             formData.append('attachment', noticeData.attachment);
         }
-        const response = await api.post('/notices', formData, {
-            headers: { 'Content-Type': 'multipart/form-data' },
-        });
+        const response = await api.post('/notices', formData);
         return response.data;
     },
 

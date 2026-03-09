@@ -38,7 +38,7 @@ export const useTheme = () => {
     const { data: brandingData, isLoading: loading, refetch: fetchBranding } = useQuery({
         queryKey: themeKeys.branding(),
         queryFn: async () => {
-            const response = await api.get('/school/');
+            const response = await api.get('/school');
             return response.data;
         },
         enabled: hasToken,
@@ -48,9 +48,18 @@ export const useTheme = () => {
     // Sync TanStack Query data to Redux store
     useEffect(() => {
         if (brandingData?.data) {
+            const schoolData = brandingData.data.school || brandingData.data;
+            const apiColor = schoolData.theme?.accentColor;
+
+            // Centralize branding data in Redux
             dispatch(setBranding(brandingData.data));
-            if (brandingData.data.theme?.accentColor) {
-                applyThemeToDOM(brandingData.data.theme.accentColor);
+
+            // Only apply theme from DOM if we don't have a local preference yet
+            // or if we're initializing and want to ensure the latest school brand is set.
+            // Note: updateTheme locally updates localStorage immediately.
+            if (apiColor && !localStorage.getItem('school-accent-color')) {
+                applyThemeToDOM(apiColor);
+                dispatch(setAccentColor(apiColor));
             }
         }
     }, [brandingData, dispatch]);
@@ -89,7 +98,7 @@ export const useFeatures = () => {
     const { data, isLoading: loading } = useQuery({
         queryKey: featuresKeys.school(),
         queryFn: async () => {
-            const response = await api.get('/school/');
+            const response = await api.get('/school');
             return response.data;
         },
         enabled: hasToken,

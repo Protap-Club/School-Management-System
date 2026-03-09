@@ -2,4 +2,6 @@
 node_modules
 BACKEND_PROJECT_REPORT.md
 ./API_ANALYSIS_REPORT.md
-
+src/seed/data/
+src/seed/lib/loadJson.js
+src/seed/lib/studentRecords.js

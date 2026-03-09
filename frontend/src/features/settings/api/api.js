@@ -3,16 +3,16 @@ import api from '../../../lib/axios';
 
 export const settingsApi = {
     // Get school profile (includes branding, features)
-    // GET /api/v1/school/
+    // GET /api/v1/school
     getSchoolProfile: async () => {
-        const response = await api.get('/school/');
+        const response = await api.get('/school');
         return response.data;
     },
 
     // Update school profile (includes theme)
-    // PUT /api/v1/school/
+    // PUT /api/v1/school
     updateSchoolProfile: async (data) => {
-        const response = await api.put('/school/', data);
+        const response = await api.put('/school', data);
         return response.data;
     },
 

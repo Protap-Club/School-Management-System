@@ -30,6 +30,11 @@ const attendanceSchema = new mongoose.Schema(
             enum: ["NFC", "Manual"],
             default: "NFC"
         },
+        // Tracks which teacher/admin manually marked the record (null for NFC)
+        markedByUserId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User"
+        },
         remarks: { type: String, trim: true }
     },
     { timestamps: true }

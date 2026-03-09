@@ -19,12 +19,24 @@ export const PROFILE_CONFIG = {
     },
     teacher: {
         model: TeacherProfile,
-        extractFields: (data) => ({
-            employeeId: data.employeeId,
-            qualification: data.qualification,
-            joiningDate: data.joiningDate,
-            assignedClasses: data.assignedClasses // Optional
-        })
+        extractFields: (data) => {
+            const fields = {
+                employeeId: data.employeeId,
+                qualification: data.qualification,
+                joiningDate: data.joiningDate,
+                assignedClasses: data.assignedClasses || []
+            };
+
+            // If no assignedClasses but standard/section provided, create a single entry
+            if (fields.assignedClasses.length === 0 && data.standard && data.section) {
+                fields.assignedClasses.push({
+                    standard: data.standard,
+                    section: data.section,
+                    subjects: []
+                });
+            }
+            return fields;
+        }
     },
     admin: {
         model: AdminProfile,

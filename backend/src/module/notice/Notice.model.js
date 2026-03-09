@@ -45,6 +45,8 @@ const noticeSchema = new mongoose.Schema(
       path: { type: String },
       size: { type: Number },
       mimetype: { type: String },
+      secure_url: { type: String },
+      public_id: { type: String },
     },
     status: {
       type: String,

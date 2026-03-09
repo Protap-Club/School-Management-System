@@ -14,12 +14,16 @@ export const useAuth = () => {
     const hasToken = !!localStorage.getItem('token');
 
     // Auth check query
+    // retry: 1 gives the axios interceptor time to silently refresh the access token
+    // on a 401 before React Query gives up and marks the query as failed.
+    // retryDelay: 1500ms ensures the interceptor's /auth/refresh call has time to complete.
     const authQuery = useQuery({
         queryKey: authKeys.user(),
         queryFn: authApi.checkAuth,
         enabled: hasToken,
-        retry: false,
-        staleTime: 5 * 60 * 1000,
+        retry: 1,
+        retryDelay: 1500,
+        staleTime: 10 * 60 * 1000,
     });
 
     // Handle auth check side effects
@@ -29,10 +33,16 @@ export const useAuth = () => {
         }
     }, [authQuery.isSuccess, authQuery.data, dispatch]);
 
+    // Only clear the session if the query truly failed AND the token is gone
+    // (meaning the axios interceptor also failed to refresh — a genuine session expiry).
+    // Without this guard, a transient 401 that the interceptor handles would still
+    // trigger clearUser() because React Query's isError fires before the retry resolves.
     useEffect(() => {
         if (authQuery.isError) {
-            localStorage.removeItem('token');
-            dispatch(clearUser());
+            const tokenStillExists = !!localStorage.getItem('token');
+            if (!tokenStillExists) {
+                dispatch(clearUser());
+            }
         }
     }, [authQuery.isError, dispatch]);
 

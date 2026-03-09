@@ -2,6 +2,7 @@ import * as authService from "./auth.service.js";
 import asyncHandler from "../../utils/asyncHandler.js";
 import { conf } from "../../config/index.js";
 import logger from "../../config/logger.js";
+import { UnauthorizedError } from "../../utils/customError.js";
 
 // Shared cookie options for the refresh token
 const REFRESH_COOKIE_OPTIONS = {
@@ -16,10 +17,12 @@ const REFRESH_COOKIE_OPTIONS = {
 export const login = asyncHandler(async (req, res) => {
     const { email, password } = req.body;
     const platform = req.headers["x-platform"] === "mobile" ? "mobile" : "web";
-    
-    logger.info("Controller: Login request received", { email, platform });
+    const metadata = {
+        userAgent: req.headers["user-agent"],
+        ip: req.ip || req.headers["x-forwarded-for"] || req.connection.remoteAddress,
+    };
 
-    const result = await authService.login(email, password, platform);
+    const result = await authService.login(email, password, platform, metadata);
 
     logger.info("Controller: Login successful, sending response", {
         email,
@@ -36,14 +39,25 @@ export const login = asyncHandler(async (req, res) => {
         success: true,
         token: result.accessToken,
         user: result.user,
+        refreshToken: result.refreshToken,
     });
 });
 
 // Refresh access token using the HttpOnly refresh cookie
 export const refresh = asyncHandler(async (req, res) => {
-    const oldRefreshToken = req.cookies.refreshToken;
+    // Mobile sends token in body (no cookie jar); web sends it as HttpOnly cookie
+    const oldRefreshToken = req.cookies?.refreshToken || req.body?.refreshToken;
 
-    const result = await authService.refreshAccessToken(oldRefreshToken);
+    if (!oldRefreshToken) {
+        throw new UnauthorizedError("Refresh token is missing");
+    }
+
+    const metadata = {
+        userAgent: req.headers["user-agent"],
+        ip: req.ip || req.headers["x-forwarded-for"] || req.connection.remoteAddress,
+    };
+
+    const result = await authService.refreshAccessToken(oldRefreshToken, metadata);
 
     // Set the new rotated refresh token cookie
     res.cookie("refreshToken", result.refreshToken, REFRESH_COOKIE_OPTIONS);
@@ -51,12 +65,13 @@ export const refresh = asyncHandler(async (req, res) => {
     res.status(200).json({
         success: true,
         token: result.accessToken,
+        refreshToken: result.refreshToken,
     });
 });
 
 // Handle user logout — clears refresh token from DB and cookie
 export const logout = asyncHandler(async (req, res) => {
-    const refreshToken = req.cookies.refreshToken;
+    const refreshToken = req.cookies?.refreshToken || req.body?.refreshToken;
 
     await authService.logout(refreshToken);
 

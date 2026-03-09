@@ -250,3 +250,115 @@ const getTeacherMobileAttendance = async (teacherUserId, schoolId) => {
 
     return { students };
 };
+
+// GET STUDENT ATTENDANCE BY ID (for mobile — fetches a specific student's attendance)
+export const getStudentAttendanceById = async (studentId, schoolId) => {
+    // Verify the student exists and belongs to the school
+    const student = await User.findOne({ _id: studentId, schoolId, role: USER_ROLES.STUDENT })
+        .select("_id name")
+        .lean();
+
+    if (!student) {
+        throw new NotFoundError("Student not found");
+    }
+
+    return await getStudentMobileAttendance(studentId, schoolId);
+};
+
+// ─── MANUAL ATTENDANCE ──────────────────────────────────────────
+
+/**
+ * Marks a student present or absent manually (by teacher or admin).
+ * Teachers can only mark students in their assigned classes.
+ * Admins can mark any student in the same school.
+ * Uses upsert to create or update the record for today.
+ * @param {string} markerUserId - The teacher/admin user ID who is marking
+ * @param {string} markerRole - The role of the marker ("teacher" or "admin")
+ * @param {string} studentId - The student being marked
+ * @param {string} status - "Present" or "Absent"
+ * @param {string} schoolId - The school context
+ */
+export const markManualAttendance = async (markerUserId, markerRole, studentId, status, schoolId) => {
+    // Step 1: Verify student exists and belongs to the same school
+    const student = await User.findOne({ _id: studentId, schoolId, role: USER_ROLES.STUDENT })
+        .select("_id name schoolId")
+        .lean();
+
+    if (!student) {
+        throw new NotFoundError("Student not found in this school");
+    }
+
+    // Step 2: If teacher, verify they are assigned to the student's class
+    if (markerRole === USER_ROLES.TEACHER) {
+        const studentProfile = await StudentProfile.findOne({ userId: studentId, schoolId })
+            .select("standard section")
+            .lean();
+
+        if (!studentProfile) {
+            throw new NotFoundError("Student profile not found");
+        }
+
+        const teacherProfile = await TeacherProfile.findOne({ userId: markerUserId, schoolId })
+            .select("assignedClasses")
+            .lean();
+
+        if (!teacherProfile || !teacherProfile.assignedClasses?.length) {
+            throw new ForbiddenError("You have no assigned classes");
+        }
+
+        // Check if teacher is assigned to the student's standard + section
+        const isAssigned = teacherProfile.assignedClasses.some(
+            c => c.standard === studentProfile.standard && c.section === studentProfile.section
+        );
+
+        if (!isAssigned) {
+            throw new ForbiddenError("You can only mark attendance for students in your assigned classes");
+        }
+    }
+
+    // Step 3: Upsert attendance record for today
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+
+    const updateFields = {
+        status,
+        markedBy: "Manual",
+        markedByUserId: markerUserId,
+    };
+
+    // Only set checkInTime when marking present; clear it when absent
+    if (status === "Present") {
+        updateFields.checkInTime = new Date();
+    } else {
+        updateFields.checkInTime = null;
+    }
+
+    const record = await Attendance.findOneAndUpdate(
+        { studentId: student._id, schoolId, date: startOfDay },
+        { $set: updateFields },
+        { upsert: true, new: true, runValidators: true }
+    );
+
+    // Step 4: Emit socket event for real-time dashboard updates
+    try {
+        const io = getIO();
+        io.to(`school-${schoolId}`).emit("attendance-marked", {
+            studentId: student._id,
+            name: student.name,
+            status,
+            checkInTime: record.checkInTime
+        });
+    } catch (err) {
+        logger.warn(`Socket emit failed: ${err.message}`);
+    }
+
+    logger.info(`Manual attendance: ${student.name} marked ${status} by ${markerUserId}`);
+
+    return {
+        studentId: student._id,
+        name: student.name,
+        status: record.status,
+        markedBy: record.markedBy,
+        checkInTime: record.checkInTime
+    };
+};

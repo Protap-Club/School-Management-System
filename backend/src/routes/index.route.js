@@ -6,6 +6,7 @@ import attendanceRoutes from "../module/attendence/attendance.route.js";
 import noticeRoutes from "../module/notice/notice.route.js";
 import calendarRoutes from "../module/calendar/calendar.route.js";
 import timetableRoutes from "../module/timetable/timetable.route.js";
+import feesRoutes from "../module/fees/fees.route.js";
 import { checkAuth } from "../middlewares/auth.middleware.js";
 
 const router = express.Router();
@@ -13,15 +14,18 @@ const router = express.Router();
 // Public
 router.use("/auth", authRoutes);
 
+// NFC device endpoint — uses its own device-key auth, must come before global checkAuth
+router.use("/attendance", attendanceRoutes);
+
 // Protected (all below need auth)
 router.use(checkAuth);
 
 router.use("/users", userRoutes);
 router.use("/school", schoolRoutes);
-router.use("/attendance", attendanceRoutes);
 router.use("/notices", noticeRoutes);
 router.use("/calendar", calendarRoutes);
 router.use("/timetables", timetableRoutes);
+router.use("/fees", feesRoutes);
 
 export default router;
 

@@ -1,66 +1,88 @@
 import * as userService from "./user.service.js";
-import asyncHandler from "../../utils/asyncHandler.js"; // Wrapper for async route handlers
-import logger from "../../config/logger.js"; // Import the logger
+import asyncHandler from "../../utils/asyncHandler.js";
+import logger from "../../config/logger.js";
+import { BadRequestError } from "../../utils/customError.js";
 
 // Create a new user with associated profile
 export const createUser = asyncHandler(async (req, res) => {
     const result = await userService.createUser(req.user, req.body);
+    logger.info(`User created: ${result.user.email}`);
     res.status(201).json({
         success: true,
-        message: "User created",
+        message: "User created successfully",
         data: result
     });
-    logger.info(`User created: ${result.user.email}`);
 });
 
-// Get list of users (filters handled by service)
-// Get list of users (filters handled by service)
+// Get list of users (filtered by role, school, pagination)
 export const getUsers = asyncHandler(async (req, res) => {
-    const filters = { ...req.query };
-    if (req.params.id) {
-        filters.userIds = req.params.id;
-    }
-    const result = await userService.getUsers(req.user, filters);
-
-    // If getting single user by ID, return just that user object (or 404 handled by service/empty list check)
-    if (req.params.id) {
-        if (result.users.length === 0) {
-            return res.status(404).json({ success: false, message: "User not found" });
-        }
-        return res.status(200).json({ success: true, data: result.users[0] });
-    }
-
+    const result = await userService.getUsers(req.user, { ...req.query });
     res.status(200).json({
         success: true,
         data: result
     });
 });
 
-// Toggle user archive status (bulk and single supported)
-export const toggleUserStatus = asyncHandler(async (req, res) => {
+// Get a single user by ID
+export const getUserById = asyncHandler(async (req, res) => {
+    const result = await userService.getUserById(req.user, req.params.id);
+    res.status(200).json({
+        success: true,
+        data: result
+    });
+});
+
+// Get own profile (accessible from both web and mobile)
+export const getMyProfile = asyncHandler(async (req, res) => {
+    const result = await userService.getMyProfile(req.user._id);
+    res.status(200).json({
+        success: true,
+        data: result
+    });
+});
+
+// Toggle user archive status (soft delete / restore)
+export const toggleArchive = asyncHandler(async (req, res) => {
     const { userIds, isArchived } = req.body;
-    const ids = Array.isArray(userIds) ? userIds : [req.params.id];
-    const archivedStatus = isArchived !== undefined ? isArchived : (req.path.includes('archive'));
-
-    const result = await userService.toggleUserStatus(req.user, ids, archivedStatus);
+    const result = await userService.toggleArchive(req.user, userIds, isArchived);
+    logger.info(`User archive toggled: ${userIds.length} users, archived=${isArchived}`);
     res.status(200).json({
         success: true,
-        message: `Users ${archivedStatus ? 'archived' : 'restored'}`,
+        message: `Users ${isArchived ? 'archived' : 'restored'} successfully`,
         data: result
     });
-    logger.info(`User status toggled: ${ids.length} users, archived=${archivedStatus}`);
 });
 
-// Permanently delete users (bulk and single supported)
-export const hardDeleteUsers = asyncHandler(async (req, res) => {
-    const ids = Array.isArray(req.body.userIds) ? req.body.userIds : [req.params.id];
-    const result = await userService.hardDeleteUsers(req.user, ids);
+// Permanently delete a single user (must be archived first)
+// NOTE: Hard delete routes are commented out for now. Keep this handler for future use.
+export const hardDeleteUser = asyncHandler(async (req, res) => {
+    await userService.hardDeleteUsers(req.user, [req.params.id]);
+    logger.info(`User permanently deleted: ${req.params.id}`);
+    res.status(204).end();
+});
+
+// Permanently delete users in bulk (must be archived first)
+// NOTE: Hard delete routes are commented out for now. Keep this handler for future use.
+export const batchDeleteUsers = asyncHandler(async (req, res) => {
+    const result = await userService.hardDeleteUsers(req.user, req.body.userIds);
+    logger.info(`Users permanently deleted: ${result.deletedCount}`);
+    res.status(204).end();
+});
+
+// Upload user avatar
+export const uploadAvatar = asyncHandler(async (req, res) => {
+    if (!req.file) throw new BadRequestError("No file uploaded");
+
+    const avatarUrl = req.file.path || req.file.secure_url || req.file.url;
+    const avatarPublicId = req.file.filename || req.file.public_id;
+
+    const result = await userService.updateAvatar(req.user._id, avatarUrl, avatarPublicId);
+    logger.info(`Avatar uploaded for user: ${req.user._id}`);
     res.status(200).json({
         success: true,
-        message: "Users permanently deleted",
+        message: "Avatar uploaded successfully",
         data: result
     });
-    logger.info(`Users deleted permanently: ${result.deleteResult.deletedCount}`);
 });
 
 export const userProfile = asyncHandler(async (req, res) => {

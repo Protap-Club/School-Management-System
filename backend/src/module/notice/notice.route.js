@@ -1,8 +1,7 @@
 import express from "express";
 import multer from "multer";
-import path from "path";
-import fs from "fs";
-import { fileURLToPath } from "url";
+import cloudinaryStorage from "multer-storage-cloudinary";
+import cloudinary from "../../config/cloudinary.js";
 import {
     createNotice,
     getNotices,
@@ -26,54 +25,55 @@ import {
     groupIdParamsSchema,
 } from "./notice.validation.js";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// Multer config
-const noticesDir = path.join(__dirname, "../../../uploads/notices");
-if (!fs.existsSync(noticesDir)) {
-    fs.mkdirSync(noticesDir, { recursive: true });
-}
-
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => cb(null, noticesDir),
-    filename: (req, file, cb) => {
-        const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
-        const ext = path.extname(file.originalname).toLowerCase();
-        cb(null, `notice_${uniqueSuffix}${ext}`);
-    },
+// Cloudinary Storage for Notice Attachments
+const noticeStorage = cloudinaryStorage({
+    cloudinary: { v2: cloudinary },
+    params: function (req, file, cb) {
+        // Namespace per school: schools/{schoolId}/notices
+        const folder = req.schoolId ? `schools/${req.schoolId}/notices` : 'schools/default/notices';
+        cb(null, {
+            folder,
+            // 'raw' is the correct type for PDFs, DOCX, XLSX etc.
+            // With 'auto', Cloudinary classifies PDFs as 'image', making the
+            // public_id unpredictable and the /download API endpoint return 404.
+            // With 'raw', the extension (.pdf, .docx) is embedded in the public_id
+            // and the CDN URL is always: res.cloudinary.com/<cloud>/raw/upload/<public_id>
+            resource_type: 'raw',
+            access_mode: 'public'
+        });
+    }
 });
 
 const ALLOWED_MIMETYPES = [
     "application/pdf",
-    "application/msword",
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    "application/vnd.ms-powerpoint",
-    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-    "application/vnd.ms-excel",
-    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    "text/plain",
-    "text/csv",
-    "image/png",
+    "application/msword", // doc
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document", // docx
     "image/jpeg",
     "image/jpg",
+    "image/png",
+    "application/vnd.ms-powerpoint", // ppt
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation", // pptx
+    "application/vnd.ms-excel", // xls
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", // xlsx
     "video/mp4",
-    "video/quicktime",
-    "video/x-msvideo",
+    "video/quicktime", // mov
+    "video/x-msvideo", // avi
+    "text/csv",
+    "text/plain" // txt
 ];
 
 const fileFilter = (req, file, cb) => {
     if (ALLOWED_MIMETYPES.includes(file.mimetype)) {
         cb(null, true);
     } else {
-        cb(new Error("File type not allowed. Supported: PDF, DOC, DOCX, PPT, PPTX, XLS, XLSX, TXT, CSV, PNG, JPG, JPEG, MP4, MOV, AVI"), false);
+        cb(new Error("File type not allowed. Supported: PDF, DOC, DOCX, JPG, JPEG, PNG, PPT, PPTX, XLSX, XLS, MP4, MOV, AVI, CSV, TXT"), false);
     }
 };
 
 const upload = multer({
-    storage,
+    storage: noticeStorage,
     fileFilter,
-    limits: { fileSize: 25 * 1024 * 1024 },
+    limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit as requested
 });
 
 const router = express.Router();
@@ -92,7 +92,7 @@ router.get("/received", getReceivedNotices);
 // Notices CRUD
 router.get("/", checkRole([USER_ROLES.ADMIN, USER_ROLES.TEACHER, USER_ROLES.STUDENT]), getNotices);
 router.post("/", checkRole([USER_ROLES.ADMIN, USER_ROLES.TEACHER]), upload.single("attachment"), validate(createNoticeSchema), createNotice);
-router.get("/:id", checkRole([USER_ROLES.ADMIN, USER_ROLES.TEACHER]), validate(noticeIdParamsSchema), getNoticeById);
+router.get("/:id", checkRole([USER_ROLES.ADMIN, USER_ROLES.TEACHER, USER_ROLES.STUDENT]), validate(noticeIdParamsSchema), getNoticeById);
 router.delete("/:id", checkRole([USER_ROLES.ADMIN, USER_ROLES.TEACHER]), validate(noticeIdParamsSchema), deleteNotice);
 
 export default router;

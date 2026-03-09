@@ -6,10 +6,10 @@ import { BadRequestError } from "../../utils/customError.js";
 // Create a new school
 export const createSchool = asyncHandler(async (req, res) => {
     const result = await schoolService.createSchool(req.user._id, req.body);
-    res.status(201).json({ 
-        success: true, 
-        message: "School created", 
-        data: result 
+    res.status(201).json({
+        success: true,
+        message: "School created",
+        data: result
     });
     logger.info(`School created: ${result.school.name}`);
 });
@@ -18,10 +18,10 @@ export const createSchool = asyncHandler(async (req, res) => {
 export const updateSchool = asyncHandler(async (req, res) => {
     const schoolId = req.schoolId || req.params.id || req.user.schoolId;
     const result = await schoolService.updateSchool(schoolId, req.body);
-    res.status(200).json({ 
-        success: true, 
-        message: "School updated", 
-        data: result 
+    res.status(200).json({
+        success: true,
+        message: "School updated",
+        data: result
     });
     logger.info(`School updated: ${result.school.name}`);
 });
@@ -30,30 +30,33 @@ export const updateSchool = asyncHandler(async (req, res) => {
 export const getSchoolById = asyncHandler(async (req, res) => {
     const schoolId = req.schoolId || req.params.id || req.user.schoolId;
     const school = await schoolService.getSchoolProfile(schoolId);
-    res.status(200).json({      
-        success: true, 
-        data: school 
+    res.status(200).json({
+        success: true,
+        data: school
     });
 });
 
 // Get school branding (logo, theme)
 export const getMySchoolBranding = asyncHandler(async (req, res) => {
     const branding = await schoolService.getSchoolBranding(req.schoolId);
-    res.status(200).json({ 
-        success: true, 
-        data: branding 
+    res.status(200).json({
+        success: true,
+        data: branding
     });
 });
 
 // Upload school logo
 export const uploadSchoolLogo = asyncHandler(async (req, res) => {
     if (!req.file) throw new BadRequestError("No file uploaded");
-    const logoUrl = `/uploads/logos/${req.file.filename}`;
-    const result = await schoolService.updateLogo(req.schoolId, logoUrl);
-    res.status(200).json({ 
-        success: true, 
-        message: "Logo uploaded", 
-        data: result 
+    // Cloudinary returns the full URL in req.file.path and public_id in req.file.filename
+    const logoUrl = req.file.path || req.file.secure_url || req.file.url;
+    const logoPublicId = req.file.filename || req.file.public_id;
+
+    const result = await schoolService.updateLogo(req.schoolId, logoUrl, logoPublicId);
+    res.status(200).json({
+        success: true,
+        message: "Logo uploaded",
+        data: result
     });
     logger.info(`Logo uploaded for school: ${req.schoolId}`);
 });
@@ -61,19 +64,33 @@ export const uploadSchoolLogo = asyncHandler(async (req, res) => {
 // Get available feature list
 export const getAvailableFeatures = asyncHandler(async (req, res) => {
     const features = schoolService.getAvailableFeatures();
-    res.status(200).json({ 
-        success: true, 
-        data: features 
+    res.status(200).json({
+        success: true,
+        data: features
     });
 });
 
 // Update school features
-export const updateSchoolFeatures = asyncHandler(async (req, res) => {
-    const result = await schoolService.updateSchoolFeatures(req.schoolId, req.body.features || req.body);
-    res.status(200).json({ 
-        success: true, 
-        message: "Features updated", 
-        data: result 
+export const updateFeatures = asyncHandler(async (req, res) => {
+    // Only super admin can do this typically, but the role check is in the route
+    const { features } = req.body;
+    if (!features) {
+        throw new BadRequestError("Features data is required");
+    }
+    const result = await schoolService.updateSchoolFeatures(req.schoolId, features);
+    res.status(200).json({
+        success: true,
+        message: "Features updated successfully",
+        data: result
     });
     logger.info(`Features updated for school: ${req.schoolId}`);
+});
+
+// Get unique classes and sections for the school
+export const getSchoolClasses = asyncHandler(async (req, res) => {
+    const result = await schoolService.getSchoolClasses(req.schoolId);
+    res.status(200).json({
+        success: true,
+        data: result
+    });
 });

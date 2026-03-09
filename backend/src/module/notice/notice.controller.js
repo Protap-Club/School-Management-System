@@ -9,6 +9,10 @@ import logger from "../../config/logger.js";
 //  Create a new notice (multipart/form-data with optional attachment)
 
 export const createNotice = asyncHandler(async (req, res) => {
+    if (req.file) {
+        console.log("[DEBUG] Notice upload req.file:", JSON.stringify(req.file, null, 2));
+    }
+
     const result = await noticeService.createNotice(
         req.schoolId,
         req.user._id,
@@ -47,9 +51,9 @@ export const getNotices = asyncHandler(async (req, res) => {
 
 // GET /notices/received
 //  Get notices received by the logged-in user (for bell icon / notifications page)
- 
+
 export const getReceivedNotices = asyncHandler(async (req, res) => {
-    const result = await noticeService.getReceivedNotices(req.schoolId, req.user._id);
+    const result = await noticeService.getReceivedNotices(req.schoolId, req.user);
 
     res.status(200).json({
         success: true,
@@ -59,7 +63,7 @@ export const getReceivedNotices = asyncHandler(async (req, res) => {
 
 // GET /notices/:id
 // Get a single notice by ID
- 
+
 export const getNoticeById = asyncHandler(async (req, res) => {
     const result = await noticeService.getNoticeById(req.schoolId, req.params.id);
 
@@ -79,11 +83,8 @@ export const deleteNotice = asyncHandler(async (req, res) => {
         req.user._id
     );
 
-    res.status(200).json({
-        success: true,
-        message: "Notice deleted successfully",
-        data: result,
-    });
+    logger.info(`Notice deleted: ${req.params.id}`);
+    res.status(204).end();
 });
 
 
@@ -131,9 +132,6 @@ export const deleteGroup = asyncHandler(async (req, res) => {
         req.user._id
     );
 
-    res.status(200).json({
-        success: true,
-        message: "Group deleted successfully",
-        data: result,
-    });
+    logger.info(`Group deleted: ${req.params.groupId}`);
+    res.status(204).end();
 });

@@ -1,0 +1,7 @@
+# Agent files
+.agent/
+.agent.zip
+
+# OS files
+.DS_Store
+Thumbs.db
