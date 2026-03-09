@@ -28,9 +28,6 @@ export const useAuth = () => {
 
     // Handle auth check side effects
     useEffect(() => {
-        if (hasToken) {
-            console.log('Auth: Restoring session');
-        }
     }, []); // Only once on mount if token exists
 
     useEffect(() => {
@@ -72,7 +69,6 @@ export const useAuth = () => {
     const logoutMutation = useMutation({
         mutationFn: authApi.logout,
         onSuccess: () => {
-            console.log('Auth: Logging out user');
             dispatch(clearUser());
             queryClient.clear();
             // Redirect to login

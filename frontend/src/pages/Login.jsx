@@ -56,11 +56,10 @@ const Login = () => {
                 setError('Unauthorized role allocation.');
             }
         } catch (err) {
-            console.error('[Login] Error:', err);
             if (err.response?.status === 401) {
-                setError('Invalid email or password');
+                setError('Invalid Credentials');
             } else {
-                // Use the message from axios interceptor or fallback
+                // For other errors, we can keep a hidden log for debugging but remove the loud console.error
                 setError(err.response?.data?.message || err.message || 'Login failed. Please try again.');
             }
         } finally {

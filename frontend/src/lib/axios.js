@@ -7,6 +7,7 @@ const api = axios.create({
     baseURL: API_BASE_URL,
     withCredentials: true, // Send cookies (refresh token) with every request
     timeout: 10000,
+    validateStatus: (status) => status < 500, // Treat 4xx as relative success to manage console noise
 });
 
 // Request interceptor: attach access token 
@@ -25,8 +26,6 @@ api.interceptors.request.use(
 let isRefreshing = false;
 let failedQueue = [];
 
-// Queue failed requests while a refresh is in progress.
-// Once the refresh completes, replay them with the new token.
 const processQueue = (error, token = null) => {
     failedQueue.forEach(({ resolve, reject }) => {
         if (error) {
@@ -39,89 +38,83 @@ const processQueue = (error, token = null) => {
 };
 
 api.interceptors.response.use(
-    (response) => response,
-    async (error) => {
-        const originalRequest = error.config;
+    async (response) => {
+        const originalRequest = response.config;
 
-        // 1. Handle Network Errors / Server Unreachable
+        // Handle 401 Unauthorized
+        if (response.status === 401) {
+            // 1. If it's the login request, just return and let the component handle it
+            if (originalRequest.url?.includes('/auth/login')) {
+                console.log('Invalid credentials');
+                return response;
+            }
+
+            // 2. If it's a refresh request that failed, we're done
+            if (originalRequest.url?.includes('/auth/refresh')) {
+                localStorage.removeItem('token');
+                if (window.location.pathname !== '/login') {
+                    window.location.href = '/login?expired=true';
+                }
+                return response;
+            }
+
+            // 3. Otherwise, if not already retrying, attempt silent refresh
+            if (!originalRequest._retry) {
+                if (isRefreshing) {
+                    return new Promise((resolve, reject) => {
+                        failedQueue.push({ resolve, reject });
+                    })
+                        .then((token) => {
+                            originalRequest.headers.Authorization = `Bearer ${token}`;
+                            return api(originalRequest);
+                        })
+                        .catch((err) => Promise.reject(err));
+                }
+
+                originalRequest._retry = true;
+                isRefreshing = true;
+
+                try {
+                    const refreshRes = await api.post('/auth/refresh', {}, { _retry: true });
+
+                    if (refreshRes.status === 401) {
+                        throw new Error('Refresh failed');
+                    }
+
+                    const newToken = refreshRes.data.token;
+                    localStorage.setItem('token', newToken);
+                    originalRequest.headers.Authorization = `Bearer ${newToken}`;
+                    processQueue(null, newToken);
+                    return api(originalRequest);
+                } catch (refreshError) {
+                    processQueue(refreshError, null);
+                    localStorage.removeItem('token');
+                    if (window.location.pathname !== '/login') {
+                        window.location.href = '/login?expired=true';
+                    }
+                    return response; // Return the original 401
+                } finally {
+                    isRefreshing = false;
+                }
+            }
+        }
+
+        // Handle 403 Forbidden
+        if (response.status === 403) {
+            // For 403, we don't logout, but return it for the component to handle
+            return response;
+        }
+
+        return response;
+    },
+    async (error) => {
+        // 5xx and Network Errors still go here
         if (!error.response) {
-            console.error('Auth: Server unreachable');
             return Promise.reject({
                 ...error,
                 message: 'Server unreachable. Please check your connection or try again later.'
             });
         }
-
-        // 2. Handle Unauthorized (401) - Attempt Silent Refresh
-        if (
-            error.response.status === 401 &&
-            !originalRequest._retry &&
-            !originalRequest.url?.includes('/auth/refresh')
-        ) {
-            console.warn('Auth: Token expired');
-
-            // If a refresh is already in flight, queue this request
-            if (isRefreshing) {
-                console.log('[Auth] Refresh already in progress, queuing request:', originalRequest.url);
-                return new Promise((resolve, reject) => {
-                    failedQueue.push({ resolve, reject });
-                })
-                    .then((token) => {
-                        originalRequest.headers.Authorization = `Bearer ${token}`;
-                        return api(originalRequest);
-                    })
-                    .catch((err) => Promise.reject(err));
-            }
-
-            originalRequest._retry = true;
-            isRefreshing = true;
-
-            try {
-                // Call refresh endpoint — HttpOnly cookie is sent automatically by the browser
-                const { data } = await api.post('/auth/refresh', {}, { _retry: true });
-
-                const newToken = data.token;
-                if (!newToken) {
-                    throw new Error('No access token returned from refresh');
-                }
-
-                console.log('[Auth] Refresh successful, replaying queued requests');
-                localStorage.setItem('token', newToken);
-
-                // Update the failed request and replay the queue
-                originalRequest.headers.Authorization = `Bearer ${newToken}`;
-                processQueue(null, newToken);
-
-                return api(originalRequest);
-            } catch (refreshError) {
-                console.error('[Auth] Refresh failed:', refreshError.response?.data?.message || refreshError.message);
-
-                // Refresh failed — session is truly expired
-                processQueue(refreshError, null);
-                localStorage.removeItem('token');
-
-                // Redirect to login with expired flag if not already there
-                if (window.location.pathname !== '/login') {
-                    console.warn('Auth: Logging out user');
-                    window.location.href = '/login?expired=true';
-                }
-
-                return Promise.reject(refreshError);
-            } finally {
-                isRefreshing = false;
-            }
-        }
-
-        // 3. Handle Forbidden (403)
-        if (error.response.status === 403) {
-            console.error('[Auth] Access forbidden (403)');
-            // For 403, we don't logout, but we might want to show a specific message
-            return Promise.reject({
-                ...error,
-                message: 'You do not have permission to perform this action.'
-            });
-        }
-
         return Promise.reject(error);
     }
 );
