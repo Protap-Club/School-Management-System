@@ -43,13 +43,22 @@ api.interceptors.response.use(
     async (error) => {
         const originalRequest = error.config;
 
-        // Only attempt refresh on 401, and not if the failing request is itself the refresh call
+        // 1. Handle Network Errors / Server Unreachable
+        if (!error.response) {
+            console.error('Auth: Server unreachable');
+            return Promise.reject({
+                ...error,
+                message: 'Server unreachable. Please check your connection or try again later.'
+            });
+        }
+
+        // 2. Handle Unauthorized (401) - Attempt Silent Refresh
         if (
-            error.response?.status === 401 &&
+            error.response.status === 401 &&
             !originalRequest._retry &&
             !originalRequest.url?.includes('/auth/refresh')
         ) {
-            console.log('[Auth] Access token expired, attempting refresh...');
+            console.warn('Auth: Token expired');
 
             // If a refresh is already in flight, queue this request
             if (isRefreshing) {
@@ -69,7 +78,6 @@ api.interceptors.response.use(
 
             try {
                 // Call refresh endpoint — HttpOnly cookie is sent automatically by the browser
-                // We use a clean axios post to avoid interceptor side effects if any
                 const { data } = await api.post('/auth/refresh', {}, { _retry: true });
 
                 const newToken = data.token;
@@ -87,14 +95,14 @@ api.interceptors.response.use(
                 return api(originalRequest);
             } catch (refreshError) {
                 console.error('[Auth] Refresh failed:', refreshError.response?.data?.message || refreshError.message);
-                
+
                 // Refresh failed — session is truly expired
                 processQueue(refreshError, null);
                 localStorage.removeItem('token');
 
-                // Redirect to login if not already there
+                // Redirect to login with expired flag if not already there
                 if (window.location.pathname !== '/login') {
-                    console.warn('[Auth] Redirecting to login...');
+                    console.warn('Auth: Logging out user');
                     window.location.href = '/login?expired=true';
                 }
 
@@ -102,6 +110,16 @@ api.interceptors.response.use(
             } finally {
                 isRefreshing = false;
             }
+        }
+
+        // 3. Handle Forbidden (403)
+        if (error.response.status === 403) {
+            console.error('[Auth] Access forbidden (403)');
+            // For 403, we don't logout, but we might want to show a specific message
+            return Promise.reject({
+                ...error,
+                message: 'You do not have permission to perform this action.'
+            });
         }
 
         return Promise.reject(error);

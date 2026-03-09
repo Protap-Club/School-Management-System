@@ -28,35 +28,33 @@ export const useAuth = () => {
 
     // Handle auth check side effects
     useEffect(() => {
+        if (hasToken) {
+            console.log('Auth: Restoring session');
+        }
+    }, []); // Only once on mount if token exists
+
+    useEffect(() => {
         if (authQuery.isSuccess && authQuery.data?.success) {
             dispatch(setUser(authQuery.data.user));
-        }
-    }, [authQuery.isSuccess, authQuery.data, dispatch]);
-
-    // Only clear the session if the query truly failed AND the token is gone
-    // (meaning the axios interceptor also failed to refresh — a genuine session expiry).
-    // Without this guard, a transient 401 that the interceptor handles would still
-    // trigger clearUser() because React Query's isError fires before the retry resolves.
-    useEffect(() => {
-        if (authQuery.isError) {
-            const tokenStillExists = !!localStorage.getItem('token');
-            if (!tokenStillExists) {
+        } else if (authQuery.isError) {
+            // Error handling is mostly done in axios interceptor (redirects)
+            // but we ensure Redux state is cleared here if token is gone
+            const tokenExists = !!localStorage.getItem('token');
+            if (!tokenExists) {
                 dispatch(clearUser());
             }
         }
-    }, [authQuery.isError, dispatch]);
+    }, [authQuery.isSuccess, authQuery.isError, authQuery.data, dispatch, hasToken]);
 
     useEffect(() => {
-        if (!authQuery.isLoading && !authQuery.isFetching) {
+        // isLoading is for the first time query runs
+        // isFetching is whenever it runs (including background)
+        if (!authQuery.isLoading && !authQuery.isError) {
+            dispatch(setLoading(false));
+        } else if (!hasToken) {
             dispatch(setLoading(false));
         }
-    }, [authQuery.isLoading, authQuery.isFetching, dispatch]);
-
-    useEffect(() => {
-        if (!hasToken) {
-            dispatch(setLoading(false));
-        }
-    }, [hasToken, dispatch]);
+    }, [authQuery.isLoading, authQuery.isError, hasToken, dispatch]);
 
     // Login mutation
     const loginMutation = useMutation({
@@ -74,8 +72,11 @@ export const useAuth = () => {
     const logoutMutation = useMutation({
         mutationFn: authApi.logout,
         onSuccess: () => {
+            console.log('Auth: Logging out user');
             dispatch(clearUser());
             queryClient.clear();
+            // Redirect to login
+            window.location.href = '/login';
         },
     });
 
@@ -93,7 +94,8 @@ export const useAuth = () => {
 
     return {
         user,
-        loading,
+        loading: loading || (hasToken && authQuery.isLoading),
+        isFetching: authQuery.isFetching,
         login,
         logout,
         isLoggingIn: loginMutation.isPending,
