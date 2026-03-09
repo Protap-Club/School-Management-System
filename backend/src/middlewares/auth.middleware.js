@@ -30,9 +30,9 @@ const checkAuth = async (req, res, next) => {
 
         req.user = findUser;
 
-        // Attach platform from header
-        const platform = req.headers["x-platform"];
-        req.platform = platform === "mobile" ? "mobile" : "web";
+        // Attach platform from header (default to web)
+        req.platform = req.headers["x-platform"] === "mobile" ? "mobile" : "web";
+        req.schoolId = findUser.schoolId; // Attach schoolId directly for easier access
 
         // Mobile Rule Guard
         const MOBILE_ALLOWED_ROLES = [USER_ROLES.TEACHER, USER_ROLES.STUDENT];

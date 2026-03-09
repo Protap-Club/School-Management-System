@@ -73,3 +73,12 @@ export const userIdsBodySchema = z.object({
         isArchived: z.boolean({ required_error: 'isArchived is required' }),
     }),
 });
+
+export const getProfileSchema = z.object({
+    params: z.object({
+        id: objectIdSchema.optional(),
+    }),
+    query: z.object({
+        platform: z.string().optional(),
+    }),
+});
