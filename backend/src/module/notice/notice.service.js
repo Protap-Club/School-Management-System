@@ -133,6 +133,7 @@ export const createNotice = async (schoolId, userId, data, file) => {
         type: attachment ? "file" : "notice",
         recipients,
         attachment,
+        requiresAcknowledgment: data.requiresAcknowledgment === true || data.requiresAcknowledgment === 'true',
     });
 
     await notice.populate("createdBy", "name email role");
@@ -269,6 +270,122 @@ export const deleteNotice = async (schoolId, noticeId, userId) => {
 
     logger.info(`Notice deleted: ${noticeId}`);
     return notice;
+};
+
+// GROUP SERVICES
+
+
+// ACKNOWLEDGMENT SERVICES
+
+// Record a user's acknowledgment of a notice
+export const acknowledgeNotice = async (schoolId, noticeId, user) => {
+    if (!mongoose.Types.ObjectId.isValid(noticeId)) {
+        throw new BadRequestError("Invalid notice ID");
+    }
+
+    const notice = await Notice.findOne({ _id: noticeId, schoolId });
+    if (!notice) {
+        throw new NotFoundError("Notice not found");
+    }
+
+    if (!notice.requiresAcknowledgment) {
+        throw new BadRequestError("This notice does not require acknowledgment");
+    }
+
+    // Prevent duplicate acknowledgments
+    const alreadyAcknowledged = notice.acknowledgments.some(
+        (a) => a.userId.toString() === user._id.toString()
+    );
+    if (alreadyAcknowledged) {
+        throw new ConflictError("You have already acknowledged this notice");
+    }
+
+    notice.acknowledgments.push({
+        userId: user._id,
+        role: user.role,
+        timestamp: new Date(),
+    });
+    await notice.save();
+
+    logger.info(`Notice ${noticeId} acknowledged by ${user._id} (${user.role})`);
+    return { message: "Notice acknowledged successfully" };
+};
+
+// Get acknowledgment status for a notice — only for the original sender
+export const getAcknowledgments = async (schoolId, noticeId, requestingUserId) => {
+    if (!mongoose.Types.ObjectId.isValid(noticeId)) {
+        throw new BadRequestError("Invalid notice ID");
+    }
+
+    const notice = await Notice.findOne({ _id: noticeId, schoolId })
+        .populate("acknowledgments.userId", "name email role")
+        .lean();
+
+    if (!notice) {
+        throw new NotFoundError("Notice not found");
+    }
+
+    if (notice.createdBy.toString() !== requestingUserId.toString()) {
+        throw new ForbiddenError("Only the sender can view acknowledgment status");
+    }
+
+    const acknowledged = notice.acknowledgments.map((a) => ({
+        userId: a.userId?._id || a.userId,
+        name: a.userId?.name || "Unknown",
+        email: a.userId?.email || "",
+        role: a.role,
+        timestamp: a.timestamp,
+    }));
+
+    // --- Resolve intended recipients to build a "pending" list ---
+    let intendedUserIds = [];
+
+    if (notice.recipientType === "all") {
+        // Cannot enumerate "all" cheaply — return empty pending list with note
+        return {
+            requiresAcknowledgment: notice.requiresAcknowledgment,
+            recipientType: notice.recipientType,
+            acknowledgedCount: acknowledged.length,
+            pendingCount: null,   // indeterminate for "all"
+            acknowledged,
+            pending: [],
+            note: "Pending list is not available for notices sent to the entire school.",
+        };
+    }
+
+    if (notice.recipientType === "users" || notice.recipientType === "students") {
+        // recipients[] holds user ObjectId strings
+        intendedUserIds = notice.recipients.filter((r) => mongoose.Types.ObjectId.isValid(r));
+    } else if (notice.recipientType === "classes") {
+        // recipients[] holds "standard-section" strings
+        const classIds = notice.recipients; // e.g. ["10-A", "11-B"]
+        const profiles = await StudentProfile.find({ schoolId, $or: classIds.map((c) => {
+            const [standard, section] = c.split('-');
+            return { standard, section };
+        }) }).select("userId").lean();
+        intendedUserIds = profiles.map((p) => p.userId.toString());
+    } else if (notice.recipientType === "groups") {
+        // recipients[] holds NoticeGroup ObjectId strings
+        const groupIds = notice.recipients.filter((r) => mongoose.Types.ObjectId.isValid(r));
+        const groups = await NoticeGroup.find({ _id: { $in: groupIds }, schoolId }).select("members").lean();
+        groups.forEach((g) => g.members.forEach((m) => intendedUserIds.push(m.toString())));
+    }
+
+    const acknowledgedUserIdSet = new Set(acknowledged.map((a) => a.userId.toString()));
+    const pendingUserIds = [...new Set(intendedUserIds)].filter((id) => !acknowledgedUserIdSet.has(id.toString()));
+
+    // Hydrate pending users
+    const User = mongoose.model("User");
+    const pendingUsers = await User.find({ _id: { $in: pendingUserIds } }).select("name email role").lean();
+
+    return {
+        requiresAcknowledgment: notice.requiresAcknowledgment,
+        recipientType: notice.recipientType,
+        acknowledgedCount: acknowledged.length,
+        pendingCount: pendingUsers.length,
+        acknowledged,
+        pending: pendingUsers.map((u) => ({ userId: u._id, name: u.name, email: u.email, role: u.role })),
+    };
 };
 
 

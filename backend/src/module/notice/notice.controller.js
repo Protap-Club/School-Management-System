@@ -135,3 +135,39 @@ export const deleteGroup = asyncHandler(async (req, res) => {
     logger.info(`Group deleted: ${req.params.groupId}`);
     res.status(204).end();
 });
+
+
+// Acknowledgment Controllers
+
+
+// POST /notices/:id/acknowledge
+// Receiver records their acknowledgment of a notice
+
+export const acknowledgeNotice = asyncHandler(async (req, res) => {
+    const result = await noticeService.acknowledgeNotice(
+        req.schoolId,
+        req.params.id,
+        req.user
+    );
+
+    res.status(200).json({
+        success: true,
+        message: result.message,
+    });
+});
+
+// GET /notices/:id/acknowledgments
+// Sender retrieves who has and hasn't acknowledged their notice
+
+export const getAcknowledgments = asyncHandler(async (req, res) => {
+    const result = await noticeService.getAcknowledgments(
+        req.schoolId,
+        req.params.id,
+        req.user._id
+    );
+
+    res.status(200).json({
+        success: true,
+        data: result,
+    });
+});

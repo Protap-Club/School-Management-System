@@ -16,6 +16,8 @@ export const createNoticeSchema = z.object({
         }),
         // Recipients comes as JSON string from FormData
         recipients: z.string().optional().default("[]"),
+        // Sent as string from FormData; coerce "true"/"false" to boolean
+        requiresAcknowledgment: z.coerce.boolean().optional().default(false),
     })
 });
 
@@ -51,5 +53,23 @@ export const createGroupSchema = z.object({
 export const groupIdParamsSchema = z.object({
     params: z.object({
         groupId: objectIdSchema
+    })
+});
+
+// ═══════════════════════════════════════════════════════════════
+// Acknowledgment Validation Schemas
+// ═══════════════════════════════════════════════════════════════
+
+// POST /notices/:id/acknowledge — just validates the notice ID param
+export const acknowledgeNoticeSchema = z.object({
+    params: z.object({
+        id: objectIdSchema,
+    })
+});
+
+// GET /notices/:id/acknowledgments — same param shape
+export const getAcknowledgmentsSchema = z.object({
+    params: z.object({
+        id: objectIdSchema,
     })
 });

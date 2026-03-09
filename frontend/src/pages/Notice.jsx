@@ -5,12 +5,13 @@ import { useAuth } from '../features/auth';
 import {
     useNotices, useCreateNotice, useDeleteNotice, useGroups,
     useCreateGroup, useDeleteGroup, useClasses, useStudents, useTeachers, useAllUsers,
-    useReceivedNotices,
+    useReceivedNotices, useAcknowledgeNotice, useAcknowledgments,
 } from '../features/notices';
 import {
     FaPaperPlane, FaUsers, FaPaperclip, FaTimes, FaCheck, FaFilePdf, FaFileWord,
     FaFilePowerpoint, FaFileExcel, FaFileAlt, FaImage, FaTrash, FaPlus, FaUserFriends,
-    FaSearch, FaHistory, FaEye, FaDownload, FaFileVideo, FaFileCode, FaFileCsv, FaBell
+    FaSearch, FaHistory, FaEye, FaDownload, FaFileVideo, FaFileCode, FaFileCsv, FaBell,
+    FaInbox, FaBullhorn, FaCircleNotch
 } from 'react-icons/fa';
 
 
@@ -58,6 +59,108 @@ const getRecipientLabel = (item) => {
 
 const MODAL_OVERLAY = 'fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4';
 
+// --- Sub-components for Acknowledgment Feature ---
+
+const ReceiverAckButton = ({ noticeId, currentUserId, acknowledgments = [] }) => {
+    const isAcknowledged = acknowledgments.some(a =>
+        a.userId === currentUserId || (a.userId && a.userId._id === currentUserId)
+    );
+    const ackMutation = useAcknowledgeNotice(noticeId);
+
+    if (isAcknowledged) {
+        return (
+            <div className="mt-4 inline-flex items-center gap-2 px-3 py-1.5 bg-emerald-50 text-emerald-700 text-sm font-medium rounded-lg border border-emerald-100">
+                <FaCheck size={12} /> Acknowledged by you
+            </div>
+        );
+    }
+
+    return (
+        <button
+            onClick={() => ackMutation.mutate()}
+            disabled={ackMutation.isPending}
+            className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary-hover text-white text-sm font-medium rounded-lg transition-colors shadow-sm disabled:opacity-70"
+        >
+            {ackMutation.isPending ? <FaCircleNotch className="animate-spin" size={14} /> : <FaCheck size={14} />}
+            {ackMutation.isPending ? 'Acknowledging...' : 'Acknowledge Notice'}
+        </button>
+    );
+};
+
+const AcknowledgmentPanel = ({ noticeId }) => {
+    const { data: ackData, isLoading, isError } = useAcknowledgments(noticeId);
+
+    if (isLoading) {
+        return <div className="py-4 flex justify-center"><FaCircleNotch className="animate-spin text-primary" size={20} /></div>;
+    }
+
+    if (isError || !ackData?.success) {
+        return <div className="text-sm text-red-500 bg-red-50 p-3 rounded-xl border border-red-100">Failed to load acknowledgment status.</div>;
+    }
+
+    const { acknowledgedCount, pendingCount, acknowledged, pending, note } = ackData.data;
+    const totalCount = pendingCount !== null ? acknowledgedCount + pendingCount : null;
+    const progressPercent = totalCount > 0 ? Math.round((acknowledgedCount / totalCount) * 100) : 0;
+
+    return (
+        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden mt-4">
+            <div className="bg-gray-50 border-b border-gray-200 px-4 py-3">
+                <h5 className="text-sm font-semibold text-gray-900 flex items-center justify-between">
+                    Acknowledgment Status
+                    {totalCount !== null && (
+                        <span className="text-xs font-medium text-gray-500 bg-white px-2 py-1 rounded-md border border-gray-200 shadow-sm">
+                            {progressPercent}% completed ({acknowledgedCount}/{totalCount})
+                        </span>
+                    )}
+                </h5>
+                {totalCount !== null && (
+                    <div className="w-full bg-gray-200 rounded-full h-1.5 mt-3 overflow-hidden">
+                        <div className="bg-primary h-1.5 rounded-full transition-all duration-500 ease-out" style={{ width: `${progressPercent}%` }}></div>
+                    </div>
+                )}
+            </div>
+
+            <div className="p-4 space-y-4">
+                {note && <p className="text-xs text-amber-600 bg-amber-50 p-2 rounded-lg border border-amber-100">{note}</p>}
+
+                <div>
+                    <h6 className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2 flex flex-wrap gap-2 items-center">
+                        Acknowledged <span className="bg-emerald-100 text-emerald-700 font-bold px-1.5 py-0.5 rounded text-[10px]">{acknowledgedCount}</span>
+                    </h6>
+                    {acknowledged.length === 0 ? (
+                        <p className="text-sm text-gray-400 italic">No one has acknowledged yet.</p>
+                    ) : (
+                        <ul className="space-y-2 max-h-32 overflow-y-auto pr-2 custom-scrollbar">
+                            {acknowledged.map((u, i) => (
+                                <li key={i} className="flex justify-between items-center text-sm py-1 border-b border-gray-50 last:border-0">
+                                    <span className="font-medium text-gray-800">{u.name} <span className="text-gray-400 font-normal text-xs ml-1">({u.role})</span></span>
+                                    <span className="text-xs text-gray-500">{new Date(u.timestamp).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                </div>
+
+                {pendingCount !== null && pendingCount > 0 && (
+                    <div className="pt-4 border-t border-gray-100">
+                        <h6 className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-2">
+                            Pending <span className="bg-amber-100 text-amber-700 font-bold px-1.5 py-0.5 rounded text-[10px]">{pendingCount}</span>
+                        </h6>
+                        <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto custom-scrollbar">
+                            {pending.map((u, i) => (
+                                <span key={i} className="inline-flex items-center px-2 py-1 rounded-md bg-gray-50 text-gray-600 text-xs border border-gray-200">
+                                    {u.name} <span className="text-gray-400 ml-1">({u.role})</span>
+                                </span>
+                            ))}
+                        </div>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+};
+
+// --- Main Page Component ---
 const Notice = () => {
     const { user: currentUser } = useAuth();
     const isAdmin = currentUser?.role === 'admin';
@@ -77,6 +180,7 @@ const Notice = () => {
         }
     }, [location.state]);
     const [message, setMessage] = useState('');
+    const [requireAck, setRequireAck] = useState(false);
     const [attachment, setAttachment] = useState(null);
     const [attachmentPreview, setAttachmentPreview] = useState(null);
     const [messageError, setMessageError] = useState('');
@@ -165,7 +269,7 @@ const Notice = () => {
 
     const resetComposeState = useCallback(() => {
         setMessage(''); setAttachment(null); setAttachmentPreview(null);
-        setShowSendModal(false); setSendOption('');
+        setShowSendModal(false); setSendOption(''); setRequireAck(false);
         setSelectedClasses([]); setSelectedUsers([]); setSelectedStudents([]); setSelectedGroups([]);
         if (fileInputRef.current) fileInputRef.current.value = '';
     }, []);
@@ -177,11 +281,11 @@ const Notice = () => {
         const mapping = RECIPIENT_MAP[sendOption] || { type: sendOption, key: null };
         const recipients = mapping.key ? selectionState[mapping.key] : [];
         try {
-            await createNoticeMutation.mutateAsync({ message, title: message.substring(0, 50), recipientType: mapping.type, recipients, attachment: attachment || undefined });
+            await createNoticeMutation.mutateAsync({ message, title: message.substring(0, 50), recipientType: mapping.type, recipients, attachment: attachment || undefined, requiresAcknowledgment: requireAck });
             showToast('success', 'Notice sent successfully!');
             resetComposeState();
         } catch (error) { showToast('error', error?.response?.data?.message || 'Failed to send notice'); }
-    }, [sendOption, selectionState, message, attachment, createNoticeMutation, showToast, resetComposeState]);
+    }, [sendOption, selectionState, message, attachment, requireAck, createNoticeMutation, showToast, resetComposeState]);
 
     const handleDeleteHistory = useCallback(async (itemId) => {
         try { await deleteNoticeMutation.mutateAsync(itemId); showToast('success', 'Notice deleted'); }
@@ -426,9 +530,28 @@ const Notice = () => {
                                     </span>
                                     Ready to Send?
                                 </h3>
-                                <p className="text-sm text-gray-500 mb-6">
+                                <p className="text-sm text-gray-500 mb-4">
                                     Click send to choose your recipients and deliver this notice immediately.
                                 </p>
+
+                                {/* Require Acknowledgment Toggle */}
+                                <label className="flex items-start gap-3 p-3 mb-5 border border-gray-200 rounded-xl cursor-pointer hover:bg-gray-50 transition-colors select-none">
+                                    <div className="relative flex-shrink-0 mt-0.5">
+                                        <input
+                                            type="checkbox"
+                                            className="sr-only"
+                                            checked={requireAck}
+                                            onChange={(e) => setRequireAck(e.target.checked)}
+                                        />
+                                        <div className={`w-10 h-6 rounded-full transition-colors duration-200 ${requireAck ? 'bg-primary' : 'bg-gray-200'}`}></div>
+                                        <div className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${requireAck ? 'translate-x-4' : 'translate-x-0'}`}></div>
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-medium text-gray-900">Require Acknowledgment</p>
+                                        <p className="text-xs text-gray-400 mt-0.5">Recipients must confirm they've read this notice</p>
+                                    </div>
+                                </label>
+
                                 <button
                                     onClick={handleSendClick}
                                     disabled={!message.trim()}
@@ -442,10 +565,10 @@ const Notice = () => {
                             <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl border border-gray-200 p-6">
                                 <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-4">Notice Preview</h3>
                                 <div className="space-y-3">
-                                    {[['Characters', message.length], ['Words', message.trim() ? message.trim().split(/\s+/).length : 0], ['Attachment', attachment ? '1 file' : 'None']].map(([label, value]) => (
+                                    {[['Characters', message.length], ['Words', message.trim() ? message.trim().split(/\s+/).length : 0], ['Attachment', attachment ? '1 file' : 'None'], ['Acknowledgment', requireAck ? 'Required' : 'Not required']].map(([label, value]) => (
                                         <div key={label} className="flex justify-between text-sm">
                                             <span className="text-gray-500">{label}</span>
-                                            <span className="font-medium text-gray-900">{value}</span>
+                                            <span className={`font-medium ${label === 'Acknowledgment' && requireAck ? 'text-primary' : 'text-gray-900'}`}>{value}</span>
                                         </div>
                                     ))}
                                 </div>
@@ -686,6 +809,11 @@ const Notice = () => {
                                                     <FaDownload className="text-gray-400 group-hover:text-primary transition-colors flex-shrink-0" size={12} />
                                                 </button>
                                             )}
+
+                                            {/* Acknowledgment CTA — receiver side */}
+                                            {item.requiresAcknowledgment && (
+                                                <ReceiverAckButton noticeId={item._id} currentUserId={currentUser?._id} acknowledgments={item.acknowledgments} />
+                                            )}
                                         </div>
                                     </div>
                                 </div>
@@ -696,12 +824,12 @@ const Notice = () => {
 
                 {viewItem && (
                     <div className={MODAL_OVERLAY}>
-                        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-fadeIn">
-                            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+                        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-fadeIn flex flex-col max-h-[90vh]">
+                            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between flex-shrink-0">
                                 <h3 className="text-lg font-semibold text-gray-900">Notice Details</h3>
                                 <button onClick={() => setViewItem(null)} className="p-2 hover:bg-gray-100 rounded-lg transition-colors"><FaTimes className="text-gray-400" size={16} /></button>
                             </div>
-                            <div className="p-6 space-y-6">
+                            <div className="p-6 space-y-6 overflow-y-auto">
                                 <div className="flex items-start gap-4">
                                     <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${viewItem.type === 'notice' ? 'bg-blue-100 text-blue-600' : 'bg-amber-100 text-amber-600'}`}>
                                         {viewItem.type === 'notice' ? <FaPaperPlane size={20} /> : <FaPaperclip size={20} />}
@@ -711,6 +839,11 @@ const Notice = () => {
                                         <div className="flex items-center gap-2 mt-1 text-sm text-gray-500">
                                             <span>{new Date(viewItem.createdAt).toLocaleDateString()}</span><span>•</span><span>{getRecipientLabel(viewItem)}</span>
                                         </div>
+                                        {viewItem.requiresAcknowledgment && (
+                                            <span className="inline-flex items-center gap-1 mt-1.5 text-xs px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 font-medium">
+                                                <FaCheck size={9} /> Acknowledgment Required
+                                            </span>
+                                        )}
                                     </div>
                                 </div>
                                 <div className="bg-gray-50 rounded-xl p-4 text-gray-700 text-sm leading-relaxed whitespace-pre-wrap">{viewItem.message}</div>
@@ -741,6 +874,12 @@ const Notice = () => {
                                         </div>
                                     </div>
                                 )}
+
+                                {/* Acknowledgment Status Panel — sender view */}
+                                {viewItem.requiresAcknowledgment && (
+                                    <AcknowledgmentPanel noticeId={viewItem._id} />
+                                )}
+
                                 <div className="pt-2">
                                     <button onClick={() => setViewItem(null)} className="w-full py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-xl transition-colors">Close</button>
                                 </div>

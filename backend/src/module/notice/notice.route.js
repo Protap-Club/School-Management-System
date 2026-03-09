@@ -11,6 +11,8 @@ import {
     getGroups,
     createGroup,
     deleteGroup,
+    acknowledgeNotice,
+    getAcknowledgments,
 } from "./notice.controller.js";
 import { checkRole } from "../../middlewares/role.middleware.js";
 import { requireFeature } from "../../middlewares/feature.middleware.js";
@@ -23,6 +25,8 @@ import {
     noticeIdParamsSchema,
     createGroupSchema,
     groupIdParamsSchema,
+    acknowledgeNoticeSchema,
+    getAcknowledgmentsSchema,
 } from "./notice.validation.js";
 
 // Cloudinary Storage for Notice Attachments
@@ -92,6 +96,14 @@ router.get("/received", getReceivedNotices);
 // Notices CRUD
 router.get("/", checkRole([USER_ROLES.ADMIN, USER_ROLES.TEACHER, USER_ROLES.STUDENT]), getNotices);
 router.post("/", checkRole([USER_ROLES.ADMIN, USER_ROLES.TEACHER]), upload.single("attachment"), validate(createNoticeSchema), createNotice);
+
+// Acknowledgment routes — must come BEFORE /:id to avoid Express param collision
+// POST /notices/:id/acknowledge — teachers and students only (receivers)
+router.post("/:id/acknowledge", checkRole([USER_ROLES.TEACHER, USER_ROLES.STUDENT]), validate(acknowledgeNoticeSchema), acknowledgeNotice);
+// GET /notices/:id/acknowledgments — admins and teachers only (senders)
+router.get("/:id/acknowledgments", checkRole([USER_ROLES.ADMIN, USER_ROLES.TEACHER]), validate(getAcknowledgmentsSchema), getAcknowledgments);
+
+// Single notice and delete
 router.get("/:id", checkRole([USER_ROLES.ADMIN, USER_ROLES.TEACHER, USER_ROLES.STUDENT]), validate(noticeIdParamsSchema), getNoticeById);
 router.delete("/:id", checkRole([USER_ROLES.ADMIN, USER_ROLES.TEACHER]), validate(noticeIdParamsSchema), deleteNotice);
 

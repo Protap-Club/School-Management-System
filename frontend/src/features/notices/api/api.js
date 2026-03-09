@@ -25,6 +25,7 @@ export const noticesApi = {
         formData.append('title', noticeData.title || '');
         formData.append('recipients', JSON.stringify(noticeData.recipients));
         formData.append('recipientType', noticeData.recipientType);
+        formData.append('requiresAcknowledgment', noticeData.requiresAcknowledgment ? 'true' : 'false');
         if (noticeData.attachment) {
             formData.append('attachment', noticeData.attachment);
         }
@@ -95,6 +96,18 @@ export const noticesApi = {
     // Delete group
     deleteGroup: async (groupId) => {
         const response = await api.delete(`/notices/groups/${groupId}`);
+        return response.data;
+    },
+
+    // Acknowledge a notice (receivers only)
+    acknowledgeNotice: async (id) => {
+        const response = await api.post(`/notices/${id}/acknowledge`);
+        return response.data;
+    },
+
+    // Get acknowledgment status for a notice (sender only)
+    getAcknowledgments: async (id) => {
+        const response = await api.get(`/notices/${id}/acknowledgments`);
         return response.data;
     },
 };

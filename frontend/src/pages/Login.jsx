@@ -18,7 +18,7 @@ const Login = () => {
         try {
             const user = await login(email, password);
             navigate(VALID_ROLES.includes(user.role) ? '/dashboard' : '/login');
-        } catch (err) {
+        } catch {
             setError('Internal Server Error');
         }
     }, [email, password, login, navigate]);

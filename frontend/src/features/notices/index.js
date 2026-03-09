@@ -15,6 +15,8 @@ export {
     useGroups,
     useCreateGroup,
     useDeleteGroup,
+    useAcknowledgeNotice,
+    useAcknowledgments,
 } from './api/queries';
 
 // Constants

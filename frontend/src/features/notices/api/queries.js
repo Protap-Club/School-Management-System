@@ -13,6 +13,7 @@ export const noticeKeys = {
     teachers: () => [...noticeKeys.all, 'teachers'],
     allUsers: () => [...noticeKeys.all, 'allUsers'],
     received: () => [...noticeKeys.all, 'received'],
+    acknowledgments: (id) => [...noticeKeys.all, 'acknowledgments', id],
 };
 
 // Get notices with filters
@@ -124,3 +125,24 @@ export const useDeleteGroup = () => {
     });
 };
 
+// Acknowledge a notice (receivers: teacher/student)
+export const useAcknowledgeNotice = (id) => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: () => noticesApi.acknowledgeNotice(id),
+        onSuccess: () => {
+            // Refresh received notices so the acknowledged state updates immediately
+            queryClient.invalidateQueries({ queryKey: noticeKeys.received() });
+        },
+    });
+};
+
+// Get acknowledgment status for a notice (sender view)
+export const useAcknowledgments = (id) => {
+    return useQuery({
+        queryKey: noticeKeys.acknowledgments(id),
+        queryFn: () => noticesApi.getAcknowledgments(id),
+        enabled: !!id,
+        staleTime: 30 * 1000, // 30 seconds — sender status can refresh quickly
+    });
+};
