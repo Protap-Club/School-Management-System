@@ -69,8 +69,8 @@ const ReceiverAckButton = ({ noticeId, currentUserId, acknowledgments = [] }) =>
 
     if (isAcknowledged) {
         return (
-            <div className="mt-4 inline-flex items-center gap-2 px-3 py-1.5 bg-emerald-50 text-emerald-700 text-sm font-medium rounded-lg border border-emerald-100">
-                <FaCheck size={12} /> Acknowledged by you
+            <div className="flex items-center gap-1.5 text-[#00A977] font-semibold text-[13px]">
+                <FaCheck className="text-[12px]" /> Acknowledged
             </div>
         );
     }
@@ -79,10 +79,12 @@ const ReceiverAckButton = ({ noticeId, currentUserId, acknowledgments = [] }) =>
         <button
             onClick={() => ackMutation.mutate()}
             disabled={ackMutation.isPending}
-            className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary-hover text-white text-sm font-medium rounded-lg transition-colors shadow-sm disabled:opacity-70"
+            className="flex items-center gap-1.5 text-[#2563EB] hover:text-[#1D4ED8] font-semibold text-[13px] disabled:opacity-70 transition-colors"
         >
-            {ackMutation.isPending ? <FaCircleNotch className="animate-spin" size={14} /> : <FaCheck size={14} />}
-            {ackMutation.isPending ? 'Acknowledging...' : 'Acknowledge Notice'}
+            {ackMutation.isPending ? <FaCircleNotch className="animate-spin text-[12px]" /> : (
+                <div className="w-[12px] h-[12px] rounded-[3px] border-2 border-[#2563EB] flex items-center justify-center shrink-0"></div>
+            )}
+            {ackMutation.isPending ? 'Acknowledging...' : 'Pending Acknowledgment'}
         </button>
     );
 };
@@ -752,67 +754,81 @@ const Notice = () => {
                             </div>
                         ) : (
                             receivedItems.map(item => (
-                                <div key={item._id} className="bg-white rounded-2xl border border-gray-200 p-5 hover:shadow-md transition-shadow">
-                                    <div className="flex flex-col md:flex-row gap-4 items-start">
-                                        {/* Type icon */}
-                                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${item.type === 'file' ? 'bg-amber-100 text-amber-600' : 'bg-blue-100 text-blue-600'}`}>
-                                            {item.type === 'file' ? <FaPaperclip size={16} /> : <FaPaperPlane size={16} />}
+                                <div key={item._id} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 hover:shadow-md transition-shadow max-w-4xl">
+                                    {/* Top Row */}
+                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 py-1 mb-4 border-b border-gray-50/50 pb-3">
+                                        {/* Sender Info */}
+                                        <div className="flex items-center gap-3">
+                                            {item.createdBy?.avatar ? (
+                                                <img src={item.createdBy.avatar} alt={item.createdBy.name} className="w-9 h-9 rounded-full object-cover shadow-sm" />
+                                            ) : (
+                                                <div className="w-9 h-9 rounded-full bg-gradient-to-br flex items-center justify-center font-bold text-sm shadow-sm from-amber-100 to-amber-200 text-amber-700">
+                                                    {(item.createdBy?.name || 'U').charAt(0).toUpperCase()}
+                                                </div>
+                                            )}
+                                            <div className="flex items-center gap-2">
+                                                <span className="font-semibold text-gray-800 text-[15px]">
+                                                    {item.createdBy?.name || 'System User'}
+                                                </span>
+                                                <span className="bg-[#EBF1FF] text-[#3B82F6] text-[10px] font-[800] px-2 py-0.5 rounded-md uppercase tracking-wide">
+                                                    {item.createdBy?.role || 'User'}
+                                                </span>
+                                            </div>
                                         </div>
 
-                                        <div className="flex-1 min-w-0">
-                                            {/* Header row */}
-                                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
-                                                <div className="flex items-center gap-2 flex-wrap">
-                                                    <h3 className="text-base font-semibold text-gray-900 truncate">{item.title || 'Notice'}</h3>
-                                                    {item.attachment?.filename && (
-                                                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">
-                                                            <FaPaperclip className="mr-1" size={10} />1
-                                                        </span>
-                                                    )}
-                                                </div>
-                                                <div className="text-xs text-gray-400 flex-shrink-0">
-                                                    {new Date(item.createdAt).toLocaleDateString()} • {new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                                </div>
-                                            </div>
-
-                                            {/* Sender */}
-                                            {item.createdBy && (
-                                                <div className="flex items-center gap-2 mb-3">
-                                                    <div className="w-6 h-6 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 text-xs font-bold flex-shrink-0">
-                                                        {(item.createdBy.name || 'U').charAt(0).toUpperCase()}
-                                                    </div>
-                                                    <span className="text-sm text-gray-600">{item.createdBy.name}</span>
-                                                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                                                        item.createdBy.role === 'admin' ? 'bg-red-50 text-red-600' : 'bg-indigo-50 text-indigo-600'
-                                                    }`}>{item.createdBy.role}</span>
-                                                </div>
-                                            )}
-
-                                            {/* Message body */}
-                                            <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap mb-3">{item.message}</p>
-
-                                            {/* Attachment */}
-                                            {item.attachment?.filename && (
-                                                <button
-                                                    onClick={() => handleDownload(
-                                                        item.attachment.secure_url || item.attachment.path,
-                                                        item.attachment.originalName || item.attachment.filename
-                                                    )}
-                                                    className="inline-flex items-center gap-2 px-3 py-2 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-xl text-sm text-gray-700 transition-colors group"
-                                                >
-                                                    <div className="w-7 h-7 bg-white border border-gray-100 rounded-lg flex items-center justify-center">
-                                                        {getFileIcon(item.attachment.originalName || item.attachment.filename)}
-                                                    </div>
-                                                    <span className="font-medium group-hover:text-primary transition-colors truncate max-w-[200px]">
-                                                        {item.attachment.originalName || item.attachment.filename}
-                                                    </span>
-                                                    <FaDownload className="text-gray-400 group-hover:text-primary transition-colors flex-shrink-0" size={12} />
-                                                </button>
-                                            )}
-
-                                            {/* Acknowledgment CTA — receiver side */}
+                                        {/* Ack Status & Date */}
+                                        <div className="flex items-center gap-3">
                                             {item.requiresAcknowledgment && (
-                                                <ReceiverAckButton noticeId={item._id} currentUserId={currentUser?._id} acknowledgments={item.acknowledgments} />
+                                                <>
+                                                    <ReceiverAckButton noticeId={item._id} currentUserId={currentUser?._id} acknowledgments={item.acknowledgments} />
+                                                    <div className="w-px h-[14px] bg-gray-200 hidden sm:block"></div>
+                                                </>
+                                            )}
+                                            <span className="text-[#9CA3AF] font-[500] text-[13px] whitespace-nowrap">
+                                                {new Date(item.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })} • {new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    {/* Notice Content */}
+                                    <div className="flex gap-4 ml-1">
+                                        <div className="mt-1">
+                                            <FaPaperclip className="text-[#3B82F6]" size={18} />
+                                        </div>
+                                        <div className="flex-1 w-full min-w-0 pr-2">
+                                            <h3 className="text-[18px] font-[800] text-[#111827] mb-1.5 leading-tight tracking-tight">
+                                                {item.title || 'Notice'}
+                                            </h3>
+                                            <p className="text-[15px] text-[#4B5563] leading-relaxed whitespace-pre-wrap mb-5">
+                                                {item.message}
+                                            </p>
+
+                                            {/* Attachment Box */}
+                                            {item.attachment?.filename && (
+                                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-[12px] border border-gray-100 bg-white shadow-[0_2px_8px_-2px_rgba(0,0,0,0.03)] cursor-pointer hover:border-gray-200 transition-colors"
+                                                     onClick={() => handleDownload(
+                                                         item.attachment.secure_url || item.attachment.path,
+                                                         item.attachment.originalName || item.attachment.filename
+                                                     )}>
+                                                    <div className="flex items-center gap-4">
+                                                        <div className="w-12 h-12 bg-[#FEF2F2] text-[#EF4444] rounded-[10px] flex items-center justify-center shrink-0">
+                                                            {getFileIcon(item.attachment.originalName || item.attachment.filename, 22)}
+                                                        </div>
+                                                        <div className="min-w-0">
+                                                            <h4 className="text-[15px] font-semibold text-[#1F2937] truncate tracking-tight">
+                                                                {item.attachment.originalName || item.attachment.filename}
+                                                            </h4>
+                                                            <p className="text-[13px] text-gray-400 mt-0.5 font-medium tracking-wide">
+                                                                {item.attachment.size ? `${(item.attachment.size / (1024 * 1024)).toFixed(1)} MB` : 'Attachment'}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                    
+                                                    <div className="flex items-center justify-center gap-2 font-[700] text-[#2563EB] shrink-0 w-full sm:w-auto mt-2 sm:mt-0 text-[14px] px-2">
+                                                        <FaDownload size={13} />
+                                                        <span>Download</span>
+                                                    </div>
+                                                </div>
                                             )}
                                         </div>
                                     </div>
