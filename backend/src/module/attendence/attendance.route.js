@@ -1,10 +1,10 @@
 import express from "express";
-import { linkTag, markAttendance, getTodayAttendance, getStudentAttendanceById } from "./attendence.controller.js";
+import { linkTag, markAttendance, getTodayAttendance, getStudentAttendanceById, markManual } from "./attendence.controller.js";
 import { checkAuth } from "../../middlewares/auth.middleware.js";
 import { checkRole } from "../../middlewares/role.middleware.js";
 import { USER_ROLES } from "../../constants/userRoles.js";
 import { validate } from "../../middlewares/validation.middleware.js";
-import { linkTagSchema, markAttendanceSchema, studentIdParamsSchema } from "./attendence.validation.js";
+import { linkTagSchema, markAttendanceSchema, manualAttendanceSchema, studentIdParamsSchema } from "./attendence.validation.js";
 
 const router = express.Router();
 
@@ -21,6 +21,15 @@ router.post(
         return checkAuth(req, res, next);
     },
     markAttendance
+);
+
+// Manual attendance — teacher marks student present/absent from their assigned class
+router.put(
+    "/manual",
+    checkAuth,
+    checkRole([USER_ROLES.TEACHER, USER_ROLES.ADMIN]),
+    validate(manualAttendanceSchema),
+    markManual
 );
 
 export default router;

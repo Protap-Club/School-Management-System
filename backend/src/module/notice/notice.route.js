@@ -1,6 +1,6 @@
 import express from "express";
 import multer from "multer";
-import CloudinaryStorage from "multer-storage-cloudinary";
+import cloudinaryStorage from "multer-storage-cloudinary";
 import cloudinary from "../../config/cloudinary.js";
 import {
     createNotice,
@@ -26,31 +26,21 @@ import {
 } from "./notice.validation.js";
 
 // Cloudinary Storage for Notice Attachments
-const noticeStorage = new CloudinaryStorage({
-    cloudinary,
-    params: async (req, file) => {
+const noticeStorage = cloudinaryStorage({
+    cloudinary: { v2: cloudinary },
+    params: function (req, file, cb) {
         // Namespace per school: schools/{schoolId}/notices
         const folder = req.schoolId ? `schools/${req.schoolId}/notices` : 'schools/default/notices';
-
-        const isImageOrVideo = file.mimetype.startsWith('image/') || file.mimetype.startsWith('video/');
-
-        if (isImageOrVideo) {
-            return {
-                folder,
-                resource_type: 'auto',
-            };
-        } else {
-            // For PDFs and documents, strictly use 'raw' to avoid "Allow delivery of PDF" security blocks.
-            // access_mode: 'public' is required so that raw resources are accessible without authentication (no 401).
-            const ext = file.originalname.split('.').pop();
-            const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-            return {
-                folder,
-                resource_type: 'raw',
-                access_mode: 'public',
-                public_id: `file_${uniqueSuffix}.${ext}`
-            };
-        }
+        cb(null, {
+            folder,
+            // 'raw' is the correct type for PDFs, DOCX, XLSX etc.
+            // With 'auto', Cloudinary classifies PDFs as 'image', making the
+            // public_id unpredictable and the /download API endpoint return 404.
+            // With 'raw', the extension (.pdf, .docx) is embedded in the public_id
+            // and the CDN URL is always: res.cloudinary.com/<cloud>/raw/upload/<public_id>
+            resource_type: 'raw',
+            access_mode: 'public'
+        });
     }
 });
 
@@ -102,7 +92,7 @@ router.get("/received", getReceivedNotices);
 // Notices CRUD
 router.get("/", checkRole([USER_ROLES.ADMIN, USER_ROLES.TEACHER, USER_ROLES.STUDENT]), getNotices);
 router.post("/", checkRole([USER_ROLES.ADMIN, USER_ROLES.TEACHER]), upload.single("attachment"), validate(createNoticeSchema), createNotice);
-router.get("/:id", checkRole([USER_ROLES.ADMIN, USER_ROLES.TEACHER]), validate(noticeIdParamsSchema), getNoticeById);
+router.get("/:id", checkRole([USER_ROLES.ADMIN, USER_ROLES.TEACHER, USER_ROLES.STUDENT]), validate(noticeIdParamsSchema), getNoticeById);
 router.delete("/:id", checkRole([USER_ROLES.ADMIN, USER_ROLES.TEACHER]), validate(noticeIdParamsSchema), deleteNotice);
 
 export default router;

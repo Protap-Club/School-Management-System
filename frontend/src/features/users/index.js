@@ -4,11 +4,10 @@
 export {
     useUsers,
     useArchivedUsers,
+    useUserById,
     useCreateUser,
     useToggleUserStatus,
     useToggleUsersStatus,
-    useDeleteUser,
-    useDeleteUsers,
     userKeys,
 } from './api/queries';
 

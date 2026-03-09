@@ -28,10 +28,10 @@ USAGE:
 COMMANDS:
   seed-all            Runs ALL seed commands below in order (one-shot full setup)
   seed-school         Creates the Navrachna school
-  seed-users          Creates super admin, admins, teachers, 1080 students
+  seed-users          Creates super admin, admin, teachers, and students (classes 6-12)
   seed-profiles       Creates admin, teacher, and student profiles
   seed-timetable      Creates time slots, timetables, and timetable entries
-  seed-attendance     Creates sample attendance for class 10-A
+  seed-attendance     Creates realistic attendance for all seeded students
   seed-calendar       Creates holidays, exams, and school events
   seed-notices        Creates notices and notice groups
   cleanup             Removes ALL Navrachna data (run before re-seeding)

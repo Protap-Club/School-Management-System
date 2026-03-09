@@ -1,14 +1,22 @@
 import User from "./model/User.model.js";
+import StudentProfile from "./model/StudentProfile.model.js";
 import TeacherProfile from "./model/TeacherProfile.model.js";
 import { PROFILE_CONFIG } from "../../config/profiles.js";
 import { sendCredentialsEmail } from "../../utils/email.util.js";
-import { ForbiddenError } from "../../utils/customError.js";
 import { USER_ROLES, canManageRole } from "../../constants/userRoles.js";
-import { BadRequestError, NotFoundError, ConflictError } from "../../utils/customError.js";
+import { BadRequestError, NotFoundError, ConflictError, ForbiddenError } from "../../utils/customError.js";
 import { deleteFromCloudinary } from "../../middlewares/upload.middleware.js";
 import logger from "../../config/logger.js";
 
-// Helper to build a query based on who is asking (The Filter Factory)
+// Defines which user roles each role is allowed to view/manage.
+const VIEWABLE_ROLES = Object.freeze({
+    [USER_ROLES.TEACHER]: [USER_ROLES.TEACHER, USER_ROLES.STUDENT],
+    [USER_ROLES.ADMIN]: [USER_ROLES.ADMIN, USER_ROLES.TEACHER, USER_ROLES.STUDENT],
+    [USER_ROLES.SUPER_ADMIN]: [USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN, USER_ROLES.TEACHER, USER_ROLES.STUDENT],
+});
+
+// Helper to build a scoped query based on who is asking.
+// Enforces school isolation and role visibility rules.
 const buildAccessQuery = (creator, filters = {}) => {
     const { name, isArchived, role, userIds, ...otherFilters } = filters;
     const query = {
@@ -25,24 +33,18 @@ const buildAccessQuery = (creator, filters = {}) => {
 
     if (name) query.name = { $regex: name, $options: "i" };
 
-    // Role-based scoping: what roles can you SEE?
+    // Role-based scoping: determine which roles the caller is allowed to see
+    const allowedRoles = VIEWABLE_ROLES[creator.role] || [USER_ROLES.STUDENT];
+
     if (role && role !== 'all') {
+        // Validate: caller can only filter to roles they're allowed to see
+        if (!allowedRoles.includes(role)) {
+            throw new ForbiddenError(`You are not authorized to view users with role '${role}'`);
+        }
         query.role = role;
     } else {
-        // No explicit role filter — scope by the requester's role
-        switch (creator.role) {
-            case USER_ROLES.TEACHER:
-                query.role = USER_ROLES.STUDENT;
-                break;
-            case USER_ROLES.ADMIN:
-                query.role = { $in: [USER_ROLES.TEACHER, USER_ROLES.STUDENT] };
-                break;
-            case USER_ROLES.SUPER_ADMIN:
-                query.role = { $in: [USER_ROLES.ADMIN, USER_ROLES.TEACHER, USER_ROLES.STUDENT] };
-                break;
-            default:
-                query.role = USER_ROLES.STUDENT;
-        }
+        // No explicit role filter — show all roles the caller can see
+        query.role = allowedRoles.length === 1 ? allowedRoles[0] : { $in: allowedRoles };
     }
 
     return query;
@@ -52,17 +54,22 @@ const buildAccessQuery = (creator, filters = {}) => {
 export const createUser = async (creator, userData) => {
     const { name, email, role, skipEmail } = userData;
 
-    // Ensure name is present
     if (!name) throw new BadRequestError("Name is required");
 
     // Hierarchy check: creator can only create roles below their own
     if (!canManageRole(creator.role, role)) {
         throw new ForbiddenError(`You cannot create a user with role '${role}'. You can only create roles below your own.`);
     }
-    // Determine correct school context - use provided schoolId or fallback to creator's schoolId
+
+    // Teachers can only create students
+    if (creator.role === USER_ROLES.TEACHER && role !== USER_ROLES.STUDENT) {
+        throw new ForbiddenError("Teachers can only create student accounts");
+    }
+
+    // School context — always scoped to creator's school
     const targetSchoolId = userData.schoolId || creator.schoolId;
 
-    // Check if user already exists
+    // Check for duplicate email
     const existing = await User.findOne({ email });
     if (existing) throw new ConflictError("Email already registered");
 
@@ -73,12 +80,12 @@ export const createUser = async (creator, userData) => {
     // Step 1: Create User
     const newUser = await User.create({
         ...userData,
-        password: plainPassword, // User model has a .pre('save') hook to hash this
+        password: plainPassword, // User model .pre('save') hashes this
         schoolId: targetSchoolId,
         createdBy: creator._id
     });
 
-    // Step 2: Create Profile 
+    // Step 2: Create Role-Specific Profile
     if (config) {
         await config.model.create({
             userId: newUser._id,
@@ -87,51 +94,41 @@ export const createUser = async (creator, userData) => {
         });
     }
 
-    // Send email AFTER successful DB operations (Only if not skipped)
+    // Step 3: Send welcome email (fire-and-forget, non-blocking)
     if (!skipEmail) {
         sendCredentialsEmail({
             to: email,
             name,
             role,
             password: plainPassword
-        }).catch(err => console.error("Email failed", err));
+        }).catch(err => logger.error({ err, email }, "Failed to send credentials email"));
     }
 
-    const data = {
-        _id: newUser._id,
-        name: newUser.name,
-        email: newUser.email,
-        role: newUser.role,
-        schoolId: newUser.schoolId,
-        createdBy: newUser.createdBy
-    }
-
-    return { user: data };
+    return {
+        user: {
+            _id: newUser._id,
+            name: newUser.name,
+            email: newUser.email,
+            role: newUser.role,
+            schoolId: newUser.schoolId,
+            createdBy: newUser.createdBy
+        }
+    };
 };
 
-// GET USERS 
+// GET USERS (with pagination, role scoping, and teacher class filtering)
 export const getUsers = async (creator, filters = {}) => {
-    // Extract pagination from filters before building query
     const { page = 0, pageSize = 25, ...queryFilters } = filters;
     const query = buildAccessQuery(creator, queryFilters);
 
-    // For teachers: restrict to students from their assigned classes only
-    if (creator.role === USER_ROLES.TEACHER && (query.role === USER_ROLES.STUDENT || !queryFilters.role)) {
+    // Teachers can only see students from their assigned classes
+    if (creator.role === USER_ROLES.TEACHER && query.role === USER_ROLES.STUDENT) {
         const teacherProfile = await TeacherProfile.findOne({ userId: creator._id })
             .select("assignedClasses")
             .lean();
 
         if (teacherProfile?.assignedClasses?.length) {
-            // Build $or conditions for each assigned class (standard + section)
-            const classConditions = teacherProfile.assignedClasses.map(cls => ({
-                "profile.standard": cls.standard,
-                "profile.section": cls.section
-            }));
-
-            // We need to use aggregation or post-filter via studentProfile
-            // First, get student IDs from StudentProfile that match the teacher's classes
-            const { default: StudentProfile } = await import("./model/StudentProfile.model.js");
-            const matchingStudentProfiles = await StudentProfile.find({
+            const matchingStudents = await StudentProfile.find({
                 schoolId: creator.schoolId,
                 $or: teacherProfile.assignedClasses.map(cls => ({
                     standard: cls.standard,
@@ -139,25 +136,41 @@ export const getUsers = async (creator, filters = {}) => {
                 }))
             }).select("userId").lean();
 
-            const allowedStudentIds = matchingStudentProfiles.map(sp => sp.userId);
+            const allowedStudentIds = matchingStudents.map(sp => sp.userId);
             query._id = query._id
                 ? { $in: allowedStudentIds.filter(id => query._id.$in?.includes(id.toString())) }
                 : { $in: allowedStudentIds };
         }
     }
 
-    // Get total count for pagination
     const totalCount = await User.countDocuments(query);
 
-    const users = await User.find(query)
+    // Determine which role is being queried for conditional population
+    const queryRole = typeof query.role === 'string' ? query.role : null;
+
+    let userQuery = User.find(query)
         .select("-password")
         .populate("schoolId", "name code")
-        .populate("studentProfile")
-        .populate("teacherProfile")
         .sort({ createdAt: -1 })
         .skip(Number(page) * Number(pageSize))
-        .limit(Number(pageSize))
-        .lean();
+        .limit(Number(pageSize));
+
+    // Conditional profile population — only populate the relevant profile
+    if (queryRole === USER_ROLES.STUDENT) {
+        userQuery = userQuery.populate("studentProfile");
+    } else if (queryRole === USER_ROLES.TEACHER) {
+        userQuery = userQuery.populate("teacherProfile");
+    } else if (queryRole === USER_ROLES.ADMIN) {
+        userQuery = userQuery.populate("adminProfile");
+    } else {
+        // Mixed roles — populate all profiles
+        userQuery = userQuery
+            .populate("studentProfile")
+            .populate("teacherProfile")
+            .populate("adminProfile");
+    }
+
+    const users = await userQuery.lean();
 
     return {
         totalCount,
@@ -166,9 +179,12 @@ export const getUsers = async (creator, filters = {}) => {
             name: u.name,
             email: u.email,
             role: u.role,
+            contactNo: u.contactNo,
+            avatarUrl: u.avatarUrl,
             schoolId: u.schoolId,
             isActive: u.isActive,
-            profile: u.studentProfile || u.teacherProfile
+            isArchived: u.isArchived,
+            profile: u.studentProfile || u.teacherProfile || u.adminProfile || null
         })),
         pagination: {
             page: Number(page),
@@ -178,13 +194,50 @@ export const getUsers = async (creator, filters = {}) => {
     };
 };
 
-// GET MY PROFILE (for mobile — teacher/student self-view)
+// GET USER BY ID (single user detail view)
+export const getUserById = async (creator, userId) => {
+    const user = await User.findOne({
+        _id: userId,
+        schoolId: creator.schoolId // Enforce school isolation
+    })
+        .select("-password")
+        .populate("schoolId", "name code")
+        .populate("studentProfile")
+        .populate("teacherProfile")
+        .populate("adminProfile")
+        .lean();
+
+    if (!user) throw new NotFoundError("User not found");
+
+    // Verify the caller is allowed to view this user's role
+    const allowedRoles = VIEWABLE_ROLES[creator.role] || [USER_ROLES.STUDENT];
+    if (!allowedRoles.includes(user.role)) {
+        throw new ForbiddenError("You are not authorized to view this user");
+    }
+
+    return {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        contactNo: user.contactNo,
+        avatarUrl: user.avatarUrl,
+        schoolId: user.schoolId,
+        isActive: user.isActive,
+        isArchived: user.isArchived,
+        createdAt: user.createdAt,
+        profile: user.studentProfile || user.teacherProfile || user.adminProfile || null
+    };
+};
+
+// GET MY PROFILE (own profile — accessible from both web & mobile)
 export const getMyProfile = async (userId) => {
     const user = await User.findById(userId)
         .select("-password")
         .populate("schoolId", "name code")
         .populate("studentProfile")
         .populate("teacherProfile")
+        .populate("adminProfile")
         .lean();
 
     if (!user) throw new NotFoundError("User not found");
@@ -200,20 +253,29 @@ export const getMyProfile = async (userId) => {
     };
 };
 
-// TOGGLE ARCHIVE STATUS 
-export const toggleUserStatus = async (creator, userIds, isArchived) => {
+// TOGGLE ARCHIVE STATUS (soft delete / restore)
+export const toggleArchive = async (creator, userIds, isArchived) => {
     const query = buildAccessQuery(creator, {
         userIds,
-        isArchived: !isArchived
+        isArchived: !isArchived // Find users in the OPPOSITE state
     });
 
-    const result = await User.updateMany(query, { $set: { isArchived } });
+    const updateData = { isArchived };
+    if (isArchived) {
+        updateData.archivedAt = new Date();
+        updateData.archivedBy = creator._id;
+    } else {
+        updateData.archivedAt = null;
+        updateData.archivedBy = null;
+    }
+
+    const result = await User.updateMany(query, { $set: updateData });
 
     if (result.matchedCount === 0) {
         throw new NotFoundError(`No ${!isArchived ? 'archived' : 'active'} users found to update`);
     }
 
-    return { updateResult: result };
+    return { modifiedCount: result.modifiedCount };
 };
 
 // PERMANENT DELETE (without transactions for standalone MongoDB)
@@ -236,11 +298,8 @@ export const hardDeleteUsers = async (creator, userIds) => {
 
     const result = await User.deleteMany({ _id: { $in: deleteIds } });
 
-    return { deleteResult: { deletedCount: result.deletedCount } };
+    return { deletedCount: result.deletedCount };
 };
-
-//     return { deleteResult: { deletedCount: result.deletedCount } };
-// };
 
 // UPDATE AVATAR
 export const updateAvatar = async (userId, avatarUrl, avatarPublicId) => {
@@ -250,11 +309,12 @@ export const updateAvatar = async (userId, avatarUrl, avatarPublicId) => {
     const oldAvatarPublicId = user.avatarPublicId || user.avatarUrl; // Fallback for legacy URLs
     user.avatarUrl = avatarUrl;
     user.avatarPublicId = avatarPublicId;
+    
     await user.save();
 
     // Clean up old avatar from Cloudinary
     if (oldAvatarPublicId) await deleteFromCloudinary(oldAvatarPublicId);
 
-    logger.info(`Avatar updated for user: ${userId}`);
+    logger.info(`Avatar uploaded for user: ${userId}`);
     return { avatarUrl: user.avatarUrl };
 };

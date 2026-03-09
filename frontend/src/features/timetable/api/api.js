@@ -1,14 +1,12 @@
-// Timetable API Functions
-import api from '../../../lib/axios';
+import api from "../../../lib/axios";
 
-// TimeSlot API - /api/v1/timetables/slots
 export const getTimeSlots = async () => {
-    const response = await api.get('/timetables/slots');
+    const response = await api.get("/timetables/slots");
     return response.data;
 };
 
 export const createTimeSlot = async (data) => {
-    const response = await api.post('/timetables/slots', data);
+    const response = await api.post("/timetables/slots", data);
     return response.data;
 };
 
@@ -22,13 +20,14 @@ export const deleteTimeSlot = async (id) => {
     return response.data;
 };
 
-// Timetable API - /api/v1/timetables
 export const getTimetables = async (filters = {}) => {
     const params = new URLSearchParams();
-    if (filters.standard) params.append('standard', filters.standard);
-    if (filters.section) params.append('section', filters.section);
-    if (filters.academicYear) params.append('academicYear', filters.academicYear);
-    const response = await api.get(`/timetables?${params.toString()}`);
+    if (filters.standard) params.append("standard", filters.standard);
+    if (filters.section) params.append("section", filters.section);
+    if (filters.academicYear) params.append("academicYear", String(filters.academicYear));
+
+    const qs = params.toString();
+    const response = await api.get(qs ? `/timetables?${qs}` : "/timetables");
     return response.data;
 };
 
@@ -38,12 +37,7 @@ export const getTimetableById = async (id) => {
 };
 
 export const createTimetable = async (data) => {
-    const response = await api.post('/timetables', data);
-    return response.data;
-};
-
-export const updateTimetableStatus = async ({ id, status }) => {
-    const response = await api.patch(`/timetables/${id}/status`, { status });
+    const response = await api.post("/timetables", data);
     return response.data;
 };
 
@@ -52,9 +46,8 @@ export const deleteTimetable = async (id) => {
     return response.data;
 };
 
-// Timetable Entry API - /api/v1/timetables/:id/entries/sync
-export const syncTimetableEntries = async ({ timetableId, entries }) => {
-    const response = await api.post(`/timetables/${timetableId}/entries/sync`, { entries });
+export const createEntry = async ({ timetableId, data }) => {
+    const response = await api.post(`/timetables/${timetableId}/entries`, data);
     return response.data;
 };
 
@@ -68,14 +61,23 @@ export const deleteEntry = async (entryId) => {
     return response.data;
 };
 
-// Teacher Schedule API - /api/v1/timetables/schedule/me
 export const getMySchedule = async () => {
-    const response = await api.get('/timetables/schedule/me');
+    const response = await api.get("/timetables/schedule/me");
     return response.data;
 };
 
-// Helper: Get teachers for dropdown - /api/v1/users?role=teacher
+export const getTeacherSchedule = async (teacherId, academicYear = null) => {
+    const qs = academicYear ? `?academicYear=${academicYear}` : "";
+    const response = await api.get(`/timetables/schedule/${teacherId}${qs}`);
+    return response.data;
+};
+
 export const getTeachers = async () => {
-    const response = await api.get('/users?role=teacher&pageSize=100');
+    const response = await api.get("/users?role=teacher&pageSize=100&isArchived=false");
+    return response.data;
+};
+
+export const getSchoolClasses = async () => {
+    const response = await api.get("/school/classes");
     return response.data;
 };

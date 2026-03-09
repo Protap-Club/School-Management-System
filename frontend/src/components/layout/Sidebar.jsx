@@ -10,6 +10,7 @@ import {
     FaBullhorn,
     FaCalendarAlt,
     FaCalendarDay,
+    FaMoneyBillWave,
 } from 'react-icons/fa';
 
 const Sidebar = () => {
@@ -59,6 +60,11 @@ const Sidebar = () => {
                     adminLinks.push({ path: '/admin/notice', label: 'Notice', icon: <FaBullhorn /> });
                 }
 
+                // 7. Fees
+                if (hasFeature('fees')) {
+                    adminLinks.push({ path: '/admin/fees', label: 'Fees', icon: <FaMoneyBillWave /> });
+                }
+
                 // Settings always last
                 adminLinks.push({ path: '/admin/settings', label: 'Settings', icon: <FaCog /> });
 
@@ -89,6 +95,11 @@ const Sidebar = () => {
                 // 6. Notice
                 if (hasFeature('notice')) {
                     teacherLinks.push({ path: '/teacher/notice', label: 'Notice', icon: <FaBullhorn /> });
+                }
+
+                // 7. Fees
+                if (hasFeature('fees')) {
+                    teacherLinks.push({ path: '/teacher/fees', label: 'Fees', icon: <FaMoneyBillWave /> });
                 }
 
                 return teacherLinks;

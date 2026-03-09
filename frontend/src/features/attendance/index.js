@@ -1,18 +1,18 @@
-// Attendance Feature - Public API
+// Attendance Feature — Public API
 
 // Query Hooks
 export {
     attendanceKeys,
     useStudents,
     useTeachers,
+    useTodayAttendance,
     useLinkNfcTag,
     useMarkNfcAttendance,
+    useMarkManualAttendance,
 } from './api/queries';
 
 // Constants
 export const ATTENDANCE_STATUS = {
-    PRESENT: 'present',
-    ABSENT: 'absent',
-    LATE: 'late',
-    UNMARKED: 'unmarked',
+    PRESENT: 'Present',
+    ABSENT: 'Absent',
 };

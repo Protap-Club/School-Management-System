@@ -3,13 +3,14 @@ import { useAuth } from '../../features/auth';
 import { useSidebar } from '../../state';
 import api from '../../api/axios';
 import { useNavigate } from 'react-router-dom';
-import {headerContent} from '../../config/headerContent.js';
+import { headerContent } from '../../config/headerContent.js';
 import { FaBars, FaUserCircle, FaSignOutAlt, FaBuilding, FaChevronDown, FaSearch, FaBell } from 'react-icons/fa';
 import AvatarUploadModal from './AvatarUploadModal';
 import { useDispatch } from 'react-redux';
 import { setUser } from '../../features/auth/authSlice';
 import { useReceivedNotices } from '../../features/notices';
 import { useQueryClient } from '@tanstack/react-query';
+import { authKeys } from '../../features/auth/api/api';
 
 const ROLE_GRADIENTS = {
     super_admin: 'from-purple-600 to-blue-600',
@@ -24,6 +25,7 @@ const Header = () => {
     const dispatch = useDispatch();
     const queryClient = useQueryClient();
     const [schoolBranding, setSchoolBranding] = useState(null);
+    const [refreshKey, setRefreshKey] = useState(() => Date.now());
     const [dropdownOpen, setDropdownOpen] = useState(false);
     const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
     const dropdownRef = useRef(null);
@@ -57,6 +59,7 @@ const Header = () => {
                     const response = await api.get('/school');
                     if (response.data.success && response.data.data) {
                         setSchoolBranding(response.data.data);
+                        setRefreshKey(Date.now());
                     }
                 } catch (error) {
                     console.error('Failed to fetch branding', error);
@@ -71,15 +74,13 @@ const Header = () => {
     const handleUploadSuccess = (newAvatarUrl) => {
         if (user) {
             dispatch(setUser({ ...user, avatarUrl: newAvatarUrl }));
+            setRefreshKey(Date.now());
             // Invalidate query to prevent old cache from overwriting Redux on remounts
-            queryClient.invalidateQueries({ queryKey: ['auth', 'user'] });
+            queryClient.invalidateQueries({ queryKey: authKeys.user() });
         }
     };
 
-    const handleLogout = () => {
-        logout();
-        navigate('/login');
-    };
+
 
     const handleNotificationClick = () => {
         // Mark as read by saving the current time
@@ -101,9 +102,9 @@ const Header = () => {
                     <img src="/menus.png" alt="Menu" className="w-5 h-5" />
                 </button>
                 <div className="flex items-center gap-3">
-                    {headerContent.logo ? (
+                    {(logo || headerContent.logo) ? (
                         <img
-                            src={headerContent.logo}
+                            src={logo ? `${logo}${logo.includes('?') ? '&' : '?'}t=${refreshKey}` : headerContent.logo}
                             alt="Logo"
                             className="h-10 w-auto object-contain"
                             onError={(e) => { e.target.style.display = 'none'; }}
@@ -117,25 +118,27 @@ const Header = () => {
                 </div>
             </div>
             <div className="flex items-center gap-3">
-                <button onClick={handleNotificationClick}
-                    className="p-2 lg:p-2.5 rounded-full text-gray-500 hover:bg-gray-100 hover:text-blue-600 transition-all focus:outline-none focus:ring-2 focus:ring-blue-100 relative group" title="Notifications">
-                    <FaBell className="w-5 h-5" />
-                    {unreadCount > 0 && (
-                        <span className="absolute top-1.5 right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white ring-2 ring-white animate-pulse-subtle">
-                            {unreadCount > 9 ? '9+' : unreadCount}
-                        </span>
-                    )}
-                </button>
+                {user?.role !== 'super_admin' && (
+                    <button onClick={handleNotificationClick}
+                        className="p-2 lg:p-2.5 rounded-full text-gray-500 hover:bg-gray-100 hover:text-blue-600 transition-all focus:outline-none focus:ring-2 focus:ring-blue-100 relative group" title="Notifications">
+                        <FaBell className="w-5 h-5" />
+                        {unreadCount > 0 && (
+                            <span className="absolute top-1.5 right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white ring-2 ring-white animate-pulse-subtle">
+                                {unreadCount > 9 ? '9+' : unreadCount}
+                            </span>
+                        )}
+                    </button>
+                )}
 
                 {/* User Profile */}
                 <div className="relative flex items-center gap-1" ref={dropdownRef}>
                     <button
                         onClick={() => setIsUploadModalOpen(true)}
-                        className={`w-9 h-9 rounded-full bg-gradient-to-r ${getRoleGradient()} flex items-center justify-center text-white font-bold shadow-sm overflow-hidden hover:ring-2 hover:ring-blue-100 transition-all focus:outline-none shrink-0`}
+                        className={`w-9 h-9 rounded-full bg-gradient-to-r ${roleGradient} flex items-center justify-center text-white font-bold shadow-sm overflow-hidden hover:ring-2 hover:ring-blue-100 transition-all focus:outline-none shrink-0`}
                         title="Change Profile Picture"
                     >
                         {user?.avatarUrl ? (
-                            <img src={user.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                            <img src={`${user.avatarUrl}${user.avatarUrl.includes('?') ? '&' : '?'}t=${refreshKey}`} alt="Avatar" className="w-full h-full object-cover" />
                         ) : (
                             user?.name?.charAt(0).toUpperCase() || 'U'
                         )}

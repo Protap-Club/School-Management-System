@@ -15,6 +15,13 @@ export const markAttendanceSchema = z.object({
     }),
 });
 
+export const manualAttendanceSchema = z.object({
+    body: z.object({
+        studentId: z.string().regex(/^[0-9a-fA-F]{24}$/, "Invalid student ID"),
+        status: z.enum(["Present", "Absent"]),
+    }),
+});
+
 export const studentIdParamsSchema = z.object({
     params: z.object({
         id: objectIdSchema,

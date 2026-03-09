@@ -16,13 +16,16 @@ export const createSchoolSchema = z.object({
 
 export const updateSchoolSchema = z.object({
     params: z.object({
-        id: objectIdSchema,
-    }),
+        id: objectIdSchema.optional(),
+    }).optional(),
     body: z.object({
         name: z.string().optional(),
         address: z.string().optional(),
         contactEmail: z.string().email('Invalid email address').optional(),
         contactPhone: z.string().optional(),
+        theme: z.object({
+            accentColor: z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Invalid color code').optional(),
+        }).optional(),
     }),
 });
 

@@ -1,11 +1,11 @@
 import * as timetableService from "./timetable.service.js";
 import asyncHandler from "../../utils/asyncHandler.js";
 import logger from "../../config/logger.js";
-import { USER_ROLES } from "../../constants/userRoles.js";
-import { ForbiddenError, BadRequestError } from "../../utils/customError.js";
+import { BadRequestError } from "../../utils/customError.js";
 
-// TimeSlot Controllers
+// TIMESLOT CONTROLLERS
 
+// creates a new bell schedule time slot for the school
 export const createTimeSlot = asyncHandler(async (req, res) => {
     const result = await timetableService.createTimeSlot(req.schoolId, req.body);
     res.status(201).json({
@@ -16,6 +16,7 @@ export const createTimeSlot = asyncHandler(async (req, res) => {
     logger.info(`Time slot created: ${result.slotNumber}`);
 });
 
+// returns all bell schedule time slots for the school
 export const getTimeSlots = asyncHandler(async (req, res) => {
     const result = await timetableService.getTimeSlots(req.schoolId);
     res.status(200).json({
@@ -24,6 +25,7 @@ export const getTimeSlots = asyncHandler(async (req, res) => {
     });
 });
 
+// updates an existing time slot (slot number, times, type, etc.)
 export const updateTimeSlot = asyncHandler(async (req, res) => {
     const result = await timetableService.updateTimeSlot(req.schoolId, req.params.id, req.body);
     res.status(200).json({
@@ -33,14 +35,24 @@ export const updateTimeSlot = asyncHandler(async (req, res) => {
     });
 });
 
+// deletes a time slot (will fail if any entry is still using it)
 export const deleteTimeSlot = asyncHandler(async (req, res) => {
     await timetableService.deleteTimeSlot(req.schoolId, req.params.id);
     res.status(204).end();
 });
 
-// Timetable Controllers
+// TIMETABLE CONTROLLERS
 
-// Create a new timetable (Header only)
+// lists all timetable headers for the school (admin use for management)
+export const getTimetables = asyncHandler(async (req, res) => {
+    const result = await timetableService.getTimetables(req.schoolId, req.query);
+    res.status(200).json({
+        success: true,
+        data: result
+    });
+});
+
+// creates a new timetable header for a specific class + section + academic year
 export const createTimetable = asyncHandler(async (req, res) => {
     const result = await timetableService.createTimetable(req.schoolId, req.body);
     res.status(201).json({
@@ -51,7 +63,7 @@ export const createTimetable = asyncHandler(async (req, res) => {
     logger.info(`Timetable created: ${result._id}`);
 });
 
-// Get specific timetable with entries
+// returns a specific timetable with all its entries (populated with teacher names, slot details)
 export const getTimetableById = asyncHandler(async (req, res) => {
     const result = await timetableService.getTimetableById(req.schoolId, req.params.id);
     res.status(200).json({
@@ -60,21 +72,21 @@ export const getTimetableById = asyncHandler(async (req, res) => {
     });
 });
 
-// Delete a timetable
+// deletes a timetable and all its associated entries (hard delete)
 export const deleteTimetable = asyncHandler(async (req, res) => {
     await timetableService.deleteTimetable(req.schoolId, req.params.id);
     res.status(204).end();
 });
 
-// Entry Controllers
+// ENTRY CONTROLLERS
 
-// Add a single entry
+// adds a single entry to a timetable (wraps it in array for the bulk service)
 export const addEntry = asyncHandler(async (req, res) => {
     const timetableId = req.params.id;
-    // Reuse sync logic for single entry (wrap in array)
+    // reuse bulk logic — wrap single entry in array to avoid duplicate code
     const result = await timetableService.createEntries(req.schoolId, timetableId, [req.body]);
 
-    // Check for failure
+    // if the single entry failed conflict check, throw error instead of returning partial result
     if (result.failed.length > 0) {
         const failure = result.failed[0];
         throw new BadRequestError(failure.reason || "Failed to create entry");
@@ -87,14 +99,12 @@ export const addEntry = asyncHandler(async (req, res) => {
     });
 });
 
-// Update a single entry
+// updates a single timetable entry (admin-only — role enforced at route level)
 export const updateEntry = asyncHandler(async (req, res) => {
     const result = await timetableService.updateEntry(
         req.schoolId,
         req.params.entryId,
-        req.body,
-        req.user._id,
-        req.user.role
+        req.body
     );
     res.status(200).json({
         success: true,
@@ -103,38 +113,33 @@ export const updateEntry = asyncHandler(async (req, res) => {
     });
 });
 
-// Delete a single entry
+// deletes a single timetable entry
 export const deleteEntry = asyncHandler(async (req, res) => {
     await timetableService.deleteEntry(req.schoolId, req.params.entryId);
     res.status(204).end();
 });
 
-// Schedule Controllers
+// SCHEDULE CONTROLLERS
 
-// Get teacher's schedule (Admin view)
+// returns a specific teacher's weekly schedule (admin view)
 export const getTeacherSchedule = asyncHandler(async (req, res) => {
-    const { teacherId } = req.params;
-
-    // Security check: Teachers can't spy on other teachers
-    if (req.user.role === USER_ROLES.TEACHER && String(req.user._id) !== String(teacherId)) {
-        throw new ForbiddenError("Access denied");
-    }
-
-    const result = await timetableService.getTeacherSchedule(req.schoolId, teacherId);
+    const result = await timetableService.getTeacherSchedule(req.schoolId, req.params.teacherId);
     res.status(200).json({
         success: true,
         data: result
     });
 });
 
-// Get my schedule (Teacher/Student)
+// returns the logged-in user's own schedule (teacher or student)
+// teacher sees all their assigned classes, student sees their class timetable
+// mobile platform gets a simplified response shape
 export const getMyTimetable = asyncHandler(async (req, res) => {
+    const schoolId = req.schoolId;
     const userId = req.user._id;
-    const schoolId = req.user.schoolId;
     const role = req.user.role;
     const platform = req.platform;
 
-    logger.info(`userId : ${userId}, schoolId: ${schoolId}, role: ${role}, platform: ${platform}`);
+    logger.debug(`getMyTimetable — userId: ${userId}, schoolId: ${schoolId}, role: ${role}, platform: ${platform}`);
 
     const result = await timetableService.getUserTimetable(schoolId, userId, role, platform);
     res.status(200).json({

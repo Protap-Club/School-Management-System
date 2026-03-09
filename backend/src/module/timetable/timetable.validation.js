@@ -1,12 +1,12 @@
 import { z } from 'zod';
 import { DAYS_OF_WEEK } from './Timetable.model.js';
 
+// reusable schema for validating MongoDB ObjectId format (24-char hex string)
 const objectIdSchema = z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid ObjectId');
 
-// ═══════════════════════════════════════════════════════════════
-// TimeSlot Validation Schemas
-// ═══════════════════════════════════════════════════════════════
+// TIMESLOT VALIDATION
 
+// validates request body when creating a new time slot
 export const createTimeSlotSchema = z.object({
     body: z.object({
         slotNumber: z.number({ required_error: "Slot number is required" }).int().positive(),
@@ -17,6 +17,8 @@ export const createTimeSlotSchema = z.object({
     })
 });
 
+// validates params + body when updating a time slot
+// all body fields are optional since it's a partial update
 export const updateTimeSlotSchema = z.object({
     params: z.object({
         id: objectIdSchema
@@ -31,16 +33,16 @@ export const updateTimeSlotSchema = z.object({
     })
 });
 
+// validates the :id param for time slot routes (delete, etc.)
 export const timeSlotIdParamsSchema = z.object({
     params: z.object({
         id: objectIdSchema
     })
 });
 
-// ═══════════════════════════════════════════════════════════════
-// Timetable Validation Schemas
-// ═══════════════════════════════════════════════════════════════
+// TIMETABLE VALIDATION
 
+// validates request body when creating a new timetable header
 export const createTimetableSchema = z.object({
     body: z.object({
         standard: z.string({ required_error: "Standard is required" }).nonempty(),
@@ -49,49 +51,20 @@ export const createTimetableSchema = z.object({
     })
 });
 
+// validates the :id param for timetable routes (get by id, delete, etc.)
 export const timetableIdParamsSchema = z.object({
     params: z.object({
         id: objectIdSchema
     })
 });
 
-export const updateTimetableStatusSchema = z.object({
-    params: z.object({
-        id: objectIdSchema
-    }),
-    body: z.object({
-        status: z.enum(["DRAFT", "PUBLISHED"])
-    })
-});
+// ENTRY VALIDATION
 
-// ═══════════════════════════════════════════════════════════════
-// TimetableEntry Validation Schemas
-// ═══════════════════════════════════════════════════════════════
-
-// Single entry for CLASS slot (requires subject + teacherId)
-const classEntrySchema = z.object({
-    dayOfWeek: z.enum(DAYS_OF_WEEK, { required_error: "Day of week is required" }),
-    timeSlotId: objectIdSchema,
-    subject: z.string({ required_error: "Subject is required for class slots" }).nonempty(),
-    teacherId: objectIdSchema,
-    roomNumber: z.string().optional(),
-    notes: z.string().optional()
-});
-
-// Single entry for BREAK slot (no subject/teacher needed)
-const breakEntrySchema = z.object({
-    dayOfWeek: z.enum(DAYS_OF_WEEK, { required_error: "Day of week is required" }),
-    timeSlotId: objectIdSchema,
-    subject: z.string().optional().nullable(),
-    teacherId: z.string().optional().nullable(),
-    roomNumber: z.string().optional(),
-    notes: z.string().optional()
-});
-
-// Combined entry schema (validation switches based on slot type in service layer)
+// validates request when adding a single entry to a timetable
+// teacherId and subject are optional to allow break periods (no teacher assigned)
 export const createEntrySchema = z.object({
     params: z.object({
-        id: objectIdSchema // timetableId
+        id: objectIdSchema // timetableId from URL
     }),
     body: z.object({
         dayOfWeek: z.enum(DAYS_OF_WEEK, { required_error: "Day of week is required" }),
@@ -103,25 +76,28 @@ export const createEntrySchema = z.object({
     })
 });
 
-export const createBulkEntriesSchema = z.object({
-    params: z.object({
-        id: objectIdSchema // timetableId
-    }),
-    body: z.object({
-        entries: z.array(z.object({
-            dayOfWeek: z.enum(DAYS_OF_WEEK),
-            timeSlotId: objectIdSchema,
-            subject: z.string().optional().nullable(),
-            teacherId: z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid ObjectId').optional().nullable(),
-            roomNumber: z.string().optional(),
-            notes: z.string().optional()
-        })).nonempty("Entries array cannot be empty")
-    })
-});
+// bulk entry creation — commented out for now, uncomment when bulk endpoint is added
+// export const createBulkEntriesSchema = z.object({
+//     params: z.object({
+//         id: objectIdSchema // timetableId from URL
+//     }),
+//     body: z.object({
+//         entries: z.array(z.object({
+//             dayOfWeek: z.enum(DAYS_OF_WEEK),
+//             timeSlotId: objectIdSchema,
+//             subject: z.string().optional().nullable(),
+//             teacherId: z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid ObjectId').optional().nullable(),
+//             roomNumber: z.string().optional(),
+//             notes: z.string().optional()
+//         })).nonempty("Entries array cannot be empty")
+//     })
+// });
 
+// validates request when updating an existing entry
+// all body fields are optional since it's a partial update
 export const updateEntrySchema = z.object({
     params: z.object({
-        entryId: objectIdSchema // entryId parameter name
+        entryId: objectIdSchema
     }),
     body: z.object({
         dayOfWeek: z.enum(DAYS_OF_WEEK).optional(),
@@ -133,16 +109,17 @@ export const updateEntrySchema = z.object({
     })
 });
 
+// validates the :entryId param for entry routes (update, delete)
 export const entryIdParamsSchema = z.object({
     params: z.object({
         entryId: objectIdSchema
     })
 });
 
-// ═══════════════════════════════════════════════════════════════
-// Teacher Schedule Validation
-// ═══════════════════════════════════════════════════════════════
+// SCHEDULE VALIDATION
 
+// validates params + optional query when viewing a specific teacher's schedule
+// academicYear query param is optional — if not provided, returns all years
 export const teacherScheduleParamsSchema = z.object({
     params: z.object({
         teacherId: objectIdSchema

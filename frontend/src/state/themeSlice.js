@@ -21,7 +21,7 @@ const darkenHex = (hex, percent = 10) => {
 
 const initialState = {
     branding: null,
-    accentColor: '#2563eb',
+    accentColor: localStorage.getItem('school-accent-color') || '#2563eb',
 };
 
 const themeSlice = createSlice({
@@ -30,14 +30,15 @@ const themeSlice = createSlice({
     reducers: {
         setBranding: (state, action) => {
             state.branding = action.payload;
-            if (action.payload?.theme?.accentColor) {
-                state.accentColor = action.payload.theme.accentColor;
-            }
         },
         setAccentColor: (state, action) => {
             state.accentColor = action.payload;
-            if (state.branding) {
-                state.branding.theme = { ...state.branding?.theme, accentColor: action.payload };
+            localStorage.setItem('school-accent-color', action.payload);
+
+            // Sync the color inside the branding object if it exists
+            const schoolData = state.branding?.school || state.branding;
+            if (schoolData && schoolData.theme) {
+                schoolData.theme.accentColor = action.payload;
             }
         },
     },
@@ -58,6 +59,9 @@ export const applyThemeToDOM = (color) => {
     root.style.setProperty('--primary-rgb', hexToRgb(color));
     root.style.setProperty('--primary-hover', darkenHex(color, 15));
     root.style.setProperty('--primary-hover-rgb', hexToRgb(darkenHex(color, 15)));
+
+    // Also override shadcn variables so standard tailwind classes (bg-primary) work
+    root.style.setProperty('--primary', color);
 };
 
 export default themeSlice.reducer;

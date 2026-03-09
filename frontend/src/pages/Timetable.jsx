@@ -3,15 +3,8 @@ import { useAuth } from '../features/auth';
 import DashboardLayout from '../layouts/DashboardLayout';
 import TimetableGrid from '../components/timetable/TimetableGrid';
 import TimetableModal from '../components/timetable/TimetableModal';
-import { FaCalendarAlt, FaChalkboardTeacher, FaLayerGroup, FaPlus, FaSpinner, FaToggleOn, FaToggleOff } from 'react-icons/fa';
+import { FaCalendarAlt, FaChalkboardTeacher, FaPlus, FaSpinner } from 'react-icons/fa';
 import { useTimetableData } from '../hooks/useTimetableData';
-import { TIMETABLE_STATUS } from '../api/timetable';
-
-const CREATE_FORM_FIELDS = [
-  { label: 'Standard', key: 'standard', type: 'text', placeholder: 'e.g. 10th' },
-  { label: 'Section', key: 'section', type: 'text', placeholder: 'e.g. A' },
-  { label: 'Academic Year', key: 'academicYear', type: 'number', min: '2000', max: '2100' },
-];
 
 const TimetablePage = () => {
   const { user } = useAuth();
@@ -19,25 +12,42 @@ const TimetablePage = () => {
   const isAdmin = ['super_admin', 'admin'].includes(user?.role);
 
   const {
-    timeSlots, timetables, selectedTimetable, entries, teachers, loading, error,
-    addTimetable, updateStatus, removeTimetable, selectTimetable, addEntry, editEntry, removeEntry, fetchTeacherSchedule, clearError
+    timeSlots, timetables, selectedTimetable, entries, teachers, availableClasses, loading, error,
+    addTimetable, selectTimetable, addEntry, editEntry, removeEntry, fetchTeacherSchedule, fetchMySchedule, clearError
   } = useTimetableData(user?.role, user?._id);
 
   // View state
-  const [activeTab, setActiveTab] = useState('class-timetable');
   const [adminViewMode, setAdminViewMode] = useState('class');
   const [selectedTeacherId, setSelectedTeacherId] = useState('');
   const [teacherScheduleData, setTeacherScheduleData] = useState(null);
 
   // Modal state
   const [modalState, setModalState] = useState({ open: false, cell: null, saving: false });
-  const [createState, setCreateState] = useState({ open: false, form: { standard: '', section: '', academicYear: new Date().getFullYear() }, loading: false });
+  const [createState, setCreateState] = useState({
+    open: false,
+    form: { standard: '', section: '', academicYear: new Date().getFullYear() },
+    loading: false
+  });
 
-  const isTeacherScheduleView = (isTeacher && activeTab === 'my-timetable') || (!isTeacher && adminViewMode === 'teacher');
+  // Update initial form values when availableClasses changes
+  useEffect(() => {
+    if (createState.open && !createState.form.standard && availableClasses.standards.length > 0) {
+      setCreateState(prev => ({
+        ...prev,
+        form: {
+          ...prev.form,
+          standard: availableClasses.standards[0],
+          section: availableClasses.sections[0] || ''
+        }
+      }));
+    }
+  }, [createState.open, availableClasses, createState.form.standard]);
+
+  const isTeacherScheduleView = isTeacher || (!isTeacher && adminViewMode === 'teacher');
 
   useEffect(() => {
-    if (timetables.length > 0 && !selectedTimetable) selectTimetable(timetables[0]._id);
-  }, [timetables, selectedTimetable, selectTimetable]);
+    if (!isTeacher && timetables.length > 0 && !selectedTimetable) selectTimetable(timetables[0]._id);
+  }, [isTeacher, timetables, selectedTimetable, selectTimetable]);
 
   useEffect(() => {
     if (isTeacher && user?._id) setSelectedTeacherId(user._id);
@@ -46,18 +56,18 @@ const TimetablePage = () => {
 
   useEffect(() => {
     if (!isTeacherScheduleView) return;
-    const teacherId = isTeacher ? user?._id : selectedTeacherId;
-    if (!teacherId) return;
     (async () => {
-      const result = await fetchTeacherSchedule(teacherId);
+      const result = isTeacher
+        ? await fetchMySchedule()
+        : await fetchTeacherSchedule(selectedTeacherId);
       if (result.success) setTeacherScheduleData(result.data);
     })();
-  }, [isTeacher, activeTab, adminViewMode, selectedTeacherId, user, fetchTeacherSchedule]);
+  }, [isTeacher, adminViewMode, selectedTeacherId, fetchTeacherSchedule, fetchMySchedule, isTeacherScheduleView]);
 
   const displayEntries = useMemo(() => {
     if (isTeacherScheduleView) {
-      if (!teacherScheduleData?.teacherSchedule) return [];
-      return Object.values(teacherScheduleData.teacherSchedule).flat();
+      if (!teacherScheduleData) return [];
+      return Object.values(teacherScheduleData).flat();
     }
     return entries;
   }, [isTeacherScheduleView, entries, teacherScheduleData]);
@@ -100,11 +110,6 @@ const TimetablePage = () => {
     } finally { setCreateState(prev => ({ ...prev, loading: false })); }
   }, [createState.form, addTimetable, selectTimetable]);
 
-  const handleToggleStatus = useCallback(async () => {
-    if (!selectedTimetable) return;
-    await updateStatus(selectedTimetable._id, selectedTimetable.status === TIMETABLE_STATUS.PUBLISHED ? TIMETABLE_STATUS.DRAFT : TIMETABLE_STATUS.PUBLISHED);
-  }, [selectedTimetable, updateStatus]);
-
   const renderTabButton = (tabKey, icon, label, isActive) => {
     const teacherStyle = isTeacher ? 'px-4 py-2 rounded-lg' : 'px-3 py-1.5 rounded-md';
     return (
@@ -140,16 +145,12 @@ const TimetablePage = () => {
           <div className="flex flex-col md:flex-row gap-4 justify-between items-start md:items-center">
             {isTeacher ? (
               <>
-                <div className="flex bg-gray-100 p-1 rounded-xl">
-                  {renderTabButton('my-timetable', <FaChalkboardTeacher />, 'My Schedule', activeTab === 'my-timetable')}
-                  {renderTabButton('class-timetable', <FaLayerGroup />, 'Class Timetable', activeTab === 'class-timetable')}
+                <div className="flex bg-gray-100 p-1 rounded-xl items-center">
+                  <span className="px-4 py-2 rounded-lg text-sm font-medium bg-white text-primary shadow-sm flex items-center gap-2">
+                    <FaChalkboardTeacher />
+                    My Schedule
+                  </span>
                 </div>
-                {activeTab === 'class-timetable' && selectedTimetable && (
-                  <div className="flex items-center gap-2 ml-4 bg-gray-50 px-3 py-2 rounded-lg border border-gray-200">
-                    <span className="text-sm font-medium text-gray-600">Class:</span>
-                    <span className="text-sm font-semibold text-gray-800">{selectedTimetable.standard}-{selectedTimetable.section} ({selectedTimetable.academicYear})</span>
-                  </div>
-                )}
               </>
             ) : (
               <div className="flex flex-wrap items-center gap-4 bg-white p-2 rounded-xl border border-gray-100 shadow-sm">
@@ -180,14 +181,6 @@ const TimetablePage = () => {
                 )}
               </div>
             )}
-            {isAdmin && adminViewMode === 'class' && selectedTimetable && (
-              <button onClick={handleToggleStatus}
-                className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium transition-all ${selectedTimetable.status === TIMETABLE_STATUS.PUBLISHED ? 'bg-green-50 border-green-200 text-green-700' : 'bg-gray-50 border-gray-200 text-gray-600'}`}>
-                {selectedTimetable.status === TIMETABLE_STATUS.PUBLISHED
-                  ? <><FaToggleOn className="text-green-500" /> Published</>
-                  : <><FaToggleOff className="text-gray-400" /> Draft</>}
-              </button>
-            )}
           </div>
         </div>
         <div className="bg-white rounded-xl p-3 shadow-sm border border-gray-100">
@@ -196,7 +189,7 @@ const TimetablePage = () => {
         </div>
         <TimetableModal isOpen={modalState.open} onClose={closeModal} onSave={handleSaveEntry} onDelete={handleDeleteEntry}
           initialData={modalState.cell?.entry} slotInfo={modalState.cell ? { day: modalState.cell.day, slot: modalState.cell.slot } : null}
-          teachers={teachers} loading={modalState.saving} />
+          teachers={teachers} subjects={availableClasses.subjects} rooms={availableClasses.rooms} loading={modalState.saving} />
         {createState.open && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
             <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
@@ -204,15 +197,65 @@ const TimetablePage = () => {
                 <h3 className="text-lg font-semibold text-gray-800">Create New Timetable</h3>
               </div>
               <form onSubmit={handleCreateTimetable} className="p-6 space-y-4">
-                {CREATE_FORM_FIELDS.map(field => (
-                  <div key={field.key}>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">{field.label} *</label>
-                    <input type={field.type} required value={createState.form[field.key]}
-                      onChange={(e) => setCreateState(prev => ({ ...prev, form: { ...prev.form, [field.key]: e.target.value } }))}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Standard (Class) *</label>
+                  {availableClasses.standards.length > 0 ? (
+                    <select
+                      required
+                      value={createState.form.standard}
+                      onChange={(e) => setCreateState(prev => ({ ...prev, form: { ...prev.form, standard: e.target.value } }))}
                       className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary/20"
-                      placeholder={field.placeholder} min={field.min} max={field.max} />
-                  </div>
-                ))}
+                    >
+                      {availableClasses.standards.map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                  ) : (
+                    <input
+                      type="text"
+                      required
+                      value={createState.form.standard}
+                      onChange={(e) => setCreateState(prev => ({ ...prev, form: { ...prev.form, standard: e.target.value } }))}
+                      className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary/20"
+                      placeholder="e.g. 10th"
+                    />
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Section *</label>
+                  {availableClasses.sections.length > 0 ? (
+                    <select
+                      required
+                      value={createState.form.section}
+                      onChange={(e) => setCreateState(prev => ({ ...prev, form: { ...prev.form, section: e.target.value } }))}
+                      className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    >
+                      {availableClasses.sections.map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                  ) : (
+                    <input
+                      type="text"
+                      required
+                      value={createState.form.section}
+                      onChange={(e) => setCreateState(prev => ({ ...prev, form: { ...prev.form, section: e.target.value } }))}
+                      className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary/20"
+                      placeholder="e.g. A"
+                    />
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Academic Year *</label>
+                  <input
+                    type="number"
+                    required
+                    value={createState.form.academicYear}
+                    onChange={(e) => setCreateState(prev => ({ ...prev, form: { ...prev.form, academicYear: e.target.value } }))}
+                    className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    min="2000"
+                    max="2100"
+                  />
+                </div>
+
                 <div className="flex gap-3 mt-6">
                   <button type="button" onClick={() => setCreateState(prev => ({ ...prev, open: false }))} disabled={createState.loading}
                     className="flex-1 py-2.5 px-4 rounded-xl border border-gray-200 text-gray-600 font-medium hover:bg-gray-50">Cancel</button>

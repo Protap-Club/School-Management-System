@@ -7,13 +7,14 @@ import { lazy, Suspense } from 'react';
 // Lazy load pages for code-splitting
 const Login = lazy(() => import('../pages/Login'));
 const Dashboard = lazy(() => import('../pages/Dashboard'));
-const UsersPage = lazy(() => import('../pages/UsersPage'));
+const UsersPage = lazy(() => import('../features/users/UsersPage'));
 const Settings = lazy(() => import('../pages/Settings'));
-const Attendance = lazy(() => import('../pages/Attendance'));
+const Attendance = lazy(() => import('../features/attendance/AttendancePage'));
 const Notice = lazy(() => import('../pages/Notice'));
-const TimetablePage = lazy(() => import('../pages/Timetable'));
+const TimetablePage = lazy(() => import('../features/timetable/TimetablePage'));
 const Calendar = lazy(() => import('../pages/Calendar'));
 const Notifications = lazy(() => import('../pages/Notifications'));
+const Fees = lazy(() => import('../pages/Fees'));
 
 // Loading fallback component
 const PageLoader = () => (
@@ -51,6 +52,7 @@ export const routes = {
         notice: '/admin/notice',
         timetable: '/admin/timetable',
         calendar: '/admin/calendar',
+        fees: '/admin/fees',
         notifications: '/notifications',
     },
 
@@ -61,6 +63,7 @@ export const routes = {
         notice: '/teacher/notice',
         timetable: '/teacher/timetable',
         calendar: '/teacher/calendar',
+        fees: '/teacher/fees',
     },
 };
 
@@ -75,6 +78,7 @@ export const pages = {
     TimetablePage,
     Calendar,
     Notifications,
+    Fees,
 };
 
 // Export utilities

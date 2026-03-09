@@ -25,7 +25,7 @@ const FEATURE_META = {
 
 const Settings = () => {
     const { user: currentUser } = useAuth();
-    const { updateTheme } = useTheme();
+    const { updateTheme, fetchBranding } = useTheme();
     const { refreshFeatures } = useFeatures();
     const isSuperAdmin = currentUser?.role === 'super_admin';
     const currentSchoolId = currentUser?.schoolId?._id || currentUser?.schoolId;
@@ -33,6 +33,7 @@ const Settings = () => {
 
     // Theme & logo state
     const [settings, setSettings] = useState({ logoUrl: '', theme: { accentColor: '#2563eb' } });
+    const [refreshKey, setRefreshKey] = useState(() => Date.now());
     const [loading, setLoading] = useState(true);
     const [uploading, setUploading] = useState(false);
     const [message, setMessage] = useState({ type: '', text: '' });
@@ -63,41 +64,8 @@ const Settings = () => {
         fetchSchoolData();
     }, [currentSchoolId, isSuperAdmin]);
 
-    const fetchSettings = async () => {
-        try {
-            const response = await api.get('/school');
-            if (response.data.success && response.data.data?.school) {
-                const school = response.data.data.school;
-                setSettings({
-                    logoUrl: school.logoUrl || '',
-                    theme: school.theme || { accentColor: '#2563eb' }
-                });
-            }
-        } catch (error) {
-            console.error('Failed to fetch settings', error);
-        } finally {
-            setLoading(false);
-        }
-    };
 
-
-
-    const fetchSchoolFeatures = async (schoolId) => {
-        setFeaturesLoading(true);
-        try {
-            // Get features from the profile endpoint - features are part of school data
-            const response = await api.get('/school');
-            if (response.data.success && response.data.data?.school) {
-                setFeatures(response.data.data.school.features || {});
-            }
-        } catch (error) {
-            console.error('Failed to fetch features', error);
-        } finally {
-            setFeaturesLoading(false);
-        }
-    };
-
-    const handleToggleFeature = async (featureKey) => {
+    const handleToggleFeature = useCallback(async (featureKey) => {
         if (!currentSchoolId || togglingFeature) return;
         setTogglingFeature(featureKey);
         const newValue = !features[featureKey];
@@ -108,26 +76,21 @@ const Settings = () => {
                 refreshFeatures();
                 showMessage('success', `${FEATURE_META[featureKey]?.label || featureKey} ${newValue ? 'enabled' : 'disabled'}`);
             }
-        } catch (error) { showMessage('error', 'Internal Server Error'); }
+        } catch { showMessage('error', 'Internal Server Error'); }
         finally { setTogglingFeature(null); }
     }, [currentSchoolId, togglingFeature, features, refreshFeatures, showMessage]);
 
     const handleColorSelect = useCallback(async (colorValue) => {
         setSettings(prev => ({ ...prev, theme: { ...prev.theme, accentColor: colorValue } }));
         updateTheme(colorValue);
-        try { await api.put('/school/', { theme: { accentColor: colorValue } }); showMessage('success', 'Theme updated!'); }
-        catch (error) { console.error('Failed to save theme', error); }
-    }, [updateTheme, showMessage]);
-
         try {
-            // Update theme via profile endpoint
-            await api.put('/school', { theme: { accentColor: colorValue } });
-            setMessage({ type: 'success', text: 'Theme updated!' });
-            setTimeout(() => setMessage({ type: '', text: '' }), 2000);
-        } catch (error) {
-            console.error('Failed to save theme', error);
+            await api.put('/school/', { theme: { accentColor: colorValue } });
+            showMessage('success', 'Theme updated!');
+            // Refresh branding data to stay in sync with server
+            fetchBranding();
         }
-    };
+        catch (error) { console.error('Failed to save theme', error); }
+    }, [updateTheme, showMessage, fetchBranding]);
 
     const handleFileUpload = async (e) => {
         const file = e.target.files[0];
@@ -154,8 +117,9 @@ const Settings = () => {
         try {
             const formData = new FormData();
             formData.append('logo', file);
+            if (settings._id) formData.append('schoolId', settings._id);
 
-            const response = await api.post('/school/logo', formData, {
+            const response = await api.put('/school/logo', formData, {
                 headers: {
                     'Content-Type': 'multipart/form-data'
                 }
@@ -163,16 +127,17 @@ const Settings = () => {
 
             if (response.data.success) {
                 setSettings(prev => ({ ...prev, logoUrl: response.data.data.logoUrl }));
+                setRefreshKey(Date.now());
                 showMessage('success', 'Logo uploaded successfully!');
                 window.dispatchEvent(new Event('settingsUpdated'));
-                
+
                 // Clear success message after 3 seconds
                 setTimeout(() => setMessage({ type: '', text: '' }), 3000);
             }
         } catch (error) {
-            setMessage({ 
-                type: 'error', 
-                text: error.response?.data?.message || 'Failed to upload logo' 
+            setMessage({
+                type: 'error',
+                text: error.response?.data?.error?.message || error.response?.data?.message || 'Failed to upload logo'
             });
         } finally {
             setUploading(false);
@@ -309,7 +274,7 @@ const Settings = () => {
                                     {settings.logoUrl ? (
                                         <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center p-1.5">
                                             <img
-                                                src={settings.logoUrl}
+                                                src={`${settings.logoUrl}${settings.logoUrl.includes('?') ? '&' : '?'}t=${refreshKey}`}
                                                 alt="Logo"
                                                 className="h-full w-full object-contain"
                                                 onError={(e) => {
