@@ -3,52 +3,12 @@ import StudentProfile from "./model/StudentProfile.model.js";
 import TeacherProfile from "./model/TeacherProfile.model.js";
 import { PROFILE_CONFIG } from "../../config/profiles.js";
 import { sendCredentialsEmail } from "../../utils/email.util.js";
-import { USER_ROLES, canManageRole } from "../../constants/userRoles.js";
+import { USER_ROLES, canManageRole, VIEWABLE_ROLES } from "../../constants/userRoles.js";
+import { buildAccessQuery } from "../../utils/access.util.js";
 import { BadRequestError, NotFoundError, ConflictError, ForbiddenError } from "../../utils/customError.js";
 import { deleteFromCloudinary } from "../../middlewares/upload.middleware.js";
 import logger from "../../config/logger.js";
 
-// Defines which user roles each role is allowed to view/manage.
-const VIEWABLE_ROLES = Object.freeze({
-    [USER_ROLES.TEACHER]: [USER_ROLES.TEACHER, USER_ROLES.STUDENT],
-    [USER_ROLES.ADMIN]: [USER_ROLES.ADMIN, USER_ROLES.TEACHER, USER_ROLES.STUDENT],
-    [USER_ROLES.SUPER_ADMIN]: [USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN, USER_ROLES.TEACHER, USER_ROLES.STUDENT],
-});
-
-// Helper to build a scoped query based on who is asking.
-// Enforces school isolation and role visibility rules.
-const buildAccessQuery = (creator, filters = {}) => {
-    const { name, isArchived, role, userIds, ...otherFilters } = filters;
-    const query = {
-        schoolId: creator.schoolId,
-        ...otherFilters
-    };
-
-    // Handle userIds -> _id conversion
-    if (userIds) {
-        query._id = { $in: Array.isArray(userIds) ? userIds : [userIds] };
-    }
-
-    query.isArchived = isArchived !== undefined ? isArchived : false;
-
-    if (name) query.name = { $regex: name, $options: "i" };
-
-    // Role-based scoping: determine which roles the caller is allowed to see
-    const allowedRoles = VIEWABLE_ROLES[creator.role] || [USER_ROLES.STUDENT];
-
-    if (role && role !== 'all') {
-        // Validate: caller can only filter to roles they're allowed to see
-        if (!allowedRoles.includes(role)) {
-            throw new ForbiddenError(`You are not authorized to view users with role '${role}'`);
-        }
-        query.role = role;
-    } else {
-        // No explicit role filter — show all roles the caller can see
-        query.role = allowedRoles.length === 1 ? allowedRoles[0] : { $in: allowedRoles };
-    }
-
-    return query;
-};
 
 // CREATE USER 
 export const createUser = async (creator, userData) => {
@@ -59,11 +19,6 @@ export const createUser = async (creator, userData) => {
     // Hierarchy check: creator can only create roles below their own
     if (!canManageRole(creator.role, role)) {
         throw new ForbiddenError(`You cannot create a user with role '${role}'. You can only create roles below your own.`);
-    }
-
-    // Teachers can only create students
-    if (creator.role === USER_ROLES.TEACHER && role !== USER_ROLES.STUDENT) {
-        throw new ForbiddenError("Teachers can only create student accounts");
     }
 
     // School context — always scoped to creator's school
