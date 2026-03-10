@@ -16,8 +16,14 @@ export const createNoticeSchema = z.object({
         }),
         // Recipients comes as JSON string from FormData
         recipients: z.string().optional().default("[]"),
-        // Sent as string from FormData; coerce "true"/"false" to boolean
-        requiresAcknowledgment: z.coerce.boolean().optional().default(false),
+        // Sent as string from FormData: "true" → true, anything else (including "false") → false.
+        // z.coerce.boolean() CANNOT be used here because Boolean("false") === true in JS
+        // (any non-empty string is truthy), which caused every notice to be saved with
+        // requiresAcknowledgment: true regardless of the toggle state.
+        requiresAcknowledgment: z.union([z.boolean(), z.string()])
+            .transform(val => val === true || val === 'true')
+            .optional()
+            .default(false),
     })
 });
 

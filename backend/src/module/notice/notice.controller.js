@@ -171,3 +171,15 @@ export const getAcknowledgments = asyncHandler(async (req, res) => {
         data: result,
     });
 });
+
+// GET /notices/my-students
+// Returns ALL students assigned to the requesting teacher (no pagination cap)
+
+export const getTeacherStudents = asyncHandler(async (req, res) => {
+    const result = await noticeService.getTeacherStudents(req.schoolId, req.user._id);
+
+    res.status(200).json({
+        success: true,
+        data: result,
+    });
+});

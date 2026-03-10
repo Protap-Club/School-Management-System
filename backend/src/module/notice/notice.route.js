@@ -13,6 +13,7 @@ import {
     deleteGroup,
     acknowledgeNotice,
     getAcknowledgments,
+    getTeacherStudents,
 } from "./notice.controller.js";
 import { checkRole } from "../../middlewares/role.middleware.js";
 import { requireFeature } from "../../middlewares/feature.middleware.js";
@@ -96,6 +97,10 @@ router.get("/received", getReceivedNotices);
 // Notices CRUD
 router.get("/", checkRole([USER_ROLES.ADMIN, USER_ROLES.TEACHER, USER_ROLES.STUDENT]), getNotices);
 router.post("/", checkRole([USER_ROLES.ADMIN, USER_ROLES.TEACHER]), upload.single("attachment"), validate(createNoticeSchema), createNotice);
+
+// Bug 4 fix: Teacher-scoped student list (all assigned students, no pagination)
+// Must come BEFORE /:id to avoid Express treating "my-students" as a notice ID param
+router.get("/my-students", checkRole([USER_ROLES.TEACHER]), getTeacherStudents);
 
 // Acknowledgment routes — must come BEFORE /:id to avoid Express param collision
 // POST /notices/:id/acknowledge — teachers and students only (receivers)

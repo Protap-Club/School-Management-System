@@ -161,8 +161,27 @@ export const getNotices = async (user, platform, filters = {}) => {
         }
     }
 
-    // Web/Default: Returns notices created by the user (history)
+    // Web/Default: History always shows only the requesting user's own notices.
+    // Teacher notices sent to admin belong in admin's Received section, not History.
     const query = { schoolId, createdBy: userId };
+
+    // Type filter
+    if (filters.type && filters.type !== 'all') {
+        query.type = filters.type.toLowerCase(); // 'notice' or 'file'
+    }
+
+    // Sent To filter
+    if (filters.sentTo && filters.sentTo !== 'all') {
+        const sentTo = filters.sentTo.toLowerCase();
+        if (sentTo === 'group') {
+            query.recipientType = { $in: ['classes', 'groups', 'all'] };
+        } else if (sentTo === 'individual') {
+            query.recipientType = { $in: ['users', 'students'] };
+        } else {
+            // Support explicit matching if sentTo matches an exact type directly
+            query.recipientType = sentTo;
+        }
+    }
 
     // Date filter
     if (filters.date && filters.date !== 'all') {
@@ -329,6 +348,20 @@ export const getAcknowledgments = async (schoolId, noticeId, requestingUserId) =
         throw new ForbiddenError("Only the sender can view acknowledgment status");
     }
 
+    // Bug 2 fix: if the notice doesn't require acknowledgment, return a clear "not required" response
+    // so the frontend can skip rendering the panel entirely.
+    if (!notice.requiresAcknowledgment) {
+        return {
+            requiresAcknowledgment: false,
+            recipientType: notice.recipientType,
+            acknowledgedCount: 0,
+            pendingCount: 0,
+            acknowledged: [],
+            pending: [],
+            note: "This notice does not require acknowledgment.",
+        };
+    }
+
     const acknowledged = notice.acknowledgments.map((a) => ({
         userId: a.userId?._id || a.userId,
         name: a.userId?.name || "Unknown",
@@ -337,28 +370,47 @@ export const getAcknowledgments = async (schoolId, noticeId, requestingUserId) =
         timestamp: a.timestamp,
     }));
 
+    const User = mongoose.model("User");
+
     // --- Resolve intended recipients to build a "pending" list ---
     let intendedUserIds = [];
 
     if (notice.recipientType === "all") {
-        // Cannot enumerate "all" cheaply — return empty pending list with note
-        return {
-            requiresAcknowledgment: notice.requiresAcknowledgment,
-            recipientType: notice.recipientType,
-            acknowledgedCount: acknowledged.length,
-            pendingCount: null,   // indeterminate for "all"
-            acknowledged,
-            pending: [],
-            note: "Pending list is not available for notices sent to the entire school.",
-        };
-    }
+        // Bug 3 fix: If the sender is a teacher, resolve their assigned class students
+        // instead of returning an "indeterminate" response.
+        const senderUser = await User.findById(notice.createdBy).select("role").lean();
 
-    if (notice.recipientType === "users" || notice.recipientType === "students") {
+        if (senderUser?.role === USER_ROLES.TEACHER) {
+            const teacherProfile = await TeacherProfile.findOne({ userId: notice.createdBy })
+                .select("assignedClasses")
+                .lean();
+            if (teacherProfile?.assignedClasses?.length) {
+                const profiles = await StudentProfile.find({
+                    schoolId,
+                    $or: teacherProfile.assignedClasses.map(c => ({ standard: c.standard, section: c.section }))
+                }).select("userId").lean();
+                intendedUserIds = profiles.map(p => p.userId.toString());
+            }
+            // Fall through — intendedUserIds is now populated, continue to build pending list below
+        } else {
+            // Admin sent to entire school — list is too large to enumerate
+            return {
+                requiresAcknowledgment: notice.requiresAcknowledgment,
+                recipientType: notice.recipientType,
+                acknowledgedCount: acknowledged.length,
+                pendingCount: null,   // indeterminate for school-wide admin notices
+                acknowledged,
+                pending: [],
+                note: "Pending list is not available for notices sent to the entire school.",
+            };
+        }
+    } else if (notice.recipientType === "users" || notice.recipientType === "students") {
+        // Bug 3 fix: "students" recipientType now handled (same logic as "users")
         // recipients[] holds user ObjectId strings
         intendedUserIds = notice.recipients.filter((r) => mongoose.Types.ObjectId.isValid(r));
     } else if (notice.recipientType === "classes") {
-        // recipients[] holds "standard-section" strings
-        const classIds = notice.recipients; // e.g. ["10-A", "11-B"]
+        // recipients[] holds "standard-section" strings (e.g. ["10-A", "11-B"])
+        const classIds = notice.recipients;
         const profiles = await StudentProfile.find({ schoolId, $or: classIds.map((c) => {
             const [standard, section] = c.split('-');
             return { standard, section };
@@ -375,7 +427,6 @@ export const getAcknowledgments = async (schoolId, noticeId, requestingUserId) =
     const pendingUserIds = [...new Set(intendedUserIds)].filter((id) => !acknowledgedUserIdSet.has(id.toString()));
 
     // Hydrate pending users
-    const User = mongoose.model("User");
     const pendingUsers = await User.find({ _id: { $in: pendingUserIds } }).select("name email role").lean();
 
     return {
@@ -390,6 +441,36 @@ export const getAcknowledgments = async (schoolId, noticeId, requestingUserId) =
 
 
 // GROUP SERVICES
+
+// Bug 4 fix: Get ALL students assigned to the requesting teacher (no pagination)
+// This avoids the pageSize=100 cap that was causing teachers with >100 students to see truncated lists.
+export const getTeacherStudents = async (schoolId, teacherId) => {
+    const teacherProfile = await TeacherProfile.findOne({ schoolId, userId: teacherId })
+        .select("assignedClasses")
+        .lean();
+
+    if (!teacherProfile?.assignedClasses?.length) {
+        return [];
+    }
+
+    // Find all student profiles matching the teacher's assigned classes
+    const studentProfiles = await StudentProfile.find({
+        schoolId,
+        $or: teacherProfile.assignedClasses.map(c => ({ standard: c.standard, section: c.section }))
+    }).select("userId").lean();
+
+    const studentUserIds = studentProfiles.map(p => p.userId);
+
+    const User = mongoose.model("User");
+    const students = await User.find({
+        _id: { $in: studentUserIds },
+        schoolId,
+        role: USER_ROLES.STUDENT,
+        isArchived: false,
+    }).select("name email role avatarUrl").lean();
+
+    return students;
+};
 
 // Get all groups created by a user
 export const getGroups = async (schoolId, userId) => {

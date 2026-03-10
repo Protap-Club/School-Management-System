@@ -64,8 +64,11 @@ export const noticesApi = {
     },
 
     // Get students list
+    // Bug 4 fix: Use /notices/my-students instead of /users?role=student&pageSize=100
+    // The old endpoint was capped at 100 records — teachers with >100 students (e.g. Priya with 122)
+    // would see a truncated list. The new endpoint returns ALL assigned students with no pagination.
     getStudents: async () => {
-        const response = await api.get('/users?role=student&pageSize=100');
+        const response = await api.get('/notices/my-students');
         return response.data;
     },
 
