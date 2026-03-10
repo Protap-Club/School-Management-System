@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import DashboardLayout from '../layouts/DashboardLayout';
 import { useAuth } from '../features/auth';
-import { FaChevronLeft, FaChevronRight, FaCalendarAlt, FaPlus, FaTrash, FaTimes, FaSpinner, FaClock, FaTag, FaUmbrellaBeach } from 'react-icons/fa';
+import { FaChevronLeft, FaChevronRight, FaCalendarAlt, FaPlus, FaTrash, FaTimes, FaSpinner, FaClock, FaTag, FaUmbrellaBeach, FaUsers } from 'react-icons/fa';
 import api from '../lib/axios';
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -20,10 +20,12 @@ const LEGEND_ITEMS = [
 const getTypeColors = (type) => TYPE_CONFIG[type] || TYPE_CONFIG.event;
 const formatDate = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 
-const resetFormForDate = (dateStr) => ({ title: '', startDate: dateStr, endDate: dateStr, type: 'event', description: '', allDay: true });
+const resetFormForDate = (dateStr) => ({ title: '', startDate: dateStr, endDate: dateStr, type: 'event', description: '', allDay: true, targetAudience: 'all', targetClasses: [] });
 const loadFormFromEvent = (event) => ({
   _id: event._id, title: event.title, startDate: formatDate(new Date(event.start)),
-  endDate: formatDate(new Date(event.end)), type: event.type || 'event', description: event.description || '', allDay: event.allDay !== false
+  endDate: formatDate(new Date(event.end)), type: event.type || 'event', description: event.description || '', allDay: event.allDay !== false,
+  targetAudience: event.targetAudience || 'all',
+  targetClasses: event.targetClasses || [],
 });
 
 const INPUT_CLASS = 'w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-sm';
@@ -40,6 +42,23 @@ const Calendar = () => {
   const [message, setMessage] = useState({ text: '', type: '' });
   const [tooltip, setTooltip] = useState({ event: null, position: { x: 0, y: 0 }, expanded: false });
   const [formData, setFormData] = useState(resetFormForDate(''));
+  // Phase A: class list for the audience picker (admin only)
+  const [classes, setClasses] = useState([]);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    api.get('/timetables')
+      .then(res => {
+        const timetables = res.data?.data || [];
+        setClasses(
+          timetables.map(t => ({
+            value: `${t.standard}-${t.section}`,
+            label: `Class ${t.standard} - Section ${t.section}`,
+          }))
+        );
+      })
+      .catch(() => {});
+  }, [isAdmin]);
 
   const showMessage = (text, type = 'success') => { setMessage({ text, type }); setTimeout(() => setMessage({ text: '', type: '' }), 3000); };
   const updateFormField = (field, value) => setFormData(prev => ({ ...prev, [field]: value }));
@@ -104,7 +123,7 @@ const Calendar = () => {
     if (!formData.title.trim()) return;
     try {
       setSaving(true);
-      const payload = { title: formData.title.trim(), start: new Date(formData.startDate).toISOString(), end: new Date(formData.endDate).toISOString(), allDay: formData.allDay, type: formData.type, description: formData.description };
+      const payload = { title: formData.title.trim(), start: new Date(formData.startDate).toISOString(), end: new Date(formData.endDate).toISOString(), allDay: formData.allDay, type: formData.type, description: formData.description, targetAudience: formData.targetAudience, targetClasses: formData.targetClasses };
       if (formData._id) { await api.put(`/calendar/${formData._id}`, payload); showMessage('Event updated!'); }
       else { await api.post('/calendar', payload); showMessage('Event created!'); }
       setShowModal(false); fetchEvents();
@@ -173,9 +192,19 @@ const Calendar = () => {
             <div className="flex-1 min-w-0">
               <h4 className="font-semibold text-gray-900 text-sm mb-2">{tooltip.event.title}</h4>
               <div className="space-y-2 text-xs text-gray-500">
-                <div className="flex items-center gap-2">
-                  <FaTag className="text-gray-400" />
-                  <span className={`px-2 py-0.5 rounded text-[10px] font-medium ${getTypeColors(tooltip.event.type).light}`}>{TYPE_CONFIG[tooltip.event.type]?.label || 'Event'}</span>
+                <div className="flex flex-wrap gap-2">
+                  <div className="flex items-center gap-2">
+                    <FaTag className="text-gray-400" />
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-medium ${getTypeColors(tooltip.event.type).light}`}>{TYPE_CONFIG[tooltip.event.type]?.label || 'Event'}</span>
+                  </div>
+                  {tooltip.event.targetAudience === 'classes' && tooltip.event.targetClasses?.length > 0 && (
+                    <div className="flex items-center gap-1.5 ml-2">
+                      <FaUsers className="text-gray-400" />
+                      <span className="text-[10px] font-medium text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100">
+                        {tooltip.event.targetClasses.join(', ')}
+                      </span>
+                    </div>
+                  )}
                 </div>
                 <div className="flex items-center gap-2">
                   <FaClock className="text-gray-400" />
@@ -265,9 +294,65 @@ const Calendar = () => {
                   {Object.entries(TYPE_CONFIG).map(([key, cfg]) => <option key={key} value={key}>{cfg.label}</option>)}
                 </select>
               )}
+              {/* ── Phase D: Audience picker (admin only) ── */}
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">Audience</label>
+                <div className="space-y-2">
+                  {/* Radio: All school */}
+                  <label className="flex items-center gap-2.5 cursor-pointer group">
+                    <input type="radio" name="targetAudience" value="all"
+                      checked={formData.targetAudience === 'all'}
+                      onChange={() => setFormData(prev => ({ ...prev, targetAudience: 'all', targetClasses: [] }))}
+                      className="accent-indigo-600 w-4 h-4"
+                    />
+                    <span className="text-sm text-gray-700 group-hover:text-gray-900">All school <span className="text-gray-400 text-xs">(everyone sees this)</span></span>
+                  </label>
+                  {/* Radio: Specific Classes */}
+                  <label className="flex items-center gap-2.5 cursor-pointer group">
+                    <input type="radio" name="targetAudience" value="classes"
+                      checked={formData.targetAudience === 'classes'}
+                      onChange={() => updateFormField('targetAudience', 'classes')}
+                      className="accent-indigo-600 w-4 h-4"
+                    />
+                    <span className="text-sm text-gray-700 group-hover:text-gray-900">Specific Classes</span>
+                  </label>
+                </div>
+                {/* Checkbox list — shown only when Specific Classes is selected */}
+                {formData.targetAudience === 'classes' && (
+                  <div className="mt-2.5 border border-gray-200 rounded-lg overflow-hidden">
+                    {classes.length === 0 ? (
+                      <p className="text-xs text-gray-400 text-center py-4">No classes available</p>
+                    ) : (
+                      <div className="max-h-36 overflow-y-auto divide-y divide-gray-100">
+                        {classes.map(cls => {
+                          const checked = formData.targetClasses.includes(cls.value);
+                          return (
+                            <label key={cls.value}
+                              className={`flex items-center gap-3 px-3 py-2 cursor-pointer transition-colors ${checked ? 'bg-indigo-50' : 'bg-white hover:bg-gray-50'}`}>
+                              <input type="checkbox" checked={checked}
+                                onChange={() => {
+                                  setFormData(prev => ({
+                                    ...prev,
+                                    targetClasses: checked
+                                      ? prev.targetClasses.filter(v => v !== cls.value)
+                                      : [...prev.targetClasses, cls.value]
+                                  }));
+                                }}
+                                className="accent-indigo-600 w-4 h-4 shrink-0"
+                              />
+                              <span className={`text-sm ${checked ? 'font-medium text-indigo-700' : 'text-gray-700'}`}>{cls.label}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
               {renderFormField('Description',
                 <textarea value={formData.description} onChange={(e) => updateFormField('description', e.target.value)} placeholder="Add event details..." rows={3} className={`${INPUT_CLASS} resize-none`} />
               )}
+
             </div>
             <div className="px-5 py-4 bg-gray-50 border-t border-gray-100 flex gap-3">
               {formData._id && (
