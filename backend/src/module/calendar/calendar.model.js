@@ -29,6 +29,19 @@ const CalendarEventSchema = new mongoose.Schema({
         enum: ['national', 'exam', 'custom', 'event'],
         default: 'event'
     },
+    // Who can see this event?
+    // 'all' = everyone in the school (backward-compatible default)
+    // 'classes' = only specific classes listed in targetClasses
+    targetAudience: {
+        type: String,
+        enum: ['all', 'classes'],
+        default: 'all'
+    },
+    // Targeted class strings e.g. ["10-A", "11-B"] (standard + '-' + section)
+    targetClasses: {
+        type: [String],
+        default: []
+    },
     // Add specific details for the admin panel
     description: {
         type: String
@@ -55,5 +68,7 @@ CalendarEventSchema.pre('validate', function () {
 // Index for efficient date range queries
 CalendarEventSchema.index({ start: 1, end: 1 });
 CalendarEventSchema.index({ schoolId: 1 });
+// Index for efficient audience-based filtering
+CalendarEventSchema.index({ schoolId: 1, targetAudience: 1 });
 
 export const CalendarEvent = mongoose.model('CalendarEvent', CalendarEventSchema);

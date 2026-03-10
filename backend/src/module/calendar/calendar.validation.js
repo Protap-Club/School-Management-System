@@ -19,6 +19,8 @@ export const createEventSchema = z.object({
         allDay: z.boolean().optional().default(true),
         type: z.enum(["national", "exam", "custom", "event"]).optional().default("event"),
         description: z.string().optional(),
+        targetAudience: z.enum(["all", "classes"]).optional().default("all"),
+        targetClasses: z.array(z.string()).optional().default([]),
     }).refine(data => new Date(data.start) <= new Date(data.end), {
         message: "End date must be after or equal to start date",
         path: ["end"],
@@ -41,6 +43,8 @@ export const updateEventSchema = z.object({
         allDay: z.boolean().optional(),
         type: z.enum(["national", "exam", "custom", "event"]).optional(),
         description: z.string().optional(),
+        targetAudience: z.enum(["all", "classes"]).optional(),
+        targetClasses: z.array(z.string()).optional(),
     }),
 });
 

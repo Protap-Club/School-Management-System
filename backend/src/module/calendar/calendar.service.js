@@ -1,10 +1,13 @@
 import { CalendarEvent } from "./calendar.model.js";
+import StudentProfile from "../user/model/StudentProfile.model.js";
+import TeacherProfile from "../user/model/TeacherProfile.model.js";
 import logger from "../../config/logger.js";
 import { ConflictError, NotFoundError, BadRequestError } from "../../utils/customError.js";
+import { USER_ROLES } from "../../constants/userRoles.js";
 
 // Create a new calendar event
 export const createCalendarEvent = async (eventData, userId, schoolId) => {
-    const { title, start, end, allDay, type, description } = eventData;
+    const { title, start, end, allDay, type, description, targetAudience, targetClasses } = eventData;
 
     // Edge Case: Check if an exact duplicate event already exists to prevent spam
     const existingEvent = await CalendarEvent.findOne({
@@ -26,6 +29,8 @@ export const createCalendarEvent = async (eventData, userId, schoolId) => {
         allDay: allDay !== undefined ? allDay : true,
         type: type || 'event',
         description,
+        targetAudience: targetAudience || 'all',
+        targetClasses: targetClasses || [],
         createdBy: userId,
         schoolId
     });
@@ -37,18 +42,55 @@ export const createCalendarEvent = async (eventData, userId, schoolId) => {
 // Fetch calendar events with optional date range filter
 // Supports: start, end, type (web calendar view)
 //           upcoming, limit (mobile dashboard widget)
-export const fetchCalendarEvents = async (queryData, schoolId) => {
+// Receives full `user` object to apply role-based audience filtering
+export const fetchCalendarEvents = async (queryData, user) => {
     const { start, end, type, upcoming, limit } = queryData;
-    let query = {};
+    const schoolId = user.schoolId;
+    const userRole = user.role;
 
-    // Filter by school if provided
-    if (schoolId) {
-        query.schoolId = schoolId;
+    let query = { schoolId };
+
+    // ── Role-based audience filter ────────────────────────────────────────────
+    if (userRole === USER_ROLES.STUDENT) {
+        // Look up the student's class assignment
+        const profile = await StudentProfile.findOne({ schoolId, userId: user._id })
+            .select('standard section')
+            .lean();
+
+        if (profile) {
+            const classKey = `${profile.standard}-${profile.section}`;
+            query.$and = [{
+                $or: [
+                    { targetAudience: 'all' },
+                    { targetClasses: classKey }
+                ]
+            }];
+        } else {
+            // Student profile not found — show only school-wide events
+            query.targetAudience = 'all';
+        }
+    } else if (userRole === USER_ROLES.TEACHER) {
+        // Look up the teacher's assigned classes
+        const profile = await TeacherProfile.findOne({ schoolId, userId: user._id })
+            .select('assignedClasses')
+            .lean();
+
+        const classStrings = (profile?.assignedClasses || []).map(
+            (c) => `${c.standard}-${c.section}`
+        );
+
+        query.$and = [{
+            $or: [
+                { targetAudience: 'all' },
+                ...(classStrings.length ? [{ targetClasses: { $in: classStrings } }] : [])
+            ]
+        }];
     }
+    // Admin: no audience filter — sees everything
 
-    // Edge Case: If start/end provided, filter by that range (Optimized for Calendar View)
+    // ── Date range filter ────────────────────────────────────────────────────
     if (start && end) {
-        query.$or = [
+        const dateFilter = [
             // Events that start within the range
             { start: { $gte: new Date(start), $lte: new Date(end) } },
             // Events that end within the range
@@ -56,6 +98,12 @@ export const fetchCalendarEvents = async (queryData, schoolId) => {
             // Events that span the entire range
             { start: { $lte: new Date(start) }, end: { $gte: new Date(end) } }
         ];
+        // Merge with existing $and if present, otherwise use standalone $or
+        if (query.$and) {
+            query.$and.push({ $or: dateFilter });
+        } else {
+            query.$or = dateFilter;
+        }
     }
 
     // Mobile-friendly: return only upcoming events (start >= now)
@@ -77,7 +125,15 @@ export const fetchCalendarEvents = async (queryData, schoolId) => {
         .limit(parsedLimit)   // 0 = no limit (web default)
         .lean();
 
-    return events;
+    // ── Sunday exclusion ─────────────────────────────────────────────────────
+    // Single-day events that land exactly on Sunday are excluded.
+    // Multi-day events that merely span a Sunday are kept.
+    return events.filter((e) => {
+        const startDate = new Date(e.start);
+        const endDate = new Date(e.end);
+        const isSameDay = startDate.toDateString() === endDate.toDateString();
+        return !(isSameDay && startDate.getDay() === 0);
+    });
 };
 
 // Get a single calendar event by ID

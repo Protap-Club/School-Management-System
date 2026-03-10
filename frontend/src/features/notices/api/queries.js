@@ -64,34 +64,38 @@ export const useDeleteNotice = () => {
 };
 
 // Get classes
-export const useClasses = () => {
+export const useClasses = (enabled = true) => {
     return useQuery({
         queryKey: noticeKeys.classes(),
         queryFn: noticesApi.getClasses,
+        enabled,
     });
 };
 
 // Get students
-export const useStudents = () => {
+export const useStudents = (enabled = true) => {
     return useQuery({
         queryKey: noticeKeys.students(),
         queryFn: noticesApi.getStudents,
+        enabled,
     });
 };
 
 // Get teachers
-export const useTeachers = () => {
+export const useTeachers = (enabled = true) => {
     return useQuery({
         queryKey: noticeKeys.teachers(),
         queryFn: noticesApi.getTeachers,
+        enabled,
     });
 };
 
-// Get all users
-export const useAllUsers = () => {
+// Get all users (Admin only)
+export const useAllUsers = (enabled = true) => {
     return useQuery({
         queryKey: noticeKeys.allUsers(),
         queryFn: noticesApi.getAllUsers,
+        enabled,
     });
 };
 

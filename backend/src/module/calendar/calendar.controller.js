@@ -56,9 +56,7 @@ export const createEvent = asyncHandler(async (req, res) => {
  * @query   start, end, type (existing) | upcoming, limit (mobile-friendly)
  */
 export const getEvents = asyncHandler(async (req, res) => {
-    const schoolId = req.user.schoolId;
-
-    const result = await fetchCalendarEvents(req.query, schoolId);
+    const result = await fetchCalendarEvents(req.query, req.user);
 
     // Mobile: return streamlined response for student app
     if (req.platform === "mobile") {
