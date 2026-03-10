@@ -1,6 +1,6 @@
 // Attendance Page — Teacher/Admin view for daily attendance with manual toggle.
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useParams, useNavigate } from 'react-router-dom';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import { useAuth } from '../../features/auth';
 import { useFeatures } from '../../state';
@@ -60,6 +60,15 @@ const buildClassGroups = (students = [], teachers = []) => {
         groups[key].students.push(student);
     });
 
+    // Sort students by roll number within each group
+    Object.values(groups).forEach(group => {
+        group.students.sort((a, b) => {
+            const rollA = a.profile?.rollNumber || '';
+            const rollB = b.profile?.rollNumber || '';
+            return rollA.localeCompare(rollB, undefined, { numeric: true, sensitivity: 'base' });
+        });
+    });
+
     return Object.keys(groups).sort((a, b) => {
         const [stdA, secA = ''] = a.split(' ');
         const [stdB, secB = ''] = b.split(' ');
@@ -90,6 +99,9 @@ const AttendancePage = () => {
     const [teacherPage, setTeacherPage] = useState(0);
     const [classPages, setClassPages] = useState({});
     const [searchQuery, setSearchQuery] = useState("");
+    const [classSearchQuery, setClassSearchQuery] = useState("");
+    const { classId } = useParams();
+    const navigate = useNavigate();
 
     const [showModalType, setShowModalType] = useState(null); // 'present' | 'absent'
     const [statsModalSearch, setStatsModalSearch] = useState('');
@@ -110,7 +122,37 @@ const AttendancePage = () => {
     const teachers = useMemo(() => teachersRes?.data?.users || [], [teachersRes]);
     const attendanceRecords = useMemo(() => attendanceRes?.data || [], [attendanceRes]);
     const attendanceMap = useMemo(() => buildAttendanceMap(attendanceRecords), [attendanceRecords]);
-    const groupedClasses = useMemo(() => isAdmin ? buildClassGroups(filteredStudents, teachers) : {}, [isAdmin, filteredStudents, teachers]);
+
+    const allGroupedClasses = useMemo(() => isAdmin ? buildClassGroups(filteredStudents, teachers) : {}, [isAdmin, filteredStudents, teachers]);
+
+    const groupedClasses = useMemo(() => {
+        if (!isAdmin) return {};
+        let classes = { ...allGroupedClasses };
+
+        // Filter by classId from URL if present
+        if (classId) {
+            const decodedClassId = decodeURIComponent(classId).toLowerCase().replace(/\s+/g, ' ').trim();
+            const matchingKey = Object.keys(classes).find(k => k.toLowerCase().replace(/\s+/g, ' ').trim() === decodedClassId);
+            if (matchingKey) {
+                return { [matchingKey]: classes[matchingKey] };
+            }
+            return {}; // If classId in URL is invalid
+        }
+
+        // Otherwise filter by classSearchQuery
+        if (classSearchQuery) {
+            const q = classSearchQuery.toLowerCase();
+            const filtered = {};
+            Object.keys(classes).forEach(id => {
+                if (id.toLowerCase().includes(q)) {
+                    filtered[id] = classes[id];
+                }
+            });
+            return filtered;
+        }
+
+        return classes;
+    }, [isAdmin, allGroupedClasses, classId, classSearchQuery]);
 
     const statsData = useMemo(() => {
         const presentStudents = [];
@@ -156,7 +198,14 @@ const AttendancePage = () => {
     const classParam = searchParams.get('class');
 
     useEffect(() => {
-        if (classParam && groupedClasses[classParam]) {
+        setTeacherPage(0);
+    }, [searchQuery]);
+
+    useEffect(() => {
+        if (classId) {
+            const decodedClassId = decodeURIComponent(classId);
+            setExpandedClasses(prev => ({ ...prev, [decodedClassId]: true }));
+        } else if (classParam && groupedClasses[classParam]) {
             setExpandedClasses(prev => ({ ...prev, [classParam]: true }));
             // Optional: Scroll to the expanded class
             setTimeout(() => {
@@ -166,7 +215,7 @@ const AttendancePage = () => {
                 }
             }, 100);
         }
-    }, [classParam, groupedClasses]);
+    }, [classId, classParam, groupedClasses]);
 
     useEffect(() => {
         const socket = connectSocket(currentUser?.schoolId);
@@ -204,7 +253,18 @@ const AttendancePage = () => {
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 pb-6 border-b">
                     <div className="space-y-1">
                         <div className="flex items-center gap-3">
-                            <h1 className="text-4xl font-black tracking-tight text-slate-900">Attendance</h1>
+                            <button
+                                onClick={() => navigate('/admin/attendance')}
+                                className="text-4xl font-black tracking-tight text-slate-900 hover:text-primary transition-colors text-left"
+                            >
+                                Attendance
+                            </button>
+                            {classId && (
+                                <>
+                                    <span className="text-3xl font-light text-slate-300">/</span>
+                                    <span className="text-3xl font-bold bg-primary/10 text-primary px-4 py-1 rounded-2xl">Class {decodeURIComponent(classId)}</span>
+                                </>
+                            )}
                             <Badge variant={socketConnected ? "default" : "secondary"} className={`rounded-full px-3 py-1 animate-in fade-in ${socketConnected ? 'bg-emerald-500 hover:bg-emerald-600' : ''}`}>
                                 <FaWifi className="mr-2 w-3 h-3" />
                                 {socketConnected ? 'Live' : 'Connecting'}
@@ -215,6 +275,17 @@ const AttendancePage = () => {
                             {today}
                         </p>
                     </div>
+                    {isAdmin && !classId && (
+                        <div className="relative w-full md:w-80">
+                            <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={14} />
+                            <Input
+                                placeholder="Search classes (e.g. 10 A)..."
+                                className="pl-9 bg-white shadow-sm border-slate-200 focus:ring-primary/20"
+                                value={classSearchQuery}
+                                onChange={(e) => setClassSearchQuery(e.target.value)}
+                            />
+                        </div>
+                    )}
                     {!isAdmin && (
                         <div className="relative w-full md:w-80">
                             <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={14} />
@@ -240,6 +311,7 @@ const AttendancePage = () => {
                         getClassPage={getClassPage} setClassPage={setClassPage} itemsPerPage={ITEMS_PER_PAGE}
                         setSelectedStudent={setSelectedStudent} getStudentStatus={getStudentStatus}
                         STATUS_STYLES={STATUS_STYLES} STATUS_LABELS={STATUS_LABELS}
+                        handleManualToggle={handleManualToggle} manualMutation={manualMutation}
                     />
                 ) : (
                     <TeacherStudentList
@@ -337,14 +409,12 @@ const AttendancePage = () => {
                                                 ))}
                                             </div>
                                             {modalTotalPages > 0 && (
-                                                <div className="p-4 border-t border-slate-100 flex justify-center sticky bottom-0 bg-slate-50 inset-x-0 mt-4">
-                                                    <PaginationControls
-                                                        currentPage={statsModalPage}
-                                                        totalItems={filteredList.length}
-                                                        itemsPerPage={ITEMS_PER_PAGE}
-                                                        onPageChange={setStatsModalPage}
-                                                    />
-                                                </div>
+                                                <PaginationControls
+                                                    currentPage={statsModalPage}
+                                                    totalItems={filteredList.length}
+                                                    itemsPerPage={ITEMS_PER_PAGE}
+                                                    onPageChange={setStatsModalPage}
+                                                />
                                             )}
                                         </div>
                                     );

@@ -8,6 +8,7 @@ export const attendanceKeys = {
     students: () => [...attendanceKeys.all, 'students'],
     teachers: () => [...attendanceKeys.all, 'teachers'],
     today: () => [...attendanceKeys.all, 'today'],
+    profile: () => [...attendanceKeys.all, 'profile'],
 };
 
 // ─── Queries ────────────────────────────────────────────
@@ -33,6 +34,14 @@ export const useTodayAttendance = () => {
     return useQuery({
         queryKey: attendanceKeys.today(),
         queryFn: attendanceApi.getTodayAttendance,
+    });
+};
+
+/** Fetch current user's profile. */
+export const useProfile = () => {
+    return useQuery({
+        queryKey: attendanceKeys.profile(),
+        queryFn: attendanceApi.getProfile,
     });
 };
 

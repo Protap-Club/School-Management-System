@@ -5,9 +5,9 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api/
 
 const api = axios.create({
     baseURL: API_BASE_URL,
-    withCredentials: true, // Send cookies (refresh token) with every request
-    timeout: 10000,
-    validateStatus: (status) => status < 500, // Treat 4xx as relative success to manage console noise
+    withCredentials: true,
+    timeout: 30000,
+    validateStatus: (status) => status < 500,
 });
 
 // Request interceptor: attach access token 

@@ -73,6 +73,16 @@ function App() {
                         }
                     />
                     <Route
+                        path="/admin/attendance/:classId"
+                        element={
+                            <ProtectedRoute allowedRoles={['admin']}>
+                                <RequireFeature feature="attendance">
+                                    <Attendance />
+                                </RequireFeature>
+                            </ProtectedRoute>
+                        }
+                    />
+                    <Route
                         path="/admin/notice"
                         element={
                             <ProtectedRoute allowedRoles={['admin']}>

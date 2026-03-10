@@ -9,6 +9,7 @@ export {
     useLinkNfcTag,
     useMarkNfcAttendance,
     useMarkManualAttendance,
+    useProfile,
 } from './api/queries';
 
 // Constants
