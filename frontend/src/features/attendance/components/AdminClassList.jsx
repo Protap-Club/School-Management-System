@@ -28,7 +28,11 @@ const AdminClassList = ({
             {Object.values(groupedClasses).map(group => {
                 const isExpanded = expandedClasses[group.id];
                 return (
-                    <Card key={group.id} className={`overflow-hidden transition-all duration-300 border-slate-200 shadow-sm ${isExpanded ? 'ring-1 ring-primary/20' : 'hover:border-slate-300'}`}>
+                    <Card
+                        key={group.id}
+                        id={`class-card-${group.id.replace(/\s+/g, '-')}`}
+                        className={`overflow-hidden transition-all duration-300 border-slate-200 shadow-sm ${isExpanded ? 'ring-1 ring-primary/20' : 'hover:border-slate-300'}`}
+                    >
                         <div
                             onClick={() => setExpandedClasses(prev => ({ ...prev, [group.id]: !prev[group.id] }))}
                             className="p-6 flex flex-col md:flex-row items-center justify-between gap-6 cursor-pointer bg-white hover:bg-slate-50/50 transition-colors"

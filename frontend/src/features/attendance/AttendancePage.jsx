@@ -1,5 +1,6 @@
 // Attendance Page — Teacher/Admin view for daily attendance with manual toggle.
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import { useAuth } from '../../features/auth';
 import { useFeatures } from '../../state';
@@ -150,6 +151,22 @@ const AttendancePage = () => {
         const newStatus = currentVal ? 'Present' : 'Absent';
         manualMutation.mutate({ studentId, status: newStatus });
     }, [manualMutation]);
+
+    const [searchParams] = useSearchParams();
+    const classParam = searchParams.get('class');
+
+    useEffect(() => {
+        if (classParam && groupedClasses[classParam]) {
+            setExpandedClasses(prev => ({ ...prev, [classParam]: true }));
+            // Optional: Scroll to the expanded class
+            setTimeout(() => {
+                const element = document.getElementById(`class-card-${classParam.replace(/\s+/g, '-')}`);
+                if (element) {
+                    element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            }, 100);
+        }
+    }, [classParam, groupedClasses]);
 
     useEffect(() => {
         const socket = connectSocket(currentUser?.schoolId);

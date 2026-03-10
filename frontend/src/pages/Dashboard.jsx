@@ -1,12 +1,15 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../features/auth';
 import api from '../api/axios';
 import DashboardLayout from '../layouts/DashboardLayout';
 import { connectSocket, disconnectSocket } from '../api/socket';
 import { FaChartBar, FaUserCheck, FaUserTimes, FaUserClock, FaUsers as FaUsersIcon, FaChalkboardTeacher } from 'react-icons/fa';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const Dashboard = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const isTeacher = user?.role === 'teacher';
   const isAdmin = user?.role === 'admin';
   const [teacherProfile, setTeacherProfile] = useState(null);
@@ -173,29 +176,20 @@ const Dashboard = () => {
                   </div>
                 </div>
               )}
-
-              {isAdmin && (
-                <div className="flex flex-col gap-2">
-                  <label className="text-xs font-bold text-gray-400 uppercase tracking-widest pl-1">Filter by Class</label>
-                  <select
-                    value={selectedClass}
-                    onChange={(e) => setSelectedClass(e.target.value)}
-                    className="px-4 py-2.5 rounded-2xl bg-gray-50 border border-gray-200 text-gray-700 focus:outline-none focus:ring-2 focus:ring-primary/20 appearance-none font-medium text-sm min-w-[200px]"
-                  >
-                    <option value="all">All School Attendance</option>
-                    {classes.map(cls => (
-                      <option key={cls} value={cls}>Class {cls}</option>
-                    ))}
-                  </select>
-                </div>
-              )}
             </div>
           </div>
         </div>
 
         {(isAdmin || isTeacher) && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-3xl p-8 text-white shadow-lg shadow-indigo-100 flex flex-col justify-center relative overflow-hidden group">
+            <div
+              className="lg:col-span-2 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-3xl p-8 text-white shadow-lg shadow-indigo-100 flex flex-col justify-center relative overflow-hidden group cursor-pointer hover:shadow-xl hover:scale-[1.01] transition-all duration-300"
+              onClick={() => {
+                const path = isAdmin ? '/admin/attendance' : '/teacher/attendance';
+                const query = isAdmin && selectedClass !== 'all' ? `?class=${encodeURIComponent(selectedClass)}` : '';
+                navigate(`${path}${query}`);
+              }}
+            >
               <div className="absolute top-0 right-0 p-8 transform group-hover:scale-110 transition-transform duration-500 opacity-20">
                 <FaChartBar size={120} />
               </div>
@@ -207,11 +201,31 @@ const Dashboard = () => {
                   <span>out of {filteredStats.total} students present</span>
                 </p>
               </div>
+              <div className="absolute bottom-4 right-8 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center gap-2 text-sm font-bold">
+                View Detailed Attendance →
+              </div>
             </div>
 
             <div className="bg-white rounded-3xl p-8 border border-gray-100 shadow-sm flex flex-col justify-between">
-              <div className="space-y-4">
-                <h3 className="text-gray-400 font-bold uppercase tracking-widest text-xs">Quick Stats</h3>
+              <div className="space-y-6">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-gray-400 font-bold uppercase tracking-widest text-xs">Quick Stats</h3>
+                  {isAdmin && (
+                    <Select value={selectedClass} onValueChange={setSelectedClass}>
+                      <SelectTrigger className="h-8 rounded-xl bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100 transition-colors px-3 py-1 font-bold text-[10px] uppercase tracking-wider w-fit min-w-[140px]">
+                        <SelectValue placeholder="Select Class" />
+                      </SelectTrigger>
+                      <SelectContent position="popper" side="bottom" className="rounded-xl border-gray-200 shadow-xl min-w-[180px]">
+                        <SelectItem value="all" className="text-[10px] uppercase tracking-wider font-bold py-2">Overall School</SelectItem>
+                        {classes.map(cls => (
+                          <SelectItem key={cls} value={cls} className="text-[10px] uppercase tracking-wider font-bold py-2">
+                            Class {cls}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                </div>
                 <div className="space-y-4">
                   <div className="flex items-center justify-between p-3 rounded-2xl bg-blue-50/50 border border-blue-100/50">
                     <div className="flex items-center gap-3">
@@ -234,7 +248,7 @@ const Dashboard = () => {
                 </div>
               </div>
               <div className="pt-4 border-t border-gray-100 mt-4">
-                <p className="text-xs text-gray-400">Class: <span className="text-gray-900 font-semibold">{isAdmin && selectedClass === 'all' ? 'Overall School' : selectedClass}</span></p>
+                <p className="text-[10px] text-gray-400 uppercase tracking-widest font-bold">Showing For: <span className="text-primary ml-1">{isAdmin && selectedClass === 'all' ? 'Overall School' : `Class ${selectedClass}`}</span></p>
               </div>
             </div>
           </div>
