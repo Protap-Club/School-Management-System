@@ -177,18 +177,18 @@ export const ViewItemModal = ({ viewItem, setViewItem, handleDownload }) => {
                                         viewItem.attachment.secure_url || viewItem.attachment.path,
                                         viewItem.attachment.originalName || viewItem.attachment.filename
                                     )}
-                                    className="w-full flex items-center justify-between p-3 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors cursor-pointer group text-left"
+                                    className="w-full flex items-center justify-between gap-3 p-3 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors cursor-pointer group text-left overflow-hidden"
                                 >
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-10 h-10 bg-white border border-gray-100 rounded-lg flex items-center justify-center">
+                                    <div className="flex items-center gap-3 min-w-0 flex-1 overflow-hidden">
+                                        <div className="w-10 h-10 bg-white border border-gray-100 rounded-lg flex items-center justify-center shrink-0">
                                             {getFileIcon(viewItem.attachment.originalName || viewItem.attachment.filename)}
                                         </div>
-                                        <div>
-                                            <p className="text-sm font-medium text-gray-900 group-hover:text-primary transition-colors">{viewItem.attachment.originalName || viewItem.attachment.filename}</p>
-                                            <p className="text-xs text-gray-500">{((viewItem.attachment.size || 0) / 1024).toFixed(1)} KB</p>
+                                        <div className="min-w-0 overflow-hidden">
+                                            <p className="text-sm font-medium text-gray-900 group-hover:text-primary transition-colors truncate" title={viewItem.attachment.originalName || viewItem.attachment.filename}>{viewItem.attachment.originalName || viewItem.attachment.filename}</p>
+                                            <p className="text-xs text-gray-500 uppercase tracking-wide">{((viewItem.attachment.originalName || viewItem.attachment.filename || '').split('.').pop()) || 'File'}</p>
                                         </div>
                                     </div>
-                                    <div className="p-2 text-gray-400 group-hover:text-primary group-hover:bg-primary/5 rounded-lg transition-colors">
+                                    <div className="p-2 text-gray-400 group-hover:text-primary group-hover:bg-primary/5 rounded-lg transition-colors shrink-0">
                                         <FaDownload size={14} />
                                     </div>
                                 </button>

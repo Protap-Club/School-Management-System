@@ -392,7 +392,7 @@ const Notice = () => {
                                                          item.attachment.secure_url || item.attachment.path,
                                                          item.attachment.originalName || item.attachment.filename
                                                      )}>
-                                                    <div className="flex items-center gap-4">
+                                                     <div className="flex items-center gap-4 min-w-0 flex-1">
                                                         <div className="w-12 h-12 bg-[#FEF2F2] text-[#EF4444] rounded-[10px] flex items-center justify-center shrink-0">
                                                             {getFileIcon(item.attachment.originalName || item.attachment.filename, 22)}
                                                         </div>

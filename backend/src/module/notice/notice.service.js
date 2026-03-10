@@ -405,9 +405,24 @@ export const getAcknowledgments = async (schoolId, noticeId, requestingUserId) =
             };
         }
     } else if (notice.recipientType === "users" || notice.recipientType === "students") {
-        // Bug 3 fix: "students" recipientType now handled (same logic as "users")
-        // recipients[] holds user ObjectId strings
-        intendedUserIds = notice.recipients.filter((r) => mongoose.Types.ObjectId.isValid(r));
+        // recipients[] holds user ObjectId strings for specific-student sends.
+        // SPECIAL CASE: when a teacher sends to "All Students", RECIPIENT_MAP sets
+        // recipientType="students" with key=null → recipients=[] (empty array).
+        // In that case, resolve the full class roster from the teacher's profile.
+        if (notice.recipients.length === 0 && notice.recipientType === "students") {
+            const teacherProfile = await TeacherProfile.findOne({ userId: notice.createdBy })
+                .select("assignedClasses")
+                .lean();
+            if (teacherProfile?.assignedClasses?.length) {
+                const profiles = await StudentProfile.find({
+                    schoolId,
+                    $or: teacherProfile.assignedClasses.map(c => ({ standard: c.standard, section: c.section }))
+                }).select("userId").lean();
+                intendedUserIds = profiles.map(p => p.userId.toString());
+            }
+        } else {
+            intendedUserIds = notice.recipients.filter((r) => mongoose.Types.ObjectId.isValid(r));
+        }
     } else if (notice.recipientType === "classes") {
         // recipients[] holds "standard-section" strings (e.g. ["10-A", "11-B"])
         const classIds = notice.recipients;
