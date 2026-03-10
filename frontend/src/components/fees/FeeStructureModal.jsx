@@ -50,13 +50,39 @@ const FeeStructureModal = ({ isOpen, onClose, onSubmit, editData, isLoading }) =
     }, []);
 
     const toggleMonth = useCallback((month) => {
-        setForm(prev => ({
-            ...prev,
-            applicableMonths: prev.applicableMonths.includes(month)
+        setForm(prev => {
+            const isSelected = prev.applicableMonths.includes(month);
+            let nextMonths = isSelected
                 ? prev.applicableMonths.filter(m => m !== month)
-                : [...prev.applicableMonths, month],
-        }));
+                : [...prev.applicableMonths, month];
+
+            // Enforce limits based on frequency
+            if (prev.frequency === 'QUARTERLY' && nextMonths.length > 4) return prev;
+            if ((prev.frequency === 'YEARLY' || prev.frequency === 'ONE_TIME') && nextMonths.length > 1) {
+                // If selecting a new one, replace the old one
+                if (!isSelected) nextMonths = [month];
+                else return prev;
+            }
+
+            return { ...prev, applicableMonths: nextMonths };
+        });
     }, []);
+
+    // Effect to truncate months when frequency changes
+    React.useEffect(() => {
+        setForm(prev => {
+            let nextMonths = [...prev.applicableMonths];
+            if (prev.frequency === 'QUARTERLY' && nextMonths.length > 4) {
+                nextMonths = nextMonths.slice(0, 4);
+            } else if ((prev.frequency === 'YEARLY' || prev.frequency === 'ONE_TIME') && nextMonths.length > 1) {
+                nextMonths = nextMonths.slice(0, 1);
+            }
+            if (nextMonths.length !== prev.applicableMonths.length) {
+                return { ...prev, applicableMonths: nextMonths };
+            }
+            return prev;
+        });
+    }, [form.frequency]);
 
     const validate = () => {
         const e = {};
@@ -76,6 +102,7 @@ const FeeStructureModal = ({ isOpen, onClose, onSubmit, editData, isLoading }) =
         if (!validate()) return;
         const payload = {
             ...form,
+            name: form.name.charAt(0).toUpperCase() + form.name.slice(1),
             amount: Number(form.amount),
             academicYear: Number(form.academicYear),
             dueDay: Number(form.dueDay),
@@ -116,14 +143,20 @@ const FeeStructureModal = ({ isOpen, onClose, onSubmit, editData, isLoading }) =
                         </div>
                         <div>
                             <label className="block text-xs font-medium text-gray-600 mb-1">Standard *</label>
-                            <input type="text" value={form.standard} onChange={(e) => handleChange('standard', e.target.value)}
-                                className={inputCls('standard')} placeholder="e.g. 10" disabled={isEdit} />
+                            <select value={form.standard} onChange={(e) => handleChange('standard', e.target.value)}
+                                className={inputCls('standard')} disabled={isEdit}>
+                                <option value="">Select</option>
+                                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(s => <option key={s} value={s}>{s}</option>)}
+                            </select>
                             {errors.standard && <p className="text-xs text-red-500 mt-1">{errors.standard}</p>}
                         </div>
                         <div>
                             <label className="block text-xs font-medium text-gray-600 mb-1">Section *</label>
-                            <input type="text" value={form.section} onChange={(e) => handleChange('section', e.target.value)}
-                                className={inputCls('section')} placeholder="e.g. A" disabled={isEdit} />
+                            <select value={form.section} onChange={(e) => handleChange('section', e.target.value)}
+                                className={inputCls('section')} disabled={isEdit}>
+                                <option value="">Select</option>
+                                {['A', 'B', 'C'].map(s => <option key={s} value={s}>{s}</option>)}
+                            </select>
                             {errors.section && <p className="text-xs text-red-500 mt-1">{errors.section}</p>}
                         </div>
                     </div>
@@ -160,7 +193,7 @@ const FeeStructureModal = ({ isOpen, onClose, onSubmit, editData, isLoading }) =
                             {errors.frequency && <p className="text-xs text-red-500 mt-1">{errors.frequency}</p>}
                         </div>
                         <div>
-                            <label className="block text-xs font-medium text-gray-600 mb-1">Due Day</label>
+                            <label className="block text-xs font-medium text-gray-600 mb-1">Due Date</label>
                             <input type="number" value={form.dueDay} onChange={(e) => handleChange('dueDay', e.target.value)}
                                 className={inputCls('dueDay')} min={1} max={28} />
                         </div>

@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import DashboardLayout from '../layouts/DashboardLayout';
 import {
     useFeeStructures, useCreateFeeStructure, useUpdateFeeStructure, useDeleteFeeStructure,
@@ -7,17 +7,59 @@ import {
     FEE_TYPES, FEE_TYPE_LABELS, FREQUENCY_LABELS, STATUS_COLORS, MONTH_LABELS,
 } from '../features/fees';
 import { useAuth } from '../features/auth';
+import { useUsers } from '../features/users/api/queries';
 import FeeStructureModal from '../components/fees/FeeStructureModal';
 import GenerateAssignmentsModal from '../components/fees/GenerateAssignmentsModal';
 import PaymentModal from '../components/fees/PaymentModal';
 import {
     FaPlus, FaEdit, FaTrash, FaTrashAlt, FaBolt, FaTimes, FaCheck, FaMoneyBillWave,
     FaChartBar, FaListAlt, FaEye, FaFilter, FaArrowLeft, FaReceipt, FaBan, FaHistory,
+    FaWallet, FaCalendarCheck, FaSearch, FaUser, FaFileInvoice,
 } from 'react-icons/fa';
 
 const MODAL_OVERLAY = 'fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4';
 const currentYear = new Date().getFullYear();
 const currentMonth = new Date().getMonth() + 1;
+
+// Salary Status Persistence Helpers
+const SALARY_STATUS_KEY = 'v_staff_salary_status';
+const getSalaryStatuses = () => {
+    try {
+        return JSON.parse(localStorage.getItem(SALARY_STATUS_KEY)) || {};
+    } catch { return {}; }
+};
+const updateSalaryStatus = (userId, month, year, status) => {
+    const statuses = getSalaryStatuses();
+    const key = `${userId}_${month}_${year}`;
+    statuses[key] = status;
+    localStorage.setItem(SALARY_STATUS_KEY, JSON.stringify(statuses));
+};
+const getSalaryStatus = (userId, month, year) => {
+    const statuses = getSalaryStatuses();
+    const key = `${userId}_${month}_${year}`;
+    if (statuses[key]) return statuses[key];
+    
+    // Future months are 'Upcoming'
+    const isFuture = (year > currentYear) || (year === currentYear && month > currentMonth);
+    if (isFuture) return 'Upcoming';
+    
+    // Current month is usually also 'Upcoming' or 'In Progress' for payroll, but let's keep it 'Upcoming' for now
+    if (year === currentYear && month === currentMonth) return 'Upcoming';
+
+    // "Last Month" logic
+    const lastMonth = currentMonth === 1 ? 12 : currentMonth - 1;
+    const lastMonthYear = currentMonth === 1 ? currentYear - 1 : currentYear;
+    const isLastMonth = (year === lastMonthYear && month === lastMonth);
+
+    if (isLastMonth) {
+        // Only the last month can be 'Pending' by default
+        const hash = String(userId).split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+        return (hash % 3 === 0) ? 'Pending' : 'Paid';
+    }
+    
+    // All other past months are 'Paid'
+    return 'Paid';
+};
 
 const StatusBadge = ({ status }) => {
     const c = STATUS_COLORS[status] || STATUS_COLORS.PENDING;
@@ -71,6 +113,21 @@ const Fees = () => {
     // Yearly state
     const [summaryYear, setSummaryYear] = useState(currentYear);
 
+    // Staff Salary state
+    const [staffSearch, setStaffSearch] = useState('');
+    const [staffStatusFilter, setStaffStatusFilter] = useState('all');
+    const [selectedStaff, setSelectedStaff] = useState(null);
+    const [salaryUpdateTrigger, setSalaryUpdateTrigger] = useState(0); // To force re-render on status change
+
+    // Sync across tabs/components
+    useEffect(() => {
+        const handleStorage = (e) => {
+            if (e.key === SALARY_STATUS_KEY) setSalaryUpdateTrigger(prev => prev + 1);
+        };
+        window.addEventListener('storage', handleStorage);
+        return () => window.removeEventListener('storage', handleStorage);
+    }, []);
+
     // Queries
     const cleanFilters = useMemo(() => {
         const f = {};
@@ -87,6 +144,7 @@ const Fees = () => {
     );
     const { data: overviewData, isLoading: overviewLoading } = useAllClassesOverview(overviewYear, overviewMonth, isAdmin);
     const { data: myClassesData, isLoading: myClassesLoading } = useMyClassFees(overviewYear, overviewMonth, isTeacher);
+    const { data: teachersData, isLoading: teachersLoading } = useUsers({ role: 'teacher', pageSize: 100 });
 
     const { data: classData, isLoading: classLoading } = useClassOverview(
         selectedClass?.standard, selectedClass?.section, overviewYear, overviewMonth
@@ -204,7 +262,7 @@ const Fees = () => {
             <div className="space-y-6">
                 {/* Header */}
                 <div>
-                    <h1 className="text-3xl font-bold text-gray-900">Fees Management</h1>
+                    <h1 className="text-3xl font-bold text-gray-900">Payment Management</h1>
                     <p className="text-gray-500 mt-1">Configure fee structures, generate assignments, and track payments</p>
                 </div>
 
@@ -212,6 +270,8 @@ const Fees = () => {
                 <div className="flex gap-1 bg-gray-100 p-1 rounded-xl w-fit">
                     {renderTabBtn('structures', <FaListAlt size={12} />, isAdmin ? 'Fee Structures' : 'Assigned Fees')}
                     {renderTabBtn('overview', <FaEye size={12} />, 'Overview')}
+                    {isTeacher && renderTabBtn('salary', <FaWallet size={12} />, 'My Salary')}
+                    {isAdmin && renderTabBtn('staff', <FaWallet size={12} />, 'Staff Salaries')}
                     {isAdmin && renderTabBtn('yearly', <FaChartBar size={12} />, 'Yearly Summary')}
                 </div>
 
@@ -238,12 +298,16 @@ const Fees = () => {
                                 <input type="number" placeholder="Year" value={structFilters.academicYear}
                                     onChange={(e) => setStructFilters(p => ({ ...p, academicYear: e.target.value }))}
                                     className="px-2 py-1 text-sm border border-gray-200 rounded-lg w-20 focus:ring-primary focus:border-primary" />
-                                <input type="text" placeholder="Standard" value={structFilters.standard}
-                                    onChange={(e) => setStructFilters(p => ({ ...p, standard: e.target.value }))}
-                                    className="px-2 py-1 text-sm border border-gray-200 rounded-lg w-24 focus:ring-primary focus:border-primary" />
-                                <input type="text" placeholder="Section" value={structFilters.section}
-                                    onChange={(e) => setStructFilters(p => ({ ...p, section: e.target.value }))}
-                                    className="px-2 py-1 text-sm border border-gray-200 rounded-lg w-20 focus:ring-primary focus:border-primary" />
+                                <select value={structFilters.standard} onChange={(e) => setStructFilters(p => ({ ...p, standard: e.target.value }))}
+                                    className="px-2 py-1 text-sm border border-gray-200 rounded-lg w-28 focus:ring-primary focus:border-primary">
+                                    <option value="">Standard</option>
+                                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(s => <option key={s} value={s}>{s}</option>)}
+                                </select>
+                                <select value={structFilters.section} onChange={(e) => setStructFilters(p => ({ ...p, section: e.target.value }))}
+                                    className="px-2 py-1 text-sm border border-gray-200 rounded-lg w-24 focus:ring-primary focus:border-primary">
+                                    <option value="">Section</option>
+                                    {['A', 'B', 'C'].map(s => <option key={s} value={s}>{s}</option>)}
+                                </select>
                                 <select value={structFilters.feeType} onChange={(e) => setStructFilters(p => ({ ...p, feeType: e.target.value }))}
                                     className="px-2 py-1 text-sm border border-gray-200 rounded-lg focus:ring-primary focus:border-primary">
                                     <option value="">All Types</option>
@@ -633,6 +697,243 @@ const Fees = () => {
                                 </div>
                             </div>
                         </div>
+                    </div>
+                )}
+
+                {/* ── TAB: Salary (Teacher Only) ────────────────────── */}
+                {activeTab === 'salary' && isTeacher && (
+                    <div className="space-y-6 animate-fadeIn">
+                        {/* Summary Cards */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                            <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
+                                <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Monthly Salary</p>
+                                <div className="flex items-end gap-2">
+                                    <h3 className="text-2xl font-bold text-gray-900">₹45,000</h3>
+                                    <span className="text-xs font-medium text-emerald-500 mb-1">+5% from last yr</span>
+                                </div>
+                            </div>
+                            <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
+                                <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Annual Total (FY26)</p>
+                                <h3 className="text-2xl font-bold text-gray-900">₹5,40,000</h3>
+                            </div>
+                            <div className="bg-primary/5 rounded-2xl border border-primary/10 p-5">
+                                <p className="text-xs font-bold text-primary uppercase tracking-wider mb-1">Next Payout</p>
+                                <div className="flex items-center gap-2">
+                                    <FaCalendarCheck className="text-primary" size={14} />
+                                    <h3 className="text-lg font-bold text-gray-900">April 01, 2026</h3>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Salary Breakdown Table */}
+                        <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm">
+                            <div className="px-6 py-4 border-b border-gray-100">
+                                <h2 className="text-lg font-bold text-gray-900">Salary Payout History</h2>
+                            </div>
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-sm text-left">
+                                    <thead className="bg-gray-50/50">
+                                        <tr>
+                                            {['Month', 'Basic Pay', 'HRA', 'Allowance', 'Gross Amount', 'Deductions', 'Net Salary', 'Status', 'Date'].map(h => (
+                                                <th key={h} className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-tight">{h}</th>
+                                            ))}
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-100">
+                                        {[3, 2, 1, 12, 11, 10, 9, 8, 7, 6, 5, 4].map((mIdx) => {
+                                            const month = mIdx;
+                                            const year = (mIdx > 3) ? 2025 : 2026;
+                                            const status = getSalaryStatus(user?._id, month, year);
+                                            const isFuture = status === 'Upcoming';
+                                            const isPaid = status === 'Paid';
+                                            
+                                            return (
+                                                <tr key={`${month}-${year}`} className="hover:bg-gray-50/50 transition-colors">
+                                                    <td className="px-6 py-4 font-bold text-gray-900">{MONTH_LABELS[month]} {year}</td>
+                                                    <td className="px-6 py-4 text-gray-600">₹30,000</td>
+                                                    <td className="px-6 py-4 text-gray-600">₹10,000</td>
+                                                    <td className="px-6 py-4 text-gray-600">₹5,000</td>
+                                                    <td className="px-6 py-4 font-bold text-gray-900">₹45,000</td>
+                                                    <td className="px-6 py-4 text-red-500">-₹0</td>
+                                                    <td className="px-6 py-4 font-bold text-emerald-600">₹45,000</td>
+                                                    <td className="px-6 py-4">
+                                                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                                                            isFuture ? 'bg-gray-100 text-gray-500' : 
+                                                            isPaid ? 'bg-emerald-50 text-emerald-700' : 
+                                                            'bg-amber-50 text-amber-700'
+                                                        }`}>
+                                                            {status}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-6 py-4 text-xs text-gray-500">{isPaid ? `01 ${MONTH_LABELS[month]} ${year}` : '--'}</td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* ── TAB: Staff Salaries (Admin Only) ──────────────── */}
+                {activeTab === 'staff' && isAdmin && (
+                    <div className="space-y-4 animate-fadeIn">
+                        {selectedStaff ? (
+                            <div className="space-y-4">
+                                <button onClick={() => setSelectedStaff(null)} className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700 transition-colors">
+                                    <FaArrowLeft size={12} />Back to Staff List
+                                </button>
+                                <div className="bg-white rounded-2xl border border-gray-200 p-6">
+                                    <div className="flex justify-between items-start mb-6">
+                                        <div className="flex gap-4">
+                                            <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center text-primary">
+                                                <FaUser size={32} />
+                                            </div>
+                                            <div>
+                                                <h2 className="text-2xl font-bold text-gray-900">{selectedStaff.name}</h2>
+                                                <p className="text-gray-500">{selectedStaff.email}</p>
+                                                <div className="flex gap-2 mt-2">
+                                                    <span className="px-2 py-0.5 bg-violet-50 text-violet-700 rounded text-[10px] font-bold uppercase">Teacher</span>
+                                                    <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 rounded text-[10px] font-bold uppercase">Active</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Monthly Package</p>
+                                            <p className="text-3xl font-black text-gray-900">₹45,000</p>
+                                        </div>
+                                    </div>
+
+                                    {/* Payout History Table (Admin View) */}
+                                    <div className="border border-gray-100 rounded-xl overflow-hidden mt-8">
+                                        <table className="w-full text-sm text-left">
+                                            <thead className="bg-gray-50/50 border-b border-gray-100">
+                                                <tr>
+                                                    {['Month', 'Basic', 'HRA', 'Gross', 'Status', 'Actions'].map(h => (
+                                                        <th key={h} className="px-4 py-3 text-[10px] font-black text-gray-400 uppercase tracking-widest">{h}</th>
+                                                    ))}
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-gray-50">
+                                                {[3, 2, 1, 12, 11, 10, 9, 8, 7, 6, 5, 4].map(m => {
+                                                    const year = (m > 3) ? 2025 : 2026;
+                                                    const status = getSalaryStatus(selectedStaff._id, m, year);
+                                                    const isFuture = status === 'Upcoming';
+                                                    const isPaid = status === 'Paid';
+                                                    const isPending = status === 'Pending';
+
+                                                    return (
+                                                        <tr key={`${m}-${year}`} className="hover:bg-gray-50/50 transition-colors">
+                                                            <td className="px-4 py-3 font-bold text-gray-900">{MONTH_LABELS[m]} {year}</td>
+                                                            <td className="px-4 py-3 text-gray-600">₹30,000</td>
+                                                            <td className="px-4 py-3 text-gray-600">₹10,000</td>
+                                                            <td className="px-4 py-3 font-bold text-gray-900">₹45,000</td>
+                                                            <td className="px-4 py-3">
+                                                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                                                                    isFuture ? 'bg-gray-100 text-gray-500' : 
+                                                                    isPaid ? 'bg-emerald-50 text-emerald-700' : 
+                                                                    'bg-amber-50 text-amber-700'
+                                                                }`}>
+                                                                    {status}
+                                                                </span>
+                                                            </td>
+                                                            <td className="px-4 py-3">
+                                                                {isPaid ? (
+                                                                    <button className="p-1.5 text-primary hover:bg-primary/10 rounded-lg transition-all" title="View Payslip">
+                                                                        <FaFileInvoice size={14} />
+                                                                    </button>
+                                                                ) : isPending ? (
+                                                                    <button onClick={() => {
+                                                                        updateSalaryStatus(selectedStaff._id, m, year, 'Paid');
+                                                                        setSalaryUpdateTrigger(prev => prev + 1);
+                                                                        showToast('success', `Payout processed for ${MONTH_LABELS[m]} ${year}`);
+                                                                    }}
+                                                                        className="text-[10px] font-bold text-primary hover:underline">PROCESS</button>
+                                                                ) : (
+                                                                    <span className="text-[10px] text-gray-400 font-medium">--</span>
+                                                                )}
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="bg-white rounded-2xl border border-gray-200 p-5">
+                                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+                                    <h2 className="text-xl font-bold text-gray-900">Staff Salary Management</h2>
+                                    <div className="flex items-center gap-3">
+                                        <div className="relative">
+                                            <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={12} />
+                                            <input type="text" placeholder="Search staff..." value={staffSearch}
+                                                onChange={(e) => setStaffSearch(e.target.value)}
+                                                className="pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-xl focus:ring-primary focus:border-primary w-64" />
+                                        </div>
+                                        <select value={staffStatusFilter} onChange={(e) => setStaffStatusFilter(e.target.value)}
+                                            className="px-3 py-2 text-sm border border-gray-200 rounded-xl focus:ring-primary focus:border-primary">
+                                            <option value="all">All Status</option>
+                                            <option value="paid">Paid</option>
+                                            <option value="pending">Pending</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-sm text-left">
+                                        <thead>
+                                            <tr className="border-b border-gray-100">
+                                                {['Teacher Name', 'Email', 'Monthly Salary', 'Status', 'Last Payout', 'Action'].map(h => (
+                                                    <th key={h} className="px-4 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">{h}</th>
+                                                ))}
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-50">
+                                            {teachersLoading ? (
+                                                Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} cols={6} />)
+                                            ) : (teachersData?.data?.users || []).filter(t => t.name.toLowerCase().includes(staffSearch.toLowerCase())).length === 0 ? (
+                                                <tr><td colSpan={6}><EmptyState icon={FaUser} title="No staff found" subtitle="No teachers match your search criteria" /></td></tr>
+                                            ) : (
+                                                (teachersData?.data?.users || []).filter(t => t.name.toLowerCase().includes(staffSearch.toLowerCase())).map(staff => {
+                                                    const lastMonth = currentMonth === 1 ? 12 : currentMonth - 1;
+                                                    const lastMonthYear = currentMonth === 1 ? currentYear - 1 : currentYear;
+                                                    const status = getSalaryStatus(staff._id, lastMonth, lastMonthYear);
+                                                    const isPaid = status === 'Paid';
+                                                    const isPending = status === 'Pending';
+                                                    
+                                                    // Filter logic
+                                                    if (staffStatusFilter !== 'all') {
+                                                        if (staffStatusFilter === 'paid' && !isPaid) return null;
+                                                        if (staffStatusFilter === 'pending' && !isPending) return null;
+                                                    }
+
+                                                    return (
+                                                        <tr key={staff._id} className="hover:bg-gray-50/50 transition-colors group">
+                                                            <td className="px-4 py-4 font-bold text-gray-900">{staff.name}</td>
+                                                            <td className="px-4 py-4 text-gray-500">{staff.email}</td>
+                                                            <td className="px-4 py-4 font-bold text-gray-900">₹45,000</td>
+                                                            <td className="px-4 py-4">
+                                                                <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                                                                    isPaid ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
+                                                                }`}>{status}</span>
+                                                            </td>
+                                                            <td className="px-4 py-4 text-gray-500 text-xs">{isPaid ? `${MONTH_LABELS[currentMonth]} 01, ${currentYear}` : '--'}</td>
+                                                            <td className="px-4 py-4">
+                                                                <button onClick={() => setSelectedStaff(staff)}
+                                                                    className="px-4 py-1.5 bg-gray-100 text-gray-700 hover:bg-primary hover:text-white rounded-lg text-xs font-bold transition-all">VIEW DETAILS</button>
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 )}
             </div>
