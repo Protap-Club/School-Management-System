@@ -1,10 +1,24 @@
-/**
- * Password generation and hashing utilities.
- * Generates secure random passwords for new users and hashes passwords for storage.
- */
+
+// Password generation and hashing utilities.
+// Generates secure random passwords for new users and hashes passwords for storage.
+
 
 import crypto from 'crypto';
-import bcrypt from 'bcryptjs'; // Import bcrypt for hashing
+import bcrypt from 'bcryptjs';
+
+/**
+ * Cryptographically secure Fisher-Yates shuffle.
+ * @param {string} str - The string to shuffle.
+ * @returns {string} The shuffled string.
+ */
+const shuffleSecure = (str) => {
+    const arr = str.split('');
+    for (let i = arr.length - 1; i > 0; i--) {
+        const j = crypto.randomInt(i + 1);
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr.join('');
+};
 
 /**
  * Generates a secure random password with a mix of character types.
@@ -15,24 +29,24 @@ export const generatePassword = (length = 12) => {
     const uppercase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
     const lowercase = 'abcdefghijklmnopqrstuvwxyz';
     const numbers = '0123456789';
-    const special = '@#$%&*!';
+    const special = '@#$%&*!+-=?';
     
     const allChars = uppercase + lowercase + numbers + special;
     
-    // Ensure at least one of each character type for strong passwords.
+    // Ensure at least one of each character type for strong passwords
     let password = '';
     password += uppercase[crypto.randomInt(uppercase.length)];
     password += lowercase[crypto.randomInt(lowercase.length)];
     password += numbers[crypto.randomInt(numbers.length)];
     password += special[crypto.randomInt(special.length)];
     
-    // Fill the remaining length with random characters from all types.
+    // Fill the remaining length with random characters from all types
     for (let i = password.length; i < length; i++) {
         password += allChars[crypto.randomInt(allChars.length)];
     }
     
-    // Shuffle the characters to randomize their order.
-    return password.split('').sort(() => crypto.randomInt(3) - 1).join('');
+    // Use Fisher-Yates shuffle instead of biased sort()
+    return shuffleSecure(password);
 };
 
 /**
@@ -41,6 +55,5 @@ export const generatePassword = (length = 12) => {
  * @returns {Promise<string>} The hashed password.
  */
 export const hashPassword = async (plainPassword) => {
-    const salt = await bcrypt.genSalt(10); // Generate a salt with 10 rounds.
-    return bcrypt.hash(plainPassword, salt); // Hash the password with the generated salt.
+    return bcrypt.hash(plainPassword, 12); // 12 rounds for 2024 security standards
 };
