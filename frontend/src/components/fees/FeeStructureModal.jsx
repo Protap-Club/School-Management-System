@@ -199,7 +199,19 @@ const FeeStructureModal = ({ isOpen, onClose, onSubmit, editData, isLoading }) =
                         </div>
                     </div>
                     <div>
-                        <label className="block text-xs font-medium text-gray-600 mb-2">Applicable Months</label>
+                        <div className="flex items-center justify-between mb-2">
+                            <label className="block text-xs font-medium text-gray-600">Applicable Months</label>
+                            {form.frequency === 'QUARTERLY' && (
+                                <span className="text-[10px] font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded-full border border-red-100">
+                                    select any 4 month
+                                </span>
+                            )}
+                            {(form.frequency === 'YEARLY' || form.frequency === 'ONE_TIME') && (
+                                <span className="text-[10px] font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded-full border border-red-100">
+                                    select any 1 month
+                                </span>
+                            )}
+                        </div>
                         <div className="flex flex-wrap gap-2">
                             {MONTHS.map(m => (
                                 <button key={m.value} type="button" onClick={() => toggleMonth(m.value)}

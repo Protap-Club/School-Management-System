@@ -1,6 +1,8 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import DashboardLayout from '../layouts/DashboardLayout';
 import {
+    feeKeys,
     useFeeStructures, useCreateFeeStructure, useUpdateFeeStructure, useDeleteFeeStructure,
     useGenerateAssignments, useAllClassesOverview, useClassOverview, useYearlySummary,
     useMyClassFees, useStudentFeeHistory, useRecordPayment, useUpdateAssignment,
@@ -9,8 +11,8 @@ import {
 import { useAuth } from '../features/auth';
 import { useUsers } from '../features/users/api/queries';
 import FeeStructureModal from '../components/fees/FeeStructureModal';
-import GenerateAssignmentsModal from '../components/fees/GenerateAssignmentsModal';
 import PaymentModal from '../components/fees/PaymentModal';
+import FeeStructureForm from '../components/fees/FeeStructureForm';
 import {
     FaPlus, FaEdit, FaTrash, FaTrashAlt, FaBolt, FaTimes, FaCheck, FaMoneyBillWave,
     FaChartBar, FaListAlt, FaEye, FaFilter, FaArrowLeft, FaReceipt, FaBan, FaHistory,
@@ -38,11 +40,11 @@ const getSalaryStatus = (userId, month, year) => {
     const statuses = getSalaryStatuses();
     const key = `${userId}_${month}_${year}`;
     if (statuses[key]) return statuses[key];
-    
+
     // Future months are 'Upcoming'
     const isFuture = (year > currentYear) || (year === currentYear && month > currentMonth);
     if (isFuture) return 'Upcoming';
-    
+
     // Current month is usually also 'Upcoming' or 'In Progress' for payroll, but let's keep it 'Upcoming' for now
     if (year === currentYear && month === currentMonth) return 'Upcoming';
 
@@ -56,7 +58,7 @@ const getSalaryStatus = (userId, month, year) => {
         const hash = String(userId).split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
         return (hash % 3 === 0) ? 'Pending' : 'Paid';
     }
-    
+
     // All other past months are 'Paid'
     return 'Paid';
 };
@@ -89,11 +91,13 @@ const EmptyState = ({ icon: Icon, title, subtitle }) => (
 );
 
 const Fees = () => {
+    const queryClient = useQueryClient();
     const { user } = useAuth();
     const isAdmin = user?.role === 'admin';
     const isTeacher = user?.role === 'teacher';
 
-    const [activeTab, setActiveTab] = useState(isAdmin ? 'structures' : 'overview');
+    const [activeTab, setActiveTab] = useState(isAdmin ? 'management' : 'overview');
+    const [mgmtView, setMgmtView] = useState('selection'); // selection, student_list, student_form, staff
     const [toast, setToast] = useState({ type: '', text: '' });
 
     // Structures state
@@ -196,16 +200,50 @@ const Fees = () => {
     // Handlers
     const handleCreateStructure = async (data) => {
         try {
-            await createMut.mutateAsync(data);
-            showToast('success', 'Fee structure created successfully');
+            const result = await createMut.mutateAsync(data);
+            const created = result?.data || result;
+            const createdId = created?._id;
+            if (createdId) {
+                const months = created.applicableMonths || data.applicableMonths || [];
+                const year = Number(created.academicYear || data.academicYear || currentYear);
+                let assignedCount = 0;
+                for (const month of months) {
+                    try {
+                        await genMut.mutateAsync({ structureId: createdId, month, year });
+                        assignedCount++;
+                    } catch (err) { /* skip months that fail (e.g., already assigned) */ }
+                }
+                queryClient.invalidateQueries({ queryKey: feeKeys.all });
+                if (assignedCount > 0) {
+                    showToast('success', `Fee structure created & assigned for ${assignedCount} month(s)`);
+                } else {
+                    showToast('success', 'Fee structure created');
+                }
+            } else {
+                showToast('success', 'Fee structure created');
+                queryClient.invalidateQueries({ queryKey: feeKeys.all });
+            }
             setStructModal({ open: false, editData: null });
         } catch (err) { showToast('error', err?.response?.data?.message || 'Failed to create'); }
     };
 
     const handleUpdateStructure = async ({ id, data }) => {
         try {
-            await updateMut.mutateAsync({ id, data });
-            showToast('success', 'Fee structure updated');
+            const result = await updateMut.mutateAsync({ id, data });
+            const updated = result?.data || result;
+            const months = updated?.applicableMonths || data.applicableMonths || [];
+            const year = Number(updated?.academicYear || data.academicYear || currentYear);
+            let assignedCount = 0;
+            for (const month of months) {
+                try {
+                    await genMut.mutateAsync({ structureId: id, month, year });
+                    assignedCount++;
+                } catch (err) { /* skip months that fail */ }
+            }
+            queryClient.invalidateQueries({ queryKey: feeKeys.all });
+            showToast('success', assignedCount > 0
+                ? `Fee structure updated & assigned for ${assignedCount} month(s)`
+                : 'Fee structure updated');
             setStructModal({ open: false, editData: null });
         } catch (err) { showToast('error', err?.response?.data?.message || 'Failed to update'); }
     };
@@ -213,9 +251,13 @@ const Fees = () => {
     const handleDeleteStructure = async (id) => {
         try {
             await deleteMut.mutateAsync(id);
+            queryClient.invalidateQueries({ queryKey: feeKeys.all });
             showToast('success', 'Fee structure deleted');
             setDeleteConfirm(null);
-        } catch (err) { showToast('error', err?.response?.data?.message || 'Failed to delete'); }
+        } catch (err) {
+            setDeleteConfirm(null);
+            showToast('error', err?.response?.data?.message || 'Failed to delete');
+        }
     };
 
     const handleGenerate = async (data) => {
@@ -242,7 +284,12 @@ const Fees = () => {
     };
 
     const renderTabBtn = (tab, icon, label) => (
-        <button key={tab} onClick={() => { setActiveTab(tab); setSelectedClass(null); setSelectedStudent(null); }}
+        <button key={tab} onClick={() => {
+            setActiveTab(tab);
+            setSelectedClass(null);
+            setSelectedStudent(null);
+            if (tab === 'management') setMgmtView('selection');
+        }}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${activeTab === tab ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
             {icon}{label}
         </button>
@@ -268,107 +315,318 @@ const Fees = () => {
 
                 {/* Tabs */}
                 <div className="flex gap-1 bg-gray-100 p-1 rounded-xl w-fit">
-                    {renderTabBtn('structures', <FaListAlt size={12} />, isAdmin ? 'Fee Structures' : 'Assigned Fees')}
+                    {isAdmin && renderTabBtn('management', <FaListAlt size={12} />, 'Management')}
+                    {!isAdmin && renderTabBtn('structures', <FaListAlt size={12} />, 'Assigned Fees')}
                     {renderTabBtn('overview', <FaEye size={12} />, 'Overview')}
                     {isTeacher && renderTabBtn('salary', <FaWallet size={12} />, 'My Salary')}
-                    {isAdmin && renderTabBtn('staff', <FaWallet size={12} />, 'Staff Salaries')}
                     {isAdmin && renderTabBtn('yearly', <FaChartBar size={12} />, 'Yearly Summary')}
                 </div>
 
-                {/* ── TAB: Fee Structures ────────────────────────────── */}
-                {activeTab === 'structures' && (
-                    <div className="space-y-4">
-                        <div className="bg-white rounded-2xl border border-gray-200 p-5">
-                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
-                                <div className="flex items-center gap-3">
+                {/* ── TAB: Management (Unified) ────────────────────────── */}
+                {activeTab === 'management' && (
+                    <div className="space-y-6">
+                        {mgmtView === 'selection' && (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fadeIn">
+                                <button onClick={() => setMgmtView('student_list')}
+                                    className="group relative bg-white p-8 rounded-3xl border-2 border-transparent hover:border-primary/20 shadow-xl shadow-gray-200/50 transition-all hover:-translate-y-1 text-left overflow-hidden">
+                                    <div className="absolute top-0 right-0 p-4 bg-primary/5 rounded-bl-3xl group-hover:bg-primary group-hover:text-white transition-all text-primary/40">
+                                        <FaListAlt size={24} />
+                                    </div>
+                                    <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center text-primary mb-6 group-hover:scale-110 transition-transform">
+                                        <FaReceipt size={32} />
+                                    </div>
+                                    <h3 className="text-2xl font-bold text-gray-900 mb-2">Student Fees</h3>
+                                    <p className="text-gray-500 leading-relaxed">Configure fee structures, generate assignments, and track class-wise collections.</p>
+                                    <div className="mt-6 flex items-center gap-2 text-primary font-bold text-sm">
+                                        Manage Structures <FaPlus size={10} className="group-hover:translate-x-1 transition-transform" />
+                                    </div>
+                                </button>
+
+                                <button onClick={() => setMgmtView('staff')}
+                                    className="group relative bg-white p-8 rounded-3xl border-2 border-transparent hover:border-primary/20 shadow-xl shadow-gray-200/50 transition-all hover:-translate-y-1 text-left overflow-hidden">
+                                    <div className="absolute top-0 right-0 p-4 bg-violet-50 rounded-bl-3xl group-hover:bg-violet-500 group-hover:text-white transition-all text-violet-400">
+                                        <FaWallet size={24} />
+                                    </div>
+                                    <div className="w-16 h-16 bg-violet-50 rounded-2xl flex items-center justify-center text-violet-500 mb-6 group-hover:scale-110 transition-transform">
+                                        <FaMoneyBillWave size={32} />
+                                    </div>
+                                    <h3 className="text-2xl font-bold text-gray-900 mb-2">Staff Salaries</h3>
+                                    <p className="text-gray-500 leading-relaxed">Manage teacher salary structures, process monthly payouts, and view history.</p>
+                                    <div className="mt-6 flex items-center gap-2 text-violet-600 font-bold text-sm">
+                                        Payroll Overview <FaPlus size={10} className="group-hover:translate-x-1 transition-transform" />
+                                    </div>
+                                </button>
+                            </div>
+                        )}
+
+                        {mgmtView === 'student_list' && (
+                            <div className="space-y-4 animate-fadeIn">
+                                <button onClick={() => setMgmtView('selection')} className="flex items-center gap-2 text-xs font-bold text-gray-500 hover:text-primary transition-all uppercase tracking-widest">
+                                    <FaArrowLeft size={10} /> Back to Management
+                                </button>
+                                <div className="bg-white rounded-2xl border border-gray-200 p-5 shadow-sm">
+                                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+                                        <h2 className="text-xl font-bold text-gray-900">Fee Structure Management</h2>
+                                        <button onClick={() => { setStructModal({ open: false, editData: null }); setMgmtView('student_form'); }}
+                                            className="flex items-center gap-2 bg-primary hover:bg-primary-hover text-white font-bold py-2.5 px-6 rounded-xl transition-all shadow-lg shadow-primary/20">
+                                            <FaPlus size={12} /> Add Fee Structure
+                                        </button>
+                                    </div>
+                                    {/* Filters */}
+                                    <div className="flex flex-wrap gap-3 p-3 bg-gray-50 rounded-xl border border-gray-100 mb-6">
+                                        <div className="flex items-center gap-2 px-2">
+                                            <FaFilter className="text-gray-400" size={11} />
+                                            <span className="text-[10px] font-black text-gray-400 uppercase tracking-tight">Filters</span>
+                                        </div>
+                                        <input type="number" placeholder="Year" value={structFilters.academicYear}
+                                            onChange={(e) => setStructFilters(p => ({ ...p, academicYear: e.target.value }))}
+                                            className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg w-24 focus:ring-primary focus:border-primary" />
+                                        <select value={structFilters.standard} onChange={(e) => setStructFilters(p => ({ ...p, standard: e.target.value }))}
+                                            className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg w-32 focus:ring-primary focus:border-primary">
+                                            <option value="">Standard</option>
+                                            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(s => <option key={s} value={s}>{s}</option>)}
+                                        </select>
+                                        <select value={structFilters.section} onChange={(e) => setStructFilters(p => ({ ...p, section: e.target.value }))}
+                                            className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg w-32 focus:ring-primary focus:border-primary">
+                                            <option value="">Section</option>
+                                            {['A', 'B', 'C'].map(s => <option key={s} value={s}>{s}</option>)}
+                                        </select>
+                                        <select value={structFilters.feeType} onChange={(e) => setStructFilters(p => ({ ...p, feeType: e.target.value }))}
+                                            className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:ring-primary focus:border-primary">
+                                            <option value="">All Types</option>
+                                            {FEE_TYPES.map(t => <option key={t} value={t}>{FEE_TYPE_LABELS[t]}</option>)}
+                                        </select>
+                                    </div>
+
+                                    {/* Table */}
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full text-sm">
+                                            <thead>
+                                                <tr className="border-b border-gray-100 uppercase">
+                                                    {['Fee Type', 'Name', 'Class', 'Amount', 'Frequency', 'Due Day'].map(h => (
+                                                        <th key={h} className="px-4 py-4 text-left text-[10px] font-black text-gray-400 tracking-widest">{h}</th>
+                                                    ))}
+                                                    <th className="px-4 py-4 text-center text-[10px] font-black text-gray-400 tracking-widest">Status</th>
+                                                    <th className="px-4 py-4 text-center text-[10px] font-black text-gray-400 tracking-widest">Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-gray-50">
+                                                {structLoading ? (
+                                                    Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} cols={8} />)
+                                                ) : structures.length === 0 ? (
+                                                    <tr><td colSpan={8}><EmptyState icon={FaListAlt} title="No fee structures found" subtitle="Create a fee structure to get started" /></td></tr>
+                                                ) : (
+                                                    structures.map(st => (
+                                                        <tr key={st._id} className="hover:bg-gray-50/25 transition-colors group">
+                                                            <td className="px-4 py-4">
+                                                                <span className="px-2.5 py-1 bg-primary/5 text-primary rounded-lg text-[10px] font-bold uppercase">{FEE_TYPE_LABELS[st.feeType] || st.feeType}</span>
+                                                            </td>
+                                                            <td className="px-4 py-4 font-bold text-gray-900">{st.name}</td>
+                                                            <td className="px-4 py-4 text-gray-600 font-medium">Std {st.standard}-{st.section}</td>
+                                                            <td className="px-4 py-4 font-black text-gray-900">₹{st.amount?.toLocaleString()}</td>
+                                                            <td className="px-4 py-4 text-gray-600 font-medium">{FREQUENCY_LABELS[st.frequency] || st.frequency}</td>
+                                                            <td className="px-4 py-4 text-gray-600 font-medium">{st.dueDay}</td>
+                                                            <td className="px-4 py-4 text-center">
+                                                                <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${st.isActive ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>
+                                                                    {st.isActive ? 'Active' : 'Inactive'}
+                                                                </span>
+                                                            </td>
+                                                            <td className="px-4 py-4 text-center">
+                                                                <div className="flex items-center justify-center gap-1 transition-opacity">
+                                                                    <button onClick={() => { setStructModal({ open: false, editData: st }); setMgmtView('student_form'); }} title="Edit Structure"
+                                                                        className="p-2 text-blue-500 hover:bg-blue-50 rounded-lg transition-all"><FaEdit size={14} /></button>
+                                                                    <button onClick={() => setDeleteConfirm(st._id)} title="Delete Structure"
+                                                                        className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-all"><FaTrashAlt size={14} /></button>
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    ))
+                                                )}
+                                            </tbody>
+                                        </table>
+                                    </div>
                                 </div>
-                                {isAdmin && (
-                                    <button onClick={() => setStructModal({ open: true, editData: null })}
-                                        className="flex items-center gap-2 bg-primary hover:bg-primary-hover text-white font-medium py-2.5 px-4 rounded-xl transition-colors shadow-sm">
-                                        <FaPlus size={12} />Add Fee Structure
-                                    </button>
+                            </div>
+                        )}
+
+                        {mgmtView === 'student_form' && (
+                            <FeeStructureForm
+                                key={structModal.editData?._id || 'new'}
+                                editData={structModal.editData}
+                                onCancel={() => { setMgmtView('student_list'); setStructModal({ open: false, editData: null }); }}
+                                onSubmit={async (data) => {
+                                    if (structModal.editData) {
+                                        await handleUpdateStructure({ id: structModal.editData._id, data });
+                                    } else {
+                                        await handleCreateStructure(data);
+                                    }
+                                    setMgmtView('student_list');
+                                }}
+                                isLoading={createMut.isPending || updateMut.isPending}
+                            />
+                        )}
+
+                        {mgmtView === 'staff' && (
+                            <div className="space-y-4 animate-fadeIn">
+                                <button onClick={() => setMgmtView('selection')} className="flex items-center gap-2 text-xs font-bold text-gray-500 hover:text-violet-600 transition-all uppercase tracking-widest">
+                                    <FaArrowLeft size={10} /> Back to Management
+                                </button>
+                                {selectedStaff ? (
+                                    <div className="space-y-4">
+                                        <button onClick={() => setSelectedStaff(null)} className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700 transition-colors px-1">
+                                            <FaArrowLeft size={12} />Back to Staff List
+                                        </button>
+                                        <div className="bg-white rounded-3xl border border-gray-200 p-8 shadow-sm">
+                                            <div className="flex flex-col md:flex-row justify-between items-start gap-6 mb-8">
+                                                <div className="flex gap-6">
+                                                    <div className="w-20 h-20 bg-violet-50 rounded-2xl flex items-center justify-center text-violet-500 shadow-inner">
+                                                        <FaUser size={40} />
+                                                    </div>
+                                                    <div>
+                                                        <h2 className="text-3xl font-black text-gray-900">{selectedStaff.name}</h2>
+                                                        <p className="text-gray-500 font-medium">{selectedStaff.email}</p>
+                                                        <div className="flex gap-2 mt-3">
+                                                            <span className="px-3 py-1 bg-violet-100 text-violet-700 rounded-lg text-[10px] font-black uppercase tracking-wider">Teacher Account</span>
+                                                            <span className="px-3 py-1 bg-emerald-100 text-emerald-700 rounded-lg text-[10px] font-black uppercase tracking-wider">Active Status</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div className="text-right p-6 bg-gray-50 rounded-2xl border border-gray-100">
+                                                    <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Monthly Package</p>
+                                                    <p className="text-4xl font-black text-gray-900">₹45,000</p>
+                                                </div>
+                                            </div>
+
+                                            <div className="border border-gray-100 rounded-2xl overflow-hidden mt-8 shadow-sm">
+                                                <table className="w-full text-sm text-left">
+                                                    <thead className="bg-gray-50/80 border-b border-gray-100">
+                                                        <tr>
+                                                            {['Month', 'Basic', 'HRA', 'Gross', 'Status', 'Actions'].map(h => (
+                                                                <th key={h} className="px-6 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">{h}</th>
+                                                            ))}
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody className="divide-y divide-gray-50">
+                                                        {[3, 2, 1, 12, 11, 10, 9, 8, 7, 6, 5, 4].map(m => {
+                                                            const year = (m > 3) ? 2025 : 2026;
+                                                            const status = getSalaryStatus(selectedStaff._id, m, year);
+                                                            const isFuture = status === 'Upcoming';
+                                                            const isPaid = status === 'Paid';
+                                                            const isPending = status === 'Pending';
+
+                                                            return (
+                                                                <tr key={`${m}-${year}`} className="hover:bg-gray-50/50 transition-colors">
+                                                                    <td className="px-6 py-4 font-bold text-gray-900">{MONTH_LABELS[m]} {year}</td>
+                                                                    <td className="px-6 py-4 text-gray-600 font-medium">₹30,000</td>
+                                                                    <td className="px-6 py-4 text-gray-600 font-medium">₹10,000</td>
+                                                                    <td className="px-6 py-4 font-black text-gray-900">₹45,000</td>
+                                                                    <td className="px-6 py-4">
+                                                                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${isFuture ? 'bg-gray-100 text-gray-500' :
+                                                                            isPaid ? 'bg-emerald-50 text-emerald-700' :
+                                                                                'bg-amber-50 text-amber-700'
+                                                                            }`}>
+                                                                            {status}
+                                                                        </span>
+                                                                    </td>
+                                                                    <td className="px-6 py-4">
+                                                                        {isPaid ? (
+                                                                            <button className="p-2 text-primary hover:bg-primary/10 rounded-xl transition-all shadow-sm" title="View Payslip">
+                                                                                <FaFileInvoice size={14} />
+                                                                            </button>
+                                                                        ) : isPending ? (
+                                                                            <button onClick={() => {
+                                                                                updateSalaryStatus(selectedStaff._id, m, year, 'Paid');
+                                                                                setSalaryUpdateTrigger(prev => prev + 1);
+                                                                                showToast('success', `Payout processed for ${MONTH_LABELS[m]} ${year}`);
+                                                                            }}
+                                                                                className="px-4 py-1.5 bg-primary text-white text-[10px] font-black rounded-lg hover:bg-primary-hover shadow-lg shadow-primary/20 transition-all uppercase tracking-widest">Process Payment</button>
+                                                                        ) : (
+                                                                            <span className="text-[10px] text-gray-400 font-black uppercase tracking-widest">Awaiting Date</span>
+                                                                        )}
+                                                                    </td>
+                                                                </tr>
+                                                            );
+                                                        })}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="bg-white rounded-3xl border border-gray-200 p-8 shadow-sm">
+                                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
+                                            <div>
+                                                <h2 className="text-2xl font-black text-gray-900">Staff Salary Dashboard</h2>
+                                                <p className="text-gray-500 font-medium">Review and process teacher payouts for the current cycle.</p>
+                                            </div>
+                                            <div className="flex items-center gap-4">
+                                                <div className="relative group">
+                                                    <FaSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-violet-500 transition-colors" size={14} />
+                                                    <input type="text" placeholder="Search staff..." value={staffSearch}
+                                                        onChange={(e) => setStaffSearch(e.target.value)}
+                                                        className="pl-11 pr-6 py-3 text-sm border border-gray-200 rounded-2xl focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 w-72 shadow-inner bg-gray-50/50 transition-all" />
+                                                </div>
+                                                <select value={staffStatusFilter} onChange={(e) => setStaffStatusFilter(e.target.value)}
+                                                    className="px-4 py-3 text-sm border border-gray-200 rounded-2xl focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 bg-gray-50/50 font-bold text-gray-700 shadow-inner cursor-pointer">
+                                                    <option value="all">All Pay Status</option>
+                                                    <option value="paid">Paid Only</option>
+                                                    <option value="pending">Pending Payout</option>
+                                                </select>
+                                            </div>
+                                        </div>
+
+                                        <div className="overflow-x-auto rounded-2xl border border-gray-100">
+                                            <table className="w-full text-sm text-left">
+                                                <thead>
+                                                    <tr className="bg-gray-50/50 border-b border-gray-100 shadow-sm">
+                                                        {['Teacher Name', 'Email Address', 'Salary Pkg', 'Status', 'Last Payout', 'Details'].map(h => (
+                                                            <th key={h} className="px-6 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">{h}</th>
+                                                        ))}
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-gray-50">
+                                                    {teachersLoading ? (
+                                                        Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} cols={6} />)
+                                                    ) : (teachersData?.data?.users || []).filter(t => t.name.toLowerCase().includes(staffSearch.toLowerCase())).length === 0 ? (
+                                                        <tr><td colSpan={6}><EmptyState icon={FaUser} title="No staff records" subtitle="We couldn't find any staff matching your search." /></td></tr>
+                                                    ) : (
+                                                        (teachersData?.data?.users || []).filter(t => t.name.toLowerCase().includes(staffSearch.toLowerCase())).map(staff => {
+                                                            const lastMonth = currentMonth === 1 ? 12 : currentMonth - 1;
+                                                            const lastMonthYear = currentMonth === 1 ? currentYear - 1 : currentYear;
+                                                            const status = getSalaryStatus(staff._id, lastMonth, lastMonthYear);
+                                                            const isPaid = status === 'Paid';
+                                                            const isPending = status === 'Pending';
+
+                                                            if (staffStatusFilter !== 'all') {
+                                                                if (staffStatusFilter === 'paid' && !isPaid) return null;
+                                                                if (staffStatusFilter === 'pending' && !isPending) return null;
+                                                            }
+
+                                                            return (
+                                                                <tr key={staff._id} className="hover:bg-violet-50/20 transition-all group cursor-default">
+                                                                    <td className="px-6 py-6 font-black text-gray-900">{staff.name}</td>
+                                                                    <td className="px-6 py-6 text-gray-500 font-medium">{staff.email}</td>
+                                                                    <td className="px-6 py-6 font-black text-gray-900">₹45,000</td>
+                                                                    <td className="px-6 py-6">
+                                                                        <span className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider shadow-sm ${isPaid ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200' : 'bg-amber-50 text-amber-700 ring-1 ring-amber-200'
+                                                                            }`}>{status}</span>
+                                                                    </td>
+                                                                    <td className="px-6 py-6 text-gray-500 font-bold text-xs">{isPaid ? `${MONTH_LABELS[lastMonth]} 01, ${lastMonthYear}` : '--'}</td>
+                                                                    <td className="px-6 py-6">
+                                                                        <button onClick={() => setSelectedStaff(staff)}
+                                                                            className="px-6 py-2 bg-white text-violet-600 border-2 border-violet-100 hover:bg-violet-600 hover:text-white hover:border-violet-600 rounded-xl text-[10px] font-black transition-all shadow-sm uppercase tracking-widest">View Ledger</button>
+                                                                    </td>
+                                                                </tr>
+                                                            );
+                                                        })
+                                                    )}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
                                 )}
                             </div>
-                            {/* Filters */}
-                            <div className="flex flex-wrap gap-3 p-3 bg-gray-50 rounded-xl border border-gray-100 mb-4">
-                                <div className="flex items-center gap-2">
-                                    <FaFilter className="text-gray-400" size={11} />
-                                    <span className="text-xs font-medium text-gray-500 uppercase">Filters:</span>
-                                </div>
-                                <input type="number" placeholder="Year" value={structFilters.academicYear}
-                                    onChange={(e) => setStructFilters(p => ({ ...p, academicYear: e.target.value }))}
-                                    className="px-2 py-1 text-sm border border-gray-200 rounded-lg w-20 focus:ring-primary focus:border-primary" />
-                                <select value={structFilters.standard} onChange={(e) => setStructFilters(p => ({ ...p, standard: e.target.value }))}
-                                    className="px-2 py-1 text-sm border border-gray-200 rounded-lg w-28 focus:ring-primary focus:border-primary">
-                                    <option value="">Standard</option>
-                                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(s => <option key={s} value={s}>{s}</option>)}
-                                </select>
-                                <select value={structFilters.section} onChange={(e) => setStructFilters(p => ({ ...p, section: e.target.value }))}
-                                    className="px-2 py-1 text-sm border border-gray-200 rounded-lg w-24 focus:ring-primary focus:border-primary">
-                                    <option value="">Section</option>
-                                    {['A', 'B', 'C'].map(s => <option key={s} value={s}>{s}</option>)}
-                                </select>
-                                <select value={structFilters.feeType} onChange={(e) => setStructFilters(p => ({ ...p, feeType: e.target.value }))}
-                                    className="px-2 py-1 text-sm border border-gray-200 rounded-lg focus:ring-primary focus:border-primary">
-                                    <option value="">All Types</option>
-                                    {FEE_TYPES.map(t => <option key={t} value={t}>{FEE_TYPE_LABELS[t]}</option>)}
-                                </select>
-                            </div>
-
-                            {/* Table */}
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-sm">
-                                    <thead>
-                                        <tr className="border-b border-gray-100">
-                                            {['Fee Type', 'Name', 'Class', 'Amount', 'Frequency', 'Due Day'].map(h => (
-                                                <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">{h}</th>
-                                            ))}
-                                            <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
-                                            <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-gray-50">
-                                        {structLoading ? (
-                                            Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} cols={8} />)
-                                        ) : structures.length === 0 ? (
-                                            <tr><td colSpan={8}><EmptyState icon={FaListAlt} title="No fee structures found" subtitle="Create a fee structure to get started" /></td></tr>
-                                        ) : (
-                                            structures.map(st => (
-                                                <tr key={st._id} className="hover:bg-gray-50/50 transition-colors">
-                                                    <td className="px-4 py-3">
-                                                        <span className="px-2 py-1 bg-primary/5 text-primary rounded-md text-xs font-medium">{FEE_TYPE_LABELS[st.feeType] || st.feeType}</span>
-                                                    </td>
-                                                    <td className="px-4 py-3 font-medium text-gray-900">{st.name}</td>
-                                                    <td className="px-4 py-3 text-gray-600">{st.standard}-{st.section}</td>
-                                                    <td className="px-4 py-3 font-semibold text-gray-900">₹{st.amount?.toLocaleString()}</td>
-                                                    <td className="px-4 py-3 text-gray-600">{FREQUENCY_LABELS[st.frequency] || st.frequency}</td>
-                                                    <td className="px-4 py-3 text-gray-600">{st.dueDay}</td>
-                                                    <td className="px-4 py-3 text-center">
-                                                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${st.isActive ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>
-                                                            {st.isActive ? 'Active' : 'Inactive'}
-                                                        </span>
-                                                    </td>
-                                                    <td className="px-4 py-3 text-center">
-                                                        <div className="flex items-center justify-center gap-2">
-                                                            {(isAdmin || isTeacher) && (
-                                                                <>
-                                                                    <button onClick={() => setGenModal({ open: true, structure: st })} title="Generate Assignments"
-                                                                        className="p-2 text-violet-500 hover:bg-violet-50 rounded-lg transition-colors"><FaBolt size={13} /></button>
-                                                                    <button onClick={() => setStructModal({ open: true, editData: st })} title="Edit Structure"
-                                                                        className="p-2 text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"><FaEdit size={13} /></button>
-                                                                    <button onClick={() => setDeleteConfirm(st._id)} title="Delete Structure"
-                                                                        className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"><FaTrashAlt size={13} /></button>
-                                                                </>
-                                                            )}
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                            ))
-                                        )}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
+                        )}
                     </div>
                 )}
 
@@ -746,7 +1004,7 @@ const Fees = () => {
                                             const status = getSalaryStatus(user?._id, month, year);
                                             const isFuture = status === 'Upcoming';
                                             const isPaid = status === 'Paid';
-                                            
+
                                             return (
                                                 <tr key={`${month}-${year}`} className="hover:bg-gray-50/50 transition-colors">
                                                     <td className="px-6 py-4 font-bold text-gray-900">{MONTH_LABELS[month]} {year}</td>
@@ -757,11 +1015,10 @@ const Fees = () => {
                                                     <td className="px-6 py-4 text-red-500">-₹0</td>
                                                     <td className="px-6 py-4 font-bold text-emerald-600">₹45,000</td>
                                                     <td className="px-6 py-4">
-                                                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                                                            isFuture ? 'bg-gray-100 text-gray-500' : 
-                                                            isPaid ? 'bg-emerald-50 text-emerald-700' : 
-                                                            'bg-amber-50 text-amber-700'
-                                                        }`}>
+                                                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${isFuture ? 'bg-gray-100 text-gray-500' :
+                                                            isPaid ? 'bg-emerald-50 text-emerald-700' :
+                                                                'bg-amber-50 text-amber-700'
+                                                            }`}>
                                                             {status}
                                                         </span>
                                                     </td>
@@ -776,158 +1033,73 @@ const Fees = () => {
                     </div>
                 )}
 
-                {/* ── TAB: Staff Salaries (Admin Only) ──────────────── */}
-                {activeTab === 'staff' && isAdmin && (
+                {/* ── TAB: Assigned Fees (Teacher/Non-Admin) ───────── */}
+                {activeTab === 'structures' && !isAdmin && (
                     <div className="space-y-4 animate-fadeIn">
-                        {selectedStaff ? (
-                            <div className="space-y-4">
-                                <button onClick={() => setSelectedStaff(null)} className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700 transition-colors">
-                                    <FaArrowLeft size={12} />Back to Staff List
+                        {structModal.editData && activeTab === 'structures' ? (
+                            <>
+                                <button onClick={() => setStructModal({ open: false, editData: null })} className="flex items-center gap-2 text-xs font-bold text-gray-500 hover:text-primary transition-all uppercase tracking-widest">
+                                    <FaArrowLeft size={10} /> Back to Assigned Fees
                                 </button>
-                                <div className="bg-white rounded-2xl border border-gray-200 p-6">
-                                    <div className="flex justify-between items-start mb-6">
-                                        <div className="flex gap-4">
-                                            <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center text-primary">
-                                                <FaUser size={32} />
-                                            </div>
-                                            <div>
-                                                <h2 className="text-2xl font-bold text-gray-900">{selectedStaff.name}</h2>
-                                                <p className="text-gray-500">{selectedStaff.email}</p>
-                                                <div className="flex gap-2 mt-2">
-                                                    <span className="px-2 py-0.5 bg-violet-50 text-violet-700 rounded text-[10px] font-bold uppercase">Teacher</span>
-                                                    <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 rounded text-[10px] font-bold uppercase">Active</span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div className="text-right">
-                                            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Monthly Package</p>
-                                            <p className="text-3xl font-black text-gray-900">₹45,000</p>
-                                        </div>
-                                    </div>
-
-                                    {/* Payout History Table (Admin View) */}
-                                    <div className="border border-gray-100 rounded-xl overflow-hidden mt-8">
-                                        <table className="w-full text-sm text-left">
-                                            <thead className="bg-gray-50/50 border-b border-gray-100">
-                                                <tr>
-                                                    {['Month', 'Basic', 'HRA', 'Gross', 'Status', 'Actions'].map(h => (
-                                                        <th key={h} className="px-4 py-3 text-[10px] font-black text-gray-400 uppercase tracking-widest">{h}</th>
-                                                    ))}
-                                                </tr>
-                                            </thead>
-                                            <tbody className="divide-y divide-gray-50">
-                                                {[3, 2, 1, 12, 11, 10, 9, 8, 7, 6, 5, 4].map(m => {
-                                                    const year = (m > 3) ? 2025 : 2026;
-                                                    const status = getSalaryStatus(selectedStaff._id, m, year);
-                                                    const isFuture = status === 'Upcoming';
-                                                    const isPaid = status === 'Paid';
-                                                    const isPending = status === 'Pending';
-
-                                                    return (
-                                                        <tr key={`${m}-${year}`} className="hover:bg-gray-50/50 transition-colors">
-                                                            <td className="px-4 py-3 font-bold text-gray-900">{MONTH_LABELS[m]} {year}</td>
-                                                            <td className="px-4 py-3 text-gray-600">₹30,000</td>
-                                                            <td className="px-4 py-3 text-gray-600">₹10,000</td>
-                                                            <td className="px-4 py-3 font-bold text-gray-900">₹45,000</td>
-                                                            <td className="px-4 py-3">
-                                                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
-                                                                    isFuture ? 'bg-gray-100 text-gray-500' : 
-                                                                    isPaid ? 'bg-emerald-50 text-emerald-700' : 
-                                                                    'bg-amber-50 text-amber-700'
-                                                                }`}>
-                                                                    {status}
-                                                                </span>
-                                                            </td>
-                                                            <td className="px-4 py-3">
-                                                                {isPaid ? (
-                                                                    <button className="p-1.5 text-primary hover:bg-primary/10 rounded-lg transition-all" title="View Payslip">
-                                                                        <FaFileInvoice size={14} />
-                                                                    </button>
-                                                                ) : isPending ? (
-                                                                    <button onClick={() => {
-                                                                        updateSalaryStatus(selectedStaff._id, m, year, 'Paid');
-                                                                        setSalaryUpdateTrigger(prev => prev + 1);
-                                                                        showToast('success', `Payout processed for ${MONTH_LABELS[m]} ${year}`);
-                                                                    }}
-                                                                        className="text-[10px] font-bold text-primary hover:underline">PROCESS</button>
-                                                                ) : (
-                                                                    <span className="text-[10px] text-gray-400 font-medium">--</span>
-                                                                )}
-                                                            </td>
-                                                        </tr>
-                                                    );
-                                                })}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </div>
-                            </div>
+                                <FeeStructureForm
+                                    key={structModal.editData._id}
+                                    editData={structModal.editData}
+                                    onCancel={() => setStructModal({ open: false, editData: null })}
+                                    onSubmit={async (data) => {
+                                        await handleUpdateStructure({ id: structModal.editData._id, data });
+                                        setStructModal({ open: false, editData: null });
+                                    }}
+                                    isLoading={updateMut.isPending}
+                                />
+                            </>
                         ) : (
-                            <div className="bg-white rounded-2xl border border-gray-200 p-5">
-                                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-                                    <h2 className="text-xl font-bold text-gray-900">Staff Salary Management</h2>
-                                    <div className="flex items-center gap-3">
-                                        <div className="relative">
-                                            <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={12} />
-                                            <input type="text" placeholder="Search staff..." value={staffSearch}
-                                                onChange={(e) => setStaffSearch(e.target.value)}
-                                                className="pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-xl focus:ring-primary focus:border-primary w-64" />
-                                        </div>
-                                        <select value={staffStatusFilter} onChange={(e) => setStaffStatusFilter(e.target.value)}
-                                            className="px-3 py-2 text-sm border border-gray-200 rounded-xl focus:ring-primary focus:border-primary">
-                                            <option value="all">All Status</option>
-                                            <option value="paid">Paid</option>
-                                            <option value="pending">Pending</option>
-                                        </select>
-                                    </div>
+                            <div className="bg-white rounded-2xl border border-gray-200 p-5 shadow-sm">
+                                <div className="mb-6">
+                                    <h2 className="text-xl font-bold text-gray-900 font-display">Assigned Fee Structures</h2>
+                                    <p className="text-sm text-gray-500">Overview of fee schemes applicable to your assigned classes.</p>
                                 </div>
-
                                 <div className="overflow-x-auto">
                                     <table className="w-full text-sm text-left">
                                         <thead>
-                                            <tr className="border-b border-gray-100">
-                                                {['Teacher Name', 'Email', 'Monthly Salary', 'Status', 'Last Payout', 'Action'].map(h => (
+                                            <tr className="border-b border-gray-100 font-display">
+                                                {['Fee Type', 'Structure Name', 'Class', 'Amount', 'Frequency', 'Due Day'].map(h => (
                                                     <th key={h} className="px-4 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">{h}</th>
                                                 ))}
+                                                <th className="px-4 py-4 text-center text-[10px] font-black text-gray-400 tracking-widest">Status</th>
+                                                <th className="px-4 py-4 text-center text-[10px] font-black text-gray-400 tracking-widest">Actions</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-gray-50">
-                                            {teachersLoading ? (
-                                                Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} cols={6} />)
-                                            ) : (teachersData?.data?.users || []).filter(t => t.name.toLowerCase().includes(staffSearch.toLowerCase())).length === 0 ? (
-                                                <tr><td colSpan={6}><EmptyState icon={FaUser} title="No staff found" subtitle="No teachers match your search criteria" /></td></tr>
+                                            {structLoading ? (
+                                                Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} cols={8} />)
+                                            ) : structures.length === 0 ? (
+                                                <tr><td colSpan={8}><EmptyState icon={FaListAlt} title="No fee structures" subtitle="Your classes have no assigned fee structures yet." /></td></tr>
                                             ) : (
-                                                (teachersData?.data?.users || []).filter(t => t.name.toLowerCase().includes(staffSearch.toLowerCase())).map(staff => {
-                                                    const lastMonth = currentMonth === 1 ? 12 : currentMonth - 1;
-                                                    const lastMonthYear = currentMonth === 1 ? currentYear - 1 : currentYear;
-                                                    const status = getSalaryStatus(staff._id, lastMonth, lastMonthYear);
-                                                    const isPaid = status === 'Paid';
-                                                    const isPending = status === 'Pending';
-                                                    
-                                                    // Filter logic
-                                                    if (staffStatusFilter !== 'all') {
-                                                        if (staffStatusFilter === 'paid' && !isPaid) return null;
-                                                        if (staffStatusFilter === 'pending' && !isPending) return null;
-                                                    }
-
-                                                    return (
-                                                        <tr key={staff._id} className="hover:bg-gray-50/50 transition-colors group">
-                                                            <td className="px-4 py-4 font-bold text-gray-900">{staff.name}</td>
-                                                            <td className="px-4 py-4 text-gray-500">{staff.email}</td>
-                                                            <td className="px-4 py-4 font-bold text-gray-900">₹45,000</td>
-                                                            <td className="px-4 py-4">
-                                                                <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                                                                    isPaid ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
-                                                                }`}>{status}</span>
-                                                            </td>
-                                                            <td className="px-4 py-4 text-gray-500 text-xs">{isPaid ? `${MONTH_LABELS[currentMonth]} 01, ${currentYear}` : '--'}</td>
-                                                            <td className="px-4 py-4">
-                                                                <button onClick={() => setSelectedStaff(staff)}
-                                                                    className="px-4 py-1.5 bg-gray-100 text-gray-700 hover:bg-primary hover:text-white rounded-lg text-xs font-bold transition-all">VIEW DETAILS</button>
-                                                            </td>
-                                                        </tr>
-                                                    );
-                                                })
+                                                structures.map(st => (
+                                                    <tr key={st._id} className="hover:bg-gray-50/25 transition-colors group">
+                                                        <td className="px-4 py-4">
+                                                            <span className="px-2.5 py-1 bg-primary/5 text-primary rounded-lg text-[10px] font-bold uppercase">{FEE_TYPE_LABELS[st.feeType] || st.feeType}</span>
+                                                        </td>
+                                                        <td className="px-4 py-4 font-bold text-gray-900">{st.name}</td>
+                                                        <td className="px-4 py-4 text-gray-600 font-medium">Std {st.standard}-{st.section}</td>
+                                                        <td className="px-4 py-4 font-black text-gray-900">₹{st.amount?.toLocaleString()}</td>
+                                                        <td className="px-4 py-4 text-gray-600 font-medium">{FREQUENCY_LABELS[st.frequency] || st.frequency}</td>
+                                                        <td className="px-4 py-4 text-gray-600 font-medium">{st.dueDay}</td>
+                                                        <td className="px-4 py-4 text-center">
+                                                            <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${st.isActive ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>
+                                                                {st.isActive ? 'Active' : 'Inactive'}
+                                                            </span>
+                                                        </td>
+                                                        <td className="px-4 py-4 text-center">
+                                                            <div className="flex items-center justify-center gap-1 transition-opacity">
+                                                                <button onClick={() => setStructModal({ open: false, editData: st })} title="Edit Structure"
+                                                                    className="p-2 text-blue-500 hover:bg-blue-50 rounded-lg transition-all"><FaEdit size={14} /></button>
+                                                                <button onClick={() => setDeleteConfirm(st._id)} title="Delete Structure"
+                                                                    className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-all"><FaTrashAlt size={14} /></button>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                ))
                                             )}
                                         </tbody>
                                     </table>
@@ -939,20 +1111,6 @@ const Fees = () => {
             </div>
 
             {/* ── Modals ────────────────────────────────────────────── */}
-            <FeeStructureModal
-                isOpen={structModal.open}
-                onClose={() => setStructModal({ open: false, editData: null })}
-                onSubmit={structModal.editData ? handleUpdateStructure : handleCreateStructure}
-                editData={structModal.editData}
-                isLoading={createMut.isPending || updateMut.isPending}
-            />
-            <GenerateAssignmentsModal
-                isOpen={genModal.open}
-                onClose={() => setGenModal({ open: false, structure: null })}
-                onSubmit={handleGenerate}
-                structure={genModal.structure}
-                isLoading={genMut.isPending}
-            />
             <PaymentModal
                 isOpen={paymentModal.open}
                 onClose={() => setPaymentModal({ open: false, assignment: null })}
