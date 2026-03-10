@@ -154,12 +154,20 @@ const AttendancePage = () => {
         return classes;
     }, [isAdmin, allGroupedClasses, classId, classSearchQuery]);
 
+    const statsStudents = useMemo(() => {
+        if (isAdmin && classId) {
+            const activeClassGroup = Object.values(groupedClasses)[0];
+            return activeClassGroup?.students || [];
+        }
+        return students;
+    }, [isAdmin, classId, groupedClasses, students]);
+
     const statsData = useMemo(() => {
         const presentStudents = [];
         const absentStudents = [];
-        let total = students.length;
+        let total = statsStudents.length;
 
-        students.forEach(s => {
+        statsStudents.forEach(s => {
             const status = attendanceMap[s._id]?.status;
             if (status === 'present' || status === 'late') {
                 presentStudents.push({ ...s, checkInTime: attendanceMap[s._id]?.checkInTime });
@@ -169,7 +177,6 @@ const AttendancePage = () => {
         });
 
         // Ensure we handle students properly based on backend return
-        // Teachers only see their assigned students, so `students.length` is correct for total.
         return {
             total,
             present: presentStudents.length,
@@ -177,7 +184,7 @@ const AttendancePage = () => {
             presentList: presentStudents,
             absentList: absentStudents
         };
-    }, [students, attendanceMap]);
+    }, [statsStudents, attendanceMap]);
 
     const STAT_CARDS_CONFIG = useMemo(() => [
         { icon: FaUsers, label: 'Total Students', key: 'total', color: 'text-blue-600', bg: 'bg-blue-100', onClick: null },
@@ -202,18 +209,32 @@ const AttendancePage = () => {
     }, [searchQuery]);
 
     useEffect(() => {
+        const show = searchParams.get('show');
+        if (show === 'present') {
+            setShowModalType('present');
+            setStatsModalPage(0);
+            setStatsModalSearch('');
+        } else if (show === 'absent') {
+            setShowModalType('absent');
+            setStatsModalPage(0);
+            setStatsModalSearch('');
+        }
+    }, [searchParams]);
+
+    useEffect(() => {
         if (classId) {
+            window.scrollTo(0, 0); // Immediate jump
             const decodedClassId = decodeURIComponent(classId);
             setExpandedClasses(prev => ({ ...prev, [decodedClassId]: true }));
         } else if (classParam && groupedClasses[classParam]) {
             setExpandedClasses(prev => ({ ...prev, [classParam]: true }));
-            // Optional: Scroll to the expanded class
+            // Optional: Scroll to the expanded class at the top of the viewport
             setTimeout(() => {
                 const element = document.getElementById(`class-card-${classParam.replace(/\s+/g, '-')}`);
                 if (element) {
-                    element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    element.scrollIntoView({ behavior: 'auto', block: 'start' });
                 }
-            }, 100);
+            }, 10); // Faster timeout
         }
     }, [classId, classParam, groupedClasses]);
 

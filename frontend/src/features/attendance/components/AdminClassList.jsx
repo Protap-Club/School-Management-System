@@ -41,7 +41,7 @@ const AdminClassList = ({
 
                 if (isDetailView) {
                     return (
-                        <div key={group.id} className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                        <div key={group.id} className="space-y-4">
                             {/* Static Class Info Header */}
                             <div className="bg-white p-5 rounded-[2.5rem] border border-slate-100 shadow-sm flex flex-col md:flex-row items-center justify-between gap-6">
                                 <div className="flex items-center gap-5">

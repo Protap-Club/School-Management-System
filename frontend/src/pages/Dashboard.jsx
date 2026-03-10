@@ -252,9 +252,10 @@ const Dashboard = () => {
               <div
                 className="lg:col-span-2 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-3xl p-8 text-white shadow-lg shadow-indigo-100 flex flex-col justify-center relative overflow-hidden group cursor-pointer hover:shadow-xl hover:scale-[1.01] transition-all duration-300"
                 onClick={() => {
-                  const path = isAdmin ? '/admin/attendance' : '/teacher/attendance';
-                  const query = isAdmin && selectedClass !== 'all' ? `?class=${encodeURIComponent(selectedClass)}` : '';
-                  navigate(`${path}${query}`);
+                  const path = isAdmin
+                    ? (selectedClass === 'all' ? '/admin/attendance' : `/admin/attendance/${encodeURIComponent(selectedClass)}`)
+                    : '/teacher/attendance';
+                  navigate(path);
                 }}
               >
                 <div className="absolute top-0 right-0 p-8 transform group-hover:scale-110 transition-transform duration-500 opacity-20">
@@ -294,7 +295,15 @@ const Dashboard = () => {
                     )}
                   </div>
                   <div className="space-y-4">
-                    <div className="flex items-center justify-between p-3 rounded-2xl bg-blue-50/50 border border-blue-100/50">
+                    <div
+                      className="flex items-center justify-between p-3 rounded-2xl bg-blue-50/50 border border-blue-100/50 cursor-pointer hover:bg-blue-100/50 transition-colors shadow-sm hover:shadow-md"
+                      onClick={() => {
+                        const path = isAdmin
+                          ? (selectedClass === 'all' ? '/admin/attendance' : `/admin/attendance/${encodeURIComponent(selectedClass)}`)
+                          : '/teacher/attendance';
+                        navigate(path);
+                      }}
+                    >
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center text-blue-600">
                           <FaUsersIcon size={18} />
@@ -303,7 +312,15 @@ const Dashboard = () => {
                       </div>
                       <span className="text-xl font-bold text-gray-900">{filteredStats.total}</span>
                     </div>
-                    <div className="flex items-center justify-between p-3 rounded-2xl bg-emerald-50/50 border border-emerald-100/50">
+                    <div
+                      className="flex items-center justify-between p-3 rounded-2xl bg-emerald-50/50 border border-emerald-100/50 cursor-pointer hover:bg-emerald-100/50 transition-colors shadow-sm hover:shadow-md"
+                      onClick={() => {
+                        const path = isAdmin
+                          ? (selectedClass === 'all' ? '/admin/attendance' : `/admin/attendance/${encodeURIComponent(selectedClass)}`)
+                          : '/teacher/attendance';
+                        navigate(`${path}${path.includes('?') ? '&' : '?'}show=present`);
+                      }}
+                    >
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-600">
                           <FaUserCheck size={18} />
