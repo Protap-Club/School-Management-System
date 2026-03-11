@@ -237,14 +237,14 @@ const Dashboard = () => {
       const cls = `${teacherProfile.standard} ${teacherProfile.section}`;
       return stats.matrix.find(m => m.name === cls) || stats.overall;
     }
-    if (isAdmin && selectedClass !== 'all') {
+    if ((isAdmin || isSuperAdmin) && selectedClass !== 'all') {
       return stats.matrix.find(m => m.name === selectedClass) || stats.overall;
     }
     return stats.overall;
-  }, [stats, selectedClass, isAdmin, isTeacher, teacherProfile]);
+  }, [stats, selectedClass, isAdmin, isSuperAdmin, isTeacher, teacherProfile]);
 
   useEffect(() => {
-    if (!isAdmin && !isTeacher) return;
+    if (!isAdmin && !isSuperAdmin && !isTeacher) return;
     const socket = connectSocket(user?.schoolId);
     socket.on('attendance-marked', (data) => {
       queryClient.invalidateQueries({ queryKey: attendanceKeys.today() });
@@ -260,7 +260,7 @@ const Dashboard = () => {
       });
     });
     return () => disconnectSocket();
-  }, [user?.schoolId, isAdmin, isTeacher, queryClient]);
+  }, [user?.schoolId, isAdmin, isSuperAdmin, isTeacher, queryClient]);
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -313,7 +313,7 @@ const Dashboard = () => {
               <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
               <span className="text-[10px] font-black uppercase tracking-wider">Live Status: Active</span>
             </div>
-            {isAdmin && (
+            {(isAdmin || isSuperAdmin) && (
               <Select value={selectedClass} onValueChange={setSelectedClass}>
                 <SelectTrigger className="h-10 rounded-full bg-white border-gray-100 shadow-sm text-gray-700 hover:bg-gray-50 transition-all font-bold text-xs px-6 min-w-[160px]">
                   <SelectValue placeholder="Select Class" />
@@ -378,12 +378,13 @@ const Dashboard = () => {
               className={`bg-white rounded-[2rem] p-6 border border-gray-50 shadow-[0_10px_40px_-15px_rgba(0,0,0,0.05)] hover:shadow-[0_20px_60px_-15px_rgba(0,0,0,0.1)] transition-all duration-500 group relative overflow-hidden cursor-pointer`}
               onClick={() => {
                 if (card.nav === 'calendar' || card.label === 'Calendar Overview') {
-                  navigate(`/${user?.role === 'super_admin' ? 'dashboard' : user.role}/calendar`);
+                  const rolePrefix = user?.role === 'super_admin' ? 'superadmin' : user.role;
+                  navigate(`/${rolePrefix}/calendar`);
                 } else {
                   const filter = card.nav ? `?show=${card.nav}` : '';
-                  const rolePrefix = user?.role === 'super_admin' ? 'dashboard' : user.role;
-                  const path = isAdmin
-                    ? (selectedClass === 'all' ? `/admin/attendance${filter}` : `/admin/attendance/${encodeURIComponent(selectedClass)}${filter}`)
+                  const rolePrefix = isSuperAdmin ? 'superadmin' : (isAdmin ? 'admin' : user.role);
+                  const path = (isAdmin || isSuperAdmin)
+                    ? (selectedClass === 'all' ? `/${rolePrefix}/attendance${filter}` : `/${rolePrefix}/attendance/${encodeURIComponent(selectedClass)}${filter}`)
                     : `/${rolePrefix}/attendance${filter}`;
                   navigate(path);
                 }
@@ -536,9 +537,10 @@ const Dashboard = () => {
             variants={itemVariants}
             className="bg-white rounded-[2.5rem] p-8 border border-gray-50 shadow-[0_20px_50px_-15px_rgba(0,0,0,0.05)] flex flex-col justify-between group cursor-pointer"
             onClick={() => {
-              const path = isAdmin
-                ? (selectedClass === 'all' ? '/admin/attendance' : `/admin/attendance/${encodeURIComponent(selectedClass)}`)
-                : '/teacher/attendance';
+              const rolePrefix = isSuperAdmin ? 'superadmin' : (isAdmin ? 'admin' : 'teacher');
+              const path = (isAdmin || isSuperAdmin)
+                ? (selectedClass === 'all' ? `/${rolePrefix}/attendance` : `/${rolePrefix}/attendance/${encodeURIComponent(selectedClass)}`)
+                : `/${rolePrefix}/attendance`;
               navigate(path);
             }}
           >
@@ -614,7 +616,7 @@ const Dashboard = () => {
                   key={idx}
                   whileHover={{ y: -5 }}
                   className="bg-white p-4 rounded-3xl border border-gray-50 shadow-sm hover:shadow-md transition-all cursor-pointer group"
-                  onClick={() => navigate(`/admin/attendance/${encodeURIComponent(cls.name)}`)}
+                  onClick={() => navigate(`/${isSuperAdmin ? 'superadmin' : 'admin'}/attendance/${encodeURIComponent(cls.name)}`)}
                 >
                   <div className="flex justify-between items-start mb-4">
                     <div className="space-y-0.5">

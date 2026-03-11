@@ -84,7 +84,7 @@ const buildClassGroups = (students = [], teachers = []) => {
 const AttendancePage = () => {
     const { user: currentUser } = useAuth();
     const { hasFeature, loading: featuresLoading } = useFeatures();
-    const isAdmin = currentUser?.role === 'admin';
+    const isAdmin = ['admin', 'super_admin'].includes(currentUser?.role);
 
     // Queries & Mutations
     const { data: studentsRes, isLoading: studentsLoading } = useStudents();
@@ -245,16 +245,6 @@ const AttendancePage = () => {
         return () => disconnectSocket();
     }, [currentUser?.schoolId]);
 
-    // ─── Access Guards ──────────────────────────────────
-    if (currentUser?.role === 'super_admin') return (
-        <DashboardLayout>
-            <div className="flex flex-col items-center justify-center p-12 text-center h-[60vh]">
-                <FaTimesCircle className="text-destructive mb-6" size={64} />
-                <h2 className="text-3xl font-black tracking-tight text-foreground">Access Denied</h2>
-                <p className="text-muted-foreground mt-2 max-w-sm">Super Admins do not have access to school-specific attendance pages.</p>
-            </div>
-        </DashboardLayout>
-    );
 
     if (!featuresLoading && !hasFeature('attendance')) return (
         <DashboardLayout>
@@ -275,7 +265,7 @@ const AttendancePage = () => {
                     <div className="space-y-1">
                         <div className="flex items-center gap-3">
                             <button
-                                onClick={() => navigate('/admin/attendance')}
+                                onClick={() => navigate(`/${currentUser?.role === 'super_admin' ? 'superadmin' : 'admin'}/attendance`)}
                                 className="text-4xl font-black tracking-tight text-slate-900 hover:text-primary transition-colors text-left"
                             >
                                 Attendance

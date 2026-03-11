@@ -44,6 +44,66 @@ function App() {
                             </ProtectedRoute>
                         }
                     />
+                    <Route
+                        path="/superadmin/attendance"
+                        element={
+                            <ProtectedRoute allowedRoles={['super_admin']}>
+                                <RequireFeature feature="attendance">
+                                    <Attendance />
+                                </RequireFeature>
+                            </ProtectedRoute>
+                        }
+                    />
+                    <Route
+                        path="/superadmin/attendance/:classId"
+                        element={
+                            <ProtectedRoute allowedRoles={['super_admin']}>
+                                <RequireFeature feature="attendance">
+                                    <Attendance />
+                                </RequireFeature>
+                            </ProtectedRoute>
+                        }
+                    />
+                    <Route
+                        path="/superadmin/notice"
+                        element={
+                            <ProtectedRoute allowedRoles={['super_admin']}>
+                                <RequireFeature feature="notice">
+                                    <Notice />
+                                </RequireFeature>
+                            </ProtectedRoute>
+                        }
+                    />
+                    <Route
+                        path="/superadmin/timetable"
+                        element={
+                            <ProtectedRoute allowedRoles={['super_admin']}>
+                                <RequireFeature feature="timetable">
+                                    <TimetablePage />
+                                </RequireFeature>
+                            </ProtectedRoute>
+                        }
+                    />
+                    <Route
+                        path="/superadmin/calendar"
+                        element={
+                            <ProtectedRoute allowedRoles={['super_admin']}>
+                                <RequireFeature feature="calendar">
+                                    <Calendar />
+                                </RequireFeature>
+                            </ProtectedRoute>
+                        }
+                    />
+                    <Route
+                        path="/superadmin/fees"
+                        element={
+                            <ProtectedRoute allowedRoles={['super_admin']}>
+                                <RequireFeature feature="fees">
+                                    <Fees />
+                                </RequireFeature>
+                            </ProtectedRoute>
+                        }
+                    />
 
                     {/* Admin Routes */}
                     <Route

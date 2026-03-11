@@ -81,7 +81,8 @@ export const useCreateUser = () => {
     return useMutation({
         mutationFn: usersApi.createUser,
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: userKeys.lists() });
+            // Invalidate the entire users cache so every list (by role, page, etc.) refreshes
+            queryClient.invalidateQueries({ queryKey: userKeys.all });
         },
     });
 };

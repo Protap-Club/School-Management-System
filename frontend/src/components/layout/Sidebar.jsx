@@ -23,12 +23,37 @@ const Sidebar = () => {
 
         switch (user?.role) {
             case 'super_admin':
-                const superAdminLinks = [
-                    dashboardLink,
-                    { path: '/superadmin/users', label: 'Users', icon: <FaUserGraduate /> },
-                    // { path: '/superadmin/timetable', label: 'Timetable', icon: <FaCalendarAlt /> }, // Removed as per request
-                ];
+                const superAdminLinks = [dashboardLink];
 
+                // Calendar
+                if (hasFeature('calendar')) {
+                    superAdminLinks.push({ path: '/superadmin/calendar', label: 'Calendar', icon: <FaCalendarDay /> });
+                }
+
+                // Attendance
+                if (hasFeature('attendance')) {
+                    superAdminLinks.push({ path: '/superadmin/attendance', label: 'Attendance', icon: <FaClipboardList /> });
+                }
+
+                // Timetable
+                if (hasFeature('timetable')) {
+                    superAdminLinks.push({ path: '/superadmin/timetable', label: 'Timetable', icon: <FaCalendarAlt /> });
+                }
+
+                // Users
+                superAdminLinks.push({ path: '/superadmin/users', label: 'Users', icon: <FaUserGraduate /> });
+
+                // Notice
+                if (hasFeature('notice')) {
+                    superAdminLinks.push({ path: '/superadmin/notice', label: 'Notice', icon: <FaBullhorn /> });
+                }
+
+                // Fees
+                if (hasFeature('fees')) {
+                    superAdminLinks.push({ path: '/superadmin/fees', label: 'Fees', icon: <FaMoneyBillWave /> });
+                }
+
+                // Settings always last
                 superAdminLinks.push({ path: '/superadmin/settings', label: 'Settings', icon: <FaCog /> });
 
                 return superAdminLinks;
