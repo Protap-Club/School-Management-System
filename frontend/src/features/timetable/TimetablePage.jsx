@@ -36,7 +36,7 @@ const flattenSchedule = (schedule) => {
 const TimetablePage = () => {
     const { user } = useAuth();
     const isTeacher = user?.role === "teacher";
-    const isAdmin = user?.role === "admin";
+    const isAdmin = ['admin', 'super_admin'].includes(user?.role);
 
     const [adminViewMode, setAdminViewMode] = useState("class");
     const [selectedTeacherId, setSelectedTeacherId] = useState("");

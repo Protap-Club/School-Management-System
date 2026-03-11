@@ -30,7 +30,7 @@ const INPUT_CLASS = 'w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:
 
 const Calendar = () => {
   const { user } = useAuth();
-  const isAdmin = user?.role === 'admin';
+  const isAdmin = ['admin', 'super_admin'].includes(user?.role);
 
   const [currentDate, setCurrentDate] = useState(new Date());
   const [events, setEvents] = useState([]);

@@ -77,9 +77,12 @@ const TeacherStudentList = ({
                 <div className="text-center py-16 text-muted-foreground font-medium border-t">No students match your search.</div>
             )}
             {filteredStudents.length > 0 && (
-                <div className="p-4 border-t bg-slate-50/50">
-                    <PaginationControls currentPage={teacherPage} totalItems={filteredStudents.length} itemsPerPage={itemsPerPage} onPageChange={setTeacherPage} />
-                </div>
+                <PaginationControls
+                    currentPage={teacherPage}
+                    totalItems={filteredStudents.length}
+                    itemsPerPage={itemsPerPage}
+                    onPageChange={setTeacherPage}
+                />
             )}
         </Card>
     );

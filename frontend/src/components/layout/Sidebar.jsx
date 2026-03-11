@@ -23,12 +23,37 @@ const Sidebar = () => {
 
         switch (user?.role) {
             case 'super_admin':
-                const superAdminLinks = [
-                    dashboardLink,
-                    { path: '/superadmin/users', label: 'Users', icon: <FaUserGraduate /> },
-                    // { path: '/superadmin/timetable', label: 'Timetable', icon: <FaCalendarAlt /> }, // Removed as per request
-                ];
+                const superAdminLinks = [dashboardLink];
 
+                // Calendar
+                if (hasFeature('calendar')) {
+                    superAdminLinks.push({ path: '/superadmin/calendar', label: 'Calendar', icon: <FaCalendarDay /> });
+                }
+
+                // Attendance
+                if (hasFeature('attendance')) {
+                    superAdminLinks.push({ path: '/superadmin/attendance', label: 'Attendance', icon: <FaClipboardList /> });
+                }
+
+                // Timetable
+                if (hasFeature('timetable')) {
+                    superAdminLinks.push({ path: '/superadmin/timetable', label: 'Timetable', icon: <FaCalendarAlt /> });
+                }
+
+                // Users
+                superAdminLinks.push({ path: '/superadmin/users', label: 'Users', icon: <FaUserGraduate /> });
+
+                // Notice
+                if (hasFeature('notice')) {
+                    superAdminLinks.push({ path: '/superadmin/notice', label: 'Notice', icon: <FaBullhorn /> });
+                }
+
+                // Fees
+                if (hasFeature('fees')) {
+                    superAdminLinks.push({ path: '/superadmin/fees', label: 'Fees', icon: <FaMoneyBillWave /> });
+                }
+
+                // Settings always last
                 superAdminLinks.push({ path: '/superadmin/settings', label: 'Settings', icon: <FaCog /> });
 
                 return superAdminLinks;
@@ -120,12 +145,16 @@ const Sidebar = () => {
                         key={link.path}
                         to={link.path}
                         title={isCollapsed ? link.label : ''}
-                        className={({ isActive }) =>
-                            `flex items-center ${isCollapsed ? 'justify-center' : 'gap-3'} px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 group ${isActive
+                        className={({ isActive }) => {
+                            // Custom active check for Attendance to include subroutes (classes)
+                            const isAttendance = link.label === 'Attendance' && window.location.pathname.includes('/attendance');
+                            const actuallyActive = isActive || isAttendance;
+
+                            return `flex items-center ${isCollapsed ? 'justify-center' : 'gap-3'} px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 group ${actuallyActive
                                 ? 'bg-primary/5 text-primary shadow-sm ring-1 ring-primary/10'
                                 : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'
-                            }`
-                        }
+                                }`;
+                        }}
                     >
                         <span className={`flex-shrink-0 text-lg transition-colors duration-200 ${isCollapsed ? '' : ''}`}>
                             {link.icon}

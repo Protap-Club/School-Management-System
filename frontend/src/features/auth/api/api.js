@@ -10,18 +10,28 @@ export const authApi = {
     // Login user and get token
     login: async ({ email, password }) => {
         const response = await api.post('/auth/login', { email, password });
+        if (response.status === 401) {
+            // Throw a custom object that looks like an axios error for compatibility
+            throw { response };
+        }
         return response.data;
     },
 
     // Check if current token is valid
     checkAuth: async () => {
         const response = await api.get('/auth/me');
+        if (response.status === 401) {
+            throw { response };
+        }
         return response.data;
     },
 
     // Refresh access token (cookie sent automatically)
     refreshToken: async () => {
         const response = await api.post('/auth/refresh');
+        if (response.status === 401) {
+            throw { response };
+        }
         return response.data;
     },
 

@@ -42,6 +42,11 @@ export const routes = {
     superadmin: {
         users: '/superadmin/users',
         settings: '/superadmin/settings',
+        attendance: '/superadmin/attendance',
+        notice: '/superadmin/notice',
+        timetable: '/superadmin/timetable',
+        calendar: '/superadmin/calendar',
+        fees: '/superadmin/fees',
     },
 
     // Admin
