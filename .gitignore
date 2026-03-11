@@ -6,3 +6,7 @@
 .DS_Store
 Thumbs.db
 architech/
+
+# Architecture files
+architecture/
+assignment.md

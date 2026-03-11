@@ -7,7 +7,9 @@ import noticeRoutes from "../module/notice/notice.route.js";
 import calendarRoutes from "../module/calendar/calendar.route.js";
 import timetableRoutes from "../module/timetable/timetable.route.js";
 import feesRoutes from "../module/fees/fees.route.js";
+import assignmentRoutes from "../module/assignment/assignment.route.js";
 import { checkAuth } from "../middlewares/auth.middleware.js";
+import extractSchoolId from "../middlewares/school.middleware.js";
 
 const router = express.Router();
 
@@ -19,6 +21,7 @@ router.use("/attendance", attendanceRoutes);
 
 // Protected (all below need auth)
 router.use(checkAuth);
+router.use(extractSchoolId);
 
 router.use("/users", userRoutes);
 router.use("/school", schoolRoutes);
@@ -26,6 +29,7 @@ router.use("/notices", noticeRoutes);
 router.use("/calendar", calendarRoutes);
 router.use("/timetables", timetableRoutes);
 router.use("/fees", feesRoutes);
+router.use("/assignments", assignmentRoutes);
 
 export default router;
 
