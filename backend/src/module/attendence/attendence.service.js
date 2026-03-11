@@ -71,13 +71,43 @@ export const markAttendanceByNfc = async (nfcUid, schoolId) => {
     const existing = await Attendance.findOne({
         studentId: student._id,
         date: { $gte: startOfDay } // Matches anything from today onwards
-    }).lean();
+    });
 
     if (existing) {
-        throw new ConflictError("Attendance already marked", "ATTENDANCE_EXISTS", {
-            studentName: student.name,
-            time: existing.checkInTime
-        });
+        if (existing.status === "Present") {
+            throw new ConflictError("Attendance already marked", "ATTENDANCE_EXISTS", {
+                studentName: student.name,
+                time: existing.checkInTime
+            });
+        } else {
+            // The student was marked 'Absent' manually, but just tapped their card. 
+            // We should update the record to 'Present'.
+            existing.status = "Present";
+            existing.checkInTime = new Date();
+            existing.markedBy = "NFC";
+            await existing.save();
+
+            // Emit update & Return
+            try {
+                const io = getIO();
+                io.to(`school-${student.schoolId}`).emit("attendance-marked", {
+                    studentId: student._id,
+                    name: student.name,
+                    status: "Present",
+                    checkInTime: existing.checkInTime
+                });
+            } catch (err) {
+                logger.warn(`Socket emit failed: ${err.message}`);
+            }
+
+            return {
+                attendance: {
+                    student: student.name,
+                    status: "Present",
+                    checkInTime: existing.checkInTime
+                }
+            };
+        }
     }
 
     // Step 4: Create Record

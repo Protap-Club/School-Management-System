@@ -37,6 +37,10 @@ export const SCHOOL_FEATURES = Object.freeze({
     label: "Calendar",
     description: "calendar events",
   },
+  EXAMINATION: {
+    key: "examination",
+    label: "Examination Management",
+    description: "Manage term exams and class tests",
   ASSIGNMENT: {
     key: "assignment",
     label: "Assignment Management",
