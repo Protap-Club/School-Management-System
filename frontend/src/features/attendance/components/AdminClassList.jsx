@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { FaChevronDown, FaUserTie, FaSearch, FaArrowLeft } from 'react-icons/fa';
 import { Switch } from "@/components/ui/switch";
+import { useAuth } from '../../auth';
 import PaginationControls from './PaginationControls';
 
 const AdminClassList = ({
@@ -24,8 +25,11 @@ const AdminClassList = ({
     manualMutation
 }) => {
     const navigate = useNavigate();
+    const { user: currentUser } = useAuth();
     const { classId } = useParams();
     const isDetailView = !!classId;
+
+    const rolePath = currentUser?.role === 'super_admin' ? '/superadmin' : '/admin';
 
     const [studentSearchQuery, setStudentSearchQuery] = React.useState("");
 
@@ -49,7 +53,7 @@ const AdminClassList = ({
                                         variant="ghost"
                                         size="icon"
                                         className="h-10 w-10 border border-slate-100 shadow-sm hover:bg-slate-50 text-slate-400 hover:text-primary transition-all rounded-xl shrink-0"
-                                        onClick={() => navigate('/admin/attendance')}
+                                        onClick={() => navigate(`${rolePath}/attendance`)}
                                     >
                                         <FaArrowLeft size={14} />
                                     </Button>
@@ -199,7 +203,7 @@ const AdminClassList = ({
                         className={`overflow-hidden transition-all duration-300 border-slate-200 shadow-sm ${isExpanded ? 'ring-1 ring-primary/20' : 'hover:border-slate-300'}`}
                     >
                         <div
-                            onClick={() => navigate(`/admin/attendance/${encodeURIComponent(group.id)}`)}
+                            onClick={() => navigate(`${rolePath}/attendance/${encodeURIComponent(group.id)}`)}
                             className="p-6 flex flex-col md:flex-row items-center justify-between gap-6 cursor-pointer bg-white hover:bg-slate-50/50 transition-colors"
                         >
                             <div className="flex items-center gap-5 w-full md:w-auto">

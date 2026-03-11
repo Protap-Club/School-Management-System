@@ -53,7 +53,16 @@ const TimetablePage = () => {
     const timetables = timetablesQuery.data?.data || [];
     const teachers = teachersQuery.data?.data?.users || [];
     const availableClasses = availableClassesQuery.data?.data || { standards: [], sections: [], subjects: [], rooms: [] };
-    const activeTimetableId = selectedTimetableId || timetables[0]?._id || "";
+
+    const sortedTimetables = useMemo(() => {
+        return [...timetables].sort((a, b) => {
+            const aVal = `${a.standard}${a.section}`;
+            const bVal = `${b.standard}${b.section}`;
+            return aVal.localeCompare(bVal, undefined, { numeric: true, sensitivity: 'base' });
+        });
+    }, [timetables]);
+
+    const activeTimetableId = selectedTimetableId || sortedTimetables[0]?._id || "";
     const activeTeacherId = selectedTeacherId || teachers[0]?._id || "";
 
     const selectedTimetableQuery = useTimetable(
@@ -179,7 +188,7 @@ const TimetablePage = () => {
                                             <SelectValue placeholder="Select timetable" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            {timetables.map((tt) => (
+                                            {sortedTimetables.map((tt) => (
                                                 <SelectItem key={tt._id} value={tt._id}>
                                                     {tt.standard}-{tt.section} ({tt.academicYear})
                                                 </SelectItem>

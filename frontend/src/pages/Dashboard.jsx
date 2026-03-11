@@ -233,9 +233,21 @@ const Dashboard = () => {
   }, [allStudents, attendanceRes, attendanceData, persistedData]);
 
   const filteredStats = useMemo(() => {
-    if (isTeacher && teacherProfile) {
-      const cls = `${teacherProfile.standard} ${teacherProfile.section}`;
-      return stats.matrix.find(m => m.name === cls) || stats.overall;
+    if (isTeacher && currentProfile?.assignedClasses?.length > 0) {
+      // Aggregate stats for all assigned classes
+      const assignedClassNames = currentProfile.assignedClasses.map(ac => `${ac.standard} ${ac.section}`);
+      const matchingClasses = stats.matrix.filter(m => assignedClassNames.includes(m.name));
+
+      if (matchingClasses.length > 0) {
+        return matchingClasses.reduce((acc, curr) => ({
+          total: acc.total + curr.total,
+          present: acc.present + curr.present,
+          late: acc.late + curr.late,
+          absent: acc.absent + curr.absent,
+          rate: (((acc.total + curr.total) > 0) ? (((acc.present + curr.present) / (acc.total + curr.total)) * 100).toFixed(1) : "0")
+        }), { total: 0, present: 0, late: 0, absent: 0, rate: "0" });
+      }
+      return stats.overall;
     }
     if ((isAdmin || isSuperAdmin) && selectedClass !== 'all') {
       return stats.matrix.find(m => m.name === selectedClass) || stats.overall;
