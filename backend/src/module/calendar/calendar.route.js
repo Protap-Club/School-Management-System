@@ -7,10 +7,10 @@ import { createEventSchema, updateEventSchema, eventIdParamsSchema, getEventsQue
 
 const router = express.Router();
 
-router.get("/", checkRole([USER_ROLES.ADMIN, USER_ROLES.TEACHER, USER_ROLES.STUDENT]), validate(getEventsQuerySchema), getEvents);
-router.post("/", checkRole([USER_ROLES.ADMIN]), validate(createEventSchema), createEvent);
-router.get("/:id", checkRole([USER_ROLES.ADMIN, USER_ROLES.TEACHER, USER_ROLES.STUDENT]), validate(eventIdParamsSchema), getEventById);
-router.put("/:id", checkRole([USER_ROLES.ADMIN]), validate(updateEventSchema), updateEvent);
-router.delete("/:id", checkRole([USER_ROLES.ADMIN]), validate(eventIdParamsSchema), deleteEvent);
+router.get("/", checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN, USER_ROLES.TEACHER, USER_ROLES.STUDENT]), validate(getEventsQuerySchema), getEvents);
+router.post("/", checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN]), validate(createEventSchema), createEvent);
+router.get("/:id", checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN, USER_ROLES.TEACHER, USER_ROLES.STUDENT]), validate(eventIdParamsSchema), getEventById);
+router.put("/:id", checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN]), validate(updateEventSchema), updateEvent);
+router.delete("/:id", checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN]), validate(eventIdParamsSchema), deleteEvent);
 
 export default router;

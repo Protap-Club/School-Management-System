@@ -87,16 +87,16 @@ router.use(extractSchoolId);
 router.use(requireFeature("notice"));
 
 // Groups (before /:id to avoid conflict)
-router.get("/groups", checkRole([USER_ROLES.ADMIN, USER_ROLES.TEACHER]), getGroups);
-router.post("/groups", checkRole([USER_ROLES.ADMIN, USER_ROLES.TEACHER]), validate(createGroupSchema), createGroup);
-router.delete("/groups/:groupId", checkRole([USER_ROLES.ADMIN, USER_ROLES.TEACHER]), validate(groupIdParamsSchema), deleteGroup);
+router.get("/groups", checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN, USER_ROLES.TEACHER]), getGroups);
+router.post("/groups", checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN, USER_ROLES.TEACHER]), validate(createGroupSchema), createGroup);
+router.delete("/groups/:groupId", checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN, USER_ROLES.TEACHER]), validate(groupIdParamsSchema), deleteGroup);
 
 // Received notices (all authenticated)
 router.get("/received", getReceivedNotices);
 
 // Notices CRUD
-router.get("/", checkRole([USER_ROLES.ADMIN, USER_ROLES.TEACHER, USER_ROLES.STUDENT]), getNotices);
-router.post("/", checkRole([USER_ROLES.ADMIN, USER_ROLES.TEACHER]), upload.single("attachment"), validate(createNoticeSchema), createNotice);
+router.get("/", checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN, USER_ROLES.TEACHER, USER_ROLES.STUDENT]), getNotices);
+router.post("/", checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN, USER_ROLES.TEACHER]), upload.single("attachment"), validate(createNoticeSchema), createNotice);
 
 // Bug 4 fix: Teacher-scoped student list (all assigned students, no pagination)
 // Must come BEFORE /:id to avoid Express treating "my-students" as a notice ID param
@@ -106,10 +106,10 @@ router.get("/my-students", checkRole([USER_ROLES.TEACHER]), getTeacherStudents);
 // POST /notices/:id/acknowledge — teachers and students only (receivers)
 router.post("/:id/acknowledge", checkRole([USER_ROLES.TEACHER, USER_ROLES.STUDENT]), validate(acknowledgeNoticeSchema), acknowledgeNotice);
 // GET /notices/:id/acknowledgments — admins and teachers only (senders)
-router.get("/:id/acknowledgments", checkRole([USER_ROLES.ADMIN, USER_ROLES.TEACHER]), validate(getAcknowledgmentsSchema), getAcknowledgments);
+router.get("/:id/acknowledgments", checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN, USER_ROLES.TEACHER]), validate(getAcknowledgmentsSchema), getAcknowledgments);
 
 // Single notice and delete
-router.get("/:id", checkRole([USER_ROLES.ADMIN, USER_ROLES.TEACHER, USER_ROLES.STUDENT]), validate(noticeIdParamsSchema), getNoticeById);
-router.delete("/:id", checkRole([USER_ROLES.ADMIN, USER_ROLES.TEACHER]), validate(noticeIdParamsSchema), deleteNotice);
+router.get("/:id", checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN, USER_ROLES.TEACHER, USER_ROLES.STUDENT]), validate(noticeIdParamsSchema), getNoticeById);
+router.delete("/:id", checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN, USER_ROLES.TEACHER]), validate(noticeIdParamsSchema), deleteNotice);
 
 export default router;
