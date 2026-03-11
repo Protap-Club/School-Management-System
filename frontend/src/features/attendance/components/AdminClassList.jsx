@@ -55,9 +55,8 @@ const AdminClassList = ({
                                     </Button>
 
                                     <div className="flex items-center gap-4">
-                                        <div className="w-20 h-14 rounded-2xl bg-[#1a1a1a] text-white flex items-center justify-center gap-1.5 shadow-md shrink-0">
-                                            <span className="font-bold text-xl">{group.standard}</span>
-                                            <span className="font-bold text-sm text-slate-400 mt-0.5">{group.section}</span>
+                                        <div className="w-20 h-14 rounded-2xl bg-[#1a1a1a] text-white flex items-center justify-center shadow-md shrink-0">
+                                            <span className="font-black text-2xl uppercase tracking-tighter">{`${group.standard}${group.section}`}</span>
                                         </div>
 
                                         <div>
@@ -206,9 +205,8 @@ const AdminClassList = ({
                             <div className="flex items-center gap-5 w-full md:w-auto">
                                 <div className="relative shrink-0">
                                     <div className="absolute inset-0 bg-[#1a1a1a]/20 blur-xl rounded-[1.25rem] pointer-events-none" />
-                                    <div className="relative w-20 h-14 rounded-[1.25rem] bg-[#1a1a1a] text-white flex items-center justify-center gap-1.5 shadow-md">
-                                        <span className="font-bold text-xl">{group.standard}</span>
-                                        <span className="font-bold text-sm text-slate-400 mt-0.5">{group.section}</span>
+                                    <div className="relative w-20 h-14 rounded-[1.25rem] bg-[#1a1a1a] text-white flex items-center justify-center shadow-md">
+                                        <span className="font-black text-2xl uppercase tracking-tighter">{`${group.standard}${group.section}`}</span>
                                     </div>
                                 </div>
                                 <div>

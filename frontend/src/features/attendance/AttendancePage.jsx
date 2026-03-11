@@ -34,9 +34,9 @@ const STATUS_STYLES = {
 };
 const STATUS_LABELS = { present: 'Present', late: 'Late', absent: 'Absent', unmarked: 'Unmarked' };
 const STAT_CARDS_CONFIG = [
-    { icon: FaUsers, label: 'Total Students', key: 'total', color: 'text-blue-600', bg: 'bg-blue-100' },
-    { icon: FaCheckCircle, label: 'Present Today', key: 'present', color: 'text-emerald-600', bg: 'bg-emerald-100' },
-    { icon: FaTimesCircle, label: 'Absent Today', key: 'absent', color: 'text-rose-600', bg: 'bg-rose-100' },
+    { label: 'Total Students', key: 'total', color: 'text-blue-600', bg: 'bg-blue-100' },
+    { label: 'Present Today', key: 'present', color: 'text-emerald-600', bg: 'bg-emerald-100' },
+    { label: 'Absent Today', key: 'absent', color: 'text-rose-600', bg: 'bg-rose-100' },
 ];
 const ITEMS_PER_PAGE = 15;
 
@@ -187,9 +187,9 @@ const AttendancePage = () => {
     }, [statsStudents, attendanceMap]);
 
     const STAT_CARDS_CONFIG = useMemo(() => [
-        { icon: FaUsers, label: 'Total Students', key: 'total', color: 'text-blue-600', bg: 'bg-blue-100', onClick: null },
-        { icon: FaCheckCircle, label: 'Present Today', key: 'present', color: 'text-emerald-600', bg: 'bg-emerald-100', onClick: () => { setShowModalType('present'); setStatsModalPage(0); setStatsModalSearch(''); } },
-        { icon: FaTimesCircle, label: 'Absent Today', key: 'absent', color: 'text-rose-600', bg: 'bg-rose-100', onClick: () => { setShowModalType('absent'); setStatsModalPage(0); setStatsModalSearch(''); } },
+        { label: 'Total Students', key: 'total', color: 'text-blue-600', bg: 'bg-blue-100', onClick: null },
+        { label: 'Present Today', key: 'present', color: 'text-emerald-600', bg: 'bg-emerald-100', onClick: () => { setShowModalType('present'); setStatsModalPage(0); setStatsModalSearch(''); } },
+        { label: 'Absent Today', key: 'absent', color: 'text-rose-600', bg: 'bg-rose-100', onClick: () => { setShowModalType('absent'); setStatsModalPage(0); setStatsModalSearch(''); } },
     ], []);
 
     const today = useMemo(() => new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }), []);
