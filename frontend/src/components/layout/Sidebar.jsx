@@ -11,6 +11,7 @@ import {
     FaCalendarAlt,
     FaCalendarDay,
     FaMoneyBillWave,
+    FaGraduationCap,
 } from 'react-icons/fa';
 
 const Sidebar = () => {
@@ -65,6 +66,11 @@ const Sidebar = () => {
                     adminLinks.push({ path: '/admin/fees', label: 'Fees', icon: <FaMoneyBillWave /> });
                 }
 
+                // 8. Examination
+                if (hasFeature('examination')) {
+                    adminLinks.push({ path: '/admin/examination', label: 'Examination', icon: <FaGraduationCap /> });
+                }
+
                 // Settings always last
                 adminLinks.push({ path: '/admin/settings', label: 'Settings', icon: <FaCog /> });
 
@@ -101,6 +107,14 @@ const Sidebar = () => {
                 if (hasFeature('fees')) {
                     teacherLinks.push({ path: '/teacher/fees', label: 'Fees', icon: <FaMoneyBillWave /> });
                 }
+
+                // 8. Examination
+                if (hasFeature('examination')) {
+                    teacherLinks.push({ path: '/teacher/examination', label: 'Examination', icon: <FaGraduationCap /> });
+                }
+
+                // Settings always last
+                teacherLinks.push({ path: '/teacher/settings', label: 'Settings', icon: <FaCog /> });
 
                 return teacherLinks;
             default:
