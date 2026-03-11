@@ -33,6 +33,7 @@ export const createUserSchema = z.object({
         employeeId: z.string().optional(),
         qualification: z.string().optional(),
         joiningDate: z.string().optional(),
+        expectedSalary: z.coerce.number().min(0).optional(),
         assignedClasses: z.array(z.object({
             standard: z.string(),
             section: z.string(),
@@ -81,4 +82,11 @@ export const getProfileSchema = z.object({
     query: z.object({
         platform: z.string().optional(),
     }),
+});
+
+export const updateTeacherProfileSchema = z.object({
+    params: userIdParamsSchema.shape.params,
+    body: z.object({
+        expectedSalary: z.coerce.number().min(0).optional(),
+    }).strict()
 });

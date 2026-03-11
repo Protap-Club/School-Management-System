@@ -15,6 +15,11 @@ export {
     useYearlySummary,
     useMyClassFees,
     useStudentFeeHistory,
+    useCreateSalary,
+    useSalaries,
+    useUpdateSalaryStatus,
+    useMySalary,
+    useUpdateTeacherProfile,
 } from './api/queries';
 
 // Constants

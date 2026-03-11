@@ -11,6 +11,9 @@ export const feeKeys = {
     yearlySummary: (academicYear) => [...feeKeys.all, 'yearlySummary', academicYear],
     myClasses: (academicYear, month) => [...feeKeys.all, 'myClasses', academicYear, month],
     studentHistory: (studentId, academicYear) => [...feeKeys.all, 'studentHistory', studentId, academicYear],
+    salaries: () => [...feeKeys.all, 'salaries'],
+    salaryList: (filters) => [...feeKeys.salaries(), filters],
+    mySalary: (filters) => [...feeKeys.all, 'mySalary', filters],
 };
 
 // ── Fee Structure Queries ─────────────────────────────────────
@@ -128,5 +131,62 @@ export const useMyClassFees = (academicYear, month, isTeacher = false) => {
         queryKey: feeKeys.myClasses(academicYear, month),
         queryFn: () => feesApi.getMyClassFees({ academicYear, month }),
         enabled: !!academicYear && !!month && isTeacher,
+    });
+};
+
+// ── Salary Hooks ──────────────────────────────────────────────
+
+import { salaryApi } from './salary-api';
+import { removeOverride } from '../../users/api/queries';
+
+export const useCreateSalary = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: salaryApi.createSalary,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: feeKeys.salaries() });
+            queryClient.invalidateQueries({ queryKey: ['users'] }); // Invalidate users to refresh salary display in rows
+        },
+    });
+};
+
+export const useSalaries = (filters = {}, enabled = true) => {
+    return useQuery({
+        queryKey: feeKeys.salaryList(filters),
+        queryFn: () => salaryApi.getSalaries(filters),
+        enabled: enabled,
+    });
+};
+
+export const useUpdateSalaryStatus = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: salaryApi.updateSalaryStatus,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: feeKeys.salaries() });
+            queryClient.invalidateQueries({ queryKey: feeKeys.mySalary() });
+        },
+    });
+};
+
+export const useMySalary = (filters = {}, enabled = true) => {
+    return useQuery({
+        queryKey: feeKeys.mySalary(filters),
+        queryFn: () => salaryApi.getMySalary(filters),
+        enabled: enabled,
+    });
+};
+
+export const useUpdateTeacherProfile = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: salaryApi.updateTeacherProfile,
+        onSuccess: (updatedProfile, variables) => {
+            // Clear stale localStorage overrides if they exist
+            if (variables?.id) {
+                removeOverride(variables.id);
+            }
+            queryClient.invalidateQueries({ queryKey: ['users'] });
+        },
     });
 };

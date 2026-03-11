@@ -6,6 +6,7 @@ import {
     useFeeStructures, useCreateFeeStructure, useUpdateFeeStructure, useDeleteFeeStructure,
     useGenerateAssignments, useAllClassesOverview, useClassOverview, useYearlySummary,
     useMyClassFees, useStudentFeeHistory, useRecordPayment, useUpdateAssignment,
+    useCreateSalary, useSalaries, useUpdateSalaryStatus, useMySalary, useUpdateTeacherProfile,
     FEE_TYPES, FEE_TYPE_LABELS, FREQUENCY_LABELS, STATUS_COLORS, MONTH_LABELS,
 } from '../features/fees';
 import { useAuth } from '../features/auth';
@@ -13,6 +14,7 @@ import { useUsers } from '../features/users/api/queries';
 import FeeStructureModal from '../components/fees/FeeStructureModal';
 import PaymentModal from '../components/fees/PaymentModal';
 import FeeStructureForm from '../components/fees/FeeStructureForm';
+import SalaryForm from '../components/fees/SalaryForm';
 import {
     FaPlus, FaEdit, FaTrash, FaTrashAlt, FaBolt, FaTimes, FaCheck, FaMoneyBillWave,
     FaChartBar, FaListAlt, FaEye, FaFilter, FaArrowLeft, FaReceipt, FaBan, FaHistory,
@@ -22,46 +24,6 @@ import {
 const MODAL_OVERLAY = 'fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4';
 const currentYear = new Date().getFullYear();
 const currentMonth = new Date().getMonth() + 1;
-
-// Salary Status Persistence Helpers
-const SALARY_STATUS_KEY = 'v_staff_salary_status';
-const getSalaryStatuses = () => {
-    try {
-        return JSON.parse(localStorage.getItem(SALARY_STATUS_KEY)) || {};
-    } catch { return {}; }
-};
-const updateSalaryStatus = (userId, month, year, status) => {
-    const statuses = getSalaryStatuses();
-    const key = `${userId}_${month}_${year}`;
-    statuses[key] = status;
-    localStorage.setItem(SALARY_STATUS_KEY, JSON.stringify(statuses));
-};
-const getSalaryStatus = (userId, month, year) => {
-    const statuses = getSalaryStatuses();
-    const key = `${userId}_${month}_${year}`;
-    if (statuses[key]) return statuses[key];
-
-    // Future months are 'Upcoming'
-    const isFuture = (year > currentYear) || (year === currentYear && month > currentMonth);
-    if (isFuture) return 'Upcoming';
-
-    // Current month is usually also 'Upcoming' or 'In Progress' for payroll, but let's keep it 'Upcoming' for now
-    if (year === currentYear && month === currentMonth) return 'Upcoming';
-
-    // "Last Month" logic
-    const lastMonth = currentMonth === 1 ? 12 : currentMonth - 1;
-    const lastMonthYear = currentMonth === 1 ? currentYear - 1 : currentYear;
-    const isLastMonth = (year === lastMonthYear && month === lastMonth);
-
-    if (isLastMonth) {
-        // Only the last month can be 'Pending' by default
-        const hash = String(userId).split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-        return (hash % 3 === 0) ? 'Pending' : 'Paid';
-    }
-
-    // All other past months are 'Paid'
-    return 'Paid';
-};
 
 const StatusBadge = ({ status }) => {
     const c = STATUS_COLORS[status] || STATUS_COLORS.PENDING;
@@ -121,16 +83,8 @@ const Fees = () => {
     const [staffSearch, setStaffSearch] = useState('');
     const [staffStatusFilter, setStaffStatusFilter] = useState('all');
     const [selectedStaff, setSelectedStaff] = useState(null);
-    const [salaryUpdateTrigger, setSalaryUpdateTrigger] = useState(0); // To force re-render on status change
-
-    // Sync across tabs/components
-    useEffect(() => {
-        const handleStorage = (e) => {
-            if (e.key === SALARY_STATUS_KEY) setSalaryUpdateTrigger(prev => prev + 1);
-        };
-        window.addEventListener('storage', handleStorage);
-        return () => window.removeEventListener('storage', handleStorage);
-    }, []);
+    const [baseSalaryModal, setBaseSalaryModal] = useState({ open: false, staff: null, amount: '' });
+    const [payoutConfirmModal, setPayoutConfirmModal] = useState({ open: false, salary: null, remarks: '' });
 
     // Queries
     const cleanFilters = useMemo(() => {
@@ -158,6 +112,10 @@ const Fees = () => {
         selectedStudent?.studentId, overviewYear
     );
 
+    // Salary Queries
+    const { data: salaryData, isLoading: salariesLoading } = useSalaries({ year: overviewYear }, isAdmin);
+    const { data: mySalaryData, isLoading: mySalaryLoading } = useMySalary({ year: overviewYear }, isTeacher);
+
     // Mutations
     const createMut = useCreateFeeStructure();
     const updateMut = useUpdateFeeStructure();
@@ -165,6 +123,9 @@ const Fees = () => {
     const genMut = useGenerateAssignments();
     const payMut = useRecordPayment();
     const updateAsnMut = useUpdateAssignment();
+    const createSalaryMut = useCreateSalary();
+    const updateSalaryStatusMut = useUpdateSalaryStatus();
+    const updateTeacherProfileMut = useUpdateTeacherProfile();
 
     const showToast = useCallback((type, text) => {
         setToast({ type, text });
@@ -295,6 +256,34 @@ const Fees = () => {
         </button>
     );
 
+
+
+    const handleUpdateBaseSalary = async (e) => {
+        e.preventDefault();
+        try {
+            await updateTeacherProfileMut.mutateAsync({ 
+                id: baseSalaryModal.staff._id, 
+                data: { expectedSalary: Number(baseSalaryModal.amount) } 
+            });
+            showToast('success', 'Base salary updated successfully');
+            setBaseSalaryModal({ open: false, staff: null, amount: '' });
+        } catch (err) { 
+            showToast('error', err?.response?.data?.message || 'Failed to update base salary'); 
+        }
+    };
+
+    const handleProcessPayout = async (e) => {
+        e.preventDefault();
+        try {
+            await updateSalaryStatusMut.mutateAsync({ 
+                id: payoutConfirmModal.salary._id, 
+                data: { status: 'PAID', remarks: payoutConfirmModal.remarks } 
+            });
+            showToast('success', `Payout processed for ${MONTH_LABELS[payoutConfirmModal.salary.month]} ${payoutConfirmModal.salary.year}`);
+            setPayoutConfirmModal({ open: false, salary: null, remarks: '' });
+        } catch (err) { showToast('error', 'Failed to update status'); }
+    };
+
     return (
         <DashboardLayout>
             {toast.text && (
@@ -309,8 +298,8 @@ const Fees = () => {
             <div className="space-y-6">
                 {/* Header */}
                 <div>
-                    <h1 className="text-3xl font-bold text-gray-900">Payment Management</h1>
-                    <p className="text-gray-500 mt-1">Configure fee structures, generate assignments, and track payments</p>
+                    <h1 className="text-3xl font-bold text-gray-900">Fee Hub</h1>
+                    <p className="text-gray-500 mt-1">Configure structures, track collections, and manage staff payouts</p>
                 </div>
 
                 {/* Tabs */}
@@ -468,13 +457,23 @@ const Fees = () => {
 
                         {mgmtView === 'staff' && (
                             <div className="space-y-4 animate-fadeIn">
-                                <button onClick={() => setMgmtView('selection')} className="flex items-center gap-2 text-xs font-bold text-gray-500 hover:text-violet-600 transition-all uppercase tracking-widest">
-                                    <FaArrowLeft size={10} /> Back to Management
-                                </button>
+                                <div className="flex items-center justify-between gap-4">
+                                    {!selectedStaff ? (
+                                        <button onClick={() => setMgmtView('selection')} className="flex items-center gap-2 text-xs font-bold text-gray-500 hover:text-violet-600 transition-all uppercase tracking-widest">
+                                            <FaArrowLeft size={10} /> Back to Fee Hub
+                                        </button>
+                                    ) : <div />}
+                                    {!selectedStaff && (
+                                        <button onClick={() => setMgmtView('salary_form')}
+                                            className="flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white font-bold py-2 px-5 rounded-xl transition-all shadow-lg shadow-violet-200 text-sm">
+                                            <FaPlus size={12} /> Add Salary Entry
+                                        </button>
+                                    )}
+                                </div>
                                 {selectedStaff ? (
                                     <div className="space-y-4">
-                                        <button onClick={() => setSelectedStaff(null)} className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700 transition-colors px-1">
-                                            <FaArrowLeft size={12} />Back to Staff List
+                                        <button onClick={() => setSelectedStaff(null)} className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700 transition-colors px-1 font-bold">
+                                            <FaArrowLeft size={12} /> Back to Staff List
                                         </button>
                                         <div className="bg-white rounded-3xl border border-gray-200 p-8 shadow-sm">
                                             <div className="flex flex-col md:flex-row justify-between items-start gap-6 mb-8">
@@ -491,62 +490,55 @@ const Fees = () => {
                                                         </div>
                                                     </div>
                                                 </div>
-                                                <div className="text-right p-6 bg-gray-50 rounded-2xl border border-gray-100">
-                                                    <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Monthly Package</p>
-                                                    <p className="text-4xl font-black text-gray-900">₹45,000</p>
-                                                </div>
                                             </div>
 
                                             <div className="border border-gray-100 rounded-2xl overflow-hidden mt-8 shadow-sm">
                                                 <table className="w-full text-sm text-left">
                                                     <thead className="bg-gray-50/80 border-b border-gray-100">
                                                         <tr>
-                                                            {['Month', 'Basic', 'HRA', 'Gross', 'Status', 'Actions'].map(h => (
+                                                            {['Month', 'Amount', 'Status', 'Date Paid', 'Actions'].map(h => (
                                                                 <th key={h} className="px-6 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">{h}</th>
                                                             ))}
                                                         </tr>
                                                     </thead>
                                                     <tbody className="divide-y divide-gray-50">
-                                                        {[3, 2, 1, 12, 11, 10, 9, 8, 7, 6, 5, 4].map(m => {
-                                                            const year = (m > 3) ? 2025 : 2026;
-                                                            const status = getSalaryStatus(selectedStaff._id, m, year);
-                                                            const isFuture = status === 'Upcoming';
-                                                            const isPaid = status === 'Paid';
-                                                            const isPending = status === 'Pending';
+                                                        {salariesLoading ? (
+                                                            Array.from({ length: 3 }).map((_, i) => <SkeletonRow key={i} cols={5} />)
+                                                        ) : (salaryData?.data || []).filter(s => String(s.teacherId?._id || s.teacherId) === String(selectedStaff._id)).length === 0 ? (
+                                                            <tr><td colSpan={6}><EmptyState icon={FaHistory} title="No salary records" subtitle="Create a salary entry to see records here" /></td></tr>
+                                                        ) : (
+                                                            (salaryData?.data || []).filter(s => String(s.teacherId?._id || s.teacherId) === String(selectedStaff._id)).map(salary => {
+                                                                const isPaid = salary.status === 'PAID';
+                                                                const isPending = salary.status === 'PENDING';
 
-                                                            return (
-                                                                <tr key={`${m}-${year}`} className="hover:bg-gray-50/50 transition-colors">
-                                                                    <td className="px-6 py-4 font-bold text-gray-900">{MONTH_LABELS[m]} {year}</td>
-                                                                    <td className="px-6 py-4 text-gray-600 font-medium">₹30,000</td>
-                                                                    <td className="px-6 py-4 text-gray-600 font-medium">₹10,000</td>
-                                                                    <td className="px-6 py-4 font-black text-gray-900">₹45,000</td>
-                                                                    <td className="px-6 py-4">
-                                                                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${isFuture ? 'bg-gray-100 text-gray-500' :
-                                                                            isPaid ? 'bg-emerald-50 text-emerald-700' :
-                                                                                'bg-amber-50 text-amber-700'
+                                                                return (
+                                                                    <tr key={salary._id} className="hover:bg-gray-50/50 transition-colors">
+                                                                        <td className="px-6 py-4 font-bold text-gray-900">{MONTH_LABELS[salary.month]} {salary.year}</td>
+                                                                        <td className="px-6 py-4 font-black text-gray-900">₹{salary.amount?.toLocaleString()}</td>
+                                                                        <td className="px-6 py-4">
+                                                                            <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                                                                                isPaid ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
                                                                             }`}>
-                                                                            {status}
-                                                                        </span>
-                                                                    </td>
-                                                                    <td className="px-6 py-4">
-                                                                        {isPaid ? (
-                                                                            <button className="p-2 text-primary hover:bg-primary/10 rounded-xl transition-all shadow-sm" title="View Payslip">
-                                                                                <FaFileInvoice size={14} />
-                                                                            </button>
-                                                                        ) : isPending ? (
-                                                                            <button onClick={() => {
-                                                                                updateSalaryStatus(selectedStaff._id, m, year, 'Paid');
-                                                                                setSalaryUpdateTrigger(prev => prev + 1);
-                                                                                showToast('success', `Payout processed for ${MONTH_LABELS[m]} ${year}`);
-                                                                            }}
-                                                                                className="px-4 py-1.5 bg-primary text-white text-[10px] font-black rounded-lg hover:bg-primary-hover shadow-lg shadow-primary/20 transition-all uppercase tracking-widest">Process Payment</button>
-                                                                        ) : (
-                                                                            <span className="text-[10px] text-gray-400 font-black uppercase tracking-widest">Awaiting Date</span>
-                                                                        )}
-                                                                    </td>
-                                                                </tr>
-                                                            );
-                                                        })}
+                                                                                {salary.status}
+                                                                            </span>
+                                                                        </td>
+                                                                        <td className="px-6 py-4 text-gray-500 font-medium">
+                                                                            {salary.paidDate ? new Date(salary.paidDate).toLocaleDateString() : '-'}
+                                                                        </td>
+                                                                        <td className="px-6 py-4">
+                                                                            {isPaid ? (
+                                                                                <span className="text-[10px] text-emerald-600 font-black uppercase tracking-widest flex items-center gap-1"><FaCheck size={10} /> Completed</span>
+                                                                            ) : isPending ? (
+                                                                                <button onClick={() => setPayoutConfirmModal({ open: true, salary, remarks: salary.remarks || '' })}
+                                                                                    className="px-4 py-1.5 bg-primary text-white text-[10px] font-black rounded-lg hover:bg-primary-hover shadow-lg shadow-primary/20 transition-all uppercase tracking-widest">
+                                                                                    Proceed
+                                                                                </button>
+                                                                            ) : null}
+                                                                        </td>
+                                                                    </tr>
+                                                                );
+                                                            })
+                                                        )}
                                                     </tbody>
                                                 </table>
                                             </div>
@@ -566,12 +558,6 @@ const Fees = () => {
                                                         onChange={(e) => setStaffSearch(e.target.value)}
                                                         className="pl-11 pr-6 py-3 text-sm border border-gray-200 rounded-2xl focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 w-72 shadow-inner bg-gray-50/50 transition-all" />
                                                 </div>
-                                                <select value={staffStatusFilter} onChange={(e) => setStaffStatusFilter(e.target.value)}
-                                                    className="px-4 py-3 text-sm border border-gray-200 rounded-2xl focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 bg-gray-50/50 font-bold text-gray-700 shadow-inner cursor-pointer">
-                                                    <option value="all">All Pay Status</option>
-                                                    <option value="paid">Paid Only</option>
-                                                    <option value="pending">Pending Payout</option>
-                                                </select>
                                             </div>
                                         </div>
 
@@ -579,39 +565,46 @@ const Fees = () => {
                                             <table className="w-full text-sm text-left">
                                                 <thead>
                                                     <tr className="bg-gray-50/50 border-b border-gray-100 shadow-sm">
-                                                        {['Teacher Name', 'Email Address', 'Salary Pkg', 'Status', 'Last Payout', 'Details'].map(h => (
+                                                        {['Teacher Name', 'Email Address', 'Base Salary', 'Latest Status', 'Details'].map(h => (
                                                             <th key={h} className="px-6 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">{h}</th>
                                                         ))}
                                                     </tr>
                                                 </thead>
                                                 <tbody className="divide-y divide-gray-50">
-                                                    {teachersLoading ? (
-                                                        Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} cols={6} />)
+                                                    {teachersLoading || salariesLoading ? (
+                                                        Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} cols={5} />)
                                                     ) : (teachersData?.data?.users || []).filter(t => t.name.toLowerCase().includes(staffSearch.toLowerCase())).length === 0 ? (
-                                                        <tr><td colSpan={6}><EmptyState icon={FaUser} title="No staff records" subtitle="We couldn't find any staff matching your search." /></td></tr>
+                                                        <tr><td colSpan={5}><EmptyState icon={FaUser} title="No staff records" subtitle="We couldn't find any staff matching your search." /></td></tr>
                                                     ) : (
                                                         (teachersData?.data?.users || []).filter(t => t.name.toLowerCase().includes(staffSearch.toLowerCase())).map(staff => {
-                                                            const lastMonth = currentMonth === 1 ? 12 : currentMonth - 1;
-                                                            const lastMonthYear = currentMonth === 1 ? currentYear - 1 : currentYear;
-                                                            const status = getSalaryStatus(staff._id, lastMonth, lastMonthYear);
-                                                            const isPaid = status === 'Paid';
-                                                            const isPending = status === 'Pending';
-
-                                                            if (staffStatusFilter !== 'all') {
-                                                                if (staffStatusFilter === 'paid' && !isPaid) return null;
-                                                                if (staffStatusFilter === 'pending' && !isPending) return null;
-                                                            }
+                                                            const staffSalaries = (salaryData?.data || []).filter(s => String(s.teacherId?._id || s.teacherId) === String(staff._id));
+                                                            const latestSalary = staffSalaries.sort((a, b) => b.year !== a.year ? b.year - a.year : b.month - a.month)[0];
+                                                            
+                                                            const isPaid = latestSalary?.status === 'PAID';
+                                                            const isPending = latestSalary?.status === 'PENDING';
 
                                                             return (
                                                                 <tr key={staff._id} className="hover:bg-violet-50/20 transition-all group cursor-default">
                                                                     <td className="px-6 py-6 font-black text-gray-900">{staff.name}</td>
                                                                     <td className="px-6 py-6 text-gray-500 font-medium">{staff.email}</td>
-                                                                    <td className="px-6 py-6 font-black text-gray-900">₹45,000</td>
-                                                                    <td className="px-6 py-6">
-                                                                        <span className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider shadow-sm ${isPaid ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200' : 'bg-amber-50 text-amber-700 ring-1 ring-amber-200'
-                                                                            }`}>{status}</span>
+                                                                    <td className="px-6 py-6 font-black text-gray-900 uppercase text-xs flex items-center gap-2 group/base">
+                                                                        ₹{(staff.profile?.expectedSalary || 0).toLocaleString()}
+                                                                        <button 
+                                                                            onClick={() => setBaseSalaryModal({ open: true, staff, amount: staff.profile?.expectedSalary || 0 })}
+                                                                            className="p-1.5 text-violet-400 hover:text-violet-600 hover:bg-violet-50 rounded-lg transition-all opacity-0 group-hover/base:opacity-100"
+                                                                        ><FaEdit size={12} /></button>
                                                                     </td>
-                                                                    <td className="px-6 py-6 text-gray-500 font-bold text-xs">{isPaid ? `${MONTH_LABELS[lastMonth]} 01, ${lastMonthYear}` : '--'}</td>
+                                                                    <td className="px-6 py-6">
+                                                                        {latestSalary ? (
+                                                                            <span className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider shadow-sm ${
+                                                                                isPaid ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200' : 'bg-amber-50 text-amber-700 ring-1 ring-amber-200'
+                                                                            }`}>
+                                                                                {latestSalary.status} ({MONTH_LABELS[latestSalary.month]})
+                                                                            </span>
+                                                                        ) : (
+                                                                            <span className="text-[10px] text-gray-400 font-black uppercase tracking-widest">No Records</span>
+                                                                        )}
+                                                                    </td>
                                                                     <td className="px-6 py-6">
                                                                         <button onClick={() => setSelectedStaff(staff)}
                                                                             className="px-6 py-2 bg-white text-violet-600 border-2 border-violet-100 hover:bg-violet-600 hover:text-white hover:border-violet-600 rounded-xl text-[10px] font-black transition-all shadow-sm uppercase tracking-widest">View Ledger</button>
@@ -626,6 +619,22 @@ const Fees = () => {
                                     </div>
                                 )}
                             </div>
+                        )}
+
+                        {mgmtView === 'salary_form' && (
+                            <SalaryForm
+                                onCancel={() => setMgmtView('staff')}
+                                isLoading={createSalaryMut.isPending}
+                                onSubmit={async (data) => {
+                                    try {
+                                        await createSalaryMut.mutateAsync(data);
+                                        showToast('success', 'Salary entry created successfully');
+                                        setMgmtView('staff');
+                                    } catch (err) {
+                                        showToast('error', err?.response?.data?.message || 'Failed to create salary entry');
+                                    }
+                                }}
+                            />
                         )}
                     </div>
                 )}
@@ -962,70 +971,62 @@ const Fees = () => {
                 {activeTab === 'salary' && isTeacher && (
                     <div className="space-y-6 animate-fadeIn">
                         {/* Summary Cards */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                             <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
-                                <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Monthly Salary</p>
-                                <div className="flex items-end gap-2">
-                                    <h3 className="text-2xl font-bold text-gray-900">₹45,000</h3>
-                                    <span className="text-xs font-medium text-emerald-500 mb-1">+5% from last yr</span>
-                                </div>
+                                <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Total Paid (Year)</p>
+                                <h3 className="text-2xl font-bold text-gray-900">
+                                    ₹{(mySalaryData?.data?.summary?.totalPaid || 0).toLocaleString()}
+                                </h3>
                             </div>
-                            <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
-                                <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Annual Total (FY26)</p>
-                                <h3 className="text-2xl font-bold text-gray-900">₹5,40,000</h3>
-                            </div>
-                            <div className="bg-primary/5 rounded-2xl border border-primary/10 p-5">
-                                <p className="text-xs font-bold text-primary uppercase tracking-wider mb-1">Next Payout</p>
-                                <div className="flex items-center gap-2">
-                                    <FaCalendarCheck className="text-primary" size={14} />
-                                    <h3 className="text-lg font-bold text-gray-900">April 01, 2026</h3>
-                                </div>
+                            <div className="bg-amber-50 rounded-2xl border border-amber-100 p-5">
+                                <p className="text-xs font-bold text-amber-600 uppercase tracking-wider mb-1">Pending Amount</p>
+                                <h3 className="text-2xl font-bold text-amber-700">
+                                    ₹{(mySalaryData?.data?.summary?.totalPending || 0).toLocaleString()}
+                                </h3>
                             </div>
                         </div>
 
                         {/* Salary Breakdown Table */}
                         <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm">
-                            <div className="px-6 py-4 border-b border-gray-100">
-                                <h2 className="text-lg font-bold text-gray-900">Salary Payout History</h2>
+                            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+                                <h2 className="text-lg font-bold text-gray-900 font-display">Salary Payout History</h2>
+                                <p className="text-xs font-medium text-gray-500">{overviewYear}</p>
                             </div>
                             <div className="overflow-x-auto">
                                 <table className="w-full text-sm text-left">
                                     <thead className="bg-gray-50/50">
                                         <tr>
-                                            {['Month', 'Basic Pay', 'HRA', 'Allowance', 'Gross Amount', 'Deductions', 'Net Salary', 'Status', 'Date'].map(h => (
-                                                <th key={h} className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-tight">{h}</th>
+                                            {['Month', 'Amount', 'Status', 'Paid Date'].map(h => (
+                                                <th key={h} className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">{h}</th>
                                             ))}
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-100">
-                                        {[3, 2, 1, 12, 11, 10, 9, 8, 7, 6, 5, 4].map((mIdx) => {
-                                            const month = mIdx;
-                                            const year = (mIdx > 3) ? 2025 : 2026;
-                                            const status = getSalaryStatus(user?._id, month, year);
-                                            const isFuture = status === 'Upcoming';
-                                            const isPaid = status === 'Paid';
-
-                                            return (
-                                                <tr key={`${month}-${year}`} className="hover:bg-gray-50/50 transition-colors">
-                                                    <td className="px-6 py-4 font-bold text-gray-900">{MONTH_LABELS[month]} {year}</td>
-                                                    <td className="px-6 py-4 text-gray-600">₹30,000</td>
-                                                    <td className="px-6 py-4 text-gray-600">₹10,000</td>
-                                                    <td className="px-6 py-4 text-gray-600">₹5,000</td>
-                                                    <td className="px-6 py-4 font-bold text-gray-900">₹45,000</td>
-                                                    <td className="px-6 py-4 text-red-500">-₹0</td>
-                                                    <td className="px-6 py-4 font-bold text-emerald-600">₹45,000</td>
-                                                    <td className="px-6 py-4">
-                                                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${isFuture ? 'bg-gray-100 text-gray-500' :
-                                                            isPaid ? 'bg-emerald-50 text-emerald-700' :
-                                                                'bg-amber-50 text-amber-700'
+                                        {mySalaryLoading ? (
+                                            Array.from({ length: 3 }).map((_, i) => <SkeletonRow key={i} cols={4} />)
+                                        ) : (mySalaryData?.data?.salaries || []).length === 0 ? (
+                                            <tr><td colSpan={5}><EmptyState icon={FaWallet} title="No salary records" subtitle="Salary records created by admin will appear here." /></td></tr>
+                                        ) : (
+                                            (mySalaryData?.data?.salaries || []).sort((a, b) => b.month - a.month).map((salary) => {
+                                                const isPaid = salary.status === 'PAID';
+                                                return (
+                                                    <tr key={salary._id} className="hover:bg-gray-50/50 transition-colors">
+                                                        <td className="px-6 py-4 font-bold text-gray-900">{MONTH_LABELS[salary.month]} {salary.year}</td>
+                                                        <td className="px-6 py-4 font-black text-gray-900">₹{salary.amount?.toLocaleString()}</td>
+                                                        <td className="px-6 py-4">
+                                                            <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                                                                isPaid ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
                                                             }`}>
-                                                            {status}
-                                                        </span>
-                                                    </td>
-                                                    <td className="px-6 py-4 text-xs text-gray-500">{isPaid ? `01 ${MONTH_LABELS[month]} ${year}` : '--'}</td>
-                                                </tr>
-                                            );
-                                        })}
+                                                                {salary.status}
+                                                            </span>
+                                                        </td>
+                                                        <td className="px-6 py-4 text-xs font-medium text-gray-500">
+                                                            {salary.paidDate ? new Date(salary.paidDate).toLocaleDateString() : '--'}
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })
+                                        )}
                                     </tbody>
                                 </table>
                             </div>
@@ -1062,7 +1063,7 @@ const Fees = () => {
                                     <table className="w-full text-sm text-left">
                                         <thead>
                                             <tr className="border-b border-gray-100 font-display">
-                                                {['Fee Type', 'Structure Name', 'Class', 'Amount', 'Frequency', 'Due Day'].map(h => (
+                                                {['Fee Type', 'Structure Name', 'Class', 'Amount', 'Frequency', 'Due Date'].map(h => (
                                                     <th key={h} className="px-4 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">{h}</th>
                                                 ))}
                                                 <th className="px-4 py-4 text-center text-[10px] font-black text-gray-400 tracking-widest">Status</th>
@@ -1118,6 +1119,73 @@ const Fees = () => {
                 assignment={paymentModal.assignment}
                 isLoading={payMut.isPending}
             />
+
+
+
+            {/* Base Salary Edit Modal */}
+            {baseSalaryModal.open && (
+                <div className={MODAL_OVERLAY}>
+                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden animate-fadeIn border border-gray-100">
+                        <div className="p-8">
+                            <div className="w-16 h-16 bg-violet-50 rounded-2xl flex items-center justify-center text-violet-500 mb-6 mx-auto">
+                                <FaEdit size={24} />
+                            </div>
+                            <h3 className="text-2xl font-black text-gray-900 text-center mb-2">Update Base Salary</h3>
+                            <p className="text-sm text-gray-500 text-center mb-8">Set the expected monthly salary for <b>{baseSalaryModal.staff?.name}</b>.</p>
+                            
+                            <form onSubmit={handleUpdateBaseSalary} className="space-y-6">
+                                <div>
+                                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 px-1">Monthly Amount (₹)</label>
+                                    <input 
+                                        type="number" 
+                                        required 
+                                        autoFocus
+                                        value={baseSalaryModal.amount} 
+                                        onChange={(e) => setBaseSalaryModal(prev => ({ ...prev, amount: e.target.value }))}
+                                        className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 font-bold text-lg transition-all shadow-inner"
+                                        placeholder="e.g. 45000"
+                                    />
+                                </div>
+                                <div className="flex gap-3 pt-2">
+                                    <button type="button" onClick={() => setBaseSalaryModal({ open: false, staff: null, amount: '' })}
+                                        className="flex-1 px-6 py-4 border-2 border-gray-100 text-gray-600 font-black rounded-2xl hover:bg-gray-50 transition-all uppercase tracking-widest text-xs">Cancel</button>
+                                    <button type="submit" disabled={updateTeacherProfileMut.isPending}
+                                        className="flex-1 px-6 py-4 bg-violet-600 text-white font-black rounded-2xl hover:bg-violet-700 shadow-xl shadow-violet-200 transition-all uppercase tracking-widest text-xs disabled:opacity-50">
+                                        {updateTeacherProfileMut.isPending ? 'Updating...' : 'Save Change'}
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Payout Confirmation Modal */}
+            {payoutConfirmModal.open && (
+                <div className={MODAL_OVERLAY}>
+                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden animate-fadeIn border border-gray-100">
+                        <div className="p-8">
+                            <div className="w-16 h-16 bg-emerald-50 rounded-2xl flex items-center justify-center text-emerald-500 mb-6 mx-auto">
+                                <FaCheck size={24} />
+                            </div>
+                            <h3 className="text-2xl font-black text-gray-900 text-center mb-2">Confirm Payout</h3>
+                            <p className="text-sm text-gray-500 text-center mb-8">Processing payout of <b>₹{payoutConfirmModal.salary?.amount?.toLocaleString()}</b> for {MONTH_LABELS[payoutConfirmModal.salary?.month]} {payoutConfirmModal.salary?.year}.</p>
+                            
+                            <form onSubmit={handleProcessPayout} className="space-y-6">
+
+                                <div className="flex gap-3 pt-2">
+                                    <button type="button" onClick={() => setPayoutConfirmModal({ open: false, salary: null, remarks: '' })}
+                                        className="flex-1 px-6 py-4 border-2 border-gray-100 text-gray-600 font-black rounded-2xl hover:bg-gray-50 transition-all uppercase tracking-widest text-xs">Go Back</button>
+                                    <button type="submit" disabled={updateSalaryStatusMut.isPending}
+                                        className="flex-1 px-6 py-4 bg-emerald-600 text-white font-black rounded-2xl hover:bg-emerald-700 shadow-xl shadow-emerald-200 transition-all uppercase tracking-widest text-xs disabled:opacity-50">
+                                        {updateSalaryStatusMut.isPending ? 'Processing...' : 'Confirm & Pay'}
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Delete Confirmation */}
             {deleteConfirm && (

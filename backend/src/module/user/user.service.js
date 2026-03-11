@@ -301,6 +301,29 @@ export const hardDeleteUsers = async (creator, userIds) => {
     return { deletedCount: result.deletedCount };
 };
 
+// UPDATE TEACHER PROFILE (e.g. expectedSalary)
+export const updateTeacherProfile = async (creator, userId, data) => {
+    // Only admins can update profiles in this way
+    if (![USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN].includes(creator.role)) {
+        throw new ForbiddenError("Only admins can update teacher profiles");
+    }
+
+    const user = await User.findOne({ _id: userId, schoolId: creator.schoolId });
+    if (!user) throw new NotFoundError("User not found");
+    if (user.role !== USER_ROLES.TEACHER) throw new BadRequestError("User is not a teacher");
+
+    const updatedProfile = await TeacherProfile.findOneAndUpdate(
+        { userId, schoolId: creator.schoolId },
+        { $set: data },
+        { new: true, runValidators: true, upsert: true }
+    );
+
+    if (!updatedProfile) throw new NotFoundError("Teacher profile not found");
+
+    logger.info(`Teacher profile updated for user ${userId} by ${creator._id}`);
+    return updatedProfile;
+};
+
 // UPDATE AVATAR
 export const updateAvatar = async (userId, avatarUrl, avatarPublicId) => {
     const user = await User.findById(userId);

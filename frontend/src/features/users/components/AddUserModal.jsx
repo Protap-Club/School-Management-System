@@ -28,7 +28,8 @@ const PARENT_SECTIONS = [
 const INITIAL_FORM = {
     firstName: '', middleName: '', lastName: '', email: '', department: '',
     standard: '', section: '', rollNumber: '', course: '', year: '',
-    contactNo: '', fatherName: '', fatherContact: '', motherName: '', motherContact: '', schoolId: ''
+    contactNo: '', fatherName: '', fatherContact: '', motherName: '', motherContact: '', schoolId: '',
+    expectedSalary: ''
 };
 
 const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
@@ -94,6 +95,7 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
             } else if (roleToAdd === 'teacher') {
                 if (formData.standard) payload.standard = formData.standard;
                 if (formData.section) payload.section = formData.section;
+                if (formData.expectedSalary) payload.expectedSalary = Number(formData.expectedSalary);
                 // Note: assignedClasses will be constructed on backend from standard/section if provided
             } else if (roleToAdd === 'student') {
                 const studentFields = ['rollNumber', 'standard', 'section', 'fatherName', 'fatherContact', 'motherName', 'motherContact'];
@@ -186,6 +188,11 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     {renderSelect('standard', STANDARDS, 'Select Standard')}
                                     {renderSelect('section', SECTIONS, 'Select Section')}
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <InputField label="Expected / Desired Salary" name="expectedSalary" type="number"
+                                        value={formData.expectedSalary} onChange={handleChange}
+                                        placeholder="e.g. 45000" min="0" />
                                 </div>
                             </div>
                         )}

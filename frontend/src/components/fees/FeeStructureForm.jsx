@@ -134,85 +134,85 @@ const FeeStructureForm = ({ onCancel, onSubmit, editData, isLoading }) => {
     };
 
     const inputCls = (field) =>
-        `w-full px-4 py-3 border rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all ${errors[field] ? 'border-red-300 bg-red-50' : 'border-gray-200 bg-gray-50/10'}`;
+        `w-full px-3 py-1.5 border rounded-lg text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all ${errors[field] ? 'border-red-300 bg-red-50' : 'border-gray-200 bg-gray-50/10'}`;
 
     return (
-        <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden animate-fadeIn shadow-sm max-w-3xl">
-            <div className="px-8 py-5 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
-                <div className="flex items-center gap-3">
-                    <button onClick={onCancel} className="p-2 hover:bg-white rounded-xl transition-colors text-gray-400 hover:text-gray-900 border border-transparent hover:border-gray-100">
-                        <FaArrowLeft size={12} />
+        <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden animate-fadeIn shadow-sm max-w-xl">
+            <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
+                <div className="flex items-center gap-2">
+                    <button onClick={onCancel} className="p-1.5 hover:bg-white rounded-lg transition-colors text-gray-400 hover:text-gray-900 border border-transparent hover:border-gray-100">
+                        <FaArrowLeft size={10} />
                     </button>
-                    <h3 className="text-lg font-black text-gray-900 tracking-tight">{isEdit ? 'Edit Fee Structure' : 'Add Fee Structure'}</h3>
+                    <h3 className="text-sm font-black text-gray-900 tracking-tight">{isEdit ? 'Edit Fee Structure' : 'Add Fee Structure'}</h3>
                 </div>
             </div>
 
-            <form onSubmit={handleSubmit} className="p-8 space-y-6">
+            <form onSubmit={handleSubmit} className="p-5 space-y-3.5">
                 {/* Row 1: Academic, Std, Sect */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
-                        <label className="block text-[11px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Academic Year *</label>
+                        <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Academic Year *</label>
                         <input type="number" value={form.academicYear} onChange={(e) => handleChange('academicYear', e.target.value)}
                             className={inputCls('academicYear')} disabled={isEdit} min={2000} max={2100} />
-                        {errors.academicYear && <p className="text-xs text-red-500 mt-1.5 ml-1 font-bold">{errors.academicYear}</p>}
+                        {errors.academicYear && <p className="text-[10px] text-red-500 mt-1 ml-1 font-bold">{errors.academicYear}</p>}
                     </div>
                     <div>
-                        <label className="block text-[11px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Standard *</label>
+                        <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Standard *</label>
                         <select value={form.standard} onChange={(e) => handleChange('standard', e.target.value)}
                             className={inputCls('standard')} disabled={isEdit}>
-                            <option value="">Select</option>
+                            <option value="" disabled hidden></option>
                             {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(s => <option key={s} value={s}>{s}</option>)}
                         </select>
-                        {errors.standard && <p className="text-xs text-red-500 mt-1.5 ml-1 font-bold">{errors.standard}</p>}
+                        {errors.standard && <p className="text-[10px] text-red-500 mt-1 ml-1 font-bold">{errors.standard}</p>}
                     </div>
                     <div>
-                        <label className="block text-[11px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Section *</label>
+                        <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Section *</label>
                         <select value={form.section} onChange={(e) => handleChange('section', e.target.value)}
                             className={inputCls('section')} disabled={isEdit}>
-                            <option value="">Select</option>
+                            <option value="" disabled hidden></option>
                             {['A', 'B', 'C'].map(s => <option key={s} value={s}>{s}</option>)}
                         </select>
-                        {errors.section && <p className="text-xs text-red-500 mt-1.5 ml-1 font-bold">{errors.section}</p>}
+                        {errors.section && <p className="text-[10px] text-red-500 mt-1 ml-1 font-bold">{errors.section}</p>}
                     </div>
                 </div>
 
                 {/* Row 2: Type, Name */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                        <label className="block text-[11px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Fee Type *</label>
+                        <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Fee Type *</label>
                         <select value={form.feeType} onChange={(e) => handleChange('feeType', e.target.value)}
                             className={inputCls('feeType')} disabled={isEdit}>
-                            <option value="">Select type</option>
+                            <option value="" disabled hidden></option>
                             {FEE_TYPES.map(t => <option key={t} value={t}>{FEE_TYPE_LABELS[t]}</option>)}
                         </select>
-                        {errors.feeType && <p className="text-xs text-red-500 mt-1.5 ml-1 font-bold">{errors.feeType}</p>}
+                        {errors.feeType && <p className="text-[10px] text-red-500 mt-1 ml-1 font-bold">{errors.feeType}</p>}
                     </div>
                     <div>
-                        <label className="block text-[11px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Fee Name *</label>
+                        <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Fee Name *</label>
                         <input type="text" value={form.name} onChange={(e) => handleChange('name', e.target.value)}
                             className={inputCls('name')} placeholder="e.g. Monthly Tuition" />
-                        {errors.name && <p className="text-xs text-red-500 mt-1.5 ml-1 font-bold">{errors.name}</p>}
+                        {errors.name && <p className="text-[10px] text-red-500 mt-1 ml-1 font-bold">{errors.name}</p>}
                     </div>
                 </div>
 
                 {/* Row 3: Amount, Frequency, DueDay */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
-                        <label className="block text-[11px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Amount (₹) *</label>
+                        <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Amount (₹) *</label>
                         <input type="number" value={form.amount} onChange={(e) => handleChange('amount', e.target.value)}
                             className={inputCls('amount')} placeholder="0" min={0} />
-                        {errors.amount && <p className="text-xs text-red-500 mt-1.5 ml-1 font-bold">{errors.amount}</p>}
+                        {errors.amount && <p className="text-[10px] text-red-500 mt-1 ml-1 font-bold">{errors.amount}</p>}
                     </div>
                     <div>
-                        <label className="block text-[11px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Frequency *</label>
+                        <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Frequency *</label>
                         <select value={form.frequency} onChange={(e) => handleChange('frequency', e.target.value)} className={inputCls('frequency')}>
-                            <option value="">Select</option>
+                            <option value="" disabled hidden></option>
                             {FREQUENCY_OPTIONS.map(f => <option key={f} value={f}>{FREQUENCY_LABELS[f]}</option>)}
                         </select>
-                        {errors.frequency && <p className="text-xs text-red-500 mt-1.5 ml-1 font-bold">{errors.frequency}</p>}
+                        {errors.frequency && <p className="text-[10px] text-red-500 mt-1 ml-1 font-bold">{errors.frequency}</p>}
                     </div>
                     <div>
-                        <label className="block text-[11px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Due Day</label>
+                        <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Due Date</label>
                         <input type="number" value={form.dueDay} onChange={(e) => handleChange('dueDay', e.target.value)}
                             className={inputCls('dueDay')} min={1} max={28} />
                     </div>
@@ -232,10 +232,10 @@ const FeeStructureForm = ({ onCancel, onSubmit, editData, isLoading }) => {
                             </span>
                         )}
                     </div>
-                    <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-12 gap-2">
+                    <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-12 gap-1.5">
                         {MONTHS.map(m => (
                             <button key={m.value} type="button" onClick={() => toggleMonth(m.value)}
-                                className={`py-3 text-xs font-bold rounded-xl border transition-all ${form.applicableMonths.includes(m.value) ? 'bg-primary text-white border-primary shadow-lg shadow-primary/20 scale-105' : 'border-gray-200 text-gray-400 hover:bg-gray-50'}`}>
+                                className={`py-1.5 text-[10px] font-bold rounded-lg border transition-all ${form.applicableMonths.includes(m.value) ? 'bg-primary text-white border-primary shadow-md shadow-primary/20 scale-105' : 'border-gray-200 text-gray-400 hover:bg-gray-50'}`}>
                                 {m.label}
                             </button>
                         ))}
@@ -250,16 +250,16 @@ const FeeStructureForm = ({ onCancel, onSubmit, editData, isLoading }) => {
                     </div>
                 )}
 
-                <div className="pt-6 border-t border-gray-100 flex gap-4">
+                <div className="pt-4 border-t border-gray-100 flex gap-3">
                     <button type="button" onClick={onCancel} disabled={isLoading}
-                        className="flex-1 px-8 py-4 border-2 border-gray-100 text-gray-500 text-sm font-black rounded-2xl hover:bg-gray-50 transition-all disabled:opacity-50 uppercase tracking-widest">Cancel</button>
+                        className="flex-1 px-6 py-2.5 border-2 border-gray-100 text-gray-500 text-xs font-black rounded-xl hover:bg-gray-50 transition-all disabled:opacity-50 uppercase tracking-widest">Cancel</button>
                     <button type="submit" disabled={isLoading}
-                        className="flex-1 px-8 py-4 bg-primary hover:bg-primary-hover text-white text-sm font-black rounded-2xl shadow-xl shadow-primary/30 transition-all flex items-center justify-center gap-2 disabled:opacity-70 group uppercase tracking-widest">
+                        className="flex-1 px-6 py-2.5 bg-primary hover:bg-primary-hover text-white text-xs font-black rounded-xl shadow-lg shadow-primary/20 transition-all flex items-center justify-center gap-2 disabled:opacity-70 group uppercase tracking-widest">
                         {isLoading ? (
-                            <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
                         ) : (
                             <span className="flex items-center gap-2">
-                                <FaPlus size={14} className="group-hover:rotate-90 transition-transform" />
+                                <FaPlus size={12} className="group-hover:rotate-90 transition-transform" />
                                 {isEdit ? 'Update Structure' : 'Create Structure'}
                             </span>
                         )}

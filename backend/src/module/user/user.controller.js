@@ -99,3 +99,12 @@ export const userProfile = asyncHandler(async (req, res) => {
         data: result
     });
 });
+
+export const updateTeacherProfile = asyncHandler(async (req, res) => {
+    const result = await userService.updateTeacherProfile(req.user, req.params.id, req.body);
+    res.status(200).json({
+        success: true,
+        message: "Teacher profile updated successfully",
+        data: result
+    });
+});
