@@ -57,6 +57,27 @@ const noticeSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    requiresAcknowledgment: {
+      type: Boolean,
+      default: false,
+    },
+    acknowledgments: [
+      {
+        userId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "User",
+          required: true,
+        },
+        role: {
+          type: String,
+          required: true,
+        },
+        timestamp: {
+          type: Date,
+          default: Date.now,
+        },
+      },
+    ],
   },
   { timestamps: true }
 );
