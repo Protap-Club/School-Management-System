@@ -9,7 +9,7 @@ export const createUserSchema = z.object({
     body: z.object({
         name: z.string().min(1, 'Name is required'),
         email: z.string().trim().email('Invalid email address'),
-        contactNo: z.string().optional(),
+        contactNo: z.string().min(1, 'Contact number is required'),
         role: z.enum(roleValues, {
             errorMap: () => ({ message: `Role must be one of: ${roleValues.join(', ')}` })
         }),
@@ -42,6 +42,40 @@ export const createUserSchema = z.object({
         // Admin profile fields
         department: z.string().optional(),
         permissions: z.array(z.string()).optional(),
+    }).superRefine((data, ctx) => {
+        const { role } = data;
+
+        if (role === USER_ROLES.STUDENT) {
+            const required = ['rollNumber', 'standard', 'section', 'fatherName'];
+            required.forEach(field => {
+                if (!data[field]) {
+                    ctx.addIssue({
+                        code: z.ZodIssueCode.custom,
+                        message: `${field.charAt(0).toUpperCase() + field.slice(1).replace(/([A-Z])/g, ' $1')} is required for students`,
+                        path: [field]
+                    });
+                }
+            });
+        } else if (role === USER_ROLES.TEACHER) {
+            const required = ['employeeId', 'qualification', 'joiningDate'];
+            required.forEach(field => {
+                if (!data[field]) {
+                    ctx.addIssue({
+                        code: z.ZodIssueCode.custom,
+                        message: `${field.charAt(0).toUpperCase() + field.slice(1).replace(/([A-Z])/g, ' $1')} is required for teachers`,
+                        path: [field]
+                    });
+                }
+            });
+        } else if (role === USER_ROLES.ADMIN) {
+            if (!data.department) {
+                ctx.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    message: 'Department is required for admins',
+                    path: ['department']
+                });
+            }
+        }
     }),
 });
 

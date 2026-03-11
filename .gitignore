@@ -5,3 +5,7 @@
 # OS files
 .DS_Store
 Thumbs.db
+
+# Architecture files
+architecture/
+assignment.md
