@@ -62,7 +62,7 @@ router.get(
 // ── Shared: Student Fee History (Admin + Teacher, mobile + web)
 router.get(
     "/student/:studentId/history",
-    checkRole([USER_ROLES.ADMIN, USER_ROLES.TEACHER]),
+    checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN, USER_ROLES.TEACHER]),
     validate(studentFeeHistorySchema),
     getStudentFeeHistory
 );
@@ -71,7 +71,7 @@ router.get(
 router.post(
     "/structures",
     checkWebOnly,
-    checkRole([USER_ROLES.ADMIN]),
+    checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN]),
     validate(createFeeStructureSchema),
     createFeeStructure
 );
@@ -79,7 +79,7 @@ router.post(
 router.get(
     "/structures",
     checkWebOnly,
-    checkRole([USER_ROLES.ADMIN, USER_ROLES.TEACHER]),
+    checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN, USER_ROLES.TEACHER]),
     validate(getFeeStructuresQuerySchema),
     getFeeStructures
 );
@@ -87,7 +87,7 @@ router.get(
 router.put(
     "/structures/:id",
     checkWebOnly,
-    checkRole([USER_ROLES.ADMIN, USER_ROLES.TEACHER]),
+    checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN, USER_ROLES.TEACHER]),
     validate(updateFeeStructureSchema),
     updateFeeStructure
 );
@@ -95,7 +95,7 @@ router.put(
 router.delete(
     "/structures/:id",
     checkWebOnly,
-    checkRole([USER_ROLES.ADMIN, USER_ROLES.TEACHER]),
+    checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN, USER_ROLES.TEACHER]),
     validate(feeStructureIdParamsSchema),
     deleteFeeStructure
 );
@@ -104,7 +104,7 @@ router.delete(
 router.post(
     "/structures/:id/generate",
     checkWebOnly,
-    checkRole([USER_ROLES.ADMIN, USER_ROLES.TEACHER]),
+    checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN, USER_ROLES.TEACHER]),
     validate(generateAssignmentsSchema),
     generateAssignments
 );
@@ -112,7 +112,7 @@ router.post(
 router.patch(
     "/assignments/:id",
     checkWebOnly,
-    checkRole(["admin", "teacher"]),
+    checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN, USER_ROLES.TEACHER]),
     validate(updateAssignmentSchema),
     updateAssignment
 );
@@ -121,7 +121,7 @@ router.patch(
 router.post(
     "/assignments/:id/pay",
     checkWebOnly,
-    checkRole(["admin", "teacher"]),
+    checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN, USER_ROLES.TEACHER]),
     validate(recordPaymentSchema),
     recordPayment
 );
@@ -130,14 +130,14 @@ router.post(
 router.get(
     "/overview/all-classes",
     checkWebOnly,
-    checkRole([USER_ROLES.ADMIN]),
+    checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN]),
     validate(allClassesOverviewSchema),
     getAllClassesFeeOverview
 );
 
 router.get(
     "/overview/:standard/:section",
-    checkRole([USER_ROLES.ADMIN, USER_ROLES.TEACHER]),
+    checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN, USER_ROLES.TEACHER]),
     validate(classOverviewSchema),
     getClassFeeOverview
 );
@@ -145,7 +145,7 @@ router.get(
 router.get(
     "/summary/yearly",
     checkWebOnly,
-    checkRole([USER_ROLES.ADMIN]),
+    checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN]),
     validate(yearlySummarySchema),
     getYearlyFeeSummary
 );

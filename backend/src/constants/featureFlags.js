@@ -41,6 +41,10 @@ export const SCHOOL_FEATURES = Object.freeze({
     key: "examination",
     label: "Examination Management",
     description: "Manage term exams and class tests",
+  ASSIGNMENT: {
+    key: "assignment",
+    label: "Assignment Management",
+    description: "Create, distribute, and collect assignments",
   },
 });
 

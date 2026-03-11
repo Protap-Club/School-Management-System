@@ -25,6 +25,7 @@ export const noticesApi = {
         formData.append('title', noticeData.title || '');
         formData.append('recipients', JSON.stringify(noticeData.recipients));
         formData.append('recipientType', noticeData.recipientType);
+        formData.append('requiresAcknowledgment', noticeData.requiresAcknowledgment ? 'true' : 'false');
         if (noticeData.attachment) {
             formData.append('attachment', noticeData.attachment);
         }
@@ -63,8 +64,11 @@ export const noticesApi = {
     },
 
     // Get students list
+    // Bug 4 fix: Use /notices/my-students instead of /users?role=student&pageSize=100
+    // The old endpoint was capped at 100 records — teachers with >100 students (e.g. Priya with 122)
+    // would see a truncated list. The new endpoint returns ALL assigned students with no pagination.
     getStudents: async () => {
-        const response = await api.get('/users?role=student&pageSize=100');
+        const response = await api.get('/notices/my-students');
         return response.data;
     },
 
@@ -95,6 +99,18 @@ export const noticesApi = {
     // Delete group
     deleteGroup: async (groupId) => {
         const response = await api.delete(`/notices/groups/${groupId}`);
+        return response.data;
+    },
+
+    // Acknowledge a notice (receivers only)
+    acknowledgeNotice: async (id) => {
+        const response = await api.post(`/notices/${id}/acknowledge`);
+        return response.data;
+    },
+
+    // Get acknowledgment status for a notice (sender only)
+    getAcknowledgments: async (id) => {
+        const response = await api.get(`/notices/${id}/acknowledgments`);
         return response.data;
     },
 };

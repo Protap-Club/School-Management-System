@@ -61,6 +61,7 @@ const schoolSchema = new mongoose.Schema(
       notice: { type: Boolean, default: false },
       calendar: { type: Boolean, default: false },
       examination: { type: Boolean, default: false },
+      assignment: { type: Boolean, default: false },
     },
   },
   {
