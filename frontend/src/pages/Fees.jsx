@@ -315,7 +315,7 @@ const Fees = () => {
 
                 {/* Tabs */}
                 <div className="flex gap-1 bg-gray-100 p-1 rounded-xl w-fit">
-                    {isAdmin && renderTabBtn('management', <FaListAlt size={12} />, 'Management')}
+                    {isAdmin && renderTabBtn('management', <FaListAlt size={12} />, 'Fee Structure')}
                     {!isAdmin && renderTabBtn('structures', <FaListAlt size={12} />, 'Assigned Fees')}
                     {renderTabBtn('overview', <FaEye size={12} />, 'Overview')}
                     {isTeacher && renderTabBtn('salary', <FaWallet size={12} />, 'My Salary')}

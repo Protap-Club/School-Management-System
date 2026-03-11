@@ -101,12 +101,6 @@ export const updateFeeStructure = async (schoolId, id, data, user) => {
 };
 
 export const deleteFeeStructure = async (schoolId, id, user) => {
-    // Block deletion if any assignments exist for this structure
-    const hasAssignments = await FeeAssignment.exists({ feeStructureId: id });
-    if (hasAssignments) {
-        throw new ConflictError("Cannot delete: fee assignments already exist for this structure. Deactivate it instead.");
-    }
-
     const query = { _id: id, schoolId };
 
     // Teacher check
@@ -120,7 +114,17 @@ export const deleteFeeStructure = async (schoolId, id, user) => {
 
     const structure = await FeeStructure.findOneAndDelete(query);
     if (!structure) throw new NotFoundError("Fee structure not found");
-    logger.info(`FeeStructure deleted: ${id} `);
+
+    // Cascade-delete associated assignments and their payments
+    const assignments = await FeeAssignment.find({ feeStructureId: id }).select('_id').lean();
+    if (assignments.length > 0) {
+        const assignmentIds = assignments.map(a => a._id);
+        await FeePayment.deleteMany({ feeAssignmentId: { $in: assignmentIds } });
+        await FeeAssignment.deleteMany({ feeStructureId: id });
+        logger.info(`Cascade-deleted ${assignments.length} assignments and related payments for FeeStructure ${id}`);
+    }
+
+    logger.info(`FeeStructure deleted: ${id}`);
 };
 
 // ═══════════════════════════════════════════════════════════════
