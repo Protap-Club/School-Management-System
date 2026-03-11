@@ -60,6 +60,7 @@ const schoolSchema = new mongoose.Schema(
       transport: { type: Boolean, default: false },
       notice: { type: Boolean, default: false },
       calendar: { type: Boolean, default: false },
+      assignment: { type: Boolean, default: false },
     },
   },
   {
