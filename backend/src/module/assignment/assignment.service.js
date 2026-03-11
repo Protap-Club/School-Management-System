@@ -292,7 +292,7 @@ export const listSubmissions = async (schoolId, assignmentId, userId, role) => {
     }
 
     const assignment = await Assignment.findOne({ _id: assignmentId, schoolId })
-        .select("title subject standard section dueDate status")
+        .select("title subject standard section dueDate status createdBy")
         .lean();
     if (!assignment) throw new NotFoundError("Assignment not found");
 
