@@ -105,7 +105,7 @@ export const ReceiverAckButton = ({ noticeId, currentUserId, acknowledgments = [
                             </button>
                             <button
                                 onClick={handleSubmit}
-                                disabled={ackMutation.isPending || !responseText.trim()}
+                                disabled={ackMutation.isPending || responseText.trim().length < 2}
                                 className="flex-1 px-3 py-2 bg-primary hover:bg-primary-hover text-white font-medium rounded-xl transition-colors text-sm flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 {ackMutation.isPending ? (

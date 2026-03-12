@@ -297,7 +297,7 @@ export const deleteNotice = async (schoolId, noticeId, userId) => {
 // ACKNOWLEDGMENT SERVICES
 
 // Record a user's acknowledgment of a notice
-export const acknowledgeNotice = async (schoolId, noticeId, user, responseMessage = '') => {
+export const acknowledgeNotice = async (schoolId, noticeId, user, responseMessage) => {
     if (!mongoose.Types.ObjectId.isValid(noticeId)) {
         throw new BadRequestError("Invalid notice ID");
     }
@@ -323,7 +323,7 @@ export const acknowledgeNotice = async (schoolId, noticeId, user, responseMessag
         userId: user._id,
         role: user.role,
         timestamp: new Date(),
-        responseMessage: responseMessage?.trim() || '',
+        responseMessage: responseMessage.trim(),
     });
     await notice.save();
 

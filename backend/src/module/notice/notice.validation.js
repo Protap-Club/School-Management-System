@@ -72,12 +72,10 @@ export const acknowledgeNoticeSchema = z.object({
         id: objectIdSchema,
     }),
     body: z.object({
-        responseMessage: z.string()
+        responseMessage: z.string({ required_error: 'Response message is required' })
             .trim()
             .min(2, 'Response message must be at least 2 characters long')
-            .max(500, 'Response message cannot exceed 500 characters')
-            .optional()
-            .default(''),
+            .max(500, 'Response message cannot exceed 500 characters'),
     }),
 });
 
