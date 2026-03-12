@@ -17,7 +17,7 @@ import FeeStructureForm from '../components/fees/FeeStructureForm';
 import SalaryForm from '../components/fees/SalaryForm';
 import {
     FaPlus, FaEdit, FaTrash, FaTrashAlt, FaBolt, FaTimes, FaCheck, FaMoneyBillWave,
-    FaChartBar, FaListAlt, FaEye, FaFilter, FaArrowLeft, FaReceipt, FaBan, FaHistory,
+    FaChartBar, FaListAlt, FaEye, FaFilter, FaArrowLeft, FaArrowRight, FaReceipt, FaBan, FaHistory,
     FaWallet, FaCalendarCheck, FaSearch, FaUser, FaFileInvoice,
 } from 'react-icons/fa';
 
@@ -327,7 +327,7 @@ const Fees = () => {
                                     <h3 className="text-2xl font-bold text-gray-900 mb-2">Student Fees</h3>
                                     <p className="text-gray-500 leading-relaxed">Configure fee structures, generate assignments, and track class-wise collections.</p>
                                     <div className="mt-6 flex items-center gap-2 text-primary font-bold text-sm">
-                                        Manage Structures <FaPlus size={10} className="group-hover:translate-x-1 transition-transform" />
+                                        Manage Structures <FaArrowRight size={10} className="group-hover:translate-x-1 transition-transform" />
                                     </div>
                                 </button>
 
@@ -342,7 +342,7 @@ const Fees = () => {
                                     <h3 className="text-2xl font-bold text-gray-900 mb-2">Staff Salaries</h3>
                                     <p className="text-gray-500 leading-relaxed">Manage teacher salary structures, process monthly payouts, and view history.</p>
                                     <div className="mt-6 flex items-center gap-2 text-violet-600 font-bold text-sm">
-                                        Payroll Overview <FaPlus size={10} className="group-hover:translate-x-1 transition-transform" />
+                                        Payroll Overview <FaArrowRight size={10} className="group-hover:translate-x-1 transition-transform" />
                                     </div>
                                 </button>
                             </div>
