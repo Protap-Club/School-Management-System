@@ -117,20 +117,49 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
                 try {
                     const response = await api.get('/school/classes');
                     const data = response.data?.data;
-                    setStandards(naturalSort(data?.standards || []));
-                    setSections(naturalSort(data?.sections || []));
+
+                    // Get custom classes from localStorage with safety
+                    let localData = { standards: [], sections: [] };
+                    try {
+                        const stored = localStorage.getItem('school_custom_classes');
+                        if (stored) localData = JSON.parse(stored);
+                    } catch (e) {
+                        console.error('Failed to parse local classes', e);
+                    }
+                    
+                    // Merge and ensure uniqueness with safety guards
+                    const combinedStandards = Array.from(new Set([...(data?.standards || []), ...(localData.standards || [])]));
+                    const combinedSections = Array.from(new Set([...(data?.sections || []), ...(localData.sections || [])]));
+
+                    setStandards(naturalSort(combinedStandards));
+                    setSections(naturalSort(combinedSections));
                 } catch {
-                    // fallback — keep empty
-                    setStandards([]);
-                    setSections([]);
+                    // Fallback to local data only
+                    let localData = { standards: [], sections: [] };
+                    try {
+                        const stored = localStorage.getItem('school_custom_classes');
+                        if (stored) localData = JSON.parse(stored);
+                    } catch (e) {
+                        console.error('Failed to parse local classes', e);
+                    }
+                    setStandards(naturalSort(localData.standards || []));
+                    setSections(naturalSort(localData.sections || []));
                 } finally {
                     setClassesLoading(false);
                 }
             }
         };
 
+        // Listen for updates from settings
+        const handleCustomUpdate = () => fetchClasses();
+        window.addEventListener('customClassesUpdated', handleCustomUpdate);
+
         fetchSchoolDetails();
         fetchClasses();
+
+        return () => {
+            window.removeEventListener('customClassesUpdated', handleCustomUpdate);
+        };
     }, [isOpen, user, roleToAdd]);
 
     if (!isOpen) return null;

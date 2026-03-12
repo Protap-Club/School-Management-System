@@ -2,13 +2,22 @@ import React, { useState, useEffect } from 'react';
 import {
   FaTimes, FaIdCard, FaBuilding, FaLayerGroup, FaEnvelope, FaPhone, FaSave, FaUser, FaTrash, FaChalkboardTeacher
 } from 'react-icons/fa';
+import api from '../../../api/axios';
 import { useUpdateUser } from '../api/queries';
+
+const naturalSort = (arr) => {
+  return [...arr].sort((a, b) => {
+    return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
+  });
+};
 
 const UserDetailModal = ({ user, onClose, initialMode = 'view', onSuccess }) => {
   const updateUserMutation = useUpdateUser();
   const [mode, setMode] = useState(initialMode);
   const [formData, setFormData] = useState({});
   const [guardianTab, setGuardianTab] = useState('parents');
+  const [standards, setStandards] = useState([]);
+  const [sections, setSections] = useState([]);
 
   useEffect(() => {
     if (user) {
@@ -35,6 +44,44 @@ const UserDetailModal = ({ user, onClose, initialMode = 'view', onSuccess }) => 
     }
   }, [user, initialMode]);
 
+  const isStudent = user?.role === 'student';
+  const isTeacher = user?.role === 'teacher';
+  const isAdmin = user?.role === 'admin';
+  const isEditing = mode === 'edit';
+
+  useEffect(() => {
+    if (isEditing && (isStudent || isTeacher)) {
+      const fetchClasses = async () => {
+        try {
+          const response = await api.get('/school/classes');
+          const data = response.data?.data;
+          
+          let localData = { standards: [], sections: [] };
+          try {
+            const stored = localStorage.getItem('school_custom_classes');
+            if (stored) localData = JSON.parse(stored);
+          } catch (e) {
+            console.error('Failed to parse local classes', e);
+          }
+          
+          setStandards(naturalSort(Array.from(new Set([...(data?.standards || []), ...(localData.standards || [])]))));
+          setSections(naturalSort(Array.from(new Set([...(data?.sections || []), ...(localData.sections || [])]))));
+        } catch {
+          let localData = { standards: [], sections: [] };
+          try {
+            const stored = localStorage.getItem('school_custom_classes');
+            if (stored) localData = JSON.parse(stored);
+          } catch (e) {
+            console.error('Failed to parse local classes', e);
+          }
+          setStandards(naturalSort(localData.standards || []));
+          setSections(naturalSort(localData.sections || []));
+        }
+      };
+      fetchClasses();
+    }
+  }, [isEditing, isStudent, isTeacher]);
+
   if (!user) return null;
 
   const handleSave = async () => {
@@ -46,12 +93,6 @@ const UserDetailModal = ({ user, onClose, initialMode = 'view', onSuccess }) => 
       console.error('Update failed', error);
     }
   };
-
-  const isStudent = user.role === 'student';
-  const isTeacher = user.role === 'teacher';
-  const isAdmin = user.role === 'admin';
-  const isEditing = mode === 'edit';
-
   // Helper to get teacher's primary class
   const getTeacherClass = () => {
     const classes = formData.profile?.assignedClasses || [];
@@ -192,12 +233,14 @@ const UserDetailModal = ({ user, onClose, initialMode = 'view', onSuccess }) => 
                         <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Standard</p>
                       </div>
                       {isEditing ? (
-                        <input
-                          type="text"
+                        <select
                           className="w-full bg-gray-50 rounded px-2 py-1 text-xs font-black outline-none border border-gray-100 focus:border-blue-300 transition-all"
                           value={formData.profile?.standard}
                           onChange={(e) => setFormData({ ...formData, profile: { ...formData.profile, standard: e.target.value } })}
-                        />
+                        >
+                          <option value="" disabled hidden>Standard</option>
+                          {standards.map(std => <option key={std} value={std}>{std}</option>)}
+                        </select>
                       ) : (
                         <span className="text-sm font-black text-gray-900">{formData.profile?.standard || 'N/A'}</span>
                       )}
@@ -208,12 +251,14 @@ const UserDetailModal = ({ user, onClose, initialMode = 'view', onSuccess }) => 
                         <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Section</p>
                       </div>
                       {isEditing ? (
-                        <input
-                          type="text"
+                        <select
                           className="w-full bg-gray-50 rounded px-2 py-1 text-xs font-black outline-none border border-gray-100 focus:border-blue-300 transition-all"
                           value={formData.profile?.section}
                           onChange={(e) => setFormData({ ...formData, profile: { ...formData.profile, section: e.target.value } })}
-                        />
+                        >
+                          <option value="" disabled hidden>Section</option>
+                          {sections.map(sec => <option key={sec} value={sec}>{sec}</option>)}
+                        </select>
                       ) : (
                         <span className="text-sm font-black text-gray-900">{formData.profile?.section || 'N/A'}</span>
                       )}
