@@ -16,32 +16,35 @@ export const EXAM_QUERY_KEYS = {
 // ── Custom Hooks ───────────────────────────────────────────────────
 
 // Get exams list (filtered by role)
+// Normalizes API response to return a plain array of exams
 export const useExams = (filters = {}) => {
   return useQuery({
     queryKey: EXAM_QUERY_KEYS.list(filters),
     queryFn: () => examApi.getExams(filters),
-    select: (response) => response.data,
+    select: (response) => response?.data || [],
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 };
 
 // Get single exam by ID
+// Returns a normalized exam object (or null)
 export const useExam = (examId) => {
   return useQuery({
     queryKey: EXAM_QUERY_KEYS.detail(examId),
     queryFn: () => examApi.getExamById(examId),
-    select: (response) => response.data,
+    select: (response) => response?.data || null,
     enabled: !!examId,
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 };
 
 // Get student's exams
+// Normalizes to { termExams: [], classTests: [] }
 export const useMyExams = (filters = {}) => {
   return useQuery({
     queryKey: EXAM_QUERY_KEYS.myExamsList(filters),
     queryFn: () => examApi.getMyExams(filters),
-    select: (response) => response.data,
+    select: (response) => response?.data || { termExams: [], classTests: [] },
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 };

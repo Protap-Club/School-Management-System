@@ -83,29 +83,25 @@ export const getExams = async (schoolId, filters = {}, user) => {
     // Role-based filtering
     if (user.role === USER_ROLES.TEACHER) {
         const profile = await TeacherProfile.findOne({ userId: user._id, schoolId }).lean();
-        if (!profile || !profile.assignedClasses?.length) return [];
 
-        const classFilters = profile.assignedClasses.map((c) => ({
-            standard: c.standard,
-            section: c.section,
-        }));
-        query.$or = classFilters;
-    } else if (user.role === USER_ROLES.STUDENT) {
-        const profile = await StudentProfile.findOne({ userId: user._id, schoolId }).lean();
-        if (!profile) return [];
-
-        query.standard = profile.standard;
-        query.section = profile.section;
-        // Students only see published or completed exams
-        query.status = { $in: ["PUBLISHED", "COMPLETED"] };
+        if (profile?.assignedClasses?.length) {
+            const classFilters = profile.assignedClasses.map((c) => ({
+                standard: c.standard,
+                section: c.section,
+            }));
+            query.$or = classFilters;
+        } else {
+            // Fallback: if teacher has no assigned classes, at least show exams they created
+            query.createdBy = user._id;
+        }
     }
 
     // Apply filters
     if (filters.examType) query.examType = filters.examType;
     if (filters.academicYear) query.academicYear = Number(filters.academicYear);
-    if (filters.standard && user.role !== USER_ROLES.STUDENT) query.standard = filters.standard;
-    if (filters.section && user.role !== USER_ROLES.STUDENT) query.section = filters.section;
-    if (filters.status && user.role !== USER_ROLES.STUDENT) query.status = filters.status;
+    if (filters.standard) query.standard = filters.standard;
+    if (filters.section) query.section = filters.section;
+    if (filters.status) query.status = filters.status;
 
     return await Exam.find(query)
         .populate("createdBy", "name email")
@@ -135,16 +131,6 @@ export const getExamById = async (schoolId, examId, user) => {
         if (!hasAccess) throw new ForbiddenError("You don't have access to this exam");
     }
 
-    // Access check for student
-    if (user.role === USER_ROLES.STUDENT) {
-        if (!["PUBLISHED", "COMPLETED"].includes(exam.status)) {
-            throw new NotFoundError("Exam not found");
-        }
-        const profile = await StudentProfile.findOne({ userId: user._id, schoolId }).lean();
-        if (!profile || profile.standard !== exam.standard || profile.section !== exam.section) {
-            throw new ForbiddenError("You don't have access to this exam");
-        }
-    }
 
     return exam;
 };
@@ -177,6 +163,8 @@ export const updateExam = async (schoolId, examId, data, user) => {
     // Apply safe updates (don't allow changing examType, standard, section, academicYear)
     if (data.name !== undefined) exam.name = data.name;
     if (data.category !== undefined) exam.category = data.category;
+    if (data.categoryDescription !== undefined)
+        exam.categoryDescription = data.categoryDescription;
     if (data.description !== undefined) exam.description = data.description;
     if (data.schedule !== undefined) exam.schedule = data.schedule;
 

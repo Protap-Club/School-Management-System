@@ -40,14 +40,14 @@ router.get(
 // ── Shared: List & View (mobile + web) ───────────────────────
 router.get(
     "/",
-    checkRole([USER_ROLES.ADMIN, USER_ROLES.TEACHER, USER_ROLES.STUDENT]),
+    checkRole([USER_ROLES.ADMIN, USER_ROLES.TEACHER]),
     validate(getExamsQuerySchema),
     getExams
 );
 
 router.get(
     "/:id",
-    checkRole([USER_ROLES.ADMIN, USER_ROLES.TEACHER, USER_ROLES.STUDENT]),
+    checkRole([USER_ROLES.ADMIN, USER_ROLES.TEACHER]),
     validate(examIdParamsSchema),
     getExamById
 );
