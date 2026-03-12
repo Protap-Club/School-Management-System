@@ -9,7 +9,7 @@ export const createUserSchema = z.object({
     body: z.object({
         name: z.string().min(1, 'Name is required'),
         email: z.string().trim().email('Invalid email address'),
-        contactNo: z.string().min(1, 'Contact number is required'),
+        contactNo: z.string().optional(),
         role: z.enum(roleValues, {
             errorMap: () => ({ message: `Role must be one of: ${roleValues.join(', ')}` })
         }),
@@ -46,7 +46,7 @@ export const createUserSchema = z.object({
         const { role } = data;
 
         if (role === USER_ROLES.STUDENT) {
-            const required = ['rollNumber', 'standard', 'section', 'fatherName'];
+            const required = ['rollNumber', 'standard', 'section'];
             required.forEach(field => {
                 if (!data[field]) {
                     ctx.addIssue({
@@ -57,16 +57,8 @@ export const createUserSchema = z.object({
                 }
             });
         } else if (role === USER_ROLES.TEACHER) {
-            const required = ['employeeId', 'qualification', 'joiningDate'];
-            required.forEach(field => {
-                if (!data[field]) {
-                    ctx.addIssue({
-                        code: z.ZodIssueCode.custom,
-                        message: `${field.charAt(0).toUpperCase() + field.slice(1).replace(/([A-Z])/g, ' $1')} is required for teachers`,
-                        path: [field]
-                    });
-                }
-            });
+            // employeeId, qualification, joiningDate are optional at creation —
+            // they can be updated later via the profile edit form.
         } else if (role === USER_ROLES.ADMIN) {
             if (!data.department) {
                 ctx.addIssue({
