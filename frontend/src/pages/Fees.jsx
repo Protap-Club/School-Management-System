@@ -61,7 +61,7 @@ const Fees = () => {
     const isStudent = user?.role === 'student';
 
     const [activeTab, setActiveTab] = useState(
-        isAdmin ? 'management' : isTeacher ? 'overview' : 'student_fees'
+        isAdmin ? 'management' : isTeacher ? 'salary' : 'student_fees'
     );
     const [mgmtView, setMgmtView] = useState('selection'); // selection, student_list, student_form, staff
     const [toast, setToast] = useState({ type: '', text: '' });
@@ -102,10 +102,9 @@ const Fees = () => {
 
     const { data: structData, isLoading: structLoading } = useFeeStructures(
         cleanFilters,
-        isAdmin || isTeacher
+        isAdmin
     );
     const { data: overviewData, isLoading: overviewLoading } = useAllClassesOverview(overviewYear, overviewMonth, isAdmin);
-    const { data: myClassesData, isLoading: myClassesLoading } = useMyClassFees(overviewYear, overviewMonth, isTeacher);
     const { data: teachersData, isLoading: teachersLoading } = useUsers({ role: 'teacher', pageSize: 100 });
 
     const { data: classData, isLoading: classLoading } = useClassOverview(
@@ -143,20 +142,10 @@ const Fees = () => {
 
     const overviewClasses = useMemo(() => {
         if (isAdmin) return overviewData?.data?.classes || [];
-        if (isTeacher) {
-            return (myClassesData?.data || []).map(c => ({
-                standard: c.standard,
-                section: c.section,
-                totalDue: (c.summary?.totalCollected || 0) + (c.summary?.totalPending || 0) + (c.summary?.totalOverdue || 0),
-                totalCollected: c.summary?.totalCollected || 0,
-                totalPending: (c.summary?.totalPending || 0) + (c.summary?.totalOverdue || 0),
-                studentCount: c.summary?.totalStudents || 0,
-            }));
-        }
         return [];
-    }, [isAdmin, isTeacher, overviewData, myClassesData]);
+    }, [isAdmin, overviewData]);
 
-    const isLoadingOverview = isAdmin ? overviewLoading : myClassesLoading;
+    const isLoadingOverview = overviewLoading;
     const classStudents = classData?.data?.students || [];
     const classSummary = classData?.data?.summary || {};
     const yearlyBreakdown = yearlyData?.data?.monthlyBreakdown || [];
@@ -315,14 +304,14 @@ const Fees = () => {
                 {/* Tabs */}
                 <div className="flex gap-1 bg-gray-100 p-1 rounded-xl w-fit">
                     {isAdmin && renderTabBtn('management', <FaListAlt size={12} />, 'Fee Structure')}
-                    {!isAdmin && renderTabBtn('structures', <FaListAlt size={12} />, 'Assigned Fees')}
-                    {renderTabBtn('overview', <FaEye size={12} />, 'Overview')}
+                    {(!isAdmin && !isTeacher) && renderTabBtn('structures', <FaListAlt size={12} />, 'Assigned Fees')}
+                    {isAdmin && renderTabBtn('overview', <FaEye size={12} />, 'Overview')}
                     {isTeacher && renderTabBtn('salary', <FaWallet size={12} />, 'My Salary')}
                     {isAdmin && renderTabBtn('yearly', <FaChartBar size={12} />, 'Yearly Summary')}
                 </div>
 
                 {/* ── TAB: Management (Unified) ────────────────────────── */}
-                {activeTab === 'management' && (
+                {isAdmin && activeTab === 'management' && (
                     <div className="space-y-6">
                         {mgmtView === 'selection' && (
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fadeIn">
@@ -650,7 +639,7 @@ const Fees = () => {
                 )}
 
                 {/* ── TAB: Overview ──────────────────────────────────── */}
-                {activeTab === 'overview' && !selectedClass && !selectedStudent && (
+                {isAdmin && activeTab === 'overview' && !selectedClass && !selectedStudent && (
                     <div className="space-y-4">
                         <div className="bg-white rounded-2xl border border-gray-200 p-5">
                             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
@@ -713,7 +702,7 @@ const Fees = () => {
                 )}
 
                 {/* Class Detail View */}
-                {activeTab === 'overview' && selectedClass && !selectedStudent && (
+                {isAdmin && activeTab === 'overview' && selectedClass && !selectedStudent && (
                     <div className="space-y-4">
                         <button onClick={() => setSelectedClass(null)} className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700 transition-colors">
                             <FaArrowLeft size={12} />Back to All Classes
@@ -760,7 +749,7 @@ const Fees = () => {
                                                         <td className="px-4 py-3 text-gray-500 text-xs">{fee.dueDate ? new Date(fee.dueDate).toLocaleDateString() : '-'}</td>
                                                         <td className="px-4 py-3">
                                                             <div className="flex items-center gap-1">
-                                                                {(isAdmin || isTeacher) && fee.status !== 'PAID' && fee.status !== 'WAIVED' && (
+                                                                 {isAdmin && fee.status !== 'PAID' && fee.status !== 'WAIVED' && (
                                                                     <>
                                                                         <button onClick={() => setPaymentModal({ open: true, assignment: { _id: fee.assignmentId, netAmount: fee.amount, paidAmount: fee.paid } })}
                                                                             title="Record Payment" className="p-1.5 text-emerald-500 hover:bg-emerald-50 rounded-lg transition-colors"><FaMoneyBillWave size={12} /></button>
@@ -782,7 +771,7 @@ const Fees = () => {
                 )}
 
                 {/* Student History View */}
-                {activeTab === 'overview' && selectedStudent && (
+                {isAdmin && activeTab === 'overview' && selectedStudent && (
                     <div className="space-y-4">
                         <button onClick={() => setSelectedStudent(null)} className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700 transition-colors">
                             <FaArrowLeft size={12} />Back to Class
@@ -830,7 +819,7 @@ const Fees = () => {
                                                         ) : <span className="text-xs text-gray-400">—</span>}
                                                     </td>
                                                     <td className="px-4 py-3">
-                                                        {(isAdmin || isTeacher) && fee.status !== 'PAID' && fee.status !== 'WAIVED' && (
+                                                        {isAdmin && fee.status !== 'PAID' && fee.status !== 'WAIVED' && (
                                                             <button onClick={() => setPaymentModal({ open: true, assignment: { _id: fee.assignmentId, netAmount: fee.amount, paidAmount: fee.paid } })}
                                                                 className="p-1.5 text-emerald-500 hover:bg-emerald-50 rounded-lg transition-colors"><FaMoneyBillWave size={12} /></button>
                                                         )}
@@ -846,7 +835,7 @@ const Fees = () => {
                 )}
 
                 {/* ── TAB: Yearly Summary ────────────────────────────── */}
-                {activeTab === 'yearly' && (
+                {isAdmin && activeTab === 'yearly' && (
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                         <div className="lg:col-span-2 space-y-6">
                             <div className="bg-white rounded-2xl border border-gray-200 p-5">
@@ -1106,8 +1095,8 @@ const Fees = () => {
                     </div>
                 )}
 
-                {/* ── TAB: Assigned Fees (Teacher/Non-Admin) ───────── */}
-                {activeTab === 'structures' && !isAdmin && (
+                {/* ── TAB: Assigned Fees (Student Only) ─────────────── */}
+                {activeTab === 'structures' && isStudent && (
                     <div className="space-y-4 animate-fadeIn">
                         {structModal.editData && activeTab === 'structures' ? (
                             <>
