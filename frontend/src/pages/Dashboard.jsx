@@ -612,7 +612,7 @@ const Dashboard = () => {
           <motion.div variants={itemVariants} className="space-y-6">
             <div className="flex justify-between items-end px-2">
               <div>
-                <h2 className="text-2xl font-black text-gray-900 tracking-tight uppercase">Classroom <span className="text-primary">Status Matrix</span></h2>
+                <h2 className="text-2xl font-black text-gray-900 tracking-tight uppercase">Classroom <span className="text-primary">Attendance Matrix</span></h2>
                 <p className="text-[10px] text-gray-400 font-bold tracking-widest uppercase">Live Attendance Heatmap</p>
               </div>
               <div className="flex gap-2">
