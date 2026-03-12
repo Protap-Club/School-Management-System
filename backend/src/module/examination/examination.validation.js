@@ -32,6 +32,7 @@ export const createExamSchema = z.object({
             .enum(["MIDTERM", "FINAL", "SEMESTER", "UNIT_TEST", "CLASS_TEST", "SURPRISE_TEST", "WEEKLY_QUIZ", "OTHER"])
             .optional()
             .default("OTHER"),
+        categoryDescription: z.string().max(200).optional(),
         academicYear: z.number({ required_error: "Academic year is required" }).int().min(2000).max(2100),
         standard: z.string({ required_error: "Standard is required" }).nonempty(),
         section: z.string({ required_error: "Section is required" }).nonempty(),
@@ -53,6 +54,7 @@ export const updateExamSchema = z.object({
         category: z
             .enum(["MIDTERM", "FINAL", "SEMESTER", "UNIT_TEST", "CLASS_TEST", "SURPRISE_TEST", "WEEKLY_QUIZ", "OTHER"])
             .optional(),
+        categoryDescription: z.string().max(200).optional(),
         description: z.string().max(500).optional(),
         schedule: z.array(scheduleItemSchema).optional(),
     }),
