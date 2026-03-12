@@ -82,7 +82,7 @@ export const ReceiverAckButton = ({ noticeId, currentUserId, acknowledgments = [
                     >
                         <div className="px-5 py-4 border-b border-gray-100">
                             <h3 className="text-base font-semibold text-gray-900">Acknowledge Notice</h3>
-                            <p className="text-xs text-gray-500 mt-0.5">Add an optional response message before acknowledging.</p>
+                            <p className="text-xs text-gray-500 mt-0.5">Add a response message before acknowledging.</p>
                         </div>
                         <div className="p-5 space-y-3">
                             <textarea
@@ -90,7 +90,7 @@ export const ReceiverAckButton = ({ noticeId, currentUserId, acknowledgments = [
                                 onChange={(e) => setResponseText(e.target.value)}
                                 maxLength={500}
                                 rows={3}
-                                placeholder="Type your response (optional)..."
+                                placeholder="Type your response..."
                                 className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary resize-none transition-all"
                             />
                             <p className="text-xs text-gray-400 text-right">{responseText.length}/500</p>
@@ -105,8 +105,8 @@ export const ReceiverAckButton = ({ noticeId, currentUserId, acknowledgments = [
                             </button>
                             <button
                                 onClick={handleSubmit}
-                                disabled={ackMutation.isPending}
-                                className="flex-1 px-3 py-2 bg-primary hover:bg-primary-hover text-white font-medium rounded-xl transition-colors text-sm flex items-center justify-center gap-1.5 disabled:opacity-70"
+                                disabled={ackMutation.isPending || !responseText.trim()}
+                                className="flex-1 px-3 py-2 bg-primary hover:bg-primary-hover text-white font-medium rounded-xl transition-colors text-sm flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 {ackMutation.isPending ? (
                                     <><FaCircleNotch className="animate-spin text-xs" /> Submitting...</>
