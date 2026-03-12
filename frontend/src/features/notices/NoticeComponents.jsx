@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
     FaCheck, FaCircleNotch, FaTimes, FaDownload, FaPaperclip, FaPaperPlane,
     FaFilePdf, FaFileWord, FaFilePowerpoint, FaFileExcel, FaFileAlt, FaImage, FaFileVideo
@@ -37,7 +37,10 @@ export const ReceiverAckButton = ({ noticeId, currentUserId, acknowledgments = [
         a.userId === currentUserId || (a.userId && a.userId._id === currentUserId)
     );
     const ackMutation = useAcknowledgeNotice(noticeId);
+    const [showModal, setShowModal] = useState(false);
+    const [responseText, setResponseText] = useState('');
 
+    // Already acknowledged — show green pill
     if (isAcknowledged) {
         return (
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50/80 border border-emerald-200/60 text-emerald-700 font-medium text-[12px] shadow-[0_1px_2px_rgba(16,185,129,0.05)] tracking-wide">
@@ -49,21 +52,73 @@ export const ReceiverAckButton = ({ noticeId, currentUserId, acknowledgments = [
         );
     }
 
+    const handleSubmit = () => {
+        ackMutation.mutate(responseText.trim(), {
+            onSuccess: () => {
+                setShowModal(false);
+                setResponseText('');
+            },
+        });
+    };
+
     return (
-        <button
-            onClick={() => ackMutation.mutate()}
-            disabled={ackMutation.isPending}
-            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#F0F5FF] hover:bg-[#E5EDFF] border border-blue-200/60 text-[#2563EB] font-medium text-[12px] tracking-wide transition-all duration-200 hover:shadow-[0_2px_4px_rgba(37,99,235,0.08)] disabled:opacity-60 disabled:pointer-events-none group cursor-pointer"
-        >
-            {ackMutation.isPending ? (
-                <FaCircleNotch className="animate-spin text-[12px] text-blue-500" />
-            ) : (
+        <>
+            <button
+                onClick={() => setShowModal(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#F0F5FF] hover:bg-[#E5EDFF] border border-blue-200/60 text-[#2563EB] font-medium text-[12px] tracking-wide transition-all duration-200 hover:shadow-[0_2px_4px_rgba(37,99,235,0.08)] group cursor-pointer"
+            >
                 <div className="w-4 h-4 rounded border-2 border-[#60A5FA] group-hover:border-[#3B82F6] group-hover:bg-[#3B82F6] text-white flex items-center justify-center transition-all duration-200">
                     <FaCheck className="text-[9px] opacity-0 group-hover:opacity-100 transition-opacity duration-200 scale-50 group-hover:scale-100" />
                 </div>
+                <span>Pending Acknowledgment</span>
+            </button>
+
+            {/* Acknowledgment Response Modal */}
+            {showModal && (
+                <div className={MODAL_OVERLAY} onClick={() => setShowModal(false)}>
+                    <div
+                        className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden animate-fadeIn"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="px-5 py-4 border-b border-gray-100">
+                            <h3 className="text-base font-semibold text-gray-900">Acknowledge Notice</h3>
+                            <p className="text-xs text-gray-500 mt-0.5">Add an optional response message before acknowledging.</p>
+                        </div>
+                        <div className="p-5 space-y-3">
+                            <textarea
+                                value={responseText}
+                                onChange={(e) => setResponseText(e.target.value)}
+                                maxLength={500}
+                                rows={3}
+                                placeholder="Type your response (optional)..."
+                                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary resize-none transition-all"
+                            />
+                            <p className="text-xs text-gray-400 text-right">{responseText.length}/500</p>
+                        </div>
+                        <div className="px-5 py-3 border-t border-gray-100 flex gap-2">
+                            <button
+                                onClick={() => { setShowModal(false); setResponseText(''); }}
+                                disabled={ackMutation.isPending}
+                                className="flex-1 px-3 py-2 border border-gray-200 text-gray-700 font-medium rounded-xl hover:bg-gray-50 transition-colors text-sm disabled:opacity-50"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleSubmit}
+                                disabled={ackMutation.isPending}
+                                className="flex-1 px-3 py-2 bg-primary hover:bg-primary-hover text-white font-medium rounded-xl transition-colors text-sm flex items-center justify-center gap-1.5 disabled:opacity-70"
+                            >
+                                {ackMutation.isPending ? (
+                                    <><FaCircleNotch className="animate-spin text-xs" /> Submitting...</>
+                                ) : (
+                                    <><FaCheck size={11} /> Acknowledge</>
+                                )}
+                            </button>
+                        </div>
+                    </div>
+                </div>
             )}
-            <span>{ackMutation.isPending ? 'Acknowledging...' : 'Pending Acknowledgment'}</span>
-        </button>
+        </>
     );
 };
 
@@ -110,11 +165,16 @@ export const AcknowledgmentPanel = ({ noticeId }) => {
                     {acknowledged.length === 0 ? (
                         <p className="text-sm text-gray-400 italic">No one has acknowledged yet.</p>
                     ) : (
-                        <ul className="space-y-2 max-h-32 overflow-y-auto pr-2 custom-scrollbar">
+                        <ul className="space-y-2 max-h-40 overflow-y-auto pr-2 custom-scrollbar">
                             {acknowledged.map((u, i) => (
-                                <li key={i} className="flex justify-between items-center text-sm py-1 border-b border-gray-50 last:border-0">
-                                    <span className="font-medium text-gray-800">{u.name} <span className="text-gray-400 font-normal text-xs ml-1">({u.role})</span></span>
-                                    <span className="text-xs text-gray-500">{new Date(u.timestamp).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                                <li key={i} className="text-sm py-1.5 border-b border-gray-50 last:border-0">
+                                    <div className="flex justify-between items-center">
+                                        <span className="font-medium text-gray-800">{u.name} <span className="text-gray-400 font-normal text-xs ml-1">({u.role})</span></span>
+                                        <span className="text-xs text-gray-500">{new Date(u.timestamp).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                                    </div>
+                                    {u.responseMessage && (
+                                        <p className="text-xs text-gray-500 italic mt-0.5 ml-0.5 line-clamp-2">"{u.responseMessage}"</p>
+                                    )}
                                 </li>
                             ))}
                         </ul>
