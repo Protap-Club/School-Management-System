@@ -217,11 +217,22 @@ export const getReceivedNotices = async (schoolId, user) => {
     const userGroups = await NoticeGroup.find({ schoolId, members: userId, isActive: true }).select('_id').lean();
     userGroups.forEach(g => targetRecipients.push(g._id.toString()));
 
+    let myTeacherIds = [];
+
     // 3. Fetch User's Classes (if student or teacher)
     if (role === USER_ROLES.STUDENT) {
         const profile = await StudentProfile.findOne({ schoolId, userId }).lean();
         if (profile && profile.standard && profile.section) {
             targetRecipients.push(`${profile.standard}-${profile.section}`);
+            
+            // Allow student to receive 'All Students' notices sent implicitly by their own assigned teachers
+            const teachers = await TeacherProfile.find({
+                schoolId,
+                assignedClasses: {
+                    $elemMatch: { standard: profile.standard, section: profile.section }
+                }
+            }).select('userId').lean();
+            myTeacherIds = teachers.map(t => t.userId);
         }
     } else if (role === USER_ROLES.TEACHER) {
         const profile = await TeacherProfile.findOne({ schoolId, userId }).lean();
@@ -232,13 +243,25 @@ export const getReceivedNotices = async (schoolId, user) => {
         }
     }
 
+    const orConditions = [
+        { recipientType: 'all' }, // Sent to entire school
+        { recipients: { $in: targetRecipients } } // explicitly sent to me, my class, or my group
+    ];
+
+    // If teacher sent to "All Students", it's implicit (recipients is empty array).
+    // Only fetch these if the sender is actually one of my assigned teachers.
+    if (role === USER_ROLES.STUDENT && myTeacherIds.length > 0) {
+        orConditions.push({
+            recipientType: 'students',
+            recipients: { $size: 0 },
+            createdBy: { $in: myTeacherIds }
+        });
+    }
+
     const results = await Notice.find({
         schoolId,
         createdBy: { $ne: userId },
-        $or: [
-            { recipients: { $size: 0 } },  // Sent to all
-            { recipients: { $in: targetRecipients } } // Sent to me, my class, or my group
-        ],
+        $or: orConditions
     })
         .populate("createdBy", "name email role")
         .sort({ createdAt: -1 })
