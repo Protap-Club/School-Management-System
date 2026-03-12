@@ -14,6 +14,7 @@ export const feeKeys = {
     salaries: () => [...feeKeys.all, 'salaries'],
     salaryList: (filters) => [...feeKeys.salaries(), filters],
     mySalary: (filters) => [...feeKeys.all, 'mySalary', filters],
+    myFees: (filters) => [...feeKeys.all, 'myFees', filters],
 };
 
 // ── Fee Structure Queries ─────────────────────────────────────
@@ -131,6 +132,14 @@ export const useMyClassFees = (academicYear, month, isTeacher = false) => {
         queryKey: feeKeys.myClasses(academicYear, month),
         queryFn: () => feesApi.getMyClassFees({ academicYear, month }),
         enabled: !!academicYear && !!month && isTeacher,
+    });
+};
+
+export const useMyFees = (filters = {}, isStudent = false) => {
+    return useQuery({
+        queryKey: feeKeys.myFees(filters),
+        queryFn: () => feesApi.getMyFees(filters),
+        enabled: isStudent,
     });
 };
 

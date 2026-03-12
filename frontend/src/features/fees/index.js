@@ -20,6 +20,7 @@ export {
     useUpdateSalaryStatus,
     useMySalary,
     useUpdateTeacherProfile,
+    useMyFees,
 } from './api/queries';
 
 // Constants

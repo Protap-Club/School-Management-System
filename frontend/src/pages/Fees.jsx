@@ -7,6 +7,7 @@ import {
     useGenerateAssignments, useAllClassesOverview, useClassOverview, useYearlySummary,
     useMyClassFees, useStudentFeeHistory, useRecordPayment, useUpdateAssignment,
     useCreateSalary, useSalaries, useUpdateSalaryStatus, useMySalary, useUpdateTeacherProfile,
+    useMyFees,
     FEE_TYPES, FEE_TYPE_LABELS, FREQUENCY_LABELS, STATUS_COLORS, MONTH_LABELS,
 } from '../features/fees';
 import { useAuth } from '../features/auth';
@@ -57,8 +58,11 @@ const Fees = () => {
     const { user } = useAuth();
     const isAdmin = user?.role === 'admin';
     const isTeacher = user?.role === 'teacher';
+    const isStudent = user?.role === 'student';
 
-    const [activeTab, setActiveTab] = useState(isAdmin ? 'management' : 'overview');
+    const [activeTab, setActiveTab] = useState(
+        isAdmin ? 'management' : isTeacher ? 'overview' : 'student_fees'
+    );
     const [mgmtView, setMgmtView] = useState('selection'); // selection, student_list, student_form, staff
     const [toast, setToast] = useState({ type: '', text: '' });
 
@@ -115,6 +119,9 @@ const Fees = () => {
     // Salary Queries
     const { data: salaryData, isLoading: salariesLoading } = useSalaries({ year: overviewYear }, isAdmin);
     const { data: mySalaryData, isLoading: mySalaryLoading } = useMySalary({ year: overviewYear }, isTeacher);
+
+    // Student Queries
+    const { data: myFeesData, isLoading: myFeesLoading } = useMyFees({ academicYear: summaryYear }, isStudent);
 
     // Mutations
     const createMut = useCreateFeeStructure();
@@ -255,6 +262,9 @@ const Fees = () => {
             {icon}{label}
         </button>
     );
+
+    const myFees = myFeesData?.data?.fees || [];
+    const mySummary = myFeesData?.data?.summary || {};
 
 
 
@@ -912,10 +922,8 @@ const Fees = () => {
                                     </table>
                                 </div>
                             </div>
-                        </div>
 
-                        {/* Sidebar: Breakdown by Type */}
-                        <div className="space-y-6">
+                            {/* Moved: Breakdown by Fee Type */}
                             <div className="bg-white rounded-2xl border border-gray-200 p-5">
                                 <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
                                     <span className="w-1.5 h-6 bg-primary rounded-full"></span>
@@ -960,6 +968,70 @@ const Fees = () => {
                                                 </div>
                                             </div>
                                         ))
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Sidebar: Staff Salaries History */}
+                        <div className="space-y-6">
+                            <div className="bg-white rounded-2xl border border-gray-200 p-5">
+                                <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                                    <span className="w-1.5 h-6 bg-violet-500 rounded-full"></span>
+                                    Staff Salaries History
+                                </h3>
+                                <div className="space-y-3">
+                                    {teachersLoading || salariesLoading ? (
+                                        Array.from({ length: 4 }).map((_, i) => (
+                                            <div key={i} className="h-20 bg-gray-50 rounded-xl animate-pulse" />
+                                        ))
+                                    ) : (teachersData?.data?.users || []).length === 0 ? (
+                                        <p className="text-sm text-gray-500 text-center py-4">No staff data available</p>
+                                    ) : (
+                                        <>
+                                            {(teachersData?.data?.users || []).slice(0, 4).map(staff => {
+                                                const staffId = String(staff._id);
+                                                const staffSalaries = (salaryData?.data || []).filter(s => {
+                                                    const sId = s.teacherId?._id ? String(s.teacherId._id) : String(s.teacherId);
+                                                    return sId === staffId;
+                                                });
+                                                const totalPaid = staffSalaries.filter(s => s.status === 'PAID').reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
+                                                const totalPending = staffSalaries.filter(s => s.status === 'PENDING').reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
+                                                
+                                                return (
+                                                    <div key={staff._id} className="p-3.5 bg-gray-50 border border-gray-100 rounded-xl hover:shadow-sm transition-all group">
+                                                        <div className="flex flex-col mb-2">
+                                                            <div>
+                                                                <p className="text-sm font-bold text-gray-900 group-hover:text-violet-600 transition-colors">{staff.name}</p>
+                                                                <p className="text-[10px] text-gray-500 uppercase font-bold tracking-tight mb-2">{staff.email}</p>
+                                                            </div>
+                                                            <div className="flex justify-between items-center bg-white p-2 text-center rounded-lg border border-gray-100 shadow-sm mt-1">
+                                                                <div className="flex-1 border-r border-gray-100">
+                                                                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">Paid</p>
+                                                                    <p className="text-xs font-black text-emerald-600">₹{(totalPaid || 0).toLocaleString()}</p>
+                                                                </div>
+                                                                <div className="flex-1">
+                                                                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">Pending</p>
+                                                                    <p className="text-xs font-black text-amber-600">₹{(totalPending || 0).toLocaleString()}</p>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                    </div>
+                                                );
+                                            })}
+                                            {(teachersData?.data?.users || []).length > 4 && (
+                                                <button 
+                                                    onClick={() => {
+                                                        setActiveTab('management');
+                                                        setMgmtView('staff');
+                                                    }}
+                                                    className="w-full mt-2 py-3 bg-violet-50 hover:bg-violet-100 text-violet-700 font-bold rounded-xl text-sm transition-colors border border-violet-100 flex items-center justify-center gap-2"
+                                                >
+                                                    Manage More History <FaArrowRight size={12} />
+                                                </button>
+                                            )}
+                                        </>
                                     )}
                                 </div>
                             </div>
@@ -1107,6 +1179,95 @@ const Fees = () => {
                                 </div>
                             </div>
                         )}
+                    </div>
+                )}
+
+                {/* ── TAB: Student Fees ────────────────────────────── */}
+                {activeTab === 'student_fees' && isStudent && (
+                    <div className="space-y-6 animate-fadeIn">
+                        {/* Highlights Row */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            {[
+                                { label: 'Total Payable', val: mySummary.totalDue || 0, icon: <FaWallet />, color: 'blue' },
+                                { label: 'Amount Paid', val: mySummary.totalPaid || 0, icon: <FaCheck />, color: 'emerald' },
+                                { label: 'Pending Balance', val: mySummary.totalPending || 0, icon: <FaCalendarCheck />, color: 'amber' },
+                            ].map((h, i) => (
+                                <div key={i} className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm group hover:shadow-md transition-all">
+                                    <div className="flex items-center gap-4">
+                                        <div className={`w-12 h-12 rounded-xl bg-${h.color}-50 text-${h.color}-600 flex items-center justify-center group-hover:scale-110 transition-transform`}>
+                                            {h.icon}
+                                        </div>
+                                        <div>
+                                            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">{h.label}</p>
+                                            <p className="text-2xl font-black text-gray-900 mt-0.5">₹{h.val.toLocaleString()}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+
+                        <div className="bg-white rounded-2xl border border-gray-200 p-8 shadow-sm">
+                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+                                <div>
+                                    <h2 className="text-2xl font-black text-gray-900 font-display">My Fee Records</h2>
+                                    <p className="text-gray-500 mt-1">Detailed history of your fee assignments and payments.</p>
+                                </div>
+                                <select 
+                                    value={summaryYear}
+                                    onChange={(e) => setSummaryYear(Number(e.target.value))}
+                                    className="px-4 py-2.5 bg-gray-50 border-none rounded-xl text-sm font-bold text-gray-700 focus:ring-2 focus:ring-primary/20 cursor-pointer"
+                                >
+                                    {[currentYear, currentYear - 1].map(y => <option key={y} value={y}>Academic Year {y}</option>)}
+                                </select>
+                            </div>
+
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-sm text-left">
+                                    <thead>
+                                        <tr className="border-b border-gray-100 italic">
+                                            {['Month', 'Fee Name', 'Amount', 'Status', 'Payments'].map(h => (
+                                                <th key={h} className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">{h}</th>
+                                            ))}
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-50">
+                                        {myFeesLoading ? (
+                                            Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} cols={5} />)
+                                        ) : myFees.length === 0 ? (
+                                            <tr><td colSpan={5}><EmptyState icon={FaFileInvoice} title="No fee records" subtitle="No fees have been assigned to you for this period." /></td></tr>
+                                        ) : (
+                                            myFees.map((f, i) => (
+                                                <tr key={i} className="hover:bg-gray-50/50 transition-colors group">
+                                                    <td className="px-6 py-5 font-bold text-gray-900">{MONTH_LABELS[f.month]}</td>
+                                                    <td className="px-6 py-5">
+                                                        <div className="font-bold text-gray-900">{f.name}</div>
+                                                        <div className="text-[10px] text-gray-400 font-black uppercase tracking-tighter">{FEE_TYPE_LABELS[f.feeType]}</div>
+                                                    </td>
+                                                    <td className="px-6 py-5 font-black text-gray-900">₹{f.amount.toLocaleString()}</td>
+                                                    <td className="px-6 py-5">
+                                                        <StatusBadge status={f.status} />
+                                                    </td>
+                                                    <td className="px-6 py-5">
+                                                        {f.payments?.length > 0 ? (
+                                                            <div className="space-y-1">
+                                                                {f.payments.map((p, pi) => (
+                                                                    <div key={pi} className="flex items-center gap-2 text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md w-fit">
+                                                                        <FaReceipt size={10} />
+                                                                        <span>₹{p.amount.toLocaleString()} on {new Date(p.date).toLocaleDateString()}</span>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        ) : (
+                                                            <span className="text-[10px] font-bold text-gray-400 italic">No payments</span>
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                            ))
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
                     </div>
                 )}
             </div>
