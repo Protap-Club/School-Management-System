@@ -36,7 +36,7 @@ const SelectField = ({ label, name, value, onChange, options, placeholder, requi
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all bg-white disabled:opacity-60"
             disabled={loading}
         >
-            <option value="">{loading ? 'Loading...' : `Select ${label}`}</option>
+            <option value="" disabled selected hidden>{loading ? 'Loading...' : `Select ${label}`}</option>
             {options.map(opt => (
                 <option key={opt} value={opt}>{opt}</option>
             ))}
@@ -117,20 +117,49 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
                 try {
                     const response = await api.get('/school/classes');
                     const data = response.data?.data;
-                    setStandards(naturalSort(data?.standards || []));
-                    setSections(naturalSort(data?.sections || []));
+
+                    // Get custom classes from localStorage with safety
+                    let localData = { standards: [], sections: [] };
+                    try {
+                        const stored = localStorage.getItem('school_custom_classes');
+                        if (stored) localData = JSON.parse(stored);
+                    } catch (e) {
+                        console.error('Failed to parse local classes', e);
+                    }
+                    
+                    // Merge and ensure uniqueness with safety guards
+                    const combinedStandards = Array.from(new Set([...(data?.standards || []), ...(localData.standards || [])]));
+                    const combinedSections = Array.from(new Set([...(data?.sections || []), ...(localData.sections || [])]));
+
+                    setStandards(naturalSort(combinedStandards));
+                    setSections(naturalSort(combinedSections));
                 } catch {
-                    // fallback — keep empty
-                    setStandards([]);
-                    setSections([]);
+                    // Fallback to local data only
+                    let localData = { standards: [], sections: [] };
+                    try {
+                        const stored = localStorage.getItem('school_custom_classes');
+                        if (stored) localData = JSON.parse(stored);
+                    } catch (e) {
+                        console.error('Failed to parse local classes', e);
+                    }
+                    setStandards(naturalSort(localData.standards || []));
+                    setSections(naturalSort(localData.sections || []));
                 } finally {
                     setClassesLoading(false);
                 }
             }
         };
 
+        // Listen for updates from settings
+        const handleCustomUpdate = () => fetchClasses();
+        window.addEventListener('customClassesUpdated', handleCustomUpdate);
+
         fetchSchoolDetails();
         fetchClasses();
+
+        return () => {
+            window.removeEventListener('customClassesUpdated', handleCustomUpdate);
+        };
     }, [isOpen, user, roleToAdd]);
 
     if (!isOpen) return null;
@@ -218,7 +247,7 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <InputField label="Email Address" name="email" type="email" value={formData.email} onChange={handleChange} required />
-                                <InputField label="Contact Number" name="contactNo" value={formData.contactNo} onChange={handleChange} isNumeric />
+                                <InputField label="Contact Number" name="contactNo" value={formData.contactNo} onChange={handleChange} isNumeric maxLength={10} />
                             </div>
                         </div>
 
@@ -299,7 +328,7 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
                                                 <h5 className={`text-[10px] font-black ${p.textColor} uppercase tracking-widest`}>{p.label}</h5>
                                                 <div className="space-y-4">
                                                     <InputField label="Full Name" name={p.nameField} value={formData[p.nameField]} onChange={handleChange} />
-                                                    <InputField label="Contact No." name={p.contactField} value={formData[p.contactField]} onChange={handleChange} isNumeric />
+                                                    <InputField label="Contact No." name={p.contactField} value={formData[p.contactField]} onChange={handleChange} isNumeric maxLength={10} />
                                                 </div>
                                             </div>
                                         ))}
@@ -309,7 +338,7 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
                                         <h5 className={`text-[10px] font-black ${GUARDIAN_SECTION.textColor} uppercase tracking-widest`}>{GUARDIAN_SECTION.label}</h5>
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                             <InputField label="Full Name" name={GUARDIAN_SECTION.nameField} value={formData[GUARDIAN_SECTION.nameField]} onChange={handleChange} />
-                                            <InputField label="Contact No." name={GUARDIAN_SECTION.contactField} value={formData[GUARDIAN_SECTION.contactField]} onChange={handleChange} isNumeric />
+                                            <InputField label="Contact No." name={GUARDIAN_SECTION.contactField} value={formData[GUARDIAN_SECTION.contactField]} onChange={handleChange} isNumeric maxLength={10} />
                                         </div>
                                     </div>
                                 )}
@@ -317,11 +346,7 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
                             </div>
                         )}
 
-                        {/* Info */}
-                        <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 flex items-start gap-3">
-                            <span className="text-blue-500 mt-0.5">ℹ️</span>
-                            <p className="text-sm text-blue-700">A secure password will be <strong>auto-generated</strong> and sent to the user's email address.</p>
-                        </div>
+
 
                         {/* Actions */}
                         <div className="pt-4 flex justify-end gap-3 border-t border-gray-100">
