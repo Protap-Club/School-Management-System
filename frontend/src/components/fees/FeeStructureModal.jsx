@@ -3,6 +3,7 @@ import { FaTimes, FaCheck, FaPlus, FaSave } from 'react-icons/fa';
 import {
     FEE_TYPES, FEE_TYPE_LABELS, FREQUENCY_OPTIONS, FREQUENCY_LABELS,
 } from '../../features/fees';
+import { useFeeTypes } from '../../features/fees/api/queries';
 
 const INITIAL_FORM = {
     academicYear: new Date().getFullYear(),
@@ -26,22 +27,51 @@ const MONTHS = [
 const FeeStructureModal = ({ isOpen, onClose, onSubmit, editData, isLoading }) => {
     const isEdit = !!editData;
     const [form, setForm] = useState(() => {
-        if (editData) {
-            return {
-                academicYear: editData.academicYear || new Date().getFullYear(),
-                standard: editData.standard || '',
-                section: editData.section || '',
-                feeType: editData.feeType || '',
-                name: editData.name || '',
-                amount: editData.amount || '',
-                frequency: editData.frequency || '',
-                dueDay: editData.dueDay || 10,
-                applicableMonths: editData.applicableMonths || [],
-                isActive: editData.isActive !== undefined ? editData.isActive : true,
-            };
-        }
-        return { ...INITIAL_FORM };
+        const initial = editData ? {
+            academicYear: editData.academicYear || new Date().getFullYear(),
+            standard: editData.standard || '',
+            section: editData.section || '',
+            feeType: editData.feeType || '',
+            name: editData.name || '',
+            amount: editData.amount || '',
+            frequency: editData.frequency || '',
+            dueDay: editData.dueDay || 10,
+            applicableMonths: editData.applicableMonths || [],
+            isActive: editData.isActive !== undefined ? editData.isActive : true,
+        } : { ...INITIAL_FORM };
+        return initial;
     });
+
+    const { data: feeTypesResp } = useFeeTypes();
+    
+    // Combine hardcoded defaults with backend types
+    const feeTypes = React.useMemo(() => {
+        const backendTypes = feeTypesResp?.data || [];
+        const defaults = FEE_TYPES.map(name => ({
+            name,
+            label: FEE_TYPE_LABELS[name],
+            isDefault: true
+        }));
+
+        // Merge and remove duplicates by name
+        const combined = [...defaults];
+        backendTypes.forEach(bt => {
+            if (!combined.find(c => c.name === bt.name)) {
+                combined.push(bt);
+            }
+        });
+
+        // Ensure currently selected but unsaved type is visible
+        if (form.feeType && !combined.find(c => c.name === form.feeType)) {
+            combined.push({
+                name: form.feeType,
+                label: form.feeType.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' '),
+                isTemp: true
+            });
+        }
+
+        return combined;
+    }, [feeTypesResp, form.feeType]);
     const [errors, setErrors] = useState({});
 
     const handleChange = useCallback((field, value) => {
@@ -124,7 +154,7 @@ const FeeStructureModal = ({ isOpen, onClose, onSubmit, editData, isLoading }) =
     return (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-fadeIn flex flex-col max-h-[90vh]">
-                <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between flex-shrink-0">
+                <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between flex-shrink-0">
                     <div className="flex items-center gap-3">
                         <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center">
                             {isEdit ? <FaSave className="text-primary" size={16} /> : <FaPlus className="text-primary" size={16} />}
@@ -133,7 +163,7 @@ const FeeStructureModal = ({ isOpen, onClose, onSubmit, editData, isLoading }) =
                     </div>
                     <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg transition-colors"><FaTimes className="text-gray-400" size={16} /></button>
                 </div>
-                <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto">
+                <form onSubmit={handleSubmit} className="p-8 space-y-6 overflow-y-auto">
                     <div className="grid grid-cols-3 gap-3">
                         <div>
                             <label className="block text-xs font-medium text-gray-600 mb-1">Academic Year *</label>
@@ -163,10 +193,16 @@ const FeeStructureModal = ({ isOpen, onClose, onSubmit, editData, isLoading }) =
                     <div className="grid grid-cols-2 gap-3">
                         <div>
                             <label className="block text-xs font-medium text-gray-600 mb-1">Fee Type *</label>
-                            <select value={form.feeType} onChange={(e) => handleChange('feeType', e.target.value)}
-                                className={inputCls('feeType')} disabled={isEdit}>
+                            <select
+                                value={form.feeType}
+                                onChange={(e) => handleChange('feeType', e.target.value)}
+                                className={inputCls('feeType')}
+                                disabled={isEdit}
+                            >
                                 <option value="">Select type</option>
-                                {FEE_TYPES.map(t => <option key={t} value={t}>{FEE_TYPE_LABELS[t]}</option>)}
+                                {feeTypes.map(t => (
+                                    <option key={t.name} value={t.name}>{t.label}</option>
+                                ))}
                             </select>
                             {errors.feeType && <p className="text-xs text-red-500 mt-1">{errors.feeType}</p>}
                         </div>
@@ -229,7 +265,7 @@ const FeeStructureModal = ({ isOpen, onClose, onSubmit, editData, isLoading }) =
                         </div>
                     )}
                 </form>
-                <div className="px-6 py-4 border-t border-gray-100 flex gap-3 flex-shrink-0">
+                <div className="px-6 py-5 border-t border-gray-100 flex gap-4 flex-shrink-0">
                     <button onClick={onClose} disabled={isLoading}
                         className="flex-1 px-4 py-2.5 border border-gray-200 text-gray-700 font-medium rounded-xl hover:bg-gray-50 transition-colors disabled:opacity-50">Cancel</button>
                     <button onClick={handleSubmit} disabled={isLoading}

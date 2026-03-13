@@ -7,7 +7,7 @@ import {
     useGenerateAssignments, useAllClassesOverview, useClassOverview, useYearlySummary,
     useMyClassFees, useStudentFeeHistory, useRecordPayment, useUpdateAssignment,
     useCreateSalary, useSalaries, useUpdateSalaryStatus, useMySalary, useUpdateTeacherProfile,
-    useMyFees,
+    useMyFees, useFeeTypes,
     FEE_TYPES, FEE_TYPE_LABELS, FREQUENCY_LABELS, STATUS_COLORS, MONTH_LABELS,
 } from '../features/fees';
 import { useAuth } from '../features/auth';
@@ -76,6 +76,7 @@ const Fees = () => {
     const [overviewYear, setOverviewYear] = useState(currentYear);
     const [overviewMonth, setOverviewMonth] = useState(currentMonth);
     const [selectedClass, setSelectedClass] = useState(null);
+    const [overviewType, setOverviewType] = useState('');
     const [selectedStudent, setSelectedStudent] = useState(null);
     const [paymentModal, setPaymentModal] = useState({ open: false, assignment: null });
     const [updateModal, setUpdateModal] = useState({ open: false, assignment: null });
@@ -116,6 +117,7 @@ const Fees = () => {
     );
 
     // Salary Queries
+    const { data: feeTypesResp } = useFeeTypes();
     const { data: salaryData, isLoading: salariesLoading } = useSalaries({ year: overviewYear }, isAdmin);
     const { data: mySalaryData, isLoading: mySalaryLoading } = useMySalary({ year: overviewYear }, isTeacher);
 
@@ -153,6 +155,44 @@ const Fees = () => {
     const yearTotal = yearlyData?.data?.yearTotal || {};
     const studentFees = studentData?.data?.fees || [];
     const studentSummary = studentData?.data?.summary || {};
+
+    const feeTypesList = useMemo(() => {
+        const backendTypes = feeTypesResp?.data || [];
+        const defaults = FEE_TYPES.map(name => ({
+            name,
+            label: FEE_TYPE_LABELS[name],
+            isDefault: true
+        }));
+        const combined = [...defaults];
+        backendTypes.forEach(bt => {
+            if (!combined.find(c => c.name === bt.name)) {
+                combined.push(bt);
+            }
+        });
+        return combined;
+    }, [feeTypesResp]);
+
+    const { filteredClassStudents, filteredClassSummary } = useMemo(() => {
+        if (!overviewType) return { 
+            filteredClassStudents: classStudents, 
+            filteredClassSummary: classSummary 
+        };
+
+        const students = classStudents.map(student => {
+            const filteredFees = student.fees.filter(f => f.feeType === overviewType || f.name === overviewType);
+            if (filteredFees.length === 0) return null;
+            return { ...student, fees: filteredFees };
+        }).filter(Boolean);
+
+        const allFilteredFees = students.flatMap(s => s.fees);
+        const summary = {
+            totalStudents: students.length,
+            totalCollected: allFilteredFees.reduce((sum, f) => sum + (f.paid || 0), 0),
+            totalPending: allFilteredFees.reduce((sum, f) => sum + ((f.amount || 0) - (f.paid || 0)), 0),
+        };
+
+        return { filteredClassStudents: students, filteredClassSummary: summary };
+    }, [classStudents, classSummary, overviewType]);
 
     // Handlers
     const handleCreateStructure = async (data) => {
@@ -708,15 +748,30 @@ const Fees = () => {
                             <FaArrowLeft size={12} />Back to All Classes
                         </button>
                         <div className="bg-white rounded-2xl border border-gray-200 p-5">
-                            <div className="flex items-center justify-between mb-4">
-                                <div>
-                                    <h2 className="text-xl font-bold text-gray-900">Class {selectedClass.standard}-{selectedClass.section}</h2>
-                                    <p className="text-sm text-gray-500">{MONTH_LABELS[overviewMonth]} {overviewYear}</p>
+                            <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
+                                <div className="flex flex-col md:flex-row md:items-center gap-4">
+                                    <div>
+                                        <h2 className="text-xl font-bold text-gray-900">Class {selectedClass.standard}-{selectedClass.section}</h2>
+                                        <p className="text-sm text-gray-500">{MONTH_LABELS[overviewMonth]} {overviewYear}</p>
+                                    </div>
+                                    <div className="flex items-center gap-2 bg-gray-50 p-1.5 rounded-xl border border-gray-100">
+                                        <FaFilter className="text-gray-400 ml-2" size={12} />
+                                        <select 
+                                            value={overviewType} 
+                                            onChange={(e) => setOverviewType(e.target.value)}
+                                            className="bg-transparent border-none text-sm font-bold text-gray-700 focus:ring-0 min-w-[140px]"
+                                        >
+                                            <option value="">All Fee Types</option>
+                                            {feeTypesList.map(t => (
+                                                <option key={t.name} value={t.name}>{t.label}</option>
+                                            ))}
+                                        </select>
+                                    </div>
                                 </div>
                                 <div className="flex gap-4 text-sm">
-                                    <div className="text-center px-4 py-2 bg-gray-50 rounded-xl"><p className="text-xs text-gray-500">Students</p><p className="text-lg font-bold">{classSummary.totalStudents || 0}</p></div>
-                                    <div className="text-center px-4 py-2 bg-emerald-50 rounded-xl"><p className="text-xs text-gray-500">Collected</p><p className="text-lg font-bold text-emerald-600">₹{(classSummary.totalCollected || 0).toLocaleString()}</p></div>
-                                    <div className="text-center px-4 py-2 bg-amber-50 rounded-xl"><p className="text-xs text-gray-500">Pending</p><p className="text-lg font-bold text-amber-600">₹{(classSummary.totalPending || 0).toLocaleString()}</p></div>
+                                    <div className="text-center px-4 py-2 bg-gray-50 rounded-xl"><p className="text-xs text-gray-500 font-medium">Students</p><p className="text-lg font-bold">{filteredClassSummary.totalStudents || 0}</p></div>
+                                    <div className="text-center px-4 py-2 bg-emerald-50 rounded-xl"><p className="text-xs text-gray-500 font-medium">Collected</p><p className="text-lg font-bold text-emerald-600">₹{(filteredClassSummary.totalCollected || 0).toLocaleString()}</p></div>
+                                    <div className="text-center px-4 py-2 bg-amber-50 rounded-xl"><p className="text-xs text-gray-500 font-medium">Pending</p><p className="text-lg font-bold text-amber-600">₹{(filteredClassSummary.totalPending || 0).toLocaleString()}</p></div>
                                 </div>
                             </div>
                             <div className="overflow-x-auto">
@@ -731,10 +786,10 @@ const Fees = () => {
                                     <tbody className="divide-y divide-gray-50">
                                         {classLoading ? (
                                             Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} cols={8} />)
-                                        ) : classStudents.length === 0 ? (
+                                        ) : filteredClassStudents.length === 0 ? (
                                             <tr><td colSpan={8}><EmptyState icon={FaEye} title="No students" subtitle="No fee assignments for this class/month" /></td></tr>
                                         ) : (
-                                            classStudents.flatMap(student =>
+                                            filteredClassStudents.flatMap(student =>
                                                 student.fees.map((fee, idx) => (
                                                     <tr key={`${student.studentId}-${fee.assignmentId}`} className="hover:bg-gray-50/50 transition-colors">
                                                         <td className="px-4 py-3">

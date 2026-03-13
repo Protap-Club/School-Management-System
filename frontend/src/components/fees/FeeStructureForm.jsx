@@ -3,6 +3,8 @@ import { FaTimes, FaCheck, FaPlus, FaSave, FaArrowLeft } from 'react-icons/fa';
 import {
     FEE_TYPES, FEE_TYPE_LABELS, FREQUENCY_OPTIONS, FREQUENCY_LABELS,
 } from '../../features/fees';
+import { useFeeStructures, useCreateFeeStructure, useUpdateFeeStructure, useFeeTypes } from '../../features/fees/api/queries';
+import FeeTypeSideCard from './FeeTypeSideCard';
 
 const INITIAL_FORM = {
     academicYear: new Date().getFullYear(),
@@ -26,24 +28,53 @@ const MONTHS = [
 const FeeStructureForm = ({ onCancel, onSubmit, editData, isLoading }) => {
     const isEdit = !!editData;
     const [form, setForm] = useState(() => {
-        if (editData) {
-            return {
-                academicYear: editData.academicYear || new Date().getFullYear(),
-                standard: editData.standard || '',
-                section: editData.section || '',
-                feeType: editData.feeType || '',
-                name: editData.name || '',
-                amount: editData.amount || '',
-                frequency: editData.frequency || '',
-                dueDay: editData.dueDay || 10,
-                applicableMonths: editData.applicableMonths || [],
-                isActive: editData.isActive !== undefined ? editData.isActive : true,
-            };
-        }
-        return { ...INITIAL_FORM };
+        const initial = editData ? {
+            academicYear: editData.academicYear || new Date().getFullYear(),
+            standard: editData.standard || '',
+            section: editData.section || '',
+            feeType: editData.feeType || '',
+            name: editData.name || '',
+            amount: editData.amount || '',
+            frequency: editData.frequency || '',
+            dueDay: editData.dueDay || 10,
+            applicableMonths: editData.applicableMonths || [],
+            isActive: editData.isActive !== undefined ? editData.isActive : true,
+        } : { ...INITIAL_FORM };
+        return initial;
     });
 
-    // Re-sync form when editData changes (e.g., clicking Edit on a different structure)
+    const [showSideCard, setShowSideCard] = useState(false);
+    const { data: feeTypesResp } = useFeeTypes();
+    
+    // Combine hardcoded defaults with backend types
+    const feeTypes = React.useMemo(() => {
+        const backendTypes = feeTypesResp?.data || [];
+        const defaults = FEE_TYPES.map(name => ({
+            name,
+            label: FEE_TYPE_LABELS[name],
+            isDefault: true
+        }));
+
+        // Merge and remove duplicates by name
+        const combined = [...defaults];
+        backendTypes.forEach(bt => {
+            if (!combined.find(c => c.name === bt.name)) {
+                combined.push(bt);
+            }
+        });
+
+        // Ensure currently selected but unsaved type is visible
+        if (form.feeType && !combined.find(c => c.name === form.feeType)) {
+            combined.push({
+                name: form.feeType,
+                label: form.feeType.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' '),
+                isTemp: true
+            });
+        }
+
+        return combined;
+    }, [feeTypesResp, form.feeType]);
+
     useEffect(() => {
         if (editData) {
             setForm({
@@ -137,8 +168,9 @@ const FeeStructureForm = ({ onCancel, onSubmit, editData, isLoading }) => {
         `w-full px-3 py-1.5 border rounded-lg text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all ${errors[field] ? 'border-red-300 bg-red-50' : 'border-gray-200 bg-gray-50/10'}`;
 
     return (
-        <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden animate-fadeIn shadow-sm max-w-xl">
-            <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
+        <div className="flex items-start gap-6 max-w-6xl mx-auto">
+            <div className={`bg-white rounded-3xl shadow-xl shadow-gray-200/50 border border-gray-100 overflow-hidden transition-all duration-500 ${showSideCard ? 'w-[700px]' : 'w-full max-w-2xl mx-auto'}`}>
+            <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
                 <div className="flex items-center gap-2">
                     <button onClick={onCancel} className="p-1.5 hover:bg-white rounded-lg transition-colors text-gray-400 hover:text-gray-900 border border-transparent hover:border-gray-100">
                         <FaArrowLeft size={10} />
@@ -147,7 +179,7 @@ const FeeStructureForm = ({ onCancel, onSubmit, editData, isLoading }) => {
                 </div>
             </div>
 
-            <form onSubmit={handleSubmit} className="p-5 space-y-3.5">
+            <form onSubmit={handleSubmit} className="p-8 space-y-6">
                 {/* Row 1: Academic, Std, Sect */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
@@ -180,11 +212,26 @@ const FeeStructureForm = ({ onCancel, onSubmit, editData, isLoading }) => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Fee Type *</label>
-                        <select value={form.feeType} onChange={(e) => handleChange('feeType', e.target.value)}
-                            className={inputCls('feeType')} disabled={isEdit}>
-                            <option value="" disabled hidden></option>
-                            {FEE_TYPES.map(t => <option key={t} value={t}>{FEE_TYPE_LABELS[t]}</option>)}
-                        </select>
+                        <div>
+                            <select
+                                value={form.feeType}
+                                onChange={(e) => {
+                                    if (e.target.value === 'ADD_NEW') {
+                                        setShowSideCard(true);
+                                    } else {
+                                        handleChange('feeType', e.target.value);
+                                    }
+                                }}
+                                className={inputCls('feeType')}
+                                disabled={isEdit}
+                            >
+                                <option value="" disabled hidden>Select Type</option>
+                                <option value="ADD_NEW" className="text-primary font-bold tracking-tight">+ Add Fee Type</option>
+                                {feeTypes.map(t => (
+                                    <option key={t.name} value={t.name}>{t.label}</option>
+                                ))}
+                            </select>
+                        </div>
                         {errors.feeType && <p className="text-[10px] text-red-500 mt-1 ml-1 font-bold">{errors.feeType}</p>}
                     </div>
                     <div>
@@ -250,11 +297,11 @@ const FeeStructureForm = ({ onCancel, onSubmit, editData, isLoading }) => {
                     </div>
                 )}
 
-                <div className="pt-4 border-t border-gray-100 flex gap-3">
+                <div className="pt-6 border-t border-gray-100 flex gap-4">
                     <button type="button" onClick={onCancel} disabled={isLoading}
-                        className="flex-1 px-6 py-2.5 border-2 border-gray-100 text-gray-500 text-xs font-black rounded-xl hover:bg-gray-50 transition-all disabled:opacity-50 uppercase tracking-widest">Cancel</button>
+                        className="flex-1 px-8 py-3.5 border-2 border-gray-100 text-gray-500 text-xs font-black rounded-xl hover:bg-gray-50 transition-all disabled:opacity-50 uppercase tracking-widest">Cancel</button>
                     <button type="submit" disabled={isLoading}
-                        className="flex-1 px-6 py-2.5 bg-primary hover:bg-primary-hover text-white text-xs font-black rounded-xl shadow-lg shadow-primary/20 transition-all flex items-center justify-center gap-2 disabled:opacity-70 group uppercase tracking-widest">
+                        className="flex-1 px-8 py-3.5 bg-primary hover:bg-primary-hover text-white text-xs font-black rounded-xl shadow-lg shadow-primary/20 transition-all flex items-center justify-center gap-2 disabled:opacity-70 group uppercase tracking-widest">
                         {isLoading ? (
                             <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
                         ) : (
@@ -265,7 +312,19 @@ const FeeStructureForm = ({ onCancel, onSubmit, editData, isLoading }) => {
                         )}
                     </button>
                 </div>
-            </form>
+                </form>
+            </div>
+
+            {showSideCard && (
+                <div className="mt-20">
+                    <FeeTypeSideCard 
+                        onClose={() => setShowSideCard(false)} 
+                        onSuccess={(newType) => {
+                            handleChange('feeType', newType);
+                        }}
+                    />
+                </div>
+            )}
         </div>
     );
 };

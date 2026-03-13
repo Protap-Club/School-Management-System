@@ -31,7 +31,6 @@ const feeStructureSchema = new mongoose.Schema(
         // Fee details
         feeType: {
             type: String,
-            enum: ["TUITION", "EXAM", "LAB", "LIBRARY", "TRANSPORT", "SPORTS", "OTHER"],
             required: [true, "Fee type is required"],
         },
         name: {

@@ -90,4 +90,16 @@ export const feesApi = {
         const response = await api.get(`/fees/student/${studentId}/history?${params.toString()}`);
         return response.data;
     },
+
+    // ── Fee Type Management ───────────────────────────────────────
+
+    getFeeTypes: async () => {
+        const response = await api.get('/fees/types');
+        return response.data;
+    },
+
+    createFeeType: async (data) => {
+        const response = await api.post('/fees/types', data);
+        return response.data;
+    },
 };

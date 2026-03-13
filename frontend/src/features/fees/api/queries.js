@@ -15,6 +15,26 @@ export const feeKeys = {
     salaryList: (filters) => [...feeKeys.salaries(), filters],
     mySalary: (filters) => [...feeKeys.all, 'mySalary', filters],
     myFees: (filters) => [...feeKeys.all, 'myFees', filters],
+    feeTypes: () => [...feeKeys.all, 'feeTypes'],
+};
+
+// ── Fee Type Queries ──────────────────────────────────────────
+
+export const useFeeTypes = () => {
+    return useQuery({
+        queryKey: feeKeys.feeTypes(),
+        queryFn: feesApi.getFeeTypes,
+    });
+};
+
+export const useCreateFeeType = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: feesApi.createFeeType,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: feeKeys.feeTypes() });
+        },
+    });
 };
 
 // ── Fee Structure Queries ─────────────────────────────────────

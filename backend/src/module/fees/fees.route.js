@@ -11,8 +11,9 @@ import {
     getAllClassesFeeOverview,
     getYearlyFeeSummary,
     getStudentFeeHistory,
-    getMyClassFees,
     getMyFees,
+    getFeeTypes,
+    createFeeType,
 } from "./fees.controller.js";
 import {
     createSalaryEntry,
@@ -40,6 +41,7 @@ import {
     studentFeeHistorySchema,
     myClassFeesSchema,
     myFeesSchema,
+    createFeeTypeSchema,
 } from "./fees.validation.js";
 import {
     createSalarySchema,
@@ -63,18 +65,10 @@ router.get(
     getMyFees
 );
 
-// ── Teacher Routes (read-only, mobile + web) ─────────────────
-router.get(
-    "/my-classes",
-    checkRole([USER_ROLES.TEACHER]),
-    validate(myClassFeesSchema),
-    getMyClassFees
-);
-
-// ── Shared: Student Fee History (Admin + Teacher, mobile + web)
+// ── Shared: Student Fee History (Admin Only, mobile + web)
 router.get(
     "/student/:studentId/history",
-    checkRole([USER_ROLES.ADMIN, USER_ROLES.TEACHER]),
+    checkRole([USER_ROLES.ADMIN]),
     validate(studentFeeHistorySchema),
     getStudentFeeHistory
 );
@@ -91,7 +85,7 @@ router.post(
 router.get(
     "/structures",
     checkWebOnly,
-    checkRole([USER_ROLES.ADMIN, USER_ROLES.TEACHER]),
+    checkRole([USER_ROLES.ADMIN]),
     validate(getFeeStructuresQuerySchema),
     getFeeStructures
 );
@@ -99,7 +93,7 @@ router.get(
 router.put(
     "/structures/:id",
     checkWebOnly,
-    checkRole([USER_ROLES.ADMIN, USER_ROLES.TEACHER]),
+    checkRole([USER_ROLES.ADMIN]),
     validate(updateFeeStructureSchema),
     updateFeeStructure
 );
@@ -107,7 +101,7 @@ router.put(
 router.delete(
     "/structures/:id",
     checkWebOnly,
-    checkRole([USER_ROLES.ADMIN, USER_ROLES.TEACHER]),
+    checkRole([USER_ROLES.ADMIN]),
     validate(feeStructureIdParamsSchema),
     deleteFeeStructure
 );
@@ -116,7 +110,7 @@ router.delete(
 router.post(
     "/structures/:id/generate",
     checkWebOnly,
-    checkRole([USER_ROLES.ADMIN, USER_ROLES.TEACHER]),
+    checkRole([USER_ROLES.ADMIN]),
     validate(generateAssignmentsSchema),
     generateAssignments
 );
@@ -124,7 +118,7 @@ router.post(
 router.patch(
     "/assignments/:id",
     checkWebOnly,
-    checkRole(["admin", "teacher"]),
+    checkRole(["admin"]),
     validate(updateAssignmentSchema),
     updateAssignment
 );
@@ -133,7 +127,7 @@ router.patch(
 router.post(
     "/assignments/:id/pay",
     checkWebOnly,
-    checkRole(["admin", "teacher"]),
+    checkRole(["admin"]),
     validate(recordPaymentSchema),
     recordPayment
 );
@@ -149,7 +143,7 @@ router.get(
 
 router.get(
     "/overview/:standard/:section",
-    checkRole([USER_ROLES.ADMIN, USER_ROLES.TEACHER]),
+    checkRole([USER_ROLES.ADMIN]),
     validate(classOverviewSchema),
     getClassFeeOverview
 );
@@ -192,6 +186,22 @@ router.patch(
     checkRole([USER_ROLES.ADMIN]),
     validate(updateSalaryStatusSchema),
     updateSalaryStatus
+);
+
+
+// ── Admin: Fee Type Management ────────────────────────────────
+router.get(
+    "/types",
+    checkRole([USER_ROLES.ADMIN]),
+    getFeeTypes
+);
+
+router.post(
+    "/types",
+    checkWebOnly,
+    checkRole([USER_ROLES.ADMIN]),
+    validate(createFeeTypeSchema),
+    createFeeType
 );
 
 export default router;
