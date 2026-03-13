@@ -19,7 +19,7 @@ import SalaryForm from '../components/fees/SalaryForm';
 import {
     FaPlus, FaEdit, FaTrash, FaTrashAlt, FaBolt, FaTimes, FaCheck, FaMoneyBillWave,
     FaChartBar, FaListAlt, FaEye, FaFilter, FaArrowLeft, FaArrowRight, FaReceipt, FaBan, FaHistory,
-    FaWallet, FaCalendarCheck, FaSearch, FaUser, FaFileInvoice,
+    FaWallet, FaCalendarCheck, FaSearch, FaUser, FaFileInvoice, FaCalendarAlt,
 } from 'react-icons/fa';
 
 const MODAL_OVERLAY = 'fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4';
@@ -64,6 +64,8 @@ const Fees = () => {
         isAdmin ? 'management' : isTeacher ? 'salary' : 'student_fees'
     );
     const [mgmtView, setMgmtView] = useState('selection'); // selection, student_list, student_form, staff
+    const [studentSubTab, setStudentSubTab] = useState('structures'); // structures, overview, yearly
+    const [staffSubTab, setStaffSubTab] = useState('dashboard'); // dashboard, overview, yearly
     const [toast, setToast] = useState({ type: '', text: '' });
 
     // Structures state
@@ -292,6 +294,13 @@ const Fees = () => {
         </button>
     );
 
+    const renderSubTabBtn = (active, current, label, onClick) => (
+        <button onClick={onClick}
+            className={`px-4 py-2 text-sm font-bold transition-all border-b-2 ${active === current ? 'border-primary text-primary' : 'border-transparent text-gray-400 hover:text-gray-600'}`}>
+            {label}
+        </button>
+    );
+
     const myFees = myFeesData?.data?.fees || [];
     const mySummary = myFeesData?.data?.summary || {};
 
@@ -323,6 +332,539 @@ const Fees = () => {
         } catch (err) { showToast('error', 'Failed to update status'); }
     };
 
+    const renderStudentOverview = () => {
+        if (selectedStudent) {
+            return (
+                <div className="space-y-4">
+                    <button onClick={() => setSelectedStudent(null)} className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700 transition-colors">
+                        <FaArrowLeft size={12} />Back to Class
+                    </button>
+                    <div className="bg-white rounded-2xl border border-gray-200 p-5">
+                        <div className="flex items-center justify-between mb-4">
+                            <div>
+                                <h2 className="text-xl font-bold text-gray-900">{selectedStudent.name}</h2>
+                                <p className="text-sm text-gray-500">Fee History — {overviewYear}</p>
+                            </div>
+                            <div className="flex gap-4 text-sm">
+                                <div className="text-center px-4 py-2 bg-gray-50 rounded-xl"><p className="text-xs text-gray-500">Total Due</p><p className="text-lg font-bold">₹{(studentSummary.totalDue || 0).toLocaleString()}</p></div>
+                                <div className="text-center px-4 py-2 bg-emerald-50 rounded-xl"><p className="text-xs text-gray-500">Paid</p><p className="text-lg font-bold text-emerald-600">₹{(studentSummary.totalPaid || 0).toLocaleString()}</p></div>
+                                <div className="text-center px-4 py-2 bg-red-50 rounded-xl"><p className="text-xs text-gray-500">Waived</p><p className="text-lg font-bold text-red-600">₹{(studentSummary.totalWaived || 0).toLocaleString()}</p></div>
+                                <div className="text-center px-4 py-2 bg-amber-50 rounded-xl"><p className="text-xs text-gray-500">Pending</p><p className="text-lg font-bold text-amber-600">₹{(studentSummary.totalPending || 0).toLocaleString()}</p></div>
+                            </div>
+                        </div>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                                <thead>
+                                    <tr className="border-b border-gray-100">
+                                        {['Month', 'Fee Type', 'Amount', 'Paid', 'Waived', 'Status', 'Due Date', 'Payments', 'Actions'].map(h => (
+                                            <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">{h}</th>
+                                        ))}
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-50">
+                                    {studentLoading ? (
+                                        Array.from({ length: 4 }).map((_, i) => <SkeletonRow key={i} cols={8} />)
+                                    ) : studentFees.length === 0 ? (
+                                        <tr><td colSpan={8}><EmptyState icon={FaHistory} title="No fee history" subtitle="No fees assigned to this student" /></td></tr>
+                                    ) : (
+                                        studentFees.map(fee => (
+                                            <tr key={fee.assignmentId} className="hover:bg-gray-50/50 transition-colors">
+                                                <td className="px-4 py-3 font-medium">{MONTH_LABELS[fee.month]}</td>
+                                                <td className="px-4 py-3 text-gray-600">{fee.name || fee.feeType}</td>
+                                                <td className="px-4 py-3 font-medium">₹{fee.amount?.toLocaleString()}</td>
+                                                <td className="px-4 py-3 text-emerald-600">₹{fee.paid?.toLocaleString()}</td>
+                                                <td className="px-4 py-3 text-red-600">₹{Math.max(0, (fee.amount || 0) - (fee.paid || 0) * (['PAID', 'WAIVED'].includes((fee.status || '').toUpperCase()) ? 1 : 0)).toLocaleString()}</td>
+                                                <td className="px-4 py-3"><StatusBadge status={fee.status} /></td>
+                                                <td className="px-4 py-3 text-gray-500 text-xs">{fee.dueDate ? new Date(fee.dueDate).toLocaleDateString() : '-'}</td>
+                                                <td className="px-4 py-3">
+                                                    {fee.payments?.length > 0 ? (
+                                                        <span className="text-xs text-gray-500">{fee.payments.length} payment{fee.payments.length > 1 ? 's' : ''}</span>
+                                                    ) : <span className="text-xs text-gray-400">—</span>}
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    {isAdmin && fee.status !== 'PAID' && fee.status !== 'WAIVED' && (
+                                                        <button onClick={() => setPaymentModal({ open: true, assignment: { _id: fee.assignmentId, netAmount: fee.amount, paidAmount: fee.paid } })}
+                                                            className="p-1.5 text-emerald-500 hover:bg-emerald-50 rounded-lg transition-colors"><FaMoneyBillWave size={12} /></button>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        ))
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        if (selectedClass) {
+            return (
+                <div className="space-y-4">
+                    <button onClick={() => setSelectedClass(null)} className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700 transition-colors">
+                        <FaArrowLeft size={12} />Back to All Classes
+                    </button>
+                    <div className="bg-white rounded-2xl border border-gray-200 p-5">
+                        <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
+                            <div className="flex flex-col md:flex-row md:items-center gap-4">
+                                <div>
+                                    <h2 className="text-xl font-bold text-gray-900">Class {selectedClass.standard}-{selectedClass.section}</h2>
+                                    <p className="text-sm text-gray-500">{MONTH_LABELS[overviewMonth]} {overviewYear}</p>
+                                </div>
+                                <div className="flex items-center gap-2 bg-gray-50 p-1.5 rounded-xl border border-gray-100">
+                                    <FaFilter className="text-gray-400 ml-2" size={12} />
+                                    <select 
+                                        value={overviewType} 
+                                        onChange={(e) => setOverviewType(e.target.value)}
+                                        className="bg-transparent border-none text-sm font-bold text-gray-700 focus:ring-0 min-w-[140px]"
+                                    >
+                                        <option value="">All Fee Types</option>
+                                        {feeTypesList.map(t => (
+                                            <option key={t.name} value={t.name}>{t.label}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+                            <div className="flex gap-4 text-sm">
+                                <div className="text-center px-4 py-2 bg-gray-50 rounded-xl"><p className="text-xs text-gray-500 font-medium">Students</p><p className="text-lg font-bold">{filteredClassSummary.totalStudents || 0}</p></div>
+                                <div className="text-center px-4 py-2 bg-emerald-50 rounded-xl"><p className="text-xs text-gray-500 font-medium">Collected</p><p className="text-lg font-bold text-emerald-600">₹{(filteredClassSummary.totalCollected || 0).toLocaleString()}</p></div>
+                                <div className="text-center px-4 py-2 bg-amber-50 rounded-xl"><p className="text-xs text-gray-500 font-medium">Pending</p><p className="text-lg font-bold text-amber-600">₹{(filteredClassSummary.totalPending || 0).toLocaleString()}</p></div>
+                            </div>
+                        </div>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                                <thead>
+                                    <tr className="border-b border-gray-100">
+                                        {['Student', 'Fee Type', 'Amount', 'Paid', 'Status', 'Due Date', 'Actions'].map(h => (
+                                            <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">{h}</th>
+                                        ))}
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-50">
+                                    {classLoading ? (
+                                        Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} cols={8} />)
+                                    ) : filteredClassStudents.length === 0 ? (
+                                        <tr><td colSpan={8}><EmptyState icon={FaEye} title="No students" subtitle="No fee assignments for this class/month" /></td></tr>
+                                    ) : (
+                                        filteredClassStudents.flatMap(student =>
+                                            student.fees.map((fee, idx) => (
+                                                <tr key={`${student.studentId}-${fee.assignmentId}`} className="hover:bg-gray-50/50 transition-colors">
+                                                    <td className="px-4 py-3">
+                                                        {idx === 0 ? (
+                                                            <button onClick={() => setSelectedStudent(student)} className="font-medium text-gray-900 hover:text-primary transition-colors">{student.name}</button>
+                                                        ) : null}
+                                                    </td>
+                                                    <td className="px-4 py-3 text-gray-600">{fee.name || fee.feeType}</td>
+                                                    <td className="px-4 py-3 font-medium">₹{fee.amount?.toLocaleString()}</td>
+                                                    <td className="px-4 py-3 text-emerald-600">₹{fee.paid?.toLocaleString()}</td>
+                                                    <td className="px-4 py-3"><StatusBadge status={fee.status} /></td>
+                                                    <td className="px-4 py-3 text-gray-500 text-xs">{fee.dueDate ? new Date(fee.dueDate).toLocaleDateString() : '-'}</td>
+                                                    <td className="px-4 py-3">
+                                                        <div className="flex items-center gap-1">
+                                                            {isAdmin && fee.status !== 'PAID' && fee.status !== 'WAIVED' && (
+                                                                <>
+                                                                    <button onClick={() => setPaymentModal({ open: true, assignment: { _id: fee.assignmentId, netAmount: fee.amount, paidAmount: fee.paid } })}
+                                                                        title="Record Payment" className="p-1.5 text-emerald-500 hover:bg-emerald-50 rounded-lg transition-colors"><FaMoneyBillWave size={12} /></button>
+                                                                    <button onClick={() => handleWaive(fee.assignmentId)}
+                                                                        title="Waive Fee" className="p-1.5 text-gray-400 hover:text-orange-500 hover:bg-orange-50 rounded-lg transition-colors"><FaBan size={12} /></button>
+                                                                </>
+                                                            )}
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            ))
+                                        )
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        return (
+            <div className="space-y-4">
+                <div className="bg-white rounded-2xl border border-gray-200 p-5">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+                        <h2 className="text-xl font-bold text-gray-900">All Classes Fee Overview</h2>
+                        <div className="flex items-center gap-3">
+                            <select value={overviewMonth} onChange={(e) => setOverviewMonth(Number(e.target.value))}
+                                className="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-primary focus:border-primary">
+                                {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
+                                    <option key={m} value={m}>{MONTH_LABELS[m]}</option>
+                                ))}
+                            </select>
+                            <input type="number" value={overviewYear} onChange={(e) => setOverviewYear(Number(e.target.value))}
+                                className="px-3 py-2 text-sm border border-gray-200 rounded-lg w-24 focus:ring-primary focus:border-primary" min={2000} max={2100} />
+                        </div>
+                    </div>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                            <thead>
+                                <tr className="border-b border-gray-100">
+                                    {['Class', 'Students', 'Total Due', 'Collected', 'Waived', 'Pending', 'Collection %', 'Action'].map(h => (
+                                        <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">{h}</th>
+                                    ))}
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-50">
+                                {isLoadingOverview ? (
+                                    Array.from({ length: 4 }).map((_, i) => <SkeletonRow key={i} cols={8} />)
+                                ) : overviewClasses.length === 0 ? (
+                                    <tr><td colSpan={8}><EmptyState icon={FaEye} title="No fee data" subtitle="Generate assignments first to see overview" /></td></tr>
+                                ) : (
+                                    overviewClasses.map(cls => {
+                                        const pct = cls.totalDue > 0 ? Math.round((cls.totalCollected / cls.totalDue) * 100) : 0;
+                                        return (
+                                            <tr key={`${cls.standard}-${cls.section}`} className="hover:bg-gray-50/50 transition-colors">
+                                                <td className="px-4 py-3 font-medium text-gray-900">{cls.standard}-{cls.section}</td>
+                                                <td className="px-4 py-3 text-gray-600">{cls.studentCount}</td>
+                                                <td className="px-4 py-3 font-medium">₹{cls.totalDue?.toLocaleString()}</td>
+                                                <td className="px-4 py-3 text-emerald-600 font-medium">₹{cls.totalCollected?.toLocaleString()}</td>
+                                                <td className="px-4 py-3 text-red-600 font-medium">₹{cls.totalWaived?.toLocaleString()}</td>
+                                                <td className="px-4 py-3 text-amber-600 font-medium">₹{cls.totalPending?.toLocaleString()}</td>
+                                                <td className="px-4 py-3">
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="w-16 h-1.5 bg-gray-100 rounded-full overflow-hidden"><div className="h-full bg-emerald-500 rounded-full" style={{ width: `${pct}%` }}></div></div>
+                                                        <span className="text-xs font-medium text-gray-600">{pct}%</span>
+                                                    </div>
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    <button onClick={() => setSelectedClass(cls)}
+                                                        className="text-primary hover:underline text-sm font-medium">View Details</button>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
+    const renderStudentYearlySummary = () => {
+        return (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-2 space-y-6">
+                    <div className="bg-white rounded-2xl border border-gray-200 p-5">
+                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+                            <div>
+                                <h2 className="text-xl font-bold text-gray-900">Yearly Collection Breakdown</h2>
+                                <p className="text-sm text-gray-500">Monthly breakdown of fee collection</p>
+                            </div>
+                            <input type="number" value={summaryYear} onChange={(e) => setSummaryYear(Number(e.target.value))}
+                                className="px-3 py-2 text-sm border border-gray-200 rounded-lg w-28 focus:ring-primary focus:border-primary font-medium" min={2000} max={2100} />
+                        </div>
+
+                        {/* Year totals */}
+                        {yearTotal.totalDue > 0 && (
+                            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
+                                <div className="bg-gray-50 border border-gray-100 rounded-2xl p-4 text-center">
+                                    <p className="text-xs font-semibold text-gray-500 mb-1 uppercase tracking-wider">Total Due</p>
+                                    <p className="text-xl font-bold text-gray-900">₹{(yearTotal.totalDue || 0).toLocaleString()}</p>
+                                </div>
+                                <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-4 text-center">
+                                    <p className="text-xs font-semibold text-emerald-600 mb-1 uppercase tracking-wider">Collected</p>
+                                    <p className="text-xl font-bold text-emerald-700">₹{(yearTotal.totalCollected || 0).toLocaleString()}</p>
+                                </div>
+                                <div className="bg-red-50 border border-red-100 rounded-2xl p-4 text-center">
+                                    <p className="text-xs font-semibold text-red-600 mb-1 uppercase tracking-wider">Waived</p>
+                                    <p className="text-xl font-bold text-red-700">₹{(yearTotal.totalWaived || 0).toLocaleString()}</p>
+                                </div>
+                                <div className="bg-amber-50 border border-amber-100 rounded-2xl p-4 text-center">
+                                    <p className="text-xs font-semibold text-amber-600 mb-1 uppercase tracking-wider">Pending</p>
+                                    <p className="text-xl font-bold text-amber-700">₹{(yearTotal.totalPending || 0).toLocaleString()}</p>
+                                </div>
+                                <div className="bg-primary/5 border border-primary/10 rounded-2xl p-4 text-center col-span-2 sm:col-span-1">
+                                    <p className="text-xs font-semibold text-primary mb-1 uppercase tracking-wider">Rate</p>
+                                    <p className="text-xl font-bold text-primary">{yearTotal.collectionRate || 0}%</p>
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                                <thead>
+                                    <tr className="border-b border-gray-100">
+                                        {['Month', 'Due', 'Collected', 'Waived', 'Pending', 'Collection Rate'].map(h => (
+                                            <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">{h}</th>
+                                        ))}
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-50">
+                                    {yearlyLoading ? (
+                                        Array.from({ length: 6 }).map((_, i) => <SkeletonRow key={i} cols={6} />)
+                                    ) : yearlyBreakdown.length === 0 ? (
+                                        <tr><td colSpan={6}><EmptyState icon={FaChartBar} title="No data" subtitle="No fee data for this year" /></td></tr>
+                                    ) : (
+                                        yearlyBreakdown.map(m => (
+                                            <tr key={m.month} className="hover:bg-gray-50/50 transition-colors">
+                                                <td className="px-4 py-3 font-semibold text-gray-900">{m.label}</td>
+                                                <td className="px-4 py-3 text-gray-600">₹{(m.totalDue || 0).toLocaleString()}</td>
+                                                <td className="px-4 py-3 text-emerald-600 font-medium">₹{(m.totalCollected || 0).toLocaleString()}</td>
+                                                <td className="px-4 py-3 text-red-600">₹{(m.totalWaived || 0).toLocaleString()}</td>
+                                                <td className="px-4 py-3 text-amber-600">₹{(m.totalPending || 0).toLocaleString()}</td>
+                                                <td className="px-4 py-3">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-16 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                                                            <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${m.collectionRate}%` }}></div>
+                                                        </div>
+                                                        <span className="text-xs font-bold text-gray-700">{m.collectionRate}%</span>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    {/* Breakdown by Fee Type */}
+                    <div className="bg-white rounded-2xl border border-gray-200 p-5">
+                        <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                            <span className="w-1.5 h-6 bg-primary rounded-full"></span>
+                            Breakdown by Fee Type
+                        </h3>
+                        <div className="space-y-3">
+                            {yearlyLoading ? (
+                                Array.from({ length: 4 }).map((_, i) => (
+                                    <div key={i} className="h-20 bg-gray-50 rounded-xl animate-pulse" />
+                                ))
+                            ) : typeBreakdown.length === 0 ? (
+                                <p className="text-sm text-gray-500 text-center py-4">No type data available</p>
+                            ) : (
+                                typeBreakdown.map(item => (
+                                    <div key={item.type} className="p-3.5 bg-gray-50 border border-gray-100 rounded-xl hover:shadow-sm transition-all group">
+                                        <div className="flex justify-between items-start mb-2">
+                                            <div>
+                                                <p className="text-sm font-bold text-gray-900 group-hover:text-primary transition-colors">{item.type}</p>
+                                                <p className="text-[10px] text-gray-500 uppercase font-bold tracking-tight">Rate: {item.collectionRate}%</p>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className="text-xs font-bold text-emerald-600">₹{(item.totalCollected || 0).toLocaleString()}</p>
+                                                <p className="text-[10px] text-gray-400">of ₹{(item.totalDue || 0).toLocaleString()}</p>
+                                            </div>
+                                        </div>
+                                        <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                                            <div className="h-full bg-emerald-500 rounded-full transition-all duration-1000" style={{ width: `${item.collectionRate}%` }}></div>
+                                        </div>
+                                        <div className="flex justify-between items-center mt-3">
+                                            <div className="flex gap-4">
+                                                {(item.totalPending || 0) > 0 && (
+                                                    <p className="text-[10px] text-amber-600 font-semibold flex items-center gap-1">
+                                                        <span className="w-1 h-1 bg-amber-400 rounded-full"></span>
+                                                        Pending: ₹{(item.totalPending || 0).toLocaleString()}
+                                                    </p>
+                                                )}
+                                                {(item.totalWaived || 0) > 0 && (
+                                                    <p className="text-[10px] text-red-600 font-semibold flex items-center gap-1">
+                                                        <span className="w-1 h-1 bg-red-400 rounded-full"></span>
+                                                        Waived: ₹{(item.totalWaived || 0).toLocaleString()}
+                                                    </p>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
+    const renderStaffOverview = () => {
+        const salaries = salaryData?.data || [];
+        const monthlyStats = Array.from({ length: 12 }, (_, i) => {
+            const month = i + 1;
+            const monthSalaries = salaries.filter(s => s.month === month);
+            return {
+                month,
+                label: MONTH_LABELS[month],
+                totalPaid: monthSalaries.filter(s => s.status === 'PAID').reduce((sum, s) => sum + (Number(s.amount) || 0), 0),
+                totalPending: monthSalaries.filter(s => s.status === 'PENDING').reduce((sum, s) => sum + (Number(s.amount) || 0), 0),
+                count: monthSalaries.length
+            };
+        });
+
+        const yearPaid = monthlyStats.reduce((sum, m) => sum + m.totalPaid, 0);
+        const yearPending = monthlyStats.reduce((sum, m) => sum + m.totalPending, 0);
+
+        return (
+            <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div className="bg-white rounded-3xl border border-gray-100 p-8 shadow-sm">
+                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Total Paid (Yearly)</p>
+                        <h3 className="text-3xl font-black text-emerald-600">₹{yearPaid.toLocaleString()}</h3>
+                    </div>
+                    <div className="bg-white rounded-3xl border border-gray-200 p-8 shadow-sm">
+                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Total Pending (Yearly)</p>
+                        <h3 className="text-3xl font-black text-amber-600">₹{yearPending.toLocaleString()}</h3>
+                    </div>
+                </div>
+
+                <div className="bg-white rounded-3xl border border-gray-200 overflow-hidden shadow-sm">
+                    <div className="px-8 py-6 border-b border-gray-100 flex items-center justify-between bg-gray-50/30">
+                        <div>
+                            <h3 className="text-lg font-black text-gray-900 font-display">Monthly Payout Summary</h3>
+                            <p className="text-xs text-gray-500 font-medium">Aggregated salary data for {overviewYear}</p>
+                        </div>
+                    </div>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-sm text-left">
+                            <thead className="bg-gray-50/50">
+                                <tr>
+                                    {['Month', 'Total Paid', 'Total Pending', 'Total Staff'].map(h => (
+                                        <th key={h} className="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">{h}</th>
+                                    ))}
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100">
+                                {salariesLoading ? (
+                                    Array.from({ length: 4 }).map((_, i) => <SkeletonRow key={i} cols={4} />)
+                                ) : (
+                                    monthlyStats.filter(m => m.count > 0).length === 0 ? (
+                                        <tr><td colSpan={4}><EmptyState icon={FaChartBar} title="No payroll data" subtitle="No salary entries found for this year" /></td></tr>
+                                    ) : (
+                                        monthlyStats.map(m => (
+                                            <tr key={m.month} className="hover:bg-gray-50/50 transition-colors">
+                                                <td className="px-8 py-5 font-black text-gray-900">{m.label}</td>
+                                                <td className="px-8 py-5 text-emerald-600 font-bold">₹{m.totalPaid.toLocaleString()}</td>
+                                                <td className="px-8 py-5 text-amber-600 font-bold">₹{m.totalPending.toLocaleString()}</td>
+                                                <td className="px-8 py-5 text-gray-500 font-medium">{m.count} Staff</td>
+                                            </tr>
+                                        ))
+                                    )
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
+    const renderStaffYearlySummary = () => {
+        const salaries = salaryData?.data || [];
+        const yearTotal = salaries.reduce((acc, s) => {
+            if (s.status === 'PAID') acc.paid += (Number(s.amount) || 0);
+            if (s.status === 'PENDING') acc.pending += (Number(s.amount) || 0);
+            return acc;
+        }, { paid: 0, pending: 0 });
+
+        return (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+                <div className="lg:col-span-2 bg-white rounded-3xl border border-gray-200 p-4 shadow-sm">
+                    <div className="flex items-center justify-between mb-3">
+                        <div>
+                            <h3 className="text-lg font-black text-gray-900 font-display leading-none">Yearly Payroll Projection</h3>
+                            <p className="text-[11px] text-gray-500 font-medium mt-0.5">Full calendar year summary</p>
+                        </div>
+                        <div className="text-right">
+                            <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest leading-none">Total Payout</p>
+                            <p className="text-lg font-black text-violet-600">₹{(yearTotal.paid + yearTotal.pending).toLocaleString()}</p>
+                        </div>
+                    </div>
+
+                    <div className="space-y-3">
+                        <div className="bg-gray-50 rounded-xl p-3 border border-gray-100">
+                            <div className="flex justify-between items-center mb-1.5">
+                                <span className="text-[11px] font-bold text-gray-700">Fulfillment Rate</span>
+                                <span className="text-[11px] font-black text-emerald-600">
+                                    {Math.round((yearTotal.paid / (yearTotal.paid + yearTotal.pending || 1)) * 100)}%
+                                </span>
+                            </div>
+                            <div className="w-full h-1 bg-gray-200 rounded-full overflow-hidden">
+                                <div 
+                                    className="h-full bg-emerald-500 rounded-full transition-all duration-1000" 
+                                    style={{ width: `${(yearTotal.paid / (yearTotal.paid + yearTotal.pending || 1)) * 100}%` }}
+                                />
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2">
+                            <div className="p-2.5 bg-emerald-50 rounded-xl border border-emerald-100 flex items-center justify-between">
+                                <p className="text-[9px] font-black text-emerald-600 uppercase tracking-widest">Fulfilled</p>
+                                <p className="text-[13px] font-black text-emerald-700">₹{yearTotal.paid.toLocaleString()}</p>
+                            </div>
+                            <div className="p-2.5 bg-amber-50 rounded-xl border border-amber-100 flex items-center justify-between">
+                                <p className="text-[9px] font-black text-amber-600 uppercase tracking-widest">Pending</p>
+                                <p className="text-[13px] font-black text-amber-700">₹{yearTotal.pending.toLocaleString()}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="bg-white rounded-3xl border border-gray-200 p-8 shadow-sm">
+                    <h3 className="text-lg font-black text-gray-900 font-display mb-6 flex items-center gap-2">
+                        <span className="w-1.5 h-6 bg-violet-500 rounded-full"></span>
+                        Staff Salaries History
+                    </h3>
+                    <div className="space-y-4">
+                        {teachersLoading || salariesLoading ? (
+                            Array.from({ length: 4 }).map((_, i) => (
+                                <div key={i} className="h-20 bg-gray-50 rounded-2xl animate-pulse" />
+                            ))
+                        ) : (teachersData?.data?.users || []).length === 0 ? (
+                            <p className="text-sm text-gray-500 font-medium text-center py-4">No staff data available</p>
+                        ) : (
+                            <>
+                                {(teachersData?.data?.users || []).slice(0, 4).map(staff => {
+                                    const staffId = String(staff._id);
+                                    const staffSalaries = (salaryData?.data || []).filter(s => {
+                                        const sId = s.teacherId?._id ? String(s.teacherId._id) : String(s.teacherId);
+                                        return sId === staffId;
+                                    });
+                                    const totalPaid = staffSalaries.filter(s => s.status === 'PAID').reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
+                                    const totalPending = staffSalaries.filter(s => s.status === 'PENDING').reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
+                                    
+                                    return (
+                                        <div key={staff._id} className="p-4 bg-gray-50/50 border border-gray-100 rounded-2xl hover:shadow-md hover:bg-white transition-all group">
+                                            <div className="flex flex-col">
+                                                <div className="mb-3">
+                                                    <p className="text-sm font-black text-gray-900 group-hover:text-violet-600 transition-colors line-clamp-1">{staff.name}</p>
+                                                    <p className="text-[10px] text-gray-400 uppercase font-black tracking-widest italic truncate">{staff.email}</p>
+                                                </div>
+                                                <div className="grid grid-cols-2 gap-2">
+                                                    <div className="bg-white/80 p-2.5 rounded-xl border border-gray-100 shadow-sm text-center">
+                                                        <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 text-center">Paid</p>
+                                                        <p className="text-xs font-black text-emerald-600">₹{(totalPaid || 0).toLocaleString()}</p>
+                                                    </div>
+                                                    <div className="bg-white/80 p-2.5 rounded-xl border border-gray-100 shadow-sm text-center">
+                                                        <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 text-center font-display">Pending</p>
+                                                        <p className="text-xs font-black text-amber-600">₹{(totalPending || 0).toLocaleString()}</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                                {(teachersData?.data?.users || []).length > 4 && (
+                                    <button 
+                                        onClick={() => {
+                                            setActiveTab('management');
+                                            setMgmtView('staff');
+                                            setStaffSubTab('dashboard');
+                                        }}
+                                        className="w-full mt-2 py-4 bg-violet-50 hover:bg-violet-600 hover:text-white text-violet-700 font-black rounded-2xl text-[10px] uppercase tracking-widest transition-all border border-violet-100 flex items-center justify-center gap-2 shadow-sm"
+                                    >
+                                        Manage Salary History <FaArrowRight size={10} />
+                                    </button>
+                                )}
+                            </>
+                        )}
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
     return (
         <DashboardLayout>
             {toast.text && (
@@ -343,11 +885,9 @@ const Fees = () => {
 
                 {/* Tabs */}
                 <div className="flex gap-1 bg-gray-100 p-1 rounded-xl w-fit">
-                    {isAdmin && renderTabBtn('management', <FaListAlt size={12} />, 'Fee Structure')}
+                    {isAdmin && renderTabBtn('management', <FaListAlt size={12} />, 'Fee Hub')}
                     {(!isAdmin && !isTeacher) && renderTabBtn('structures', <FaListAlt size={12} />, 'Assigned Fees')}
-                    {isAdmin && renderTabBtn('overview', <FaEye size={12} />, 'Overview')}
                     {isTeacher && renderTabBtn('salary', <FaWallet size={12} />, 'My Salary')}
-                    {isAdmin && renderTabBtn('yearly', <FaChartBar size={12} />, 'Yearly Summary')}
                 </div>
 
                 {/* ── TAB: Management (Unified) ────────────────────────── */}
@@ -392,14 +932,34 @@ const Fees = () => {
                                 <button onClick={() => setMgmtView('selection')} className="flex items-center gap-2 text-xs font-bold text-gray-500 hover:text-primary transition-all uppercase tracking-widest">
                                     <FaArrowLeft size={10} /> Back to Management
                                 </button>
-                                <div className="bg-white rounded-2xl border border-gray-200 p-5 shadow-sm">
-                                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-                                        <h2 className="text-xl font-bold text-gray-900">Fee Structure Management</h2>
+                                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
+                                    <div>
+                                        <h2 className="text-2xl font-black text-gray-900 font-display">Student Fee Management</h2>
+                                        <div className="flex gap-1 bg-gray-100 p-1 rounded-xl w-fit mt-3">
+                                            {[
+                                                { id: 'structures', label: 'Structures', icon: <FaListAlt size={10} /> },
+                                                { id: 'overview', label: 'Overview', icon: <FaChartBar size={10} /> },
+                                                { id: 'yearly', label: 'Yearly Summary', icon: <FaCalendarAlt size={10} /> }
+                                            ].map(tab => (
+                                                <button key={tab.id} onClick={() => setStudentSubTab(tab.id)}
+                                                    className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
+                                                        studentSubTab === tab.id ? 'bg-white text-primary shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                                                    }`}>
+                                                    {tab.icon} {tab.label}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                    {studentSubTab === 'structures' && (
                                         <button onClick={() => { setStructModal({ open: false, editData: null }); setMgmtView('student_form'); }}
                                             className="flex items-center gap-2 bg-primary hover:bg-primary-hover text-white font-bold py-2.5 px-6 rounded-xl transition-all shadow-lg shadow-primary/20">
                                             <FaPlus size={12} /> Add Fee Structure
                                         </button>
-                                    </div>
+                                    )}
+                                </div>
+
+                                {studentSubTab === 'structures' && (
+                                    <>
                                     {/* Filters */}
                                     <div className="flex flex-wrap gap-3 p-3 bg-gray-50 rounded-xl border border-gray-100 mb-6">
                                         <div className="flex items-center gap-2 px-2">
@@ -473,9 +1033,12 @@ const Fees = () => {
                                             </tbody>
                                         </table>
                                     </div>
-                                </div>
-                            </div>
-                        )}
+                                </>
+                            )}
+                            {studentSubTab === 'overview' && renderStudentOverview()}
+                            {studentSubTab === 'yearly' && renderStudentYearlySummary()}
+                        </div>
+                    )}
 
                         {mgmtView === 'student_form' && (
                             <FeeStructureForm
@@ -494,20 +1057,42 @@ const Fees = () => {
                             />
                         )}
 
-                        {mgmtView === 'staff' && (
-                            <div className="space-y-4 animate-fadeIn">
+                {mgmtView === 'staff' && (
+                    <div className="space-y-4 animate-fadeIn">
+                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
+                            <div>
+                                <h2 className="text-2xl font-black text-gray-900 font-display">Staff Payroll Management</h2>
+                                <div className="flex gap-1 bg-gray-100 p-1 rounded-xl w-fit mt-3">
+                                    {[
+                                        { id: 'dashboard', label: 'Dashboard', icon: <FaListAlt size={10} /> },
+                                        { id: 'overview', label: 'Overview', icon: <FaChartBar size={10} /> },
+                                        { id: 'yearly', label: 'Yearly Summary', icon: <FaCalendarAlt size={10} /> }
+                                    ].map(tab => (
+                                        <button key={tab.id} onClick={() => setStaffSubTab(tab.id)}
+                                            className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
+                                                staffSubTab === tab.id ? 'bg-white text-violet-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                                            }`}>
+                                            {tab.icon} {tab.label}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                            {staffSubTab === 'dashboard' && !selectedStaff && (
+                                <button onClick={() => setMgmtView('salary_form')}
+                                    className="flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white font-bold py-2.5 px-6 rounded-xl transition-all shadow-lg shadow-violet-200 text-sm">
+                                    <FaPlus size={12} /> Add Salary Entry
+                                </button>
+                            )}
+                        </div>
+
+                        {staffSubTab === 'dashboard' && (
+                            <>
                                 <div className="flex items-center justify-between gap-4">
                                     {!selectedStaff ? (
                                         <button onClick={() => setMgmtView('selection')} className="flex items-center gap-2 text-xs font-bold text-gray-500 hover:text-violet-600 transition-all uppercase tracking-widest">
-                                            <FaArrowLeft size={10} /> Back to Fee Hub
+                                            <FaArrowLeft size={10} /> Back to Management
                                         </button>
                                     ) : <div />}
-                                    {!selectedStaff && (
-                                        <button onClick={() => setMgmtView('salary_form')}
-                                            className="flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white font-bold py-2 px-5 rounded-xl transition-all shadow-lg shadow-violet-200 text-sm">
-                                            <FaPlus size={12} /> Add Salary Entry
-                                        </button>
-                                    )}
                                 </div>
                                 {selectedStaff ? (
                                     <div className="space-y-4">
@@ -657,8 +1242,12 @@ const Fees = () => {
                                         </div>
                                     </div>
                                 )}
-                            </div>
+                            </>
                         )}
+                            {staffSubTab === 'overview' && renderStaffOverview()}
+                            {staffSubTab === 'yearly' && renderStaffYearlySummary()}
+                        </div>
+                    )}
 
                         {mgmtView === 'salary_form' && (
                             <SalaryForm
@@ -674,412 +1263,7 @@ const Fees = () => {
                                     }
                                 }}
                             />
-                        )}
-                    </div>
-                )}
-
-                {/* ── TAB: Overview ──────────────────────────────────── */}
-                {isAdmin && activeTab === 'overview' && !selectedClass && !selectedStudent && (
-                    <div className="space-y-4">
-                        <div className="bg-white rounded-2xl border border-gray-200 p-5">
-                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
-                                <h2 className="text-xl font-bold text-gray-900">All Classes Fee Overview</h2>
-                                <div className="flex items-center gap-3">
-                                    <select value={overviewMonth} onChange={(e) => setOverviewMonth(Number(e.target.value))}
-                                        className="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-primary focus:border-primary">
-                                        {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
-                                            <option key={m} value={m}>{MONTH_LABELS[m]}</option>
-                                        ))}
-                                    </select>
-                                    <input type="number" value={overviewYear} onChange={(e) => setOverviewYear(Number(e.target.value))}
-                                        className="px-3 py-2 text-sm border border-gray-200 rounded-lg w-24 focus:ring-primary focus:border-primary" min={2000} max={2100} />
-                                </div>
-                            </div>
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-sm">
-                                    <thead>
-                                        <tr className="border-b border-gray-100">
-                                            {['Class', 'Students', 'Total Due', 'Collected', 'Waived', 'Pending', 'Collection %', 'Action'].map(h => (
-                                                <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">{h}</th>
-                                            ))}
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-gray-50">
-                                        {isLoadingOverview ? (
-                                            Array.from({ length: 4 }).map((_, i) => <SkeletonRow key={i} cols={8} />)
-                                        ) : overviewClasses.length === 0 ? (
-                                            <tr><td colSpan={8}><EmptyState icon={FaEye} title="No fee data" subtitle="Generate assignments first to see overview" /></td></tr>
-                                        ) : (
-                                            overviewClasses.map(cls => {
-                                                const pct = cls.totalDue > 0 ? Math.round((cls.totalCollected / cls.totalDue) * 100) : 0;
-                                                return (
-                                                    <tr key={`${cls.standard}-${cls.section}`} className="hover:bg-gray-50/50 transition-colors">
-                                                        <td className="px-4 py-3 font-medium text-gray-900">{cls.standard}-{cls.section}</td>
-                                                        <td className="px-4 py-3 text-gray-600">{cls.studentCount}</td>
-                                                        <td className="px-4 py-3 font-medium">₹{cls.totalDue?.toLocaleString()}</td>
-                                                        <td className="px-4 py-3 text-emerald-600 font-medium">₹{cls.totalCollected?.toLocaleString()}</td>
-                                                        <td className="px-4 py-3 text-red-600 font-medium">₹{cls.totalWaived?.toLocaleString()}</td>
-                                                        <td className="px-4 py-3 text-amber-600 font-medium">₹{cls.totalPending?.toLocaleString()}</td>
-                                                        <td className="px-4 py-3">
-                                                            <div className="flex items-center gap-2">
-                                                                <div className="w-16 h-1.5 bg-gray-100 rounded-full overflow-hidden"><div className="h-full bg-emerald-500 rounded-full" style={{ width: `${pct}%` }}></div></div>
-                                                                <span className="text-xs font-medium text-gray-600">{pct}%</span>
-                                                            </div>
-                                                        </td>
-                                                        <td className="px-4 py-3">
-                                                            <button onClick={() => setSelectedClass(cls)}
-                                                                className="text-primary hover:underline text-sm font-medium">View Details</button>
-                                                        </td>
-                                                    </tr>
-                                                );
-                                            })
-                                        )}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                {/* Class Detail View */}
-                {isAdmin && activeTab === 'overview' && selectedClass && !selectedStudent && (
-                    <div className="space-y-4">
-                        <button onClick={() => setSelectedClass(null)} className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700 transition-colors">
-                            <FaArrowLeft size={12} />Back to All Classes
-                        </button>
-                        <div className="bg-white rounded-2xl border border-gray-200 p-5">
-                            <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
-                                <div className="flex flex-col md:flex-row md:items-center gap-4">
-                                    <div>
-                                        <h2 className="text-xl font-bold text-gray-900">Class {selectedClass.standard}-{selectedClass.section}</h2>
-                                        <p className="text-sm text-gray-500">{MONTH_LABELS[overviewMonth]} {overviewYear}</p>
-                                    </div>
-                                    <div className="flex items-center gap-2 bg-gray-50 p-1.5 rounded-xl border border-gray-100">
-                                        <FaFilter className="text-gray-400 ml-2" size={12} />
-                                        <select 
-                                            value={overviewType} 
-                                            onChange={(e) => setOverviewType(e.target.value)}
-                                            className="bg-transparent border-none text-sm font-bold text-gray-700 focus:ring-0 min-w-[140px]"
-                                        >
-                                            <option value="">All Fee Types</option>
-                                            {feeTypesList.map(t => (
-                                                <option key={t.name} value={t.name}>{t.label}</option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                </div>
-                                <div className="flex gap-4 text-sm">
-                                    <div className="text-center px-4 py-2 bg-gray-50 rounded-xl"><p className="text-xs text-gray-500 font-medium">Students</p><p className="text-lg font-bold">{filteredClassSummary.totalStudents || 0}</p></div>
-                                    <div className="text-center px-4 py-2 bg-emerald-50 rounded-xl"><p className="text-xs text-gray-500 font-medium">Collected</p><p className="text-lg font-bold text-emerald-600">₹{(filteredClassSummary.totalCollected || 0).toLocaleString()}</p></div>
-                                    <div className="text-center px-4 py-2 bg-amber-50 rounded-xl"><p className="text-xs text-gray-500 font-medium">Pending</p><p className="text-lg font-bold text-amber-600">₹{(filteredClassSummary.totalPending || 0).toLocaleString()}</p></div>
-                                </div>
-                            </div>
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-sm">
-                                    <thead>
-                                        <tr className="border-b border-gray-100">
-                                            {['Student', 'Fee Type', 'Amount', 'Paid', 'Status', 'Due Date', 'Actions'].map(h => (
-                                                <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">{h}</th>
-                                            ))}
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-gray-50">
-                                        {classLoading ? (
-                                            Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} cols={8} />)
-                                        ) : filteredClassStudents.length === 0 ? (
-                                            <tr><td colSpan={8}><EmptyState icon={FaEye} title="No students" subtitle="No fee assignments for this class/month" /></td></tr>
-                                        ) : (
-                                            filteredClassStudents.flatMap(student =>
-                                                student.fees.map((fee, idx) => (
-                                                    <tr key={`${student.studentId}-${fee.assignmentId}`} className="hover:bg-gray-50/50 transition-colors">
-                                                        <td className="px-4 py-3">
-                                                            {idx === 0 ? (
-                                                                <button onClick={() => setSelectedStudent(student)} className="font-medium text-gray-900 hover:text-primary transition-colors">{student.name}</button>
-                                                            ) : null}
-                                                        </td>
-                                                        <td className="px-4 py-3 text-gray-600">{fee.name || fee.feeType}</td>
-                                                        <td className="px-4 py-3 font-medium">₹{fee.amount?.toLocaleString()}</td>
-                                                        <td className="px-4 py-3 text-emerald-600">₹{fee.paid?.toLocaleString()}</td>
-                                                        <td className="px-4 py-3"><StatusBadge status={fee.status} /></td>
-                                                        <td className="px-4 py-3 text-gray-500 text-xs">{fee.dueDate ? new Date(fee.dueDate).toLocaleDateString() : '-'}</td>
-                                                        <td className="px-4 py-3">
-                                                            <div className="flex items-center gap-1">
-                                                                 {isAdmin && fee.status !== 'PAID' && fee.status !== 'WAIVED' && (
-                                                                    <>
-                                                                        <button onClick={() => setPaymentModal({ open: true, assignment: { _id: fee.assignmentId, netAmount: fee.amount, paidAmount: fee.paid } })}
-                                                                            title="Record Payment" className="p-1.5 text-emerald-500 hover:bg-emerald-50 rounded-lg transition-colors"><FaMoneyBillWave size={12} /></button>
-                                                                        <button onClick={() => handleWaive(fee.assignmentId)}
-                                                                            title="Waive Fee" className="p-1.5 text-gray-400 hover:text-orange-500 hover:bg-orange-50 rounded-lg transition-colors"><FaBan size={12} /></button>
-                                                                    </>
-                                                                )}
-                                                            </div>
-                                                        </td>
-                                                    </tr>
-                                                ))
-                                            )
-                                        )}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                {/* Student History View */}
-                {isAdmin && activeTab === 'overview' && selectedStudent && (
-                    <div className="space-y-4">
-                        <button onClick={() => setSelectedStudent(null)} className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700 transition-colors">
-                            <FaArrowLeft size={12} />Back to Class
-                        </button>
-                        <div className="bg-white rounded-2xl border border-gray-200 p-5">
-                            <div className="flex items-center justify-between mb-4">
-                                <div>
-                                    <h2 className="text-xl font-bold text-gray-900">{selectedStudent.name}</h2>
-                                    <p className="text-sm text-gray-500">Fee History — {overviewYear}</p>
-                                </div>
-                                <div className="flex gap-4 text-sm">
-                                    <div className="text-center px-4 py-2 bg-gray-50 rounded-xl"><p className="text-xs text-gray-500">Total Due</p><p className="text-lg font-bold">₹{(studentSummary.totalDue || 0).toLocaleString()}</p></div>
-                                    <div className="text-center px-4 py-2 bg-emerald-50 rounded-xl"><p className="text-xs text-gray-500">Paid</p><p className="text-lg font-bold text-emerald-600">₹{(studentSummary.totalPaid || 0).toLocaleString()}</p></div>
-                                    <div className="text-center px-4 py-2 bg-red-50 rounded-xl"><p className="text-xs text-gray-500">Waived</p><p className="text-lg font-bold text-red-600">₹{(studentSummary.totalWaived || 0).toLocaleString()}</p></div>
-                                    <div className="text-center px-4 py-2 bg-amber-50 rounded-xl"><p className="text-xs text-gray-500">Pending</p><p className="text-lg font-bold text-amber-600">₹{(studentSummary.totalPending || 0).toLocaleString()}</p></div>
-                                </div>
-                            </div>
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-sm">
-                                    <thead>
-                                        <tr className="border-b border-gray-100">
-                                            {['Month', 'Fee Type', 'Amount', 'Paid', 'Waived', 'Status', 'Due Date', 'Payments', 'Actions'].map(h => (
-                                                <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">{h}</th>
-                                            ))}
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-gray-50">
-                                        {studentLoading ? (
-                                            Array.from({ length: 4 }).map((_, i) => <SkeletonRow key={i} cols={8} />)
-                                        ) : studentFees.length === 0 ? (
-                                            <tr><td colSpan={8}><EmptyState icon={FaHistory} title="No fee history" subtitle="No fees assigned to this student" /></td></tr>
-                                        ) : (
-                                            studentFees.map(fee => (
-                                                <tr key={fee.assignmentId} className="hover:bg-gray-50/50 transition-colors">
-                                                    <td className="px-4 py-3 font-medium">{MONTH_LABELS[fee.month]}</td>
-                                                    <td className="px-4 py-3 text-gray-600">{fee.name || fee.feeType}</td>
-                                                    <td className="px-4 py-3 font-medium">₹{fee.amount?.toLocaleString()}</td>
-                                                    <td className="px-4 py-3 text-emerald-600">₹{fee.paid?.toLocaleString()}</td>
-                                                    <td className="px-4 py-3 text-red-600">₹{Math.max(0, (fee.amount || 0) - (fee.paid || 0) * (['PAID', 'WAIVED'].includes((fee.status || '').toUpperCase()) ? 1 : 0)).toLocaleString()}</td>
-                                                    <td className="px-4 py-3"><StatusBadge status={fee.status} /></td>
-                                                    <td className="px-4 py-3 text-gray-500 text-xs">{fee.dueDate ? new Date(fee.dueDate).toLocaleDateString() : '-'}</td>
-                                                    <td className="px-4 py-3">
-                                                        {fee.payments?.length > 0 ? (
-                                                            <span className="text-xs text-gray-500">{fee.payments.length} payment{fee.payments.length > 1 ? 's' : ''}</span>
-                                                        ) : <span className="text-xs text-gray-400">—</span>}
-                                                    </td>
-                                                    <td className="px-4 py-3">
-                                                        {isAdmin && fee.status !== 'PAID' && fee.status !== 'WAIVED' && (
-                                                            <button onClick={() => setPaymentModal({ open: true, assignment: { _id: fee.assignmentId, netAmount: fee.amount, paidAmount: fee.paid } })}
-                                                                className="p-1.5 text-emerald-500 hover:bg-emerald-50 rounded-lg transition-colors"><FaMoneyBillWave size={12} /></button>
-                                                        )}
-                                                    </td>
-                                                </tr>
-                                            ))
-                                        )}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                {/* ── TAB: Yearly Summary ────────────────────────────── */}
-                {isAdmin && activeTab === 'yearly' && (
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                        <div className="lg:col-span-2 space-y-6">
-                            <div className="bg-white rounded-2xl border border-gray-200 p-5">
-                                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-                                    <div>
-                                        <h2 className="text-xl font-bold text-gray-900">Yearly Collection Breakdown</h2>
-                                        <p className="text-sm text-gray-500">Monthly breakdown of fee collection</p>
-                                    </div>
-                                    <input type="number" value={summaryYear} onChange={(e) => setSummaryYear(Number(e.target.value))}
-                                        className="px-3 py-2 text-sm border border-gray-200 rounded-lg w-28 focus:ring-primary focus:border-primary font-medium" min={2000} max={2100} />
-                                </div>
-
-                                {/* Year totals */}
-                                {yearTotal.totalDue > 0 && (
-                                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
-                                        <div className="bg-gray-50 border border-gray-100 rounded-2xl p-4 text-center">
-                                            <p className="text-xs font-semibold text-gray-500 mb-1 uppercase tracking-wider">Total Due</p>
-                                            <p className="text-xl font-bold text-gray-900">₹{(yearTotal.totalDue || 0).toLocaleString()}</p>
-                                        </div>
-                                        <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-4 text-center">
-                                            <p className="text-xs font-semibold text-emerald-600 mb-1 uppercase tracking-wider">Collected</p>
-                                            <p className="text-xl font-bold text-emerald-700">₹{(yearTotal.totalCollected || 0).toLocaleString()}</p>
-                                        </div>
-                                        <div className="bg-red-50 border border-red-100 rounded-2xl p-4 text-center">
-                                            <p className="text-xs font-semibold text-red-600 mb-1 uppercase tracking-wider">Waived</p>
-                                            <p className="text-xl font-bold text-red-700">₹{(yearTotal.totalWaived || 0).toLocaleString()}</p>
-                                        </div>
-                                        <div className="bg-amber-50 border border-amber-100 rounded-2xl p-4 text-center">
-                                            <p className="text-xs font-semibold text-amber-600 mb-1 uppercase tracking-wider">Pending</p>
-                                            <p className="text-xl font-bold text-amber-700">₹{(yearTotal.totalPending || 0).toLocaleString()}</p>
-                                        </div>
-                                        <div className="bg-primary/5 border border-primary/10 rounded-2xl p-4 text-center col-span-2 sm:col-span-1">
-                                            <p className="text-xs font-semibold text-primary mb-1 uppercase tracking-wider">Rate</p>
-                                            <p className="text-xl font-bold text-primary">{yearTotal.collectionRate || 0}%</p>
-                                        </div>
-                                    </div>
                                 )}
-
-                                <div className="overflow-x-auto">
-                                    <table className="w-full text-sm">
-                                        <thead>
-                                            <tr className="border-b border-gray-100">
-                                                {['Month', 'Due', 'Collected', 'Waived', 'Pending', 'Collection Rate'].map(h => (
-                                                    <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">{h}</th>
-                                                ))}
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-gray-50">
-                                            {yearlyLoading ? (
-                                                Array.from({ length: 6 }).map((_, i) => <SkeletonRow key={i} cols={6} />)
-                                            ) : yearlyBreakdown.length === 0 ? (
-                                                <tr><td colSpan={6}><EmptyState icon={FaChartBar} title="No data" subtitle="No fee data for this year" /></td></tr>
-                                            ) : (
-                                                yearlyBreakdown.map(m => (
-                                                    <tr key={m.month} className="hover:bg-gray-50/50 transition-colors">
-                                                        <td className="px-4 py-3 font-semibold text-gray-900">{m.label}</td>
-                                                        <td className="px-4 py-3 text-gray-600">₹{(m.totalDue || 0).toLocaleString()}</td>
-                                                        <td className="px-4 py-3 text-emerald-600 font-medium">₹{(m.totalCollected || 0).toLocaleString()}</td>
-                                                        <td className="px-4 py-3 text-red-600">₹{(m.totalWaived || 0).toLocaleString()}</td>
-                                                        <td className="px-4 py-3 text-amber-600">₹{(m.totalPending || 0).toLocaleString()}</td>
-                                                        <td className="px-4 py-3">
-                                                            <div className="flex items-center gap-3">
-                                                                <div className="w-16 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                                                                    <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${m.collectionRate}%` }}></div>
-                                                                </div>
-                                                                <span className="text-xs font-bold text-gray-700">{m.collectionRate}%</span>
-                                                            </div>
-                                                        </td>
-                                                    </tr>
-                                                ))
-                                            )}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-
-                            {/* Moved: Breakdown by Fee Type */}
-                            <div className="bg-white rounded-2xl border border-gray-200 p-5">
-                                <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                                    <span className="w-1.5 h-6 bg-primary rounded-full"></span>
-                                    Breakdown by Fee Type
-                                </h3>
-                                <div className="space-y-3">
-                                    {yearlyLoading ? (
-                                        Array.from({ length: 4 }).map((_, i) => (
-                                            <div key={i} className="h-20 bg-gray-50 rounded-xl animate-pulse" />
-                                        ))
-                                    ) : typeBreakdown.length === 0 ? (
-                                        <p className="text-sm text-gray-500 text-center py-4">No type data available</p>
-                                    ) : (
-                                        typeBreakdown.map(item => (
-                                            <div key={item.type} className="p-3.5 bg-gray-50 border border-gray-100 rounded-xl hover:shadow-sm transition-all group">
-                                                <div className="flex justify-between items-start mb-2">
-                                                    <div>
-                                                        <p className="text-sm font-bold text-gray-900 group-hover:text-primary transition-colors">{item.type}</p>
-                                                        <p className="text-[10px] text-gray-500 uppercase font-bold tracking-tight">Rate: {item.collectionRate}%</p>
-                                                    </div>
-                                                    <div className="text-right">
-                                                        <p className="text-xs font-bold text-emerald-600">₹{(item.totalCollected || 0).toLocaleString()}</p>
-                                                        <p className="text-[10px] text-gray-400">of ₹{(item.totalDue || 0).toLocaleString()}</p>
-                                                    </div>
-                                                </div>
-                                                <div className="w-full h-1.5 bg-gray-200 rounded-full overflow-hidden">
-                                                    <div className="h-full bg-primary rounded-full" style={{ width: `${item.collectionRate}%` }}></div>
-                                                </div>
-                                                <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2">
-                                                    {(item.totalPending || 0) > 0 && (
-                                                        <p className="text-[10px] text-amber-600 font-semibold flex items-center gap-1">
-                                                            <span className="w-1 h-1 bg-amber-400 rounded-full"></span>
-                                                            Pending: ₹{(item.totalPending || 0).toLocaleString()}
-                                                        </p>
-                                                    )}
-                                                    {(item.totalWaived || 0) > 0 && (
-                                                        <p className="text-[10px] text-red-600 font-semibold flex items-center gap-1">
-                                                            <span className="w-1 h-1 bg-red-400 rounded-full"></span>
-                                                            Waived: ₹{(item.totalWaived || 0).toLocaleString()}
-                                                        </p>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        ))
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Sidebar: Staff Salaries History */}
-                        <div className="space-y-6">
-                            <div className="bg-white rounded-2xl border border-gray-200 p-5">
-                                <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                                    <span className="w-1.5 h-6 bg-violet-500 rounded-full"></span>
-                                    Staff Salaries History
-                                </h3>
-                                <div className="space-y-3">
-                                    {teachersLoading || salariesLoading ? (
-                                        Array.from({ length: 4 }).map((_, i) => (
-                                            <div key={i} className="h-20 bg-gray-50 rounded-xl animate-pulse" />
-                                        ))
-                                    ) : (teachersData?.data?.users || []).length === 0 ? (
-                                        <p className="text-sm text-gray-500 text-center py-4">No staff data available</p>
-                                    ) : (
-                                        <>
-                                            {(teachersData?.data?.users || []).slice(0, 4).map(staff => {
-                                                const staffId = String(staff._id);
-                                                const staffSalaries = (salaryData?.data || []).filter(s => {
-                                                    const sId = s.teacherId?._id ? String(s.teacherId._id) : String(s.teacherId);
-                                                    return sId === staffId;
-                                                });
-                                                const totalPaid = staffSalaries.filter(s => s.status === 'PAID').reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
-                                                const totalPending = staffSalaries.filter(s => s.status === 'PENDING').reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
-                                                
-                                                return (
-                                                    <div key={staff._id} className="p-3.5 bg-gray-50 border border-gray-100 rounded-xl hover:shadow-sm transition-all group">
-                                                        <div className="flex flex-col mb-2">
-                                                            <div>
-                                                                <p className="text-sm font-bold text-gray-900 group-hover:text-violet-600 transition-colors">{staff.name}</p>
-                                                                <p className="text-[10px] text-gray-500 uppercase font-bold tracking-tight mb-2">{staff.email}</p>
-                                                            </div>
-                                                            <div className="flex justify-between items-center bg-white p-2 text-center rounded-lg border border-gray-100 shadow-sm mt-1">
-                                                                <div className="flex-1 border-r border-gray-100">
-                                                                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">Paid</p>
-                                                                    <p className="text-xs font-black text-emerald-600">₹{(totalPaid || 0).toLocaleString()}</p>
-                                                                </div>
-                                                                <div className="flex-1">
-                                                                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">Pending</p>
-                                                                    <p className="text-xs font-black text-amber-600">₹{(totalPending || 0).toLocaleString()}</p>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-
-                                                    </div>
-                                                );
-                                            })}
-                                            {(teachersData?.data?.users || []).length > 4 && (
-                                                <button 
-                                                    onClick={() => {
-                                                        setActiveTab('management');
-                                                        setMgmtView('staff');
-                                                    }}
-                                                    className="w-full mt-2 py-3 bg-violet-50 hover:bg-violet-100 text-violet-700 font-bold rounded-xl text-sm transition-colors border border-violet-100 flex items-center justify-center gap-2"
-                                                >
-                                                    Manage More History <FaArrowRight size={12} />
-                                                </button>
-                                            )}
-                                        </>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
                     </div>
                 )}
 
