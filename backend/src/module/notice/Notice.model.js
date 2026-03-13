@@ -76,6 +76,12 @@ const noticeSchema = new mongoose.Schema(
           type: Date,
           default: Date.now,
         },
+        responseMessage: {
+          type: String,
+          trim: true,
+          default: '',
+          maxlength: 500,
+        },
       },
     ],
   },

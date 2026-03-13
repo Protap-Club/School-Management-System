@@ -6,7 +6,8 @@ import {
 } from 'react-icons/fa';
 
 import { useNoticeHandlers } from '../features/notices/useNoticeHandlers';
-import { ReceiverAckButton, ViewItemModal, SendModal, getFileIcon, getRecipientLabel } from '../features/notices/NoticeComponents';
+import { ReceiverAckButton, ViewItemModal, SendModal } from '../features/notices/NoticeComponents';
+import { getFileIcon, getRecipientLabel } from '../features/notices/NoticeUtils';
 import { SectionHeader, TabButton, FilterSelect, MemberList } from '../components/ui/NoticeUIComponents';
 
 const Notice = () => {

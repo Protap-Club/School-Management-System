@@ -133,7 +133,7 @@ export const useDeleteGroup = () => {
 export const useAcknowledgeNotice = (id) => {
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: () => noticesApi.acknowledgeNotice(id),
+        mutationFn: (responseMessage) => noticesApi.acknowledgeNotice(id, responseMessage),
         onSuccess: () => {
             // Refresh received notices so the acknowledged state updates immediately
             queryClient.invalidateQueries({ queryKey: noticeKeys.received() });

@@ -66,11 +66,17 @@ export const groupIdParamsSchema = z.object({
 // Acknowledgment Validation Schemas
 // ═══════════════════════════════════════════════════════════════
 
-// POST /notices/:id/acknowledge — just validates the notice ID param
+// POST /notices/:id/acknowledge — validates ID param + optional response message
 export const acknowledgeNoticeSchema = z.object({
     params: z.object({
         id: objectIdSchema,
-    })
+    }),
+    body: z.object({
+        responseMessage: z.string({ required_error: 'Response message is required' })
+            .trim()
+            .min(2, 'Response message must be at least 2 characters long')
+            .max(500, 'Response message cannot exceed 500 characters'),
+    }),
 });
 
 // GET /notices/:id/acknowledgments — same param shape

@@ -7,7 +7,7 @@ import {
     useReceivedNotices, useAcknowledgeNotice, useAcknowledgments,
 } from './api/queries';
 import { ALLOWED_EXTENSIONS, IMAGE_EXTENSIONS, SELECTION_VALIDATORS, RECIPIENT_MAP } from './noticeConstants';
-import { getRecipientLabel, getFileIcon } from './NoticeComponents';
+import { getRecipientLabel, getFileIcon } from './NoticeUtils';
 
 export const useNoticeHandlers = () => {
     const { user: currentUser } = useAuth();

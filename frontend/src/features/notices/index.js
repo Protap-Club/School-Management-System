@@ -28,4 +28,5 @@ export const NOTICE_TYPES = {
 };
 
 export * from './useNoticeHandlers';
+export * from './NoticeUtils';
 export * from './NoticeComponents';
