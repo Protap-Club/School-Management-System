@@ -4,7 +4,7 @@ import AdminProfile from "../../module/user/model/AdminProfile.model.js";
 import TeacherProfile from "../../module/user/model/TeacherProfile.model.js";
 import StudentProfile from "../../module/user/model/StudentProfile.model.js";
 import { TimeSlot, Timetable, TimetableEntry } from "../../module/timetable/Timetable.model.js";
-import Attendance from "../../module/attendence/Attendance.model.js";
+import Attendance from "../../module/attendance/Attendance.model.js";
 import { CalendarEvent } from "../../module/calendar/calendar.model.js";
 import { Notice, NoticeGroup } from "../../module/notice/Notice.model.js";
 import logger from "../../config/logger.js";

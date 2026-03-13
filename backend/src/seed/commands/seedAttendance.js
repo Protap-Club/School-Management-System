@@ -1,4 +1,4 @@
-import Attendance from "../../module/attendence/Attendance.model.js";
+import Attendance from "../../module/attendance/Attendance.model.js";
 import School from "../../module/school/School.model.js";
 import StudentProfile from "../../module/user/model/StudentProfile.model.js";
 import logger from "../../config/logger.js";
