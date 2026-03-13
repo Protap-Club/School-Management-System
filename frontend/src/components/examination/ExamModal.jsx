@@ -1,12 +1,9 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { 
     FaTimes, FaPlus, FaTrash, FaSave, FaCalendarAlt, FaClock, 
-    FaBookOpen, FaInfoCircle, FaCheckCircle, FaExclamationTriangle
+    FaBookOpen, FaInfoCircle, FaCheckCircle, FaExclamationTriangle, FaUserGraduate
 } from 'react-icons/fa';
-
-// Static options for standards and sections (no backend dependency for now)
-const STANDARD_OPTIONS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'];
-const SECTION_OPTIONS = ['A', 'B', 'C'];
+import { useSchoolClasses } from '../../hooks/useSchoolClasses';
 
 const INITIAL_FORM = {
     name: '',
@@ -48,8 +45,12 @@ const ExamModal = ({ isOpen, onClose, onSubmit, editData, isLoading, userRole })
     const isAdmin = userRole === 'admin';
     const [form, setForm] = useState(INITIAL_FORM);
     const [errors, setErrors] = useState({});
-    const [availableStandards] = useState(STANDARD_OPTIONS);
-    const [availableSections] = useState(SECTION_OPTIONS);
+    // Fetch classes data
+    const { loading: classesLoading, availableStandards, getSectionsForStandard, allUniqueSections } = useSchoolClasses();
+    
+    const availableSections = form.standard 
+        ? getSectionsForStandard(form.standard) 
+        : allUniqueSections;
 
     // Initialize form with edit data or reset to initial
     useEffect(() => {
@@ -72,9 +73,8 @@ const ExamModal = ({ isOpen, onClose, onSubmit, editData, isLoading, userRole })
                 if (isTeacher) {
                     base.examType = 'CLASS_TEST';
                     // Teacher form does not expose standard/section inputs;
-                    // default to the first configured values for now.
-                    base.standard = STANDARD_OPTIONS[0];
-                    base.section = SECTION_OPTIONS[0];
+                    base.standard = '';
+                    base.section = '';
                 } else if (isAdmin) {
                     base.examType = 'TERM_EXAM';
                 }

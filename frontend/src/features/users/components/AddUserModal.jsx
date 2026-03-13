@@ -3,6 +3,7 @@ import { FaTimes, FaUserPlus, FaBuilding } from 'react-icons/fa';
 import api from '../../../lib/axios';
 import { useAuth } from '../../../features/auth';
 import { useCreateUser } from '../api/queries';
+import { useSchoolClasses } from '../../../hooks/useSchoolClasses';
 
 const InputField = ({ label, name, value, onChange, type = "text", required = false, isNumeric = false, ...props }) => (
     <div className="space-y-1">
@@ -65,12 +66,6 @@ const INITIAL_FORM = {
     guardianName: '', guardianContact: '', address: ''
 };
 
-const naturalSort = (arr) => {
-    return [...arr].sort((a, b) => {
-        return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
-    });
-};
-
 const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
     const { user } = useAuth();
     const createUserMutation = useCreateUser();
@@ -80,10 +75,9 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
     const [error, setError] = useState('');
     const [activeGuardianTab, setActiveGuardianTab] = useState('parents'); // 'parents' | 'guardian'
 
-    // Classes / sections fetched from backend
-    const [standards, setStandards] = useState([]);
-    const [sections, setSections] = useState([]);
-    const [classesLoading, setClassesLoading] = useState(false);
+    // Classes / sections fetched from backend via global hook
+    const { loading: classesLoading, availableStandards: standards, getSectionsForStandard, allUniqueSections } = useSchoolClasses();
+    const sections = formData.standard ? getSectionsForStandard(formData.standard) : allUniqueSections;
 
     const roleLabel = roleToAdd?.charAt(0).toUpperCase() + roleToAdd?.slice(1);
 
@@ -111,55 +105,7 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
             }
         };
 
-        const fetchClasses = async () => {
-            if (roleToAdd === 'student' || roleToAdd === 'teacher') {
-                setClassesLoading(true);
-                try {
-                    const response = await api.get('/school/classes');
-                    const data = response.data?.data;
-
-                    // Get custom classes from localStorage with safety
-                    let localData = { standards: [], sections: [] };
-                    try {
-                        const stored = localStorage.getItem('school_custom_classes');
-                        if (stored) localData = JSON.parse(stored);
-                    } catch (e) {
-                        console.error('Failed to parse local classes', e);
-                    }
-                    
-                    // Merge and ensure uniqueness with safety guards
-                    const combinedStandards = Array.from(new Set([...(data?.standards || []), ...(localData.standards || [])]));
-                    const combinedSections = Array.from(new Set([...(data?.sections || []), ...(localData.sections || [])]));
-
-                    setStandards(naturalSort(combinedStandards));
-                    setSections(naturalSort(combinedSections));
-                } catch {
-                    // Fallback to local data only
-                    let localData = { standards: [], sections: [] };
-                    try {
-                        const stored = localStorage.getItem('school_custom_classes');
-                        if (stored) localData = JSON.parse(stored);
-                    } catch (e) {
-                        console.error('Failed to parse local classes', e);
-                    }
-                    setStandards(naturalSort(localData.standards || []));
-                    setSections(naturalSort(localData.sections || []));
-                } finally {
-                    setClassesLoading(false);
-                }
-            }
-        };
-
-        // Listen for updates from settings
-        const handleCustomUpdate = () => fetchClasses();
-        window.addEventListener('customClassesUpdated', handleCustomUpdate);
-
         fetchSchoolDetails();
-        fetchClasses();
-
-        return () => {
-            window.removeEventListener('customClassesUpdated', handleCustomUpdate);
-        };
     }, [isOpen, user, roleToAdd]);
 
     if (!isOpen) return null;
