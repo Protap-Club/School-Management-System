@@ -38,6 +38,7 @@ export const createExamSchema = z.object({
         section: z.string({ required_error: "Section is required" }).nonempty(),
         description: z.string().max(500).optional(),
         schedule: z.array(scheduleItemSchema).optional().default([]),
+        schoolId: objectIdSchema.optional(),
     }),
 });
 

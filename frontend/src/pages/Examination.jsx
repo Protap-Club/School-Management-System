@@ -4,9 +4,10 @@ import { useAuth } from '../features/auth';
 import {
   useExams, useCreateExam, useUpdateExam, useDeleteExam, useUpdateExamStatus,
 } from '../features/examination';
+import { useProfile } from '../features/attendance';
 import ExamModal from '../components/examination/ExamModal';
 import { FaPlus, FaEdit, FaTrash, FaEye, FaCalendarAlt, FaClock,
-  FaChalkboardTeacher, FaCheckCircle, FaExclamationTriangle, FaBan, FaFilter, FaSearch, FaTimes } from 'react-icons/fa';
+  FaChalkboardTeacher, FaCheckCircle, FaExclamationTriangle, FaBan, FaFilter, FaSearch, FaTimes, FaInfoCircle } from 'react-icons/fa';
 import { TabButton } from '../components/ui/NoticeUIComponents';
 
 // Constants
@@ -48,8 +49,14 @@ const EmptyState = ({ icon: Icon, title, subtitle, action }) => (
 
 const Examination = () => {
   const { user } = useAuth();
-  const isAdmin = user?.role === 'admin';
+  const { data: profileRes } = useProfile();
+  const isAdmin = ['admin', 'super_admin'].includes(user?.role);
   const isTeacher = user?.role === 'teacher';
+
+  const teacherProfile = useMemo(() => {
+    if (!isTeacher || !profileRes?.data) return null;
+    return profileRes.data.data || profileRes.data;
+  }, [isTeacher, profileRes]);
 
   const [activeTab, setActiveTab] = useState('all');
   const [teacherTab, setTeacherTab] = useState('schedule'); // 'schedule' | 'create'
@@ -63,6 +70,7 @@ const Examination = () => {
   });
   const [selectedExam, setSelectedExam] = useState(null);
   const [showModal, setShowModal] = useState({ type: '', open: false, data: null });
+  const [deleteConfirm, setDeleteConfirm] = useState({ open: false, examId: null });
   const [toast, setToast] = useState({ type: '', text: '' });
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -73,9 +81,34 @@ const Examination = () => {
   const deleteExamMutation = useDeleteExam();
   const updateStatusMutation = useUpdateExamStatus();
 
-  // Static dropdown options for now
-  const availableStandards = useMemo(() => STANDARD_OPTIONS, []);
-  const availableSections = useMemo(() => SECTION_OPTIONS, []);
+  // Filtered dropdown options
+  const availableStandards = useMemo(() => {
+    const assignedClasses = teacherProfile?.profile?.assignedClasses || teacherProfile?.assignedClasses || [];
+    if (isTeacher) {
+      if (assignedClasses.length > 0) {
+        return [...new Set(assignedClasses.map(c => String(c.standard)))].sort((a, b) => Number(a) - Number(b));
+      }
+      return []; // Return empty for teachers with no assignments
+    }
+    return STANDARD_OPTIONS;
+  }, [isTeacher, teacherProfile]);
+
+  const availableSections = useMemo(() => {
+    const assignedClasses = teacherProfile?.profile?.assignedClasses || teacherProfile?.assignedClasses || [];
+    if (isTeacher) {
+      if (assignedClasses.length > 0) {
+        if (filters.standard) {
+          return assignedClasses
+            .filter(c => String(c.standard) === String(filters.standard))
+            .map(c => String(c.section))
+            .sort();
+        }
+        return [...new Set(assignedClasses.map(c => String(c.section)))].sort();
+      }
+      return []; // Return empty for teachers with no assignments
+    }
+    return SECTION_OPTIONS;
+  }, [isTeacher, teacherProfile, filters.standard]);
 
   const showMessage = useCallback((type, text) => {
     setToast({ type, text });
@@ -109,14 +142,14 @@ const Examination = () => {
     }
   };
 
-  const handleDelete = async (examId) => {
-    if (window.confirm('Are you sure you want to delete this exam?')) {
-      try {
-        await deleteExamMutation.mutateAsync(examId);
-        showMessage('success', 'Exam deleted successfully');
-      } catch (error) {
-        showMessage('error', error.response?.data?.message || 'Delete failed');
-      }
+  const handleDelete = async () => {
+    if (!deleteConfirm.examId) return;
+    try {
+      await deleteExamMutation.mutateAsync(deleteConfirm.examId);
+      showMessage('success', 'Exam deleted successfully');
+      setDeleteConfirm({ open: false, examId: null });
+    } catch (error) {
+      showMessage('error', error.response?.data?.message || 'Delete failed');
     }
   };
 
@@ -138,10 +171,10 @@ const Examination = () => {
             <p className="text-gray-500 mt-1">
               {isTeacher
                 ? 'View and manage exams scheduled for your assigned classes'
-                : 'Plan, schedule and manage academic assessments across all standards'}
+                : 'Plan, schedule and manage academic assessments across all classes'}
             </p>
           </div>
-          {(isAdmin || isTeacher) && !isTeacher && (
+          {(isAdmin || isTeacher) && (
             <button
               onClick={() => setShowModal({ type: 'create', open: true, data: null })}
               className="flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-xl hover:bg-primary-hover transition-all font-bold shadow-lg shadow-primary/20 hover:-translate-y-0.5"
@@ -152,109 +185,76 @@ const Examination = () => {
           )}
         </div>
 
-        {isTeacher && (
-          <div className="flex gap-1 bg-gray-100 p-1 rounded-xl w-fit mb-6">
-            <TabButton 
-              tab="schedule"
-              activeTab={teacherTab} 
-              setActiveTab={setTeacherTab} 
-              label="Class Exams Schedule" 
-              icon={<FaCalendarAlt />}
-            />
-            <TabButton 
-              tab="create"
-              activeTab={teacherTab} 
-              setActiveTab={setTeacherTab} 
-              label="Create Exam" 
-              icon={<FaPlus />}
-            />
-          </div>
-        )}
+        <div className="flex gap-1 bg-gray-100 p-1 rounded-xl w-fit mb-6">
+          <TabButton 
+            tab="all"
+            activeTab={activeTab} 
+            setActiveTab={setActiveTab} 
+            label="All Exams" 
+            count={exams.length}
+            icon={<FaFilter />}
+          />
+          <TabButton 
+            tab="upcoming"
+            activeTab={activeTab} 
+            setActiveTab={setActiveTab} 
+            label="Scheduled" 
+            count={exams.filter(e => e.status === 'PUBLISHED').length}
+            icon={<FaCalendarAlt />}
+          />
+          <TabButton 
+            tab="drafts"
+            activeTab={activeTab} 
+            setActiveTab={setActiveTab} 
+            label="Drafts" 
+            count={exams.filter(e => e.status === 'DRAFT').length}
+            icon={<FaExclamationTriangle />}
+          />
+        </div>
 
-        {!isTeacher && (
-          <>
-            <div className="flex gap-1 bg-gray-100 p-1 rounded-xl w-fit mb-6">
-              <TabButton 
-                tab="all"
-                activeTab={activeTab} 
-                setActiveTab={setActiveTab} 
-                label="All Exams" 
-                count={exams.length}
-                icon={<FaFilter />}
-              />
-              <TabButton 
-                tab="upcoming"
-                activeTab={activeTab} 
-                setActiveTab={setActiveTab} 
-                label="Scheduled" 
-                count={exams.filter(e => e.status === 'PUBLISHED').length}
-                icon={<FaCalendarAlt />}
-              />
-              <TabButton 
-                tab="drafts"
-                activeTab={activeTab} 
-                setActiveTab={setActiveTab} 
-                label="Drafts" 
-                count={exams.filter(e => e.status === 'DRAFT').length}
-                icon={<FaExclamationTriangle />}
-              />
-            </div>
-
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm mb-6 overflow-hidden">
-              <div className="p-5 bg-slate-50/50 border-b border-slate-100">
-                <div className="flex flex-col lg:flex-row gap-4">
-                  <div className="relative flex-1 group">
-                    <FaSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors" />
-                    <input
-                      type="text"
-                      placeholder="Search by exam name, class or description..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="w-full pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all shadow-sm"
-                    />
-                  </div>
-                  <div className="flex flex-wrap gap-3">
-                    <select
-                      value={filters.examType}
-                      onChange={(e) => setFilters(f => ({ ...f, examType: e.target.value }))}
-                      className="px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:border-primary transition-all outline-none min-w-[140px] shadow-sm cursor-pointer"
-                    >
-                      <option value="">All Types</option>
-                      <option value="TERM_EXAM">Term Exam</option>
-                      <option value="CLASS_TEST">Class Test</option>
-                    </select>
-                    <select
-                      value={filters.standard}
-                      onChange={(e) => setFilters(f => ({ ...f, standard: e.target.value, section: '' }))}
-                      className="px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:border-primary transition-all outline-none min-w-[120px] shadow-sm cursor-pointer"
-                    >
-                      <option value="">All Standards</option>
-                      {availableStandards.map(s => <option key={s} value={s}>Grade {s}</option>)}
-                    </select>
-                    <select
-                      value={filters.section}
-                      onChange={(e) => setFilters(f => ({ ...f, section: e.target.value }))}
-                      className="px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:border-primary transition-all outline-none min-w-[110px] shadow-sm cursor-pointer"
-                    >
-                      <option value="">All Sections</option>
-                      {availableSections.map(s => <option key={s} value={s}>Section {s}</option>)}
-                    </select>
-                    <select
-                      value={filters.status}
-                      onChange={(e) => setFilters(f => ({ ...f, status: e.target.value }))}
-                      className="px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:border-primary transition-all outline-none min-w-[120px] shadow-sm cursor-pointer"
-                    >
-                      <option value="">All Status</option>
-                      <option value="DRAFT">Draft</option>
-                      <option value="PUBLISHED">Published</option>
-                      <option value="COMPLETED">Completed</option>
-                    </select>
-                  </div>
-                </div>
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm mb-6 overflow-hidden">
+          <div className="p-5 bg-slate-50/50 border-b border-slate-100">
+            <div className="flex flex-col lg:flex-row gap-4">
+              <div className="relative flex-1 group">
+                <FaSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors" />
+                <input
+                  type="text"
+                  placeholder="Search by exam name, class or description..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all shadow-sm"
+                />
+              </div>
+              <div className="flex flex-wrap gap-3">
+                <select
+                  value={filters.examType}
+                  onChange={(e) => setFilters(f => ({ ...f, examType: e.target.value }))}
+                  className="px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:border-primary transition-all outline-none min-w-[140px] shadow-sm cursor-pointer"
+                >
+                  <option value="">All Types</option>
+                  <option value="TERM_EXAM">Term Exam</option>
+                  <option value="CLASS_TEST">Class Test</option>
+                </select>
+                <select
+                  value={filters.standard}
+                  onChange={(e) => setFilters(f => ({ ...f, standard: e.target.value, section: '' }))}
+                  className="px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:border-primary transition-all outline-none min-w-[120px] shadow-sm cursor-pointer"
+                >
+                  <option value="">All Classes</option>
+                  {availableStandards.map(s => <option key={s} value={s}>Class {s}</option>)}
+                </select>
+                <select
+                  value={filters.section}
+                  onChange={(e) => setFilters(f => ({ ...f, section: e.target.value }))}
+                  className="px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:border-primary transition-all outline-none min-w-[110px] shadow-sm cursor-pointer"
+                >
+                  <option value="">All Sections</option>
+                  {availableSections.map(s => <option key={s} value={s}>Section {s}</option>)}
+                </select>
               </div>
             </div>
-          </>
-        )}
+          </div>
+        </div>
 
         {(!isTeacher || teacherTab === 'schedule') && (
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden min-h-[400px]">
@@ -294,7 +294,7 @@ const Examination = () => {
                         <div className="flex flex-col gap-1.5">
                           <CustomBadge styles={EXAM_TYPES[exam.examType]} />
                           <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-600">
-                            <span className="px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200">G-{exam.standard}</span>
+                            <span className="px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200">C-{exam.standard}</span>
                             <span className="px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200">S-{exam.section}</span>
                           </div>
                         </div>
@@ -312,7 +312,7 @@ const Examination = () => {
                         </div>
                       </td>
                       <td className="px-6 py-5">
-                        <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="flex items-center justify-end gap-2 transition-opacity">
                           <button
                             onClick={() => setSelectedExam(exam)}
                             className="p-2.5 text-slate-500 hover:text-primary hover:bg-white rounded-xl border border-transparent hover:border-slate-200 hover:shadow-sm transition-all"
@@ -332,6 +332,15 @@ const Examination = () => {
                                   <FaCheckCircle size={16} />
                                 </button>
                               )}
+                              {exam.status === 'PUBLISHED' && activeTab === 'upcoming' && (
+                                <button
+                                  onClick={() => handleStatusUpdate(exam._id, 'COMPLETED')}
+                                  className="p-2.5 text-emerald-600 hover:bg-emerald-50 rounded-xl border border-transparent hover:border-emerald-100 transition-all"
+                                  title="Mark as Completed"
+                                >
+                                  <FaCheckCircle size={16} />
+                                </button>
+                              )}
                               <button
                                 onClick={() => setShowModal({ type: 'edit', open: true, data: exam })}
                                 className="p-2.5 text-blue-500 hover:bg-blue-50 rounded-xl border border-transparent hover:border-blue-100 transition-all"
@@ -340,7 +349,7 @@ const Examination = () => {
                                 <FaEdit size={16} />
                               </button>
                               <button
-                                onClick={() => handleDelete(exam._id)}
+                                onClick={() => setDeleteConfirm({ open: true, examId: exam._id })}
                                 className="p-2.5 text-rose-500 hover:bg-rose-50 rounded-xl border border-transparent hover:border-rose-100 transition-all"
                                 title="Delete Exam"
                               >
@@ -404,7 +413,7 @@ const Examination = () => {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                   <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
                     <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Target Audience</div>
-                    <div className="text-slate-900 font-bold">Grade {selectedExam.standard} • Section {selectedExam.section}</div>
+                    <div className="text-slate-900 font-bold">Class {selectedExam.standard} • Section {selectedExam.section}</div>
                   </div>
                   <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
                     <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Timing & Period</div>
@@ -501,6 +510,7 @@ const Examination = () => {
         {showModal.open && (
           <ExamModal
             isOpen={showModal.open}
+            user={{ ...user, ...teacherProfile }}
             onClose={() => {
               setShowModal({ type: '', open: false, data: null });
               if (isTeacher) setTeacherTab('schedule');
@@ -512,13 +522,60 @@ const Examination = () => {
                 showMessage('success', `Exam ${showModal.type === 'create' ? 'created' : 'updated'} successfully`);
                 setShowModal({ type: '', open: false, data: null });
               } catch (error) {
-                showMessage('error', error.response?.data?.message || 'Operation failed');
+                console.error('Failed to save exam:', error);
+                let message = error.response?.data?.message || error.message || 'Operation failed';
+                
+                // Detailed Zod error reporting for 422
+                if (error.response?.status === 422 && error.response.data.errors) {
+                  const fieldErrors = error.response.data.errors;
+                  if (Array.isArray(fieldErrors)) {
+                    const detail = fieldErrors.map(e => `${e.path.split('.').pop()}: ${e.message}`).join(', ');
+                    message = `Validation Error: ${detail}`;
+                  }
+                }
+                
+                showMessage('error', message);
               }
             }}
             editData={showModal.type === 'edit' ? showModal.data : null}
             isLoading={createExamMutation.isPending || updateExamMutation.isPending}
             userRole={user?.role}
           />
+        )}
+
+        {/* Delete Confirmation Modal */}
+        {deleteConfirm.open && (
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4 animate-in fade-in duration-300">
+            <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl p-8 animate-in zoom-in-95 duration-300">
+              <div className="w-16 h-16 bg-rose-50 rounded-2xl flex items-center justify-center text-rose-500 mb-6 mx-auto border border-rose-100">
+                <FaTrash size={24} />
+              </div>
+              <h3 className="text-xl font-bold text-slate-900 text-center mb-2">Confirm Deletion</h3>
+              <p className="text-slate-500 text-center mb-8">
+                Are you sure you want to delete this examination? This action is permanent and cannot be undone.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setDeleteConfirm({ open: false, examId: null })}
+                  className="flex-1 px-6 py-3 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200 transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDelete}
+                  disabled={deleteExamMutation.isPending}
+                  className="flex-1 px-6 py-3 bg-rose-500 text-white rounded-xl font-bold hover:bg-rose-600 transition-all shadow-lg shadow-rose-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {deleteExamMutation.isPending ? (
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <FaTrash size={14} />
+                  )}
+                  <span>Delete</span>
+                </button>
+              </div>
+            </div>
+          </div>
         )}
 
         {toast.text && (

@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { 
     FaTimes, FaPlus, FaTrash, FaSave, FaCalendarAlt, FaClock, 
     FaBookOpen, FaInfoCircle, FaCheckCircle, FaExclamationTriangle
@@ -17,6 +17,7 @@ const INITIAL_FORM = {
     standard: '',
     section: '',
     description: '',
+    schoolId: '',
     schedule: [
         {
             subject: '',
@@ -42,14 +43,43 @@ const EXAM_CATEGORIES = [
     { value: 'OTHER', label: 'Other' },
 ];
 
-const ExamModal = ({ isOpen, onClose, onSubmit, editData, isLoading, userRole }) => {
+const ExamModal = ({ isOpen, onClose, onSubmit, editData, isLoading, userRole, user }) => {
     const isEdit = !!editData;
     const isTeacher = userRole === 'teacher';
-    const isAdmin = userRole === 'admin';
+    const isAdmin = ['admin', 'super_admin'].includes(userRole);
+    const isSuperAdmin = userRole === 'super_admin';
     const [form, setForm] = useState(INITIAL_FORM);
     const [errors, setErrors] = useState({});
-    const [availableStandards] = useState(STANDARD_OPTIONS);
-    const [availableSections] = useState(SECTION_OPTIONS);
+
+    // Filtered options based on teacher assignments
+    const availableStandards = useMemo(() => {
+        const classes = user?.profile?.assignedClasses || user?.assignedClasses || [];
+        if (isTeacher) {
+            if (classes.length) {
+                return [...new Set(classes.map(c => String(c.standard)))].sort((a, b) => Number(a) - Number(b));
+            }
+            return []; // Return empty for teachers with no assignments
+        }
+        return STANDARD_OPTIONS;
+    }, [isTeacher, user]);
+
+    const availableSections = useMemo(() => {
+        const classes = user?.profile?.assignedClasses || user?.assignedClasses || [];
+        if (isTeacher) {
+            if (classes.length) {
+                // If a standard is selected, only show sections for that standard
+                if (form.standard) {
+                    return classes
+                        .filter(c => String(c.standard) === String(form.standard))
+                        .map(c => String(c.section))
+                        .sort();
+                }
+                return [...new Set(classes.map(c => String(c.section)))].sort();
+            }
+            return []; // Return empty for teachers with no assignments
+        }
+        return SECTION_OPTIONS;
+    }, [isTeacher, user, form.standard]);
 
     // Initialize form with edit data or reset to initial
     useEffect(() => {
@@ -64,25 +94,40 @@ const ExamModal = ({ isOpen, onClose, onSubmit, editData, isLoading, userRole })
                     standard: editData.standard || '',
                     section: editData.section || '',
                     description: editData.description || '',
-                    schedule: editData.schedule?.length > 0 ? editData.schedule : [{ ...INITIAL_FORM.schedule[0] }]
+                    schoolId: editData.schoolId || '',
+                    schedule: editData.schedule?.length > 0 ? editData.schedule.map(s => ({
+                        subject: s.subject || '',
+                        examDate: s.examDate ? s.examDate.split('T')[0] : '',
+                        startTime: s.startTime || '',
+                        endTime: s.endTime || '',
+                        totalMarks: s.totalMarks || '',
+                        passingMarks: s.passingMarks || '',
+                        assignedTeacher: s.assignedTeacher || '',
+                        syllabus: s.syllabus || ''
+                    })) : [{ ...INITIAL_FORM.schedule[0] }]
                 });
             } else {
                 const base = { ...INITIAL_FORM };
                 // Role-based default exam type and class
                 if (isTeacher) {
                     base.examType = 'CLASS_TEST';
-                    // Teacher form does not expose standard/section inputs;
-                    // default to the first configured values for now.
-                    base.standard = STANDARD_OPTIONS[0];
-                    base.section = SECTION_OPTIONS[0];
+                    base.standard = '';
+                    base.section = '';
                 } else if (isAdmin) {
                     base.examType = 'TERM_EXAM';
                 }
+                
+                if (isSuperAdmin && !base.schoolId && user?.schoolId) {
+                    base.schoolId = user.schoolId;
+                } else if (!base.schoolId) {
+                    base.schoolId = '';
+                }
+
                 setForm(base);
             }
             setErrors({});
         }
-    }, [isOpen, editData, isTeacher, isAdmin]);
+    }, [isOpen, editData, isTeacher, isAdmin, isSuperAdmin, user]);
 
     const handleChange = useCallback((field, value) => {
         setForm(prev => ({ ...prev, [field]: value }));
@@ -121,20 +166,25 @@ const ExamModal = ({ isOpen, onClose, onSubmit, editData, isLoading, userRole })
         if (form.category === 'OTHER' && !form.categoryDescription.trim()) {
             e.categoryDescription = 'Please describe the exam category';
         }
-        // Admin form requires explicit standard/section selection.
-        // Teacher form hides these fields and uses defaults instead.
-        if (!isTeacher) {
-            if (!form.standard) e.standard = 'Please select a standard';
-            if (!form.section) e.section = 'Please select a section';
-        }
+        if (!form.standard) e.standard = 'Please select a class';
+        if (!form.section) e.section = 'Please select a section';
+        if (isSuperAdmin && !form.schoolId) e.schoolId = 'School ID is required for Super Admins';
         if (!form.academicYear || form.academicYear < 2000) e.academicYear = 'Enter a valid academic year';
         
         form.schedule.forEach((item, index) => {
             if (!item.subject.trim()) e[`schedule_${index}_subject`] = 'Subject name required';
             if (!item.examDate) e[`schedule_${index}_examDate`] = 'Date is required';
-            if (!item.totalMarks || Number(item.totalMarks) <= 0) e[`schedule_${index}_totalMarks`] = 'Valid total marks required';
-            if (!item.passingMarks || Number(item.passingMarks) < 0) e[`schedule_${index}_passingMarks`] = 'Valid passing marks required';
-            if (Number(item.passingMarks) > Number(item.totalMarks)) {
+            
+            const total = Number(item.totalMarks);
+            const pass = Number(item.passingMarks);
+
+            if (isNaN(total) || total <= 0) {
+                e[`schedule_${index}_totalMarks`] = 'Valid total marks required';
+            }
+            if (isNaN(pass) || pass < 0) {
+                e[`schedule_${index}_passingMarks`] = 'Valid passing marks required';
+            }
+            if (!isNaN(total) && !isNaN(pass) && pass > total) {
                 e[`schedule_${index}_passingMarks`] = 'Cannot exceed total marks';
             }
         });
@@ -150,21 +200,21 @@ const ExamModal = ({ isOpen, onClose, onSubmit, editData, isLoading, userRole })
         const payload = {
             ...form,
             academicYear: Number(form.academicYear),
+            // Prune empty optional fields from main form
+            categoryDescription: form.categoryDescription?.trim() || undefined,
+            description: form.description?.trim() || undefined,
+            schoolId: form.schoolId || undefined,
             schedule: form.schedule.map(item => {
                 const normalized = {
                     ...item,
                     totalMarks: Number(item.totalMarks),
                     passingMarks: Number(item.passingMarks),
+                    // Prune empty optional fields from schedule item
+                    startTime: item.startTime || undefined,
+                    endTime: item.endTime || undefined,
+                    assignedTeacher: item.assignedTeacher || undefined,
+                    syllabus: item.syllabus?.trim() || undefined,
                 };
-
-                // Backend expects assignedTeacher to be a valid ObjectId string if present.
-                // If it's empty/undefined, omit the field entirely to satisfy validation.
-                if (!normalized.assignedTeacher) {
-                    // eslint-disable-next-line no-unused-vars
-                    const { assignedTeacher, ...rest } = normalized;
-                    return rest;
-                }
-
                 return normalized;
             }),
         };
@@ -316,39 +366,52 @@ const ExamModal = ({ isOpen, onClose, onSubmit, editData, isLoading, userRole })
                                             )}
                                         </div>
 
-                                        {!isTeacher && (
-                                            <>
-                                                <div>
-                                                    <label className={labelClasses}>Standard (Class) *</label>
-                                                    <select
-                                                        value={form.standard}
-                                                        onChange={(e) => handleChange('standard', e.target.value)}
-                                                        className={inputClasses('standard')}
-                                                    >
-                                                        <option value="">Choose Class</option>
-                                                        {availableStandards.map(standard => (
-                                                            <option key={standard} value={standard}>Standard {standard}</option>
-                                                        ))}
-                                                    </select>
-                                                    {errors.standard && <p className="text-red-500 text-[11px] font-medium mt-1.5 ml-1">{errors.standard}</p>}
-                                                </div>
-
-                                                <div>
-                                                    <label className={labelClasses}>Section *</label>
-                                                    <select
-                                                        value={form.section}
-                                                        onChange={(e) => handleChange('section', e.target.value)}
-                                                        className={inputClasses('section')}
-                                                    >
-                                                        <option value="">Choose Section</option>
-                                                        {availableSections.map(section => (
-                                                            <option key={section} value={section}>Section {section}</option>
-                                                        ))}
-                                                    </select>
-                                                    {errors.section && <p className="text-red-500 text-[11px] font-medium mt-1.5 ml-1">{errors.section}</p>}
-                                                </div>
-                                            </>
+                                        {isSuperAdmin && (
+                                            <div>
+                                                <label className={labelClasses}>Target School ID *</label>
+                                                <input
+                                                    type="text"
+                                                    value={form.schoolId}
+                                                    onChange={(e) => handleChange('schoolId', e.target.value)}
+                                                    className={inputClasses('schoolId')}
+                                                    placeholder="Enter School MongoDB ID"
+                                                />
+                                                {errors.schoolId && <p className="text-red-500 text-[11px] font-medium mt-1.5 ml-1">{errors.schoolId}</p>}
+                                                <p className="text-[10px] text-slate-400 mt-1 italic">
+                                                    Required for Super Admins to link exam to a school.
+                                                </p>
+                                            </div>
                                         )}
+
+                                        <div>
+                                            <label className={labelClasses}>Class *</label>
+                                            <select
+                                                value={form.standard}
+                                                onChange={(e) => handleChange('standard', e.target.value)}
+                                                className={inputClasses('standard')}
+                                            >
+                                                <option value="">Choose Class</option>
+                                                {availableStandards.map(standard => (
+                                                    <option key={standard} value={standard}>Class {standard}</option>
+                                                ))}
+                                            </select>
+                                            {errors.standard && <p className="text-red-500 text-[11px] font-medium mt-1.5 ml-1">{errors.standard}</p>}
+                                        </div>
+
+                                        <div>
+                                            <label className={labelClasses}>Section *</label>
+                                            <select
+                                                value={form.section}
+                                                onChange={(e) => handleChange('section', e.target.value)}
+                                                className={inputClasses('section')}
+                                            >
+                                                <option value="">Choose Section</option>
+                                                {availableSections.map(section => (
+                                                    <option key={section} value={section}>Section {section}</option>
+                                                ))}
+                                            </select>
+                                            {errors.section && <p className="text-red-500 text-[11px] font-medium mt-1.5 ml-1">{errors.section}</p>}
+                                        </div>
 
                                         <div className="md:col-span-2 lg:col-span-3">
                                             <label className={labelClasses}>Description / Notes</label>
