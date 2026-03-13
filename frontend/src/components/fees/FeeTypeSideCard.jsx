@@ -3,7 +3,6 @@ import { IoClose, IoAddCircleOutline } from 'react-icons/io5';
 import { useCreateFeeType } from '../../features/fees/api/queries';
 
 const FeeTypeSideCard = ({ onClose, onSuccess }) => {
-    const [name, setName] = useState('');
     const [label, setLabel] = useState('');
     const [error, setError] = useState('');
 
@@ -13,17 +12,20 @@ const FeeTypeSideCard = ({ onClose, onSuccess }) => {
         e.preventDefault();
         setError('');
 
-        if (!name || !label) {
-            setError('Both Name and Label are required');
+        if (!label) {
+            setError('Fee Type Name is required');
             return;
         }
 
+        // Generate system name: TUITION_FEE from "Tuition Fee"
+        const name = label.trim().toUpperCase().replace(/\s+/g, '_');
+
         try {
             await createFeeType.mutateAsync({ 
-                name: name.toUpperCase().replace(/\s+/g, '_'), 
-                label 
+                name, 
+                label: label.trim()
             });
-            onSuccess(name.toUpperCase().replace(/\s+/g, '_'));
+            onSuccess(name);
             onClose();
         } catch (err) {
             setError(err.response?.data?.message || 'Failed to create fee type');
@@ -48,32 +50,19 @@ const FeeTypeSideCard = ({ onClose, onSuccess }) => {
             <form onSubmit={handleSubmit} className="p-6 space-y-5">
                 <div>
                     <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-2 px-1">
-                        System Name (Internal)
-                    </label>
-                    <input
-                        type="text"
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                        placeholder="e.g. ANNUAL_FEE"
-                        className="w-full px-4 py-3 bg-gray-50 border-none rounded-xl text-sm font-medium focus:ring-2 focus:ring-primary/20 transition-all placeholder:text-gray-300"
-                        autoFocus
-                    />
-                    <p className="text-[10px] text-gray-400 mt-1.5 px-1 italic">
-                        Uppercase, no spaces (e.g., TECH_FEE)
-                    </p>
-                </div>
-
-                <div>
-                    <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-2 px-1">
-                        Display Label
+                        Fee Type Name
                     </label>
                     <input
                         type="text"
                         value={label}
                         onChange={(e) => setLabel(e.target.value)}
-                        placeholder="e.g. Annual Tech Fee"
+                        placeholder="e.g. Annual Sports Fee"
                         className="w-full px-4 py-3 bg-gray-50 border-none rounded-xl text-sm font-medium focus:ring-2 focus:ring-primary/20 transition-all placeholder:text-gray-300"
+                        autoFocus
                     />
+                    <p className="text-[10px] text-gray-400 mt-1.5 px-1 italic">
+                        The display name for this fee category
+                    </p>
                 </div>
 
                 {error && (
