@@ -18,16 +18,42 @@ const mapFiles = (files = []) =>
         name: f.originalname,
     }));
 
-// Resolves the teacher's assigned class (standard + section)
-const getTeacherClass = async (schoolId, userId) => {
+// Resolves the teacher's assigned classes (standards + sections) from both Profile and Timetable
+const getTeacherClasses = async (schoolId, userId) => {
+    // Source 1: Teacher Profile (Primary assignments)
     const profile = await TeacherProfile.findOne({ schoolId, userId })
         .select("assignedClasses")
         .lean();
 
-    if (!profile?.assignedClasses?.length) {
-        throw new BadRequestError("No class assigned to this teacher");
+    const profileClasses = profile?.assignedClasses || [];
+
+    // Source 2: Timetable (Dynamic schedule)
+    const { TimetableEntry } = await import("../timetable/Timetable.model.js");
+    const entries = await TimetableEntry.find({ schoolId, teacherId: userId })
+        .populate({ path: 'timetableId', select: 'standard section' })
+        .lean();
+
+    const timetableClasses = entries.map(e => ({
+        standard: e.timetableId?.standard,
+        section: e.timetableId?.section
+    })).filter(c => c.standard && c.section);
+
+    // Merge and Deduplicate
+    const allUnique = [];
+    const seen = new Set();
+
+    [...profileClasses, ...timetableClasses].forEach(c => {
+        const key = `${c.standard}-${c.section}`;
+        if (!seen.has(key)) {
+            seen.add(key);
+            allUnique.push({ standard: c.standard, section: c.section });
+        }
+    });
+
+    if (allUnique.length === 0) {
+        throw new BadRequestError("No classes assigned to this teacher");
     }
-    return profile.assignedClasses[0];
+    return allUnique;
 };
 
 // Checks ownership — teachers can only modify their own assignments
@@ -43,11 +69,21 @@ const checkOwnership = (assignment, userId, role) => {
 export const createAssignment = async (schoolId, userId, role, body, files) => {
     let { standard, section } = body;
 
-    // Teachers are scoped to their assigned class — body values are ignored
+    // Teachers can specify class, but must be one of their assigned classes
     if (role === USER_ROLES.TEACHER) {
-        const teacherClass = await getTeacherClass(schoolId, userId);
-        standard = teacherClass.standard;
-        section = teacherClass.section;
+        const classes = await getTeacherClasses(schoolId, userId);
+        
+        // If teacher didn't specify, default to first class (legacy behavior/convenience)
+        if (!standard || !section) {
+            standard = classes[0].standard;
+            section = classes[0].section;
+        } else {
+            // Validate requested class exists in their profile
+            const hasAccess = classes.some(c => c.standard === standard && c.section === section);
+            if (!hasAccess) {
+                throw new ForbiddenError(`You do not have permission to create assignments for Class ${standard}-${section}`);
+            }
+        }
     }
 
     // Admins must provide standard and section
@@ -80,9 +116,37 @@ export const listAssignments = async (schoolId, userId, role, platform, query = 
     const filter = { schoolId };
 
     if (role === USER_ROLES.TEACHER) {
-        const teacherClass = await getTeacherClass(schoolId, userId);
-        filter.standard = teacherClass.standard;
-        filter.section = teacherClass.section;
+        const classes = await getTeacherClasses(schoolId, userId);
+        const allowedStandards = [...new Set(classes.map(c => c.standard))];
+        
+        if (query.standard && query.standard !== "all") {
+            if (!allowedStandards.includes(query.standard)) {
+                filter.standard = "unauthorized_selection"; 
+            } else {
+                filter.standard = query.standard;
+                
+                // Filter sections based on selection
+                const allowedSections = classes
+                    .filter(c => c.standard === query.standard)
+                    .map(c => c.section);
+                
+                if (query.section && query.section !== "all") {
+                    if (!allowedSections.includes(query.section)) {
+                        filter.section = "unauthorized_selection";
+                    } else {
+                        filter.section = query.section;
+                    }
+                } else {
+                    filter.section = { $in: allowedSections };
+                }
+            }
+        } else {
+            // Default: Show everything teacher is assigned to
+            filter.$or = classes.map(c => ({
+                standard: c.standard,
+                section: c.section
+            }));
+        }
     } else if (role === USER_ROLES.STUDENT) {
         const profile = await StudentProfile.findOne({ schoolId, userId }).lean();
         if (!profile) throw new NotFoundError("Student profile not found");
@@ -91,16 +155,32 @@ export const listAssignments = async (schoolId, userId, role, platform, query = 
         filter.status = "active";
     } else {
         // Admin/Super Admin — optional query filters
-        if (query.standard) filter.standard = query.standard;
-        if (query.section) filter.section = query.section;
+        if (query.standard && query.standard !== "all") filter.standard = query.standard;
+        if (query.section && query.section !== "all") filter.section = query.section;
+        if (query.subject && query.subject !== "all") filter.subject = query.subject;
     }
 
-    const assignments = await Assignment.find(filter)
-        .populate("createdBy", "name email")
-        .sort({ dueDate: 1 })
-        .lean();
+    // Common optional filters for non-students
+    if (role !== USER_ROLES.STUDENT) {
+        if (query.status && query.status !== "all") filter.status = query.status;
+    }
+
+    const page = parseInt(query.page) || 0;
+    const pageSize = parseInt(query.pageSize) || 25;
+    const skip = page * pageSize;
+
+    const [total, assignments] = await Promise.all([
+        Assignment.countDocuments(filter),
+        Assignment.find(filter)
+            .populate("createdBy", "name email")
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(pageSize)
+            .lean()
+    ]);
 
     // Attach submission flag for students
+    let finalAssignments = assignments;
     if (role === USER_ROLES.STUDENT) {
         const assignmentIds = assignments.map((a) => a._id);
         const submissions = await Submission.find({
@@ -111,13 +191,21 @@ export const listAssignments = async (schoolId, userId, role, platform, query = 
             .lean();
 
         const submittedSet = new Set(submissions.map((s) => s.assignmentId.toString()));
-        return assignments.map((a) => ({
+        finalAssignments = assignments.map((a) => ({
             ...a,
             submitted: submittedSet.has(a._id.toString()),
         }));
     }
 
-    return assignments;
+    return {
+        assignments: finalAssignments,
+        pagination: {
+            total,
+            page,
+            pageSize,
+            totalPages: Math.ceil(total / pageSize),
+        }
+    };
 };
 
 // Get a single assignment by ID
@@ -353,4 +441,106 @@ export const listSubmissions = async (schoolId, assignmentId, userId, role) => {
         },
         students: merged,
     };
+};
+
+// Gets unique standards, sections, and subjects available for assignment creation
+export const getAssignmentMetadata = async (schoolId, userRole, userId) => {
+    const isTeacher = userRole === USER_ROLES.TEACHER;
+
+    let entries = [];
+    let allTimetablesForAdmin = [];
+
+    const { Timetable, TimetableEntry } = await import("../timetable/Timetable.model.js");
+
+    if (isTeacher) {
+        entries = await TimetableEntry.find({ schoolId, teacherId: userId })
+            .populate({
+                path: 'timetableId',
+                select: 'standard section'
+            })
+            .lean();
+    } else {
+        // Admin: Get all scheduled entries (for subjects) AND all timetables (for full class list)
+        const [foundEntries, foundTimetables] = await Promise.all([
+            TimetableEntry.find({ schoolId })
+                .populate({
+                    path: 'timetableId',
+                    select: 'standard section'
+                })
+                .lean(),
+            Timetable.find({ schoolId }).lean()
+        ]);
+        entries = foundEntries;
+        allTimetablesForAdmin = foundTimetables;
+    }
+
+    // Structured Metadata Building
+    const standards = new Set();
+    const sections = new Set();
+    const subjects = new Set();
+    const mappings = {
+        classSections: {}, // { "10": ["A", "B"] }
+        sectionSubjects: {} // { "10-A": ["Math"], "10-B": ["Science"] }
+    };
+
+    // For Admins, ensure all Classes/Sections are represented even if they have no periods assigned
+    if (!isTeacher) {
+        allTimetablesForAdmin.forEach(tt => {
+            const std = tt.standard;
+            const sec = tt.section;
+            if (!std || !sec) return;
+
+            standards.add(std);
+            sections.add(sec);
+            if (!mappings.classSections[std]) {
+                mappings.classSections[std] = new Set();
+            }
+            mappings.classSections[std].add(sec);
+        });
+    }
+
+    entries.forEach(entry => {
+        const std = entry.timetableId?.standard;
+        const sec = entry.timetableId?.section;
+        const sub = entry.subject;
+
+        if (!std || !sec) return;
+
+        standards.add(std);
+        sections.add(sec);
+        if (sub) subjects.add(sub);
+
+        // Map Standard -> Sections
+        if (!mappings.classSections[std]) {
+            mappings.classSections[std] = new Set();
+        }
+        mappings.classSections[std].add(sec);
+
+        // Map Section -> Subjects
+        const key = `${std}-${sec}`;
+        if (!mappings.sectionSubjects[key]) {
+            mappings.sectionSubjects[key] = new Set();
+        }
+        if (sub) mappings.sectionSubjects[key].add(sub);
+    });
+
+    // Convert Sets to sorted Arrays
+    const result = {
+        standards: Array.from(standards).sort((a, b) => (parseInt(a) || 0) - (parseInt(b) || 0)),
+        sections: Array.from(sections).sort(),
+        subjects: Array.from(subjects).sort(),
+        mappings: {
+            classSections: {},
+            sectionSubjects: {}
+        }
+    };
+
+    Object.keys(mappings.classSections).forEach(std => {
+        result.mappings.classSections[std] = Array.from(mappings.classSections[std]).sort();
+    });
+    Object.keys(mappings.sectionSubjects).forEach(key => {
+        result.mappings.sectionSubjects[key] = Array.from(mappings.sectionSubjects[key]).sort();
+    });
+
+    return result;
 };

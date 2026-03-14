@@ -38,4 +38,8 @@ export const assignmentApi = {
         const response = await api.delete(`/assignments/${id}`);
         return response.data;
     },
+    getMetadata: async () => {
+        const response = await api.get("/assignments/meta/metadata");
+        return response.data;
+    },
 };

@@ -6,6 +6,7 @@ export const assignmentKeys = {
     lists: () => [...assignmentKeys.all, "list"],
     list: (filters) => [...assignmentKeys.lists(), filters],
     detail: (id) => [...assignmentKeys.all, "detail", id],
+    metadata: () => [...assignmentKeys.all, "metadata"],
 };
 
 export const useAssignments = ({ status = "all", standard = "all", section = "all", subject = "all", page = 0, pageSize = 25 } = {}) => {
@@ -54,5 +55,16 @@ export const useDeleteAssignment = () => {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: assignmentKeys.all });
         },
+    });
+};
+
+export const useAssignmentMetadata = () => {
+    return useQuery({
+        queryKey: assignmentKeys.metadata(),
+        queryFn: async () => {
+            const response = await assignmentApi.getMetadata();
+            return response.data;
+        },
+        staleTime: 5 * 60 * 1000, // 5 minutes
     });
 };

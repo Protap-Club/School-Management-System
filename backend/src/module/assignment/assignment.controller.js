@@ -24,6 +24,21 @@ export const createAssignment = asyncHandler(async (req, res) => {
     logger.info(`Assignment created by ${req.user._id}: ${result._id}`);
 });
 
+// GET /assignments/meta/metadata
+// Get dynamic dropdown options for assignments (role-scoped)
+export const getAssignmentMetadata = asyncHandler(async (req, res) => {
+    const result = await assignmentService.getAssignmentMetadata(
+        req.schoolId,
+        req.user.role,
+        req.user._id
+    );
+
+    res.status(200).json({
+        success: true,
+        data: result,
+    });
+});
+
 // GET /assignments
 // List assignments (role-scoped: teacher sees own class, student sees own class + active only)
 export const listAssignments = asyncHandler(async (req, res) => {

@@ -10,7 +10,7 @@ import useDebounce from '../../hooks/useDebounce';
 
 export const AssignmentPage = () => {
     const { user } = useAuth();
-    const isAdminOrAbove = ['super_admin', 'admin', 'teacher'].includes(user?.role);
+    const canCreate = ['teacher'].includes(user?.role); // Only teachers can create assignments
 
     // State
     const [page, setPage] = useState(0);
@@ -21,6 +21,7 @@ export const AssignmentPage = () => {
     // Filters
     const [standardFilter, setStandardFilter] = useState('all');
     const [sectionFilter, setSectionFilter] = useState('all');
+    const [subjectFilter, setSubjectFilter] = useState('all');
     const [statusFilter, setStatusFilter] = useState('all');
 
     // Sorting
@@ -47,6 +48,7 @@ export const AssignmentPage = () => {
     const queryParams = {
         standard: standardFilter === 'all' ? undefined : standardFilter,
         section: sectionFilter === 'all' ? undefined : sectionFilter,
+        subject: subjectFilter === 'all' ? undefined : subjectFilter,
         status: statusFilter === 'all' ? undefined : statusFilter,
         page,
         pageSize
@@ -129,13 +131,15 @@ export const AssignmentPage = () => {
                     searchQuery={searchQuery}
                     onSearchChange={setSearchQuery}
                     standardFilter={standardFilter}
-                    onStandardChange={(val) => { setStandardFilter(val); setPage(0); }}
+                    onStandardChange={(val) => { setStandardFilter(val); setSectionFilter('all'); setSubjectFilter('all'); setPage(0); }}
                     sectionFilter={sectionFilter}
-                    onSectionChange={(val) => { setSectionFilter(val); setPage(0); }}
+                    onSectionChange={(val) => { setSectionFilter(val); setSubjectFilter('all'); setPage(0); }}
+                    subjectFilter={subjectFilter}
+                    onSubjectChange={(val) => { setSubjectFilter(val); setPage(0); }}
                     statusFilter={statusFilter}
                     onStatusChange={(val) => { setStatusFilter(val); setPage(0); }}
                     onAddAssignment={handleAddClick}
-                    isAdminOrAbove={isAdminOrAbove}
+                    canCreate={canCreate}
                 />
 
                 {/* Table */}

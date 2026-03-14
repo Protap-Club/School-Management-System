@@ -12,6 +12,7 @@ import {
     submitAssignment,
     getMySubmission,
     listSubmissions,
+    getAssignmentMetadata,
 } from "./assignment.controller.js";
 import { checkRole } from "../../middlewares/role.middleware.js";
 import { requireFeature } from "../../middlewares/feature.middleware.js";
@@ -71,6 +72,7 @@ const router = express.Router();
 router.use(requireFeature("assignment"));
 
 // Assignment CRUD (teacher/admin — web only)
+router.get("/meta/metadata", checkRole([USER_ROLES.ADMIN, USER_ROLES.TEACHER]), getAssignmentMetadata);
 router.get("/", checkRole([USER_ROLES.ADMIN, USER_ROLES.TEACHER, USER_ROLES.STUDENT]), listAssignments);
 router.post("/", checkWebOnly, checkRole([USER_ROLES.ADMIN, USER_ROLES.TEACHER]), upload.array("attachments", 5), validate(createAssignmentSchema), createAssignment);
 
