@@ -8,7 +8,7 @@ import { pages, PageLoader } from './routes';
 
 function App() {
     // Destructure lazy-loaded page components
-    const { Login, Dashboard, UsersPage, Settings, Attendance, Notice, TimetablePage, Calendar, Notifications, Fees, Examination } = pages;
+    const { Login, Dashboard, UsersPage, Settings, Attendance, Notice, TimetablePage, Calendar, Notifications, Fees, Examination, Assignments } = pages;
 
     return (
         <Router>
@@ -104,6 +104,14 @@ function App() {
                             </ProtectedRoute>
                         }
                     />
+                    <Route
+                        path="/superadmin/assignments"
+                        element={
+                            <ProtectedRoute allowedRoles={['super_admin']}>
+                                <Assignments />
+                            </ProtectedRoute>
+                        }
+                    />
 
                     {/* Admin Routes */}
                     <Route
@@ -192,6 +200,14 @@ function App() {
                             </ProtectedRoute>
                         }
                     />
+                    <Route
+                        path="/admin/assignments"
+                        element={
+                            <ProtectedRoute allowedRoles={['admin']}>
+                                <Assignments />
+                            </ProtectedRoute>
+                        }
+                    />
 
                     {/* Teacher Routes */}
                     <Route
@@ -259,6 +275,14 @@ function App() {
                                 <RequireFeature feature="examination">
                                     <Examination />
                                 </RequireFeature>
+                            </ProtectedRoute>
+                        }
+                    />
+                    <Route
+                        path="/teacher/assignments"
+                        element={
+                            <ProtectedRoute allowedRoles={['teacher']}>
+                                <Assignments />
                             </ProtectedRoute>
                         }
                     />
