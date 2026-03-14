@@ -16,39 +16,39 @@ export const AssignmentFilters = ({
         <div className="relative flex flex-col sm:flex-row items-stretch sm:items-center gap-4 w-full bg-transparent py-2">
             <div className="flex flex-wrap items-center gap-3 relative z-40 flex-shrink-0">
                 {/* Class Filter */}
-                <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-3 h-10 min-w-[120px] shadow-sm">
+                <div className="relative flex items-center bg-white border border-gray-200 rounded-lg px-3 h-10 min-w-[130px] shadow-sm hover:border-gray-300 transition-all focus-within:ring-2 focus-within:ring-indigo-500/10 focus-within:border-indigo-500">
                     <select
                         value={standardFilter}
                         onChange={(e) => onStandardChange(e.target.value)}
-                        className="bg-transparent text-sm font-medium text-gray-700 outline-none cursor-pointer w-full p-0"
+                        className="bg-transparent text-sm font-semibold text-gray-700 outline-none cursor-pointer w-full pr-6"
                     >
                         <option value="all">All Classes</option>
                         {[...Array(12)].map((_, i) => (
-                            <option key={i + 1} value={String(i + 1)}>{i + 1}</option>
+                            <option key={i + 1} value={String(i + 1)}>Class {i + 1}</option>
                         ))}
                     </select>
                 </div>
 
                 {/* Section Filter */}
-                <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-3 h-10 min-w-[120px] shadow-sm">
+                <div className="relative flex items-center bg-white border border-gray-200 rounded-lg px-3 h-10 min-w-[130px] shadow-sm hover:border-gray-300 transition-all focus-within:ring-2 focus-within:ring-indigo-500/10 focus-within:border-indigo-500">
                     <select
                         value={sectionFilter}
                         onChange={(e) => onSectionChange(e.target.value)}
-                        className="bg-transparent text-sm font-medium text-gray-700 outline-none cursor-pointer w-full p-0"
+                        className="bg-transparent text-sm font-semibold text-gray-700 outline-none cursor-pointer w-full pr-6"
                     >
                         <option value="all">All Sections</option>
-                        <option value="A">A</option>
-                        <option value="B">B</option>
-                        <option value="C">C</option>
+                        <option value="A">Section A</option>
+                        <option value="B">Section B</option>
+                        <option value="C">Section C</option>
                     </select>
                 </div>
 
                 {/* Status Filter */}
-                <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-3 h-10 min-w-[120px] shadow-sm">
+                <div className="relative flex items-center bg-white border border-gray-200 rounded-lg px-3 h-10 min-w-[130px] shadow-sm hover:border-gray-300 transition-all focus-within:ring-2 focus-within:ring-indigo-500/10 focus-within:border-indigo-500">
                     <select
                         value={statusFilter}
                         onChange={(e) => onStatusChange(e.target.value)}
-                        className="bg-transparent text-sm font-medium text-gray-700 outline-none cursor-pointer w-full p-0"
+                        className="bg-transparent text-sm font-semibold text-gray-700 outline-none cursor-pointer w-full pr-6"
                     >
                         <option value="all">All Status</option>
                         <option value="active">Active</option>

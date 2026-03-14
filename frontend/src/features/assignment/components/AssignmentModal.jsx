@@ -28,8 +28,8 @@ const TextAreaField = ({ label, name, value, onChange, required = false, rows = 
 );
 
 const SelectField = ({ label, name, value, onChange, options, placeholder, required = false, loading = false }) => (
-    <div className="space-y-1">
-        <label className="text-sm font-medium text-gray-700 flex items-center gap-1">
+    <div className="space-y-1.5">
+        <label className="text-xs font-bold text-gray-500 uppercase tracking-tight ml-1">
             {label} {required && <span className="text-red-500">*</span>}
         </label>
         <select
@@ -37,12 +37,14 @@ const SelectField = ({ label, name, value, onChange, options, placeholder, requi
             value={value}
             onChange={onChange}
             required={required}
-            className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-600 outline-none transition-all bg-white disabled:opacity-60 text-sm"
+            className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-600 outline-none transition-all bg-white disabled:opacity-60 text-sm font-medium text-gray-700 cursor-pointer hover:border-gray-300"
             disabled={loading}
         >
             <option value="" disabled selected hidden>{loading ? 'Loading...' : placeholder || `Select ${label}`}</option>
-            {options.map(opt => (
-                <option key={opt.value || opt} value={opt.value || opt}>{opt.label || opt}</option>
+            {options.map((opt, idx) => (
+                <option key={idx} value={opt.value}>
+                    {opt.label}
+                </option>
             ))}
         </select>
     </div>
@@ -72,7 +74,7 @@ export const AssignmentModal = ({ isOpen, onClose, assignmentToEdit = null }) =>
     useEffect(() => {
         if (!isOpen) return;
         setError('');
-        
+
         if (assignmentToEdit) {
             setFormData({
                 title: assignmentToEdit.title || '',
@@ -96,7 +98,7 @@ export const AssignmentModal = ({ isOpen, onClose, assignmentToEdit = null }) =>
         e.preventDefault();
         setLoading(true);
         setError('');
-        
+
         try {
             const payload = { ...formData };
             if (assignmentToEdit) {
@@ -137,7 +139,7 @@ export const AssignmentModal = ({ isOpen, onClose, assignmentToEdit = null }) =>
                             <p>{error}</p>
                         </div>
                     )}
-                    
+
                     <form onSubmit={handleSubmit} className="space-y-6">
                         {/* Basic Info */}
                         <div className="space-y-4">
@@ -159,7 +161,11 @@ export const AssignmentModal = ({ isOpen, onClose, assignmentToEdit = null }) =>
                                 <SelectField
                                     label="Class" name="standard" value={formData.standard}
                                     onChange={handleChange} required
-                                    options={standards.map(s => ({ label: s, value: s }))} placeholder="Class"
+                                    options={standards.filter(s => s !== 'all').map(s => ({ 
+                                        label: `Class ${s}`, 
+                                        value: s 
+                                    }))} 
+                                    placeholder="Select Class"
                                     loading={classesLoading}
                                 />
                                 <SelectField
