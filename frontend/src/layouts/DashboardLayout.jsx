@@ -23,7 +23,7 @@ const DashboardLayout = ({ children, onSearch, searchValue }) => {
                     className={`min-h-[calc(100vh-4rem)] p-8 transition-all duration-300 ease-in-out ${isCollapsed ? 'ml-0 md:ml-20' : 'ml-0 md:ml-64'
                         }`}
                 >
-                    <div className="max-w-7xl mx-auto">
+                    <div className="max-w-[1600px] mx-auto">
                         {children}
                     </div>
                 </main>

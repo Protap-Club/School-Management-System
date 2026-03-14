@@ -32,35 +32,47 @@ export const createUser = async (creator, userData) => {
     const plainPassword = userData.password || generatePassword(12);
     const config = PROFILE_CONFIG[role];
 
-    // Step 1: Create User
-    const newUser = await User.create({
-        ...userData,
-        password: plainPassword, // User model .pre('save') hashes this
-        schoolId: targetSchoolId,
-        createdBy: creator._id
-    });
+    const session = await User.startSession();
+    session.startTransaction();
 
-    // Step 2: Create Role-Specific Profile
-    if (config) {
-        await config.model.create({
-            userId: newUser._id,
+    try {
+        // Step 1: Create User
+        const [newUser] = await User.create([{
+            ...userData,
+            password: plainPassword, // User model .pre('save') hashes this
             schoolId: targetSchoolId,
-            ...config.extractFields(userData)
-        });
-    }
+            createdBy: creator._id
+        }], { session });
 
-    // Step 3: Send welcome email (fire-and-forget, non-blocking)
-    if (!skipEmail) {
-        sendCredentialsEmail({
-            to: email,
-            name,
-            role,
-            password: plainPassword
-        }).catch(err => logger.error({ err, email }, "Failed to send credentials email"));
-    }
+        // Step 2: Create Role-Specific Profile
+        if (config) {
+            await config.model.create([{
+                userId: newUser._id,
+                schoolId: targetSchoolId,
+                ...config.extractFields(userData)
+            }], { session });
+        }
 
-    const { _id, name: n, email: e, role: r, schoolId: s, createdBy: cb } = newUser;
-    return { user: { _id, name: n, email: e, role: r, schoolId: s, createdBy: cb } };
+        await session.commitTransaction();
+
+        // Step 3: Send welcome email (fire-and-forget, non-blocking)
+        if (!skipEmail) {
+            sendCredentialsEmail({
+                to: email,
+                name,
+                role,
+                password: plainPassword
+            }).catch(err => logger.error({ err, email }, "Failed to send credentials email"));
+        }
+
+        const { _id, name: n, email: e, role: r, schoolId: s, createdBy: cb } = newUser;
+        return { user: { _id, name: n, email: e, role: r, schoolId: s, createdBy: cb } };
+    } catch (error) {
+        await session.abortTransaction();
+        throw error;
+    } finally {
+        session.endSession();
+    }
 };
 
 // GET USERS (with pagination, role scoping, and teacher class filtering)
@@ -68,7 +80,10 @@ export const getUsers = async (creator, filters = {}) => {
 
     // 1. INPUT VALIDATION & SANITIZATION
     const page = Math.max(0, filters.page || 0);
-    const pageSize = Math.min(100, Math.max(1, filters.pageSize || 25));
+    const isAdminOrSuperAdmin = [USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN].includes(creator.role);
+    const isTeacher = creator.role === USER_ROLES.TEACHER;
+    const maxPageSize = isAdminOrSuperAdmin ? 5000 : (isTeacher ? 1000 : 100);
+    const pageSize = Math.min(maxPageSize, Math.max(1, filters.pageSize || 25));
     const { page: _, pageSize: __, ...queryFilters } = filters;
 
     // 2. BUILD BASE QUERY WITH ACCESS CONTROL

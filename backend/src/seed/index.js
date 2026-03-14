@@ -14,6 +14,7 @@ const commands = {
     "seed-calendar": () => import("./commands/seedCalendar.js"),
     "seed-notices": () => import("./commands/seedNotices.js"),
     "cleanup": () => import("./commands/cleanup.js"),
+    "nfc": () => import("./commands/nfc.js"),
 };
 
 const showHelp = () => {

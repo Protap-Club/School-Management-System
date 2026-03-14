@@ -11,7 +11,7 @@ import { getRecipientLabel, getFileIcon } from './NoticeComponents';
 
 export const useNoticeHandlers = () => {
     const { user: currentUser } = useAuth();
-    const isAdmin = currentUser?.role === 'admin';
+    const isAdmin = ['admin', 'super_admin'].includes(currentUser?.role);
     const isTeacher = currentUser?.role === 'teacher';
     const fileInputRef = useRef(null);
 
@@ -58,10 +58,10 @@ export const useNoticeHandlers = () => {
     // Data hooks
     const { data: noticesData } = useNotices(historyFilters);
     const { data: receivedData } = useReceivedNotices();
-    const { data: classesData } = useClasses();
-    const { data: studentsData } = useStudents();
-    const { data: teachersData } = useTeachers();
-    const { data: allUsersData } = useAllUsers();
+    const { data: classesData } = useClasses(isAdmin);
+    const { data: studentsData } = useStudents(isTeacher);
+    const { data: teachersData } = useTeachers(isAdmin);
+    const { data: allUsersData } = useAllUsers(isAdmin);
     const { data: groupsData } = useGroups();
     const createNoticeMutation = useCreateNotice();
     const isSending = createNoticeMutation.isPending;
@@ -82,7 +82,7 @@ export const useNoticeHandlers = () => {
         : (receivedData?.data?.received || []);
 
     const showToast = useCallback((type, text) => { setToast({ type, text }); setTimeout(() => setToast({ type: '', text: '' }), 3000); }, []);
-    
+
     // Extracted utility
     const toggleSelection = (array, setArray, value) => { setArray(array.includes(value) ? array.filter(v => v !== value) : [...array, value]); };
 

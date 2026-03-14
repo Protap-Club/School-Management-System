@@ -1,5 +1,6 @@
 // Attendance Page — Teacher/Admin view for daily attendance with manual toggle.
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useSearchParams, useParams, useNavigate } from 'react-router-dom';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import { useAuth } from '../../features/auth';
 import { useFeatures } from '../../state';
@@ -33,9 +34,9 @@ const STATUS_STYLES = {
 };
 const STATUS_LABELS = { present: 'Present', late: 'Late', absent: 'Absent', unmarked: 'Unmarked' };
 const STAT_CARDS_CONFIG = [
-    { icon: FaUsers, label: 'Total Students', key: 'total', color: 'text-blue-600', bg: 'bg-blue-100' },
-    { icon: FaCheckCircle, label: 'Present Today', key: 'present', color: 'text-emerald-600', bg: 'bg-emerald-100' },
-    { icon: FaTimesCircle, label: 'Absent Today', key: 'absent', color: 'text-rose-600', bg: 'bg-rose-100' },
+    { label: 'Total Students', key: 'total', color: 'text-blue-600', bg: 'bg-blue-100' },
+    { label: 'Present Today', key: 'present', color: 'text-emerald-600', bg: 'bg-emerald-100' },
+    { label: 'Absent Today', key: 'absent', color: 'text-rose-600', bg: 'bg-rose-100' },
 ];
 const ITEMS_PER_PAGE = 15;
 
@@ -59,6 +60,15 @@ const buildClassGroups = (students = [], teachers = []) => {
         groups[key].students.push(student);
     });
 
+    // Sort students by roll number within each group
+    Object.values(groups).forEach(group => {
+        group.students.sort((a, b) => {
+            const rollA = a.profile?.rollNumber || '';
+            const rollB = b.profile?.rollNumber || '';
+            return rollA.localeCompare(rollB, undefined, { numeric: true, sensitivity: 'base' });
+        });
+    });
+
     return Object.keys(groups).sort((a, b) => {
         const [stdA, secA = ''] = a.split(' ');
         const [stdB, secB = ''] = b.split(' ');
@@ -74,7 +84,7 @@ const buildClassGroups = (students = [], teachers = []) => {
 const AttendancePage = () => {
     const { user: currentUser } = useAuth();
     const { hasFeature, loading: featuresLoading } = useFeatures();
-    const isAdmin = currentUser?.role === 'admin';
+    const isAdmin = ['admin', 'super_admin'].includes(currentUser?.role);
 
     // Queries & Mutations
     const { data: studentsRes, isLoading: studentsLoading } = useStudents();
@@ -89,6 +99,9 @@ const AttendancePage = () => {
     const [teacherPage, setTeacherPage] = useState(0);
     const [classPages, setClassPages] = useState({});
     const [searchQuery, setSearchQuery] = useState("");
+    const [classSearchQuery, setClassSearchQuery] = useState("");
+    const { classId } = useParams();
+    const navigate = useNavigate();
 
     const [showModalType, setShowModalType] = useState(null); // 'present' | 'absent'
     const [statsModalSearch, setStatsModalSearch] = useState('');
@@ -109,14 +122,52 @@ const AttendancePage = () => {
     const teachers = useMemo(() => teachersRes?.data?.users || [], [teachersRes]);
     const attendanceRecords = useMemo(() => attendanceRes?.data || [], [attendanceRes]);
     const attendanceMap = useMemo(() => buildAttendanceMap(attendanceRecords), [attendanceRecords]);
-    const groupedClasses = useMemo(() => isAdmin ? buildClassGroups(filteredStudents, teachers) : {}, [isAdmin, filteredStudents, teachers]);
+
+    const allGroupedClasses = useMemo(() => isAdmin ? buildClassGroups(filteredStudents, teachers) : {}, [isAdmin, filteredStudents, teachers]);
+
+    const groupedClasses = useMemo(() => {
+        if (!isAdmin) return {};
+        let classes = { ...allGroupedClasses };
+
+        // Filter by classId from URL if present
+        if (classId) {
+            const decodedClassId = decodeURIComponent(classId).toLowerCase().replace(/\s+/g, ' ').trim();
+            const matchingKey = Object.keys(classes).find(k => k.toLowerCase().replace(/\s+/g, ' ').trim() === decodedClassId);
+            if (matchingKey) {
+                return { [matchingKey]: classes[matchingKey] };
+            }
+            return {}; // If classId in URL is invalid
+        }
+
+        // Otherwise filter by classSearchQuery
+        if (classSearchQuery) {
+            const q = classSearchQuery.toLowerCase();
+            const filtered = {};
+            Object.keys(classes).forEach(id => {
+                if (id.toLowerCase().includes(q)) {
+                    filtered[id] = classes[id];
+                }
+            });
+            return filtered;
+        }
+
+        return classes;
+    }, [isAdmin, allGroupedClasses, classId, classSearchQuery]);
+
+    const statsStudents = useMemo(() => {
+        if (isAdmin && classId) {
+            const activeClassGroup = Object.values(groupedClasses)[0];
+            return activeClassGroup?.students || [];
+        }
+        return students;
+    }, [isAdmin, classId, groupedClasses, students]);
 
     const statsData = useMemo(() => {
         const presentStudents = [];
         const absentStudents = [];
-        let total = students.length;
+        let total = statsStudents.length;
 
-        students.forEach(s => {
+        statsStudents.forEach(s => {
             const status = attendanceMap[s._id]?.status;
             if (status === 'present' || status === 'late') {
                 presentStudents.push({ ...s, checkInTime: attendanceMap[s._id]?.checkInTime });
@@ -126,7 +177,6 @@ const AttendancePage = () => {
         });
 
         // Ensure we handle students properly based on backend return
-        // Teachers only see their assigned students, so `students.length` is correct for total.
         return {
             total,
             present: presentStudents.length,
@@ -134,12 +184,12 @@ const AttendancePage = () => {
             presentList: presentStudents,
             absentList: absentStudents
         };
-    }, [students, attendanceMap]);
+    }, [statsStudents, attendanceMap]);
 
     const STAT_CARDS_CONFIG = useMemo(() => [
-        { icon: FaUsers, label: 'Total Students', key: 'total', color: 'text-blue-600', bg: 'bg-blue-100', onClick: null },
-        { icon: FaCheckCircle, label: 'Present Today', key: 'present', color: 'text-emerald-600', bg: 'bg-emerald-100', onClick: () => { setShowModalType('present'); setStatsModalPage(0); setStatsModalSearch(''); } },
-        { icon: FaTimesCircle, label: 'Absent Today', key: 'absent', color: 'text-rose-600', bg: 'bg-rose-100', onClick: () => { setShowModalType('absent'); setStatsModalPage(0); setStatsModalSearch(''); } },
+        { label: 'Total Students', key: 'total', color: 'text-blue-600', bg: 'bg-blue-100', onClick: null },
+        { label: 'Present Today', key: 'present', color: 'text-emerald-600', bg: 'bg-emerald-100', onClick: () => { setShowModalType('present'); setStatsModalPage(0); setStatsModalSearch(''); } },
+        { label: 'Absent Today', key: 'absent', color: 'text-rose-600', bg: 'bg-rose-100', onClick: () => { setShowModalType('absent'); setStatsModalPage(0); setStatsModalSearch(''); } },
     ], []);
 
     const today = useMemo(() => new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }), []);
@@ -151,6 +201,43 @@ const AttendancePage = () => {
         manualMutation.mutate({ studentId, status: newStatus });
     }, [manualMutation]);
 
+    const [searchParams] = useSearchParams();
+    const classParam = searchParams.get('class');
+
+    useEffect(() => {
+        setTeacherPage(0);
+    }, [searchQuery]);
+
+    useEffect(() => {
+        const show = searchParams.get('show');
+        if (show === 'present') {
+            setShowModalType('present');
+            setStatsModalPage(0);
+            setStatsModalSearch('');
+        } else if (show === 'absent') {
+            setShowModalType('absent');
+            setStatsModalPage(0);
+            setStatsModalSearch('');
+        }
+    }, [searchParams]);
+
+    useEffect(() => {
+        if (classId) {
+            window.scrollTo(0, 0); // Immediate jump
+            const decodedClassId = decodeURIComponent(classId);
+            setExpandedClasses(prev => ({ ...prev, [decodedClassId]: true }));
+        } else if (classParam && groupedClasses[classParam]) {
+            setExpandedClasses(prev => ({ ...prev, [classParam]: true }));
+            // Optional: Scroll to the expanded class at the top of the viewport
+            setTimeout(() => {
+                const element = document.getElementById(`class-card-${classParam.replace(/\s+/g, '-')}`);
+                if (element) {
+                    element.scrollIntoView({ behavior: 'auto', block: 'start' });
+                }
+            }, 10); // Faster timeout
+        }
+    }, [classId, classParam, groupedClasses]);
+
     useEffect(() => {
         const socket = connectSocket(currentUser?.schoolId);
         socket.on('connect', () => setSocketConnected(true));
@@ -158,16 +245,6 @@ const AttendancePage = () => {
         return () => disconnectSocket();
     }, [currentUser?.schoolId]);
 
-    // ─── Access Guards ──────────────────────────────────
-    if (currentUser?.role === 'super_admin') return (
-        <DashboardLayout>
-            <div className="flex flex-col items-center justify-center p-12 text-center h-[60vh]">
-                <FaTimesCircle className="text-destructive mb-6" size={64} />
-                <h2 className="text-3xl font-black tracking-tight text-foreground">Access Denied</h2>
-                <p className="text-muted-foreground mt-2 max-w-sm">Super Admins do not have access to school-specific attendance pages.</p>
-            </div>
-        </DashboardLayout>
-    );
 
     if (!featuresLoading && !hasFeature('attendance')) return (
         <DashboardLayout>
@@ -187,7 +264,18 @@ const AttendancePage = () => {
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 pb-6 border-b">
                     <div className="space-y-1">
                         <div className="flex items-center gap-3">
-                            <h1 className="text-4xl font-black tracking-tight text-slate-900">Attendance</h1>
+                            <button
+                                onClick={() => navigate(`/${currentUser?.role === 'super_admin' ? 'superadmin' : 'admin'}/attendance`)}
+                                className="text-4xl font-black tracking-tight text-slate-900 hover:text-primary transition-colors text-left"
+                            >
+                                Attendance
+                            </button>
+                            {classId && (
+                                <>
+                                    <span className="text-3xl font-light text-slate-300">/</span>
+                                    <span className="text-3xl font-bold bg-primary/10 text-primary px-4 py-1 rounded-2xl">Class {decodeURIComponent(classId)}</span>
+                                </>
+                            )}
                             <Badge variant={socketConnected ? "default" : "secondary"} className={`rounded-full px-3 py-1 animate-in fade-in ${socketConnected ? 'bg-emerald-500 hover:bg-emerald-600' : ''}`}>
                                 <FaWifi className="mr-2 w-3 h-3" />
                                 {socketConnected ? 'Live' : 'Connecting'}
@@ -198,6 +286,17 @@ const AttendancePage = () => {
                             {today}
                         </p>
                     </div>
+                    {isAdmin && !classId && (
+                        <div className="relative w-full md:w-80">
+                            <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={14} />
+                            <Input
+                                placeholder="Search classes (e.g. 10 A)..."
+                                className="pl-9 bg-white shadow-sm border-slate-200 focus:ring-primary/20"
+                                value={classSearchQuery}
+                                onChange={(e) => setClassSearchQuery(e.target.value)}
+                            />
+                        </div>
+                    )}
                     {!isAdmin && (
                         <div className="relative w-full md:w-80">
                             <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={14} />
@@ -223,6 +322,7 @@ const AttendancePage = () => {
                         getClassPage={getClassPage} setClassPage={setClassPage} itemsPerPage={ITEMS_PER_PAGE}
                         setSelectedStudent={setSelectedStudent} getStudentStatus={getStudentStatus}
                         STATUS_STYLES={STATUS_STYLES} STATUS_LABELS={STATUS_LABELS}
+                        handleManualToggle={handleManualToggle} manualMutation={manualMutation}
                     />
                 ) : (
                     <TeacherStudentList
@@ -320,14 +420,12 @@ const AttendancePage = () => {
                                                 ))}
                                             </div>
                                             {modalTotalPages > 0 && (
-                                                <div className="p-4 border-t border-slate-100 flex justify-center sticky bottom-0 bg-slate-50 inset-x-0 mt-4">
-                                                    <PaginationControls
-                                                        currentPage={statsModalPage}
-                                                        totalItems={filteredList.length}
-                                                        itemsPerPage={ITEMS_PER_PAGE}
-                                                        onPageChange={setStatsModalPage}
-                                                    />
-                                                </div>
+                                                <PaginationControls
+                                                    currentPage={statsModalPage}
+                                                    totalItems={filteredList.length}
+                                                    itemsPerPage={ITEMS_PER_PAGE}
+                                                    onPageChange={setStatsModalPage}
+                                                />
                                             )}
                                         </div>
                                     );

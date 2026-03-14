@@ -35,7 +35,7 @@ const TimetableGrid = ({
   const getClassDisplay = (entry) => {
     if (entry.timetableId) {
       const tt = entry.timetableId;
-      return `${tt.standard}-${tt.section}`;
+      return `${tt.standard}${tt.section}`;
     }
     return '';
   };

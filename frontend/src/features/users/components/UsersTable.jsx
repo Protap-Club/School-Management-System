@@ -1,5 +1,5 @@
 import React from 'react';
-import { FaCheck, FaSort, FaEllipsisV, FaChevronLeft, FaChevronRight } from 'react-icons/fa';
+import { FaCheck, FaSort, FaEllipsisV, FaChevronLeft, FaChevronRight, FaEdit, FaEye, FaUndo, FaArchive } from 'react-icons/fa';
 import {
     Table,
     TableBody,
@@ -65,9 +65,10 @@ export const UsersTable = ({
     onSortChange,
     sortOptions,
     allowedRoles,
-    activeDropdown,
-    onToggleDropdown,
+    isAdminOrAbove,
     onRowClick,
+    onEditClick,
+    onArchiveClick,
     roleLabels,
     currentPage = 0,
     totalItems = 0,
@@ -152,7 +153,7 @@ export const UsersTable = ({
                             <TableHead className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Role</TableHead>
                             <TableHead className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">Email</TableHead>
                             <TableHead className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Status</TableHead>
-                            <TableHead className="w-10 px-4"></TableHead>
+                            <TableHead className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Action</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -203,15 +204,36 @@ export const UsersTable = ({
                                             {u.isActive ? 'Active' : 'Inactive'}
                                         </span>
                                     </TableCell>
-                                    <TableCell className="px-4 py-3 text-right">
-                                        {!selectionMode && (
+                                    <TableCell className="px-4 py-3">
+                                        <div className="flex items-center justify-end gap-1">
                                             <button
-                                                onClick={(e) => { e.stopPropagation(); onToggleDropdown(u._id, e); }}
-                                                className={`p-1.5 rounded-md transition-all ${activeDropdown === u._id ? 'bg-gray-200 text-gray-700' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'}`}
+                                                onClick={(e) => { e.stopPropagation(); onRowClick(u); }}
+                                                className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
+                                                title="View Details"
                                             >
-                                                <FaEllipsisV size={12} />
+                                                <FaEye size={14} />
                                             </button>
-                                        )}
+
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); onEditClick(u); }}
+                                                className="p-2 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-all"
+                                                title="Edit User"
+                                            >
+                                                <FaEdit size={14} />
+                                            </button>
+
+                                            {!selectionMode && isAdminOrAbove && (
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); onArchiveClick(u); }}
+                                                    className={`p-2 transition-all rounded-lg ${showArchived
+                                                        ? 'text-emerald-500 hover:bg-emerald-50 hover:text-emerald-700'
+                                                        : 'text-gray-400 hover:bg-red-50 hover:text-red-600'}`}
+                                                    title={showArchived ? "Restore User" : "Archive User"}
+                                                >
+                                                    {showArchived ? <FaUndo size={14} /> : <FaArchive size={14} />}
+                                                </button>
+                                            )}
+                                        </div>
                                     </TableCell>
                                 </TableRow>
                             );

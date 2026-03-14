@@ -37,11 +37,15 @@ export const SCHOOL_FEATURES = Object.freeze({
     label: "Calendar",
     description: "calendar events",
   },
+  EXAMINATION: {
+    key: "examination",
+    label: "Examination Management",
+    description: "Manage term exams and class tests",
   ASSIGNMENT: {
     key: "assignment",
     label: "Assignment Management",
     description: "Create, distribute, and collect assignments",
-  },
+  },}
 });
 
 // Pre-computed array of feature keys for validation and schema mapping.
