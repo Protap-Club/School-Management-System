@@ -474,10 +474,13 @@ export const getAssignmentMetadata = async (schoolId, userRole, userId) => {
         allTimetablesForAdmin = foundTimetables;
     }
 
+    // Also fetch any existing subjects from assignments to ensure filter is populated for older data
+    const existingSubjects = await Assignment.find({ schoolId }).distinct('subject');
+
     // Structured Metadata Building
     const standards = new Set();
     const sections = new Set();
-    const subjects = new Set();
+    const subjects = new Set(existingSubjects);
     const mappings = {
         classSections: {}, // { "10": ["A", "B"] }
         sectionSubjects: {} // { "10-A": ["Math"], "10-B": ["Science"] }

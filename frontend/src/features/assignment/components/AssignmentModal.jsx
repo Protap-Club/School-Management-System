@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { FaTimes, FaBook, FaSave } from 'react-icons/fa';
-import { useSchoolClasses } from '../../../hooks/useSchoolClasses';
+import React, { useState, useEffect, useRef } from 'react';
+import { FaTimes, FaBook, FaSave, FaPaperclip, FaTrash } from 'react-icons/fa';
+import { useAssignmentOptions } from '../hooks/useAssignmentOptions';
 import { useCreateAssignment, useUpdateAssignment } from '../api/queries';
 
 const InputField = ({ label, name, value, onChange, type = "text", required = false, ...props }) => (
@@ -10,7 +10,7 @@ const InputField = ({ label, name, value, onChange, type = "text", required = fa
         </label>
         <input type={type} name={name} value={value}
             onChange={onChange}
-            className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-600 outline-none transition-all placeholder:text-gray-400 text-sm"
+            className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-600 outline-none transition-all placeholder:text-gray-400 text-sm shadow-sm"
             required={required} {...props} />
     </div>
 );
@@ -22,12 +22,12 @@ const TextAreaField = ({ label, name, value, onChange, required = false, rows = 
         </label>
         <textarea name={name} value={value}
             onChange={onChange} rows={rows}
-            className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-600 outline-none transition-all placeholder:text-gray-400 text-sm"
+            className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-600 outline-none transition-all placeholder:text-gray-400 text-sm shadow-sm"
             required={required} {...props} />
     </div>
 );
 
-const SelectField = ({ label, name, value, onChange, options, placeholder, required = false, loading = false }) => (
+const SelectField = ({ label, name, value, onChange, options, placeholder, required = false, loading = false, disabled = false }) => (
     <div className="space-y-1.5">
         <label className="text-xs font-bold text-gray-500 uppercase tracking-tight ml-1">
             {label} {required && <span className="text-red-500">*</span>}
@@ -37,10 +37,10 @@ const SelectField = ({ label, name, value, onChange, options, placeholder, requi
             value={value}
             onChange={onChange}
             required={required}
-            className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-600 outline-none transition-all bg-white disabled:opacity-60 text-sm font-medium text-gray-700 cursor-pointer hover:border-gray-300"
-            disabled={loading}
+            className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-600 outline-none transition-all bg-white disabled:opacity-60 text-sm font-medium text-gray-700 cursor-pointer hover:border-gray-300 shadow-sm"
+            disabled={loading || disabled}
         >
-            <option value="" disabled selected hidden>{loading ? 'Loading...' : placeholder || `Select ${label}`}</option>
+            <option value="" disabled hidden>{loading ? 'Loading...' : placeholder || `Select ${label}`}</option>
             {options.map((opt, idx) => (
                 <option key={idx} value={opt.value}>
                     {opt.label}
@@ -63,17 +63,27 @@ const INITIAL_FORM = {
 export const AssignmentModal = ({ isOpen, onClose, assignmentToEdit = null }) => {
     const createMutation = useCreateAssignment();
     const updateMutation = useUpdateAssignment();
+    const fileInputRef = useRef(null);
 
     const [formData, setFormData] = useState({ ...INITIAL_FORM });
+    const [selectedFiles, setSelectedFiles] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
-    const { loading: classesLoading, availableStandards: standards, getSectionsForStandard, allUniqueSections } = useSchoolClasses();
-    const sections = formData.standard ? getSectionsForStandard(formData.standard) : allUniqueSections;
+    const { 
+        loading: optionsLoading, 
+        availableStandards, 
+        getSectionsForStandard, 
+        getSubjectsForClass 
+    } = useAssignmentOptions();
+
+    const sections = getSectionsForStandard(formData.standard);
+    const subjects = getSubjectsForClass(formData.standard, formData.section);
 
     useEffect(() => {
         if (!isOpen) return;
         setError('');
+        setSelectedFiles([]);
 
         if (assignmentToEdit) {
             setFormData({
@@ -92,7 +102,30 @@ export const AssignmentModal = ({ isOpen, onClose, assignmentToEdit = null }) =>
 
     if (!isOpen) return null;
 
-    const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
+    const handleChange = (e) => {
+        const { name, value } = e.target;
+        setFormData(prev => {
+            const next = { ...prev, [name]: value };
+            // Clear downstream selections if standard/section change
+            if (name === 'standard') {
+                next.section = '';
+                next.subject = '';
+            }
+            if (name === 'section') {
+                next.subject = '';
+            }
+            return next;
+        });
+    };
+
+    const handleFileChange = (e) => {
+        const files = Array.from(e.target.files);
+        setSelectedFiles(prev => [...prev, ...files].slice(0, 5)); // Limit to 5 files
+    };
+
+    const removeFile = (index) => {
+        setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+    };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -100,11 +133,19 @@ export const AssignmentModal = ({ isOpen, onClose, assignmentToEdit = null }) =>
         setError('');
 
         try {
-            const payload = { ...formData };
+            const data = new FormData();
+            Object.keys(formData).forEach(key => {
+                data.append(key, formData[key]);
+            });
+            
+            selectedFiles.forEach(file => {
+                data.append('attachments', file);
+            });
+
             if (assignmentToEdit) {
-                await updateMutation.mutateAsync({ id: assignmentToEdit._id, ...payload });
+                await updateMutation.mutateAsync({ id: assignmentToEdit._id, formData: data });
             } else {
-                await createMutation.mutateAsync(payload);
+                await createMutation.mutateAsync(data);
             }
             onClose();
         } catch (err) {
@@ -118,14 +159,14 @@ export const AssignmentModal = ({ isOpen, onClose, assignmentToEdit = null }) =>
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden animate-fade-in-up flex flex-col max-h-[90vh]">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden animate-fade-in-up flex flex-col max-h-[95vh]">
                 {/* Header */}
                 <div className="px-8 py-5 flex items-center justify-between border-b border-gray-100">
                     <div>
                         <h3 className="text-xl font-bold text-gray-900 tracking-tight">
                             {isEditing ? 'Edit Assignment' : 'New Assignment'}
                         </h3>
-                        <p className="text-xs text-gray-500 mt-0.5">Fill in the details below</p>
+                        <p className="text-xs text-gray-500 mt-0.5">Fill in the details and attach any supporting documents</p>
                     </div>
                     <button onClick={onClose} className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-2 rounded-full transition-all">
                         <FaTimes size={18} />
@@ -140,7 +181,7 @@ export const AssignmentModal = ({ isOpen, onClose, assignmentToEdit = null }) =>
                         </div>
                     )}
 
-                    <form onSubmit={handleSubmit} className="space-y-6">
+                    <form id="assignment-form" onSubmit={handleSubmit} className="space-y-6">
                         {/* Basic Info */}
                         <div className="space-y-4">
                             <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider flex items-center gap-2">
@@ -161,25 +202,80 @@ export const AssignmentModal = ({ isOpen, onClose, assignmentToEdit = null }) =>
                                 <SelectField
                                     label="Class" name="standard" value={formData.standard}
                                     onChange={handleChange} required
-                                    options={standards.filter(s => s !== 'all').map(s => ({ 
+                                    options={availableStandards.map(s => ({ 
                                         label: `Class ${s}`, 
                                         value: s 
                                     }))} 
                                     placeholder="Select Class"
-                                    loading={classesLoading}
+                                    loading={optionsLoading}
                                 />
                                 <SelectField
                                     label="Section" name="section" value={formData.section}
                                     onChange={handleChange} required
-                                    options={sections} placeholder="Choose Section"
-                                    loading={classesLoading}
+                                    options={sections.map(s => ({ label: `Section ${s}`, value: s }))} 
+                                    placeholder="Choose Section"
+                                    loading={optionsLoading}
+                                    disabled={!formData.standard}
                                 />
-                                <InputField label="Subject" name="subject" value={formData.subject} onChange={handleChange} required placeholder="e.g. Mathematics" />
+                                <SelectField
+                                    label="Subject" name="subject" value={formData.subject}
+                                    onChange={handleChange} required
+                                    options={subjects.map(s => ({ label: s, value: s }))} 
+                                    placeholder="Select Subject"
+                                    loading={optionsLoading}
+                                    disabled={!formData.section}
+                                />
                             </div>
                         </div>
 
-                        {/* Scheduling & Status */}
+                        {/* Attachments */}
                         <div className="space-y-4 pt-2">
+                            <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider flex items-center gap-2">
+                                Attachments (Optional)
+                            </h4>
+                            <div className="space-y-3">
+                                <div 
+                                    onClick={() => fileInputRef.current?.click()}
+                                    className="border-2 border-dashed border-gray-200 rounded-xl p-6 flex flex-col items-center justify-center gap-2 hover:border-indigo-400 hover:bg-indigo-50/30 transition-all cursor-pointer group"
+                                >
+                                    <div className="p-3 bg-white shadow-sm rounded-full text-gray-400 group-hover:text-indigo-600 transition-colors">
+                                        <FaPaperclip size={20} />
+                                    </div>
+                                    <p className="text-sm font-medium text-gray-600">Click to upload documents</p>
+                                    <p className="text-[10px] text-gray-400">PDF, Word, or Images up to 10MB (Max 5 files)</p>
+                                    <input 
+                                        type="file" 
+                                        ref={fileInputRef}
+                                        onChange={handleFileChange} 
+                                        multiple 
+                                        className="hidden" 
+                                        accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                                    />
+                                </div>
+
+                                {selectedFiles.length > 0 && (
+                                    <div className="grid grid-cols-1 gap-2">
+                                        {selectedFiles.map((file, idx) => (
+                                            <div key={idx} className="flex items-center justify-between p-3 bg-white border border-gray-100 rounded-lg shadow-sm">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="p-2 bg-indigo-50 text-indigo-600 rounded">
+                                                        <FaBook size={12} />
+                                                    </div>
+                                                    <span className="text-sm font-medium text-gray-700 truncate max-w-[200px]">{file.name}</span>
+                                                    <span className="text-[10px] text-gray-400">({(file.size / 1024).toFixed(1)} KB)</span>
+                                                </div>
+                                                <button type="button" onClick={() => removeFile(idx)} className="text-gray-400 hover:text-red-500 transition-colors p-1">
+                                                    <FaTrash size={12} />
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Scheduling */}
+                        <div className="space-y-4 pt-2 pb-2">
                             <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider flex items-center gap-2">
                                 Deadline & Status
                             </h4>
@@ -197,20 +293,24 @@ export const AssignmentModal = ({ isOpen, onClose, assignmentToEdit = null }) =>
                                 )}
                             </div>
                         </div>
-
-                        {/* Actions */}
-                        <div className="pt-4 flex justify-end gap-3 border-t border-gray-100">
-                            <button type="button" onClick={onClose} className="px-5 py-2.5 text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg transition-all font-medium text-sm">Cancel</button>
-                            <button type="submit" disabled={loading}
-                                className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-lg shadow-indigo-200 transition-all font-medium text-sm flex items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed">
-                                {loading ? (
-                                    <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>Saving...</>
-                                ) : (
-                                    <>{isEditing ? 'Save Changes' : 'Create Assignment'}</>
-                                )}
-                            </button>
-                        </div>
                     </form>
+                </div>
+
+                {/* Actions */}
+                <div className="px-8 py-5 bg-white border-t border-gray-100 flex justify-end gap-3">
+                    <button type="button" onClick={onClose} className="px-6 py-2.5 text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg transition-all font-medium text-sm">Cancel</button>
+                    <button 
+                        form="assignment-form"
+                        type="submit" 
+                        disabled={loading}
+                        className="px-8 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-lg shadow-indigo-200 transition-all font-medium text-sm flex items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+                    >
+                        {loading ? (
+                            <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>Saving...</>
+                        ) : (
+                            <><FaSave size={14} /> <span>{isEditing ? 'Save Changes' : 'Create Assignment'}</span></>
+                        )}
+                    </button>
                 </div>
             </div>
         </div>

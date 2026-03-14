@@ -21,16 +21,18 @@ export const assignmentApi = {
         return response.data;
     },
 
-    createAssignment: async (payload) => {
-        // Assignments often include files, but assuming basic JSON mapping based on structure.
-        // If attachments are handled, we might need a FormData approach, however
-        // looking at the models attached, it takes an array of Cloudinary references.
-        const response = await api.post("/assignments", payload);
+    createAssignment: async (formData) => {
+        // Use FormData for handling file attachments
+        const response = await api.post("/assignments", formData, {
+            headers: { "Content-Type": "multipart/form-data" },
+        });
         return response.data;
     },
 
-    updateAssignment: async (id, payload) => {
-        const response = await api.put(`/assignments/${id}`, payload);
+    updateAssignment: async (id, formData) => {
+        const response = await api.put(`/assignments/${id}`, formData, {
+            headers: { "Content-Type": "multipart/form-data" },
+        });
         return response.data;
     },
 

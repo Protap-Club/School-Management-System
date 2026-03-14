@@ -1,5 +1,5 @@
 import React from 'react';
-import { FaFilter, FaSearch, FaPlus } from 'react-icons/fa';
+import { FaFilter, FaSearch, FaPlus, FaBook } from 'react-icons/fa';
 import { useAssignmentOptions } from '../hooks/useAssignmentOptions';
 
 export const AssignmentFilters = ({
@@ -25,6 +25,7 @@ export const AssignmentFilters = ({
 
     const sections = getSectionsForStandard(standardFilter);
     const subjects = getSubjectsForClass(standardFilter, sectionFilter);
+
     return (
         <div className="relative flex flex-col sm:flex-row items-stretch sm:items-center gap-4 w-full bg-transparent py-2">
             <div className="flex flex-wrap items-center gap-3 relative z-40 flex-shrink-0">
@@ -59,12 +60,13 @@ export const AssignmentFilters = ({
                 </div>
 
                 {/* Subject Filter */}
-                <div className="relative flex items-center bg-white border border-gray-200 rounded-lg px-3 h-10 min-w-[130px] shadow-sm hover:border-gray-300 transition-all focus-within:ring-2 focus-within:ring-indigo-500/10 focus-within:border-indigo-500">
+                <div className="relative flex items-center bg-white border border-sky-200 rounded-lg px-3 h-10 min-w-[140px] shadow-sm hover:border-sky-400 transition-all focus-within:ring-2 focus-within:ring-sky-500/10 focus-within:border-sky-500">
+                    <FaBook className="text-sky-400 mr-2" size={12} />
                     <select
                         value={subjectFilter}
                         onChange={(e) => onSubjectChange(e.target.value)}
-                        disabled={loading || subjects.length === 0}
-                        className="bg-transparent text-sm font-semibold text-gray-700 outline-none cursor-pointer w-full pr-6 disabled:opacity-50"
+                        disabled={loading}
+                        className="bg-transparent text-sm font-semibold text-gray-700 outline-none cursor-pointer w-full pr-6 disabled:opacity-50 appearance-none"
                     >
                         <option value="all">All Subjects</option>
                         {subjects.map((sub) => (
@@ -73,18 +75,6 @@ export const AssignmentFilters = ({
                     </select>
                 </div>
 
-                {/* Status Filter */}
-                <div className="relative flex items-center bg-white border border-gray-200 rounded-lg px-3 h-10 min-w-[130px] shadow-sm hover:border-gray-300 transition-all focus-within:ring-2 focus-within:ring-indigo-500/10 focus-within:border-indigo-500">
-                    <select
-                        value={statusFilter}
-                        onChange={(e) => onStatusChange(e.target.value)}
-                        className="bg-transparent text-sm font-semibold text-gray-700 outline-none cursor-pointer w-full pr-6"
-                    >
-                        <option value="all">All Status</option>
-                        <option value="active">Active</option>
-                        <option value="closed">Closed</option>
-                    </select>
-                </div>
             </div>
 
             {/* Search Input */}

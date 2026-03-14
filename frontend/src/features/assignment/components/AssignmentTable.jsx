@@ -83,7 +83,7 @@ export const AssignmentTable = ({
                     <span className="text-gray-400 text-xl">📄</span>
                 </div>
                 <p className="text-gray-500 text-sm font-medium">No assignments found</p>
-                <p className="text-gray-400 text-xs mt-1">Try adjusting filters or add a new assignment</p>
+                <p className="text-gray-400 text-xs mt-1">Try adjusting filters to see more results</p>
             </div>
         );
     }

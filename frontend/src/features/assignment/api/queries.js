@@ -40,7 +40,7 @@ export const useCreateAssignment = () => {
 export const useUpdateAssignment = () => {
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: ({ id, ...payload }) => assignmentApi.updateAssignment(id, payload),
+        mutationFn: ({ id, formData }) => assignmentApi.updateAssignment(id, formData),
         onSuccess: (updatedAssignment, variables) => {
             queryClient.invalidateQueries({ queryKey: assignmentKeys.lists() });
             queryClient.invalidateQueries({ queryKey: assignmentKeys.detail(variables.id) });
