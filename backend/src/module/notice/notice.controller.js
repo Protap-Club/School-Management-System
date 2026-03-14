@@ -147,7 +147,8 @@ export const acknowledgeNotice = asyncHandler(async (req, res) => {
     const result = await noticeService.acknowledgeNotice(
         req.schoolId,
         req.params.id,
-        req.user
+        req.user,
+        req.body.responseMessage
     );
 
     res.status(200).json({

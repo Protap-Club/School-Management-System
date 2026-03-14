@@ -3,6 +3,7 @@ import { FaTimes, FaUserPlus, FaBuilding } from 'react-icons/fa';
 import api from '../../../lib/axios';
 import { useAuth } from '../../../features/auth';
 import { useCreateUser } from '../api/queries';
+import { useSchoolClasses } from '../../../hooks/useSchoolClasses';
 
 const InputField = ({ label, name, value, onChange, type = "text", required = false, isNumeric = false, ...props }) => (
     <div className="space-y-1">
@@ -36,7 +37,7 @@ const SelectField = ({ label, name, value, onChange, options, placeholder, requi
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all bg-white disabled:opacity-60"
             disabled={loading}
         >
-            <option value="">{loading ? 'Loading...' : `Select ${label}`}</option>
+            <option value="" disabled selected hidden>{loading ? 'Loading...' : `Select ${label}`}</option>
             {options.map(opt => (
                 <option key={opt} value={opt}>{opt}</option>
             ))}
@@ -65,12 +66,6 @@ const INITIAL_FORM = {
     guardianName: '', guardianContact: '', address: ''
 };
 
-const naturalSort = (arr) => {
-    return [...arr].sort((a, b) => {
-        return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
-    });
-};
-
 const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
     const { user } = useAuth();
     const createUserMutation = useCreateUser();
@@ -80,10 +75,9 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
     const [error, setError] = useState('');
     const [activeGuardianTab, setActiveGuardianTab] = useState('parents'); // 'parents' | 'guardian'
 
-    // Classes / sections fetched from backend
-    const [standards, setStandards] = useState([]);
-    const [sections, setSections] = useState([]);
-    const [classesLoading, setClassesLoading] = useState(false);
+    // Classes / sections fetched from backend via global hook
+    const { loading: classesLoading, availableStandards: standards, getSectionsForStandard, allUniqueSections } = useSchoolClasses();
+    const sections = formData.standard ? getSectionsForStandard(formData.standard) : allUniqueSections;
 
     const roleLabel = roleToAdd?.charAt(0).toUpperCase() + roleToAdd?.slice(1);
 
@@ -111,26 +105,7 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
             }
         };
 
-        const fetchClasses = async () => {
-            if (roleToAdd === 'student' || roleToAdd === 'teacher') {
-                setClassesLoading(true);
-                try {
-                    const response = await api.get('/school/classes');
-                    const data = response.data?.data;
-                    setStandards(naturalSort(data?.standards || []));
-                    setSections(naturalSort(data?.sections || []));
-                } catch {
-                    // fallback — keep empty
-                    setStandards([]);
-                    setSections([]);
-                } finally {
-                    setClassesLoading(false);
-                }
-            }
-        };
-
         fetchSchoolDetails();
-        fetchClasses();
     }, [isOpen, user, roleToAdd]);
 
     if (!isOpen) return null;
@@ -218,7 +193,7 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <InputField label="Email Address" name="email" type="email" value={formData.email} onChange={handleChange} required />
-                                <InputField label="Contact Number" name="contactNo" value={formData.contactNo} onChange={handleChange} isNumeric />
+                                <InputField label="Contact Number" name="contactNo" value={formData.contactNo} onChange={handleChange} isNumeric maxLength={10} />
                             </div>
                         </div>
 
@@ -299,7 +274,7 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
                                                 <h5 className={`text-[10px] font-black ${p.textColor} uppercase tracking-widest`}>{p.label}</h5>
                                                 <div className="space-y-4">
                                                     <InputField label="Full Name" name={p.nameField} value={formData[p.nameField]} onChange={handleChange} />
-                                                    <InputField label="Contact No." name={p.contactField} value={formData[p.contactField]} onChange={handleChange} isNumeric />
+                                                    <InputField label="Contact No." name={p.contactField} value={formData[p.contactField]} onChange={handleChange} isNumeric maxLength={10} />
                                                 </div>
                                             </div>
                                         ))}
@@ -309,7 +284,7 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
                                         <h5 className={`text-[10px] font-black ${GUARDIAN_SECTION.textColor} uppercase tracking-widest`}>{GUARDIAN_SECTION.label}</h5>
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                             <InputField label="Full Name" name={GUARDIAN_SECTION.nameField} value={formData[GUARDIAN_SECTION.nameField]} onChange={handleChange} />
-                                            <InputField label="Contact No." name={GUARDIAN_SECTION.contactField} value={formData[GUARDIAN_SECTION.contactField]} onChange={handleChange} isNumeric />
+                                            <InputField label="Contact No." name={GUARDIAN_SECTION.contactField} value={formData[GUARDIAN_SECTION.contactField]} onChange={handleChange} isNumeric maxLength={10} />
                                         </div>
                                     </div>
                                 )}
@@ -317,11 +292,7 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
                             </div>
                         )}
 
-                        {/* Info */}
-                        <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 flex items-start gap-3">
-                            <span className="text-blue-500 mt-0.5">ℹ️</span>
-                            <p className="text-sm text-blue-700">A secure password will be <strong>auto-generated</strong> and sent to the user's email address.</p>
-                        </div>
+
 
                         {/* Actions */}
                         <div className="pt-4 flex justify-end gap-3 border-t border-gray-100">

@@ -27,7 +27,7 @@ router.post(
 router.put(
     "/manual",
     checkAuth,
-    checkRole([USER_ROLES.TEACHER, USER_ROLES.ADMIN]),
+    checkRole([USER_ROLES.TEACHER, USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN]),
     validate(manualAttendanceSchema),
     markManual
 );

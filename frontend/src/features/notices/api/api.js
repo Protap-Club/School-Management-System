@@ -103,8 +103,8 @@ export const noticesApi = {
     },
 
     // Acknowledge a notice (receivers only)
-    acknowledgeNotice: async (id) => {
-        const response = await api.post(`/notices/${id}/acknowledge`);
+    acknowledgeNotice: async (id, responseMessage = '') => {
+        const response = await api.post(`/notices/${id}/acknowledge`, { responseMessage });
         return response.data;
     },
 

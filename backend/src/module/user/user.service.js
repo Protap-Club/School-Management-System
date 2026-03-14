@@ -32,47 +32,41 @@ export const createUser = async (creator, userData) => {
     const plainPassword = userData.password || generatePassword(12);
     const config = PROFILE_CONFIG[role];
 
-    const session = await User.startSession();
-    session.startTransaction();
+    // Step 1: Create User
+    const newUser = await User.create({
+        ...userData,
+        password: plainPassword, // User model .pre('save') hashes this
+        schoolId: targetSchoolId,
+        createdBy: creator._id
+    });
 
-    try {
-        // Step 1: Create User
-        const [newUser] = await User.create([{
-            ...userData,
-            password: plainPassword, // User model .pre('save') hashes this
-            schoolId: targetSchoolId,
-            createdBy: creator._id
-        }], { session });
-
-        // Step 2: Create Role-Specific Profile
-        if (config) {
-            await config.model.create([{
+    // Step 2: Create Role-Specific Profile (manual rollback on failure)
+    if (config) {
+        try {
+            await config.model.create({
                 userId: newUser._id,
                 schoolId: targetSchoolId,
                 ...config.extractFields(userData)
-            }], { session });
+            });
+        } catch (profileError) {
+            // Roll back: remove the user if profile creation fails
+            await User.deleteOne({ _id: newUser._id });
+            throw profileError;
         }
-
-        await session.commitTransaction();
-
-        // Step 3: Send welcome email (fire-and-forget, non-blocking)
-        if (!skipEmail) {
-            sendCredentialsEmail({
-                to: email,
-                name,
-                role,
-                password: plainPassword
-            }).catch(err => logger.error({ err, email }, "Failed to send credentials email"));
-        }
-
-        const { _id, name: n, email: e, role: r, schoolId: s, createdBy: cb } = newUser;
-        return { user: { _id, name: n, email: e, role: r, schoolId: s, createdBy: cb } };
-    } catch (error) {
-        await session.abortTransaction();
-        throw error;
-    } finally {
-        session.endSession();
     }
+
+    // Step 3: Send welcome email (fire-and-forget, non-blocking)
+    if (!skipEmail) {
+        sendCredentialsEmail({
+            to: email,
+            name,
+            role,
+            password: plainPassword
+        }).catch(err => logger.error({ err, email }, "Failed to send credentials email"));
+    }
+
+    const { _id, name: n, email: e, role: r, schoolId: s, createdBy: cb } = newUser;
+    return { user: { _id, name: n, email: e, role: r, schoolId: s, createdBy: cb } };
 };
 
 // GET USERS (with pagination, role scoping, and teacher class filtering)

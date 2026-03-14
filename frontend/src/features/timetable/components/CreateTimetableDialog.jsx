@@ -18,8 +18,7 @@ const CreateTimetableDialog = ({ open, onOpenChange, onCreate, isPending = false
     });
 
     const normalizedSectionOptions = useMemo(() => {
-        if (sections.length > 0) return sections;
-        return ["A", "B", "C"];
+        return sections;
     }, [sections]);
     const selectedStandard = form.standard || standards[0] || "";
     const selectedSection = form.section || normalizedSectionOptions[0] || "";

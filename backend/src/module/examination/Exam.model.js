@@ -78,6 +78,11 @@ const examSchema = new mongoose.Schema(
             ],
             default: "OTHER",
         },
+        // Optional explanation when category is set to "OTHER"
+        categoryDescription: {
+            type: String,
+            trim: true,
+        },
         academicYear: {
             type: Number,
             required: [true, "Academic year is required"],
