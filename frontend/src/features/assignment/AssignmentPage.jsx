@@ -10,7 +10,7 @@ import useDebounce from '../../hooks/useDebounce';
 
 export const AssignmentPage = () => {
     const { user } = useAuth();
-    const isAdmin = user?.role === 'admin';
+    const isAdmin = ['admin', 'super_admin'].includes(user?.role);
     const isTeacher = user?.role === 'teacher';
     const canCreate = isAdmin || isTeacher;
     const canEdit = isAdmin || isTeacher;

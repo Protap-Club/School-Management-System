@@ -71,7 +71,7 @@ const INITIAL_FORM = {
 
 export const AssignmentModal = ({ isOpen, onClose, assignmentToEdit = null }) => {
     const { user } = useAuth();
-    const isAdmin = user?.role === 'admin';
+    const isAdmin = ['admin', 'super_admin'].includes(user?.role);
     const createMutation = useCreateAssignment();
     const updateMutation = useUpdateAssignment();
     const removeAttachmentMutation = useRemoveAssignmentAttachment();

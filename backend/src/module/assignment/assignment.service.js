@@ -8,6 +8,8 @@ import { deleteFromCloudinary } from "../../middlewares/upload.middleware.js";
 import { USER_ROLES } from "../../constants/userRoles.js";
 import logger from "../../config/logger.js";
 
+const isAdminRole = (role) => [USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN].includes(role);
+
 const normalizeFileType = (file = {}) => {
     const originalName = file.originalname || file.name || "";
     const extension = originalName.includes(".")
@@ -203,7 +205,7 @@ const checkOwnership = (assignment, userId, role) => {
 };
 
 const assertCanViewAssignment = async (assignment, schoolId, userId, role) => {
-    if (role === USER_ROLES.ADMIN) {
+    if (isAdminRole(role)) {
         return;
     }
 
@@ -419,7 +421,7 @@ export const getAssignment = async (schoolId, assignmentId, userId, role) => {
 
     const response = formatAssignment(assignment);
 
-    if (role === USER_ROLES.ADMIN || role === USER_ROLES.TEACHER) {
+    if (isAdminRole(role) || role === USER_ROLES.TEACHER) {
         const submissions = await Submission.find({ assignmentId }).lean();
         const studentIds = submissions.map((entry) => entry.studentId);
         const User = mongoose.model("User");
@@ -469,7 +471,7 @@ export const updateAssignment = async (schoolId, assignmentId, userId, role, bod
         }
     }
 
-    if (role === USER_ROLES.ADMIN) {
+    if (isAdminRole(role)) {
         assignment.standard = nextStandard;
         assignment.section = nextSection;
         assignment.subject = nextSubject;
@@ -500,7 +502,7 @@ export const deleteAssignment = async (schoolId, assignmentId, userId, role) => 
         throw new BadRequestError("Invalid assignment ID");
     }
 
-    if (role !== USER_ROLES.ADMIN) {
+    if (!isAdminRole(role)) {
         throw new ForbiddenError("Only admins can delete assignments");
     }
 

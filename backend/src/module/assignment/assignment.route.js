@@ -92,30 +92,30 @@ const router = express.Router();
 
 router.use(requireFeature("assignment"));
 
-router.get("/meta/metadata", checkRole([USER_ROLES.ADMIN, USER_ROLES.TEACHER]), getAssignmentMetadata);
+router.get("/meta/metadata", checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN, USER_ROLES.TEACHER]), getAssignmentMetadata);
 router.get("/student", checkRole([USER_ROLES.STUDENT]), listAssignments);
-router.get("/", checkRole([USER_ROLES.ADMIN, USER_ROLES.TEACHER, USER_ROLES.STUDENT]), listAssignments);
+router.get("/", checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN, USER_ROLES.TEACHER, USER_ROLES.STUDENT]), listAssignments);
 router.post(
     "/",
     checkWebOnly,
-    checkRole([USER_ROLES.ADMIN, USER_ROLES.TEACHER]),
+    checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN, USER_ROLES.TEACHER]),
     withUploadHandling(teacherUpload.array("attachments", 5), "Attachment size must be 10MB or less"),
     validate(createAssignmentSchema),
     createAssignment
 );
 
-router.get("/:id", checkRole([USER_ROLES.ADMIN, USER_ROLES.TEACHER, USER_ROLES.STUDENT]), validate(assignmentIdParamsSchema), getAssignment);
+router.get("/:id", checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN, USER_ROLES.TEACHER, USER_ROLES.STUDENT]), validate(assignmentIdParamsSchema), getAssignment);
 router.put(
     "/:id",
     checkWebOnly,
-    checkRole([USER_ROLES.ADMIN, USER_ROLES.TEACHER]),
+    checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN, USER_ROLES.TEACHER]),
     withUploadHandling(teacherUpload.array("attachments", 5), "Attachment size must be 10MB or less"),
     validate(updateAssignmentSchema),
     updateAssignment
 );
-router.delete("/:id", checkWebOnly, checkRole([USER_ROLES.ADMIN]), validate(assignmentIdParamsSchema), deleteAssignment);
+router.delete("/:id", checkWebOnly, checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN]), validate(assignmentIdParamsSchema), deleteAssignment);
 
-router.delete("/:id/attachments/:publicId", checkWebOnly, checkRole([USER_ROLES.ADMIN, USER_ROLES.TEACHER]), validate(assignmentIdParamsSchema), removeAttachment);
+router.delete("/:id/attachments/:publicId", checkWebOnly, checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN, USER_ROLES.TEACHER]), validate(assignmentIdParamsSchema), removeAttachment);
 
 router.post(
     "/:id/submit",
@@ -131,6 +131,6 @@ router.post(
     submitAssignment
 );
 router.get("/:id/my-submission", checkRole([USER_ROLES.STUDENT]), validate(assignmentIdParamsSchema), getMySubmission);
-router.get("/:id/submissions", checkWebOnly, checkRole([USER_ROLES.ADMIN, USER_ROLES.TEACHER]), validate(assignmentIdParamsSchema), listSubmissions);
+router.get("/:id/submissions", checkWebOnly, checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN, USER_ROLES.TEACHER]), validate(assignmentIdParamsSchema), listSubmissions);
 
 export default router;
