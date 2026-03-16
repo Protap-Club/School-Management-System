@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { useAssignments, useDeleteAssignment } from './api/queries';
+import { useAssignments, useDeleteAssignment, useSubmittedAssignments } from './api/queries';
 import { AssignmentFilters } from './components/AssignmentFilters';
 import { AssignmentTable } from './components/AssignmentTable';
+import { AssignmentSubmissionTable } from './components/AssignmentSubmissionTable';
 import { AssignmentModal } from './components/AssignmentModal';
 import { FaBook, FaPlus } from 'react-icons/fa';
 import DashboardLayout from '../../layouts/DashboardLayout';
@@ -15,6 +16,7 @@ export const AssignmentPage = () => {
     const canCreate = isAdmin || isTeacher;
     const canEdit = isAdmin || isTeacher;
     const canDelete = isAdmin;
+    const canViewSubmitted = isAdmin || isTeacher;
     
     // State
     const [page, setPage] = useState(0);
@@ -26,28 +28,51 @@ export const AssignmentPage = () => {
     const [standardFilter, setStandardFilter] = useState('all');
     const [sectionFilter, setSectionFilter] = useState('all');
     const [subjectFilter, setSubjectFilter] = useState('all');
-    const [statusFilter, setStatusFilter] = useState('active'); // Default to active
+    const [activeTab, setActiveTab] = useState('active');
 
     // Modals
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingAssignment, setEditingAssignment] = useState(null);
 
-    // Fetch data
-    const queryParams = {
+    const assignmentQueryParams = {
         standard: standardFilter === 'all' ? undefined : standardFilter,
         section: sectionFilter === 'all' ? undefined : sectionFilter,
         subject: subjectFilter === 'all' ? undefined : subjectFilter,
-        status: statusFilter,
+        status: activeTab === 'submitted' ? undefined : activeTab,
         search: debouncedSearch,
         page,
         pageSize
     };
 
-    const { data: response, isLoading } = useAssignments(queryParams);
+    const submittedQueryParams = {
+        standard: standardFilter === 'all' ? undefined : standardFilter,
+        section: sectionFilter === 'all' ? undefined : sectionFilter,
+        subject: subjectFilter === 'all' ? undefined : subjectFilter,
+        search: debouncedSearch,
+        page,
+        pageSize
+    };
+
+    const { data: assignmentResponse, isLoading: assignmentsLoading } = useAssignments(assignmentQueryParams, {
+        enabled: activeTab !== 'submitted',
+    });
+    const { data: submittedResponse, isLoading: submittedLoading } = useSubmittedAssignments(submittedQueryParams, {
+        enabled: canViewSubmitted && activeTab === 'submitted',
+    });
     const deleteMutation = useDeleteAssignment();
 
-    const assignments = response?.data?.assignments || [];
-    const totalItems = response?.data?.pagination?.total || 0;
+    const assignments = assignmentResponse?.data?.assignments || [];
+    const submissions = submittedResponse?.data?.submissions || [];
+    const totalItems = activeTab === 'submitted'
+        ? submittedResponse?.data?.pagination?.total || 0
+        : assignmentResponse?.data?.pagination?.total || 0;
+    const isLoading = activeTab === 'submitted' ? submittedLoading : assignmentsLoading;
+
+    const tabs = [
+        { id: 'active', label: 'Active Assignments' },
+        ...(canViewSubmitted ? [{ id: 'submitted', label: 'Submitted' }] : []),
+        { id: 'closed', label: 'Closed' },
+    ];
 
     // Handlers
     const handleAddClick = () => {
@@ -106,23 +131,20 @@ export const AssignmentPage = () => {
 
                 {/* Status Tabs */}
                 <div className="flex items-center gap-2 p-1 bg-gray-100/80 rounded-xl w-fit">
-                    {[
-                        { id: 'active', label: 'Active Assignments', count: statusFilter === 'active' ? totalItems : null },
-                        { id: 'closed', label: 'Closed', count: statusFilter === 'closed' ? totalItems : null }
-                    ].map(tab => (
+                    {tabs.map(tab => (
                         <button
                             key={tab.id}
-                            onClick={() => { setStatusFilter(tab.id); setPage(0); }}
+                            onClick={() => { setActiveTab(tab.id); setPage(0); }}
                             className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-semibold transition-all ${
-                                statusFilter === tab.id 
+                                activeTab === tab.id 
                                 ? 'bg-white text-indigo-600 shadow-sm' 
                                 : 'text-gray-500 hover:text-gray-700 hover:bg-white/50'
                             }`}
                         >
                             {tab.label}
-                            {tab.count !== null && (
-                                <span className={`px-2 py-0.5 rounded-full text-[10px] ${statusFilter === tab.id ? 'bg-indigo-50 text-indigo-600' : 'bg-gray-200 text-gray-500'}`}>
-                                    {tab.count}
+                            {activeTab === tab.id && (
+                                <span className={`px-2 py-0.5 rounded-full text-[10px] ${activeTab === tab.id ? 'bg-indigo-50 text-indigo-600' : 'bg-gray-200 text-gray-500'}`}>
+                                    {totalItems}
                                 </span>
                             )}
                         </button>
@@ -134,31 +156,40 @@ export const AssignmentPage = () => {
                     <AssignmentFilters 
                         searchQuery={searchQuery}
                         onSearchChange={handleSearchChange}
+                        searchPlaceholder={activeTab === 'submitted' ? 'Search by assignment, student, email or roll number...' : 'Search assignments...'}
                         standardFilter={standardFilter}
                         onStandardChange={(val) => { setStandardFilter(val); setSectionFilter('all'); setSubjectFilter('all'); setPage(0); }}
                         sectionFilter={sectionFilter}
                         onSectionChange={(val) => { setSectionFilter(val); setSubjectFilter('all'); setPage(0); }}
                         subjectFilter={subjectFilter}
                         onSubjectChange={(val) => { setSubjectFilter(val); setPage(0); }}
-                        // Status filter is now handled by tabs, so we hide it in AssignmentFilters if needed 
-                        // or just pass a dummy to keep it from breaking.
-                        statusFilter={statusFilter}
-                        onStatusChange={setStatusFilter}
+                        statusFilter={activeTab}
+                        onStatusChange={setActiveTab}
                         onAddAssignment={handleAddClick}
                         canCreate={false} // Hidden here as we moved it to header
                     />
 
                     {/* Table */}
-                    <AssignmentTable 
-                        assignments={assignments}
-                        loading={isLoading}
-                        onViewClick={(a) => handleEditClick(a)}
-                        onEditClick={canEdit ? handleEditClick : null}
-                        onDeleteClick={canDelete ? handleDeleteClick : null}
-                        currentPage={page}
-                        totalItems={totalItems}
-                        onPageChange={setPage}
-                    />
+                    {activeTab === 'submitted' ? (
+                        <AssignmentSubmissionTable
+                            submissions={submissions}
+                            loading={isLoading}
+                            currentPage={page}
+                            totalItems={totalItems}
+                            onPageChange={setPage}
+                        />
+                    ) : (
+                        <AssignmentTable 
+                            assignments={assignments}
+                            loading={isLoading}
+                            onViewClick={(a) => handleEditClick(a)}
+                            onEditClick={canEdit ? handleEditClick : null}
+                            onDeleteClick={canDelete ? handleDeleteClick : null}
+                            currentPage={page}
+                            totalItems={totalItems}
+                            onPageChange={setPage}
+                        />
+                    )}
                 </div>
 
                 {/* Modal */}

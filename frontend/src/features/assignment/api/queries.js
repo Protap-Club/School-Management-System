@@ -5,17 +5,37 @@ export const assignmentKeys = {
     all: ["assignments"],
     lists: () => [...assignmentKeys.all, "list"],
     list: (filters) => [...assignmentKeys.lists(), filters],
+    submittedLists: () => [...assignmentKeys.all, "submitted-list"],
+    submittedList: (filters) => [...assignmentKeys.submittedLists(), filters],
     detail: (id) => [...assignmentKeys.all, "detail", id],
     metadata: () => [...assignmentKeys.all, "metadata"],
 };
 
-export const useAssignments = ({ status = "all", standard = "all", section = "all", subject = "all", search = "", page = 0, pageSize = 25 } = {}) => {
+export const useAssignments = (
+    { status = "all", standard = "all", section = "all", subject = "all", search = "", page = 0, pageSize = 25 } = {},
+    options = {}
+) => {
     return useQuery({
         queryKey: assignmentKeys.list({ status, standard, section, subject, search, page, pageSize }),
         queryFn: async () => {
             const response = await assignmentApi.getAssignments({ status, standard, section, subject, search, page, pageSize });
             return response;
         },
+        ...options,
+    });
+};
+
+export const useSubmittedAssignments = (
+    { standard = "all", section = "all", subject = "all", search = "", page = 0, pageSize = 25 } = {},
+    options = {}
+) => {
+    return useQuery({
+        queryKey: assignmentKeys.submittedList({ standard, section, subject, search, page, pageSize }),
+        queryFn: async () => {
+            const response = await assignmentApi.getSubmittedAssignments({ standard, section, subject, search, page, pageSize });
+            return response;
+        },
+        ...options,
     });
 };
 

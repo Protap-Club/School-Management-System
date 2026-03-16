@@ -17,6 +17,21 @@ export const assignmentApi = {
         return response.data;
     },
 
+    getSubmittedAssignments: async ({ standard, section, subject, search, page = 0, pageSize = 25 } = {}) => {
+        const params = new URLSearchParams({
+            page: String(page),
+            pageSize: String(pageSize),
+        });
+
+        if (standard && standard !== "all") params.append("standard", standard);
+        if (section && section !== "all") params.append("section", section);
+        if (subject && subject !== "all") params.append("subject", subject);
+        if (search?.trim()) params.append("search", search.trim());
+
+        const response = await api.get(`/assignments/submitted?${params.toString()}`);
+        return response.data;
+    },
+
     getAssignmentById: async (id) => {
         const response = await api.get(`/assignments/${id}`);
         return response.data;

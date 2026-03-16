@@ -5,6 +5,7 @@ import { useAssignmentOptions } from '../hooks/useAssignmentOptions';
 export const AssignmentFilters = ({
     searchQuery,
     onSearchChange,
+    searchPlaceholder = 'Search assignments...',
     standardFilter,
     onStandardChange,
     sectionFilter,
@@ -82,7 +83,7 @@ export const AssignmentFilters = ({
                 <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 text-gray-400"><FaSearch size={14} /></span>
                 <input
                     type="text"
-                    placeholder="Search assignments..."
+                    placeholder={searchPlaceholder}
                     value={searchQuery}
                     onChange={(e) => onSearchChange(e.target.value)}
                     className="w-full h-10 pl-10 pr-4 text-sm text-gray-700 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all shadow-sm"
