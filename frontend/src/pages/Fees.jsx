@@ -322,10 +322,15 @@ const Fees = () => {
 
     const handleUpdateBaseSalary = async (e) => {
         e.preventDefault();
+        const amount = Number(baseSalaryModal.amount);
+        if (amount < 0) {
+            showToast('error', 'Salary cannot be negative');
+            return;
+        }
         try {
             await updateTeacherProfileMut.mutateAsync({ 
                 id: baseSalaryModal.staff._id, 
-                data: { expectedSalary: Number(baseSalaryModal.amount) } 
+                data: { expectedSalary: amount } 
             });
             showToast('success', 'Base salary updated successfully');
             setBaseSalaryModal({ open: false, staff: null, amount: '' });
@@ -1576,6 +1581,7 @@ const Fees = () => {
                                         type="number" 
                                         required 
                                         autoFocus
+                                        min="0"
                                         value={baseSalaryModal.amount} 
                                         onChange={(e) => setBaseSalaryModal(prev => ({ ...prev, amount: e.target.value }))}
                                         className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 font-bold text-lg transition-all shadow-inner"
