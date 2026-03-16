@@ -24,7 +24,7 @@ const MONTHS = [
     { value: 10, label: 'Oct' }, { value: 11, label: 'Nov' }, { value: 12, label: 'Dec' },
 ];
 
-const FeeStructureModal = ({ isOpen, onClose, onSubmit, editData, isLoading }) => {
+const FeeStructureModal = ({ isOpen, onClose, onSubmit, editData, isLoading, isAdmin }) => {
     const isEdit = !!editData;
     const [form, setForm] = useState(() => {
         const initial = editData ? {
@@ -42,7 +42,7 @@ const FeeStructureModal = ({ isOpen, onClose, onSubmit, editData, isLoading }) =
         return initial;
     });
 
-    const { data: feeTypesResp } = useFeeTypes();
+    const { data: feeTypesResp } = useFeeTypes({ enabled: isAdmin && isOpen });
     
     // Combine hardcoded defaults with backend types
     const feeTypes = React.useMemo(() => {

@@ -20,10 +20,11 @@ export const feeKeys = {
 
 // ── Fee Type Queries ──────────────────────────────────────────
 
-export const useFeeTypes = () => {
+export const useFeeTypes = (config = {}) => {
     return useQuery({
         queryKey: feeKeys.feeTypes(),
         queryFn: feesApi.getFeeTypes,
+        ...config,
     });
 };
 

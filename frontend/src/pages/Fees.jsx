@@ -19,8 +19,9 @@ import SalaryForm from '../components/fees/SalaryForm';
 import {
     FaPlus, FaEdit, FaTrash, FaTrashAlt, FaBolt, FaTimes, FaCheck, FaMoneyBillWave,
     FaChartBar, FaListAlt, FaEye, FaFilter, FaArrowLeft, FaArrowRight, FaReceipt, FaBan, FaHistory,
-    FaWallet, FaCalendarCheck, FaSearch, FaUser, FaFileInvoice, FaCalendarAlt,
+    FaWallet, FaCalendarCheck, FaSearch, FaUser, FaFileInvoice, FaCalendarAlt, FaDownload,
 } from 'react-icons/fa';
+import { generateFeeReport, generateSalaryReceipt } from '../utils/pdfGenerator';
 
 const MODAL_OVERLAY = 'fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4';
 const currentYear = new Date().getFullYear();
@@ -120,7 +121,7 @@ const Fees = () => {
     );
 
     // Salary Queries
-    const { data: feeTypesResp } = useFeeTypes();
+    const { data: feeTypesResp } = useFeeTypes({ enabled: isAdmin });
     const { data: salaryData, isLoading: salariesLoading } = useSalaries({ year: overviewYear }, isAdmin);
     const { data: mySalaryData, isLoading: mySalaryLoading } = useMySalary({ year: overviewYear }, isTeacher);
 
@@ -449,6 +450,13 @@ const Fees = () => {
                                 </div>
                             </div>
                             <div className="flex gap-4 text-sm">
+                                <button 
+                                    onClick={() => generateFeeReport(filteredClassStudents, filteredClassSummary, selectedClass, overviewMonth, overviewYear)}
+                                    className="flex items-center gap-2 bg-primary/10 text-primary hover:bg-primary hover:text-white px-4 py-2 rounded-xl font-bold transition-all"
+                                    title="Download PDF Report"
+                                >
+                                    <FaDownload size={14} /> Download PDF
+                                </button>
                                 <div className="text-center px-4 py-2 bg-gray-50 rounded-xl"><p className="text-xs text-gray-500 font-medium">Students</p><p className="text-lg font-bold">{filteredClassSummary.totalStudents || 0}</p></div>
                                 <div className="text-center px-4 py-2 bg-emerald-50 rounded-xl"><p className="text-xs text-gray-500 font-medium">Collected</p><p className="text-lg font-bold text-emerald-600">₹{(filteredClassSummary.totalCollected || 0).toLocaleString()}</p></div>
                                 <div className="text-center px-4 py-2 bg-amber-50 rounded-xl"><p className="text-xs text-gray-500 font-medium">Pending</p><p className="text-lg font-bold text-amber-600">₹{(filteredClassSummary.totalPending || 0).toLocaleString()}</p></div>
@@ -1077,6 +1085,7 @@ const Fees = () => {
                                     setMgmtView('student_list');
                                 }}
                                 isLoading={createMut.isPending || updateMut.isPending}
+                                isAdmin={isAdmin}
                             />
                         )}
 
@@ -1195,7 +1204,7 @@ const Fees = () => {
                                     <div className="bg-white rounded-3xl border border-gray-200 p-8 shadow-sm">
                                         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
                                             <div>
-                                                <h2 className="text-2xl font-black text-gray-900">Staff Salary Dashboard</h2>
+                                                <h2 className="text-2xl font-black text-gray-900 font-display">Staff Salary Dashboard</h2>
                                                 <p className="text-gray-500 font-medium">Review and process teacher payouts for the current cycle.</p>
                                             </div>
                                             <div className="flex items-center gap-4">
@@ -1285,6 +1294,7 @@ const Fees = () => {
                                         showToast('error', err?.response?.data?.message || 'Failed to create salary entry');
                                     }
                                 }}
+                                isAdmin={isAdmin}
                             />
                                 )}
                     </div>
@@ -1319,7 +1329,7 @@ const Fees = () => {
                                 <table className="w-full text-sm text-left">
                                     <thead className="bg-gray-50/50">
                                         <tr>
-                                            {['Month', 'Amount', 'Status', 'Paid Date'].map(h => (
+                                            {['Month', 'Amount', 'Status', 'Paid Date', 'Receipt'].map(h => (
                                                 <th key={h} className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">{h}</th>
                                             ))}
                                         </tr>
@@ -1345,6 +1355,19 @@ const Fees = () => {
                                                         </td>
                                                         <td className="px-6 py-4 text-xs font-medium text-gray-500">
                                                             {salary.paidDate ? new Date(salary.paidDate).toLocaleDateString() : '--'}
+                                                        </td>
+                                                        <td className="px-6 py-4">
+                                                            {isPaid ? (
+                                                                <button 
+                                                                    onClick={() => generateSalaryReceipt(salary, user)}
+                                                                    className="p-2 text-primary hover:bg-primary/10 rounded-lg transition-all"
+                                                                    title="Download Receipt"
+                                                                >
+                                                                    <FaDownload size={14} />
+                                                                </button>
+                                                            ) : (
+                                                                <span className="text-[10px] text-gray-400 font-black uppercase tracking-widest italic">Pending</span>
+                                                            )}
                                                         </td>
                                                     </tr>
                                                 );
@@ -1374,6 +1397,7 @@ const Fees = () => {
                                         setStructModal({ open: false, editData: null });
                                     }}
                                     isLoading={updateMut.isPending}
+                                    isAdmin={isAdmin}
                                 />
                             </>
                         ) : (

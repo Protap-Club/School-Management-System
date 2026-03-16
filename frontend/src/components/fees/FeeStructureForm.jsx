@@ -25,7 +25,7 @@ const MONTHS = [
     { value: 10, label: 'Oct' }, { value: 11, label: 'Nov' }, { value: 12, label: 'Dec' },
 ];
 
-const FeeStructureForm = ({ onCancel, onSubmit, editData, isLoading }) => {
+const FeeStructureForm = ({ onCancel, onSubmit, editData, isLoading, isAdmin }) => {
     const isEdit = !!editData;
     const [form, setForm] = useState(() => {
         const initial = editData ? {
@@ -44,7 +44,7 @@ const FeeStructureForm = ({ onCancel, onSubmit, editData, isLoading }) => {
     });
 
     const [showSideCard, setShowSideCard] = useState(false);
-    const { data: feeTypesResp } = useFeeTypes();
+    const { data: feeTypesResp } = useFeeTypes({ enabled: isAdmin });
     
     // Combine hardcoded defaults with backend types
     const feeTypes = React.useMemo(() => {
