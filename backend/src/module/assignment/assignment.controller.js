@@ -68,6 +68,22 @@ export const listAssignments = asyncHandler(async (req, res) => {
     });
 });
 
+// GET /assignments/submitted
+// List submitted assignment entries for teacher/admin/super admin views
+export const listSubmittedAssignments = asyncHandler(async (req, res) => {
+    const result = await assignmentService.listSubmittedAssignments(
+        req.schoolId,
+        req.user._id,
+        req.user.role,
+        req.query
+    );
+
+    res.status(200).json({
+        success: true,
+        data: result,
+    });
+});
+
 // GET /assignments/:id
 // Get a single assignment by ID
 export const getAssignment = asyncHandler(async (req, res) => {

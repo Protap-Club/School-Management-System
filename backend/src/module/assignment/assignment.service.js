@@ -406,6 +406,183 @@ export const listAssignments = async (schoolId, userId, role, platform, query = 
     };
 };
 
+export const listSubmittedAssignments = async (schoolId, userId, role, query = {}) => {
+    if (![USER_ROLES.TEACHER, USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN].includes(role)) {
+        throw new ForbiddenError("You are not allowed to view submitted assignments");
+    }
+
+    const assignmentFilter = { schoolId };
+
+    if (role === USER_ROLES.TEACHER) {
+        assignmentFilter.createdBy = userId;
+    }
+
+    if (query.standard && query.standard !== "all") {
+        assignmentFilter.standard = query.standard;
+    }
+
+    if (query.section && query.section !== "all") {
+        assignmentFilter.section = query.section;
+    }
+
+    if (query.subject && query.subject !== "all") {
+        assignmentFilter.subject = query.subject;
+    }
+
+    const baseAssignments = await Assignment.find(assignmentFilter)
+        .select("_id")
+        .lean();
+
+    if (!baseAssignments.length) {
+        return {
+            submissions: [],
+            pagination: {
+                total: 0,
+                page: parseInt(query.page, 10) || 0,
+                pageSize: parseInt(query.pageSize, 10) || 25,
+                totalPages: 0,
+            },
+        };
+    }
+
+    const allowedAssignmentIds = baseAssignments.map((assignment) => assignment._id);
+    const submissionFilter = {
+        schoolId,
+        assignmentId: { $in: allowedAssignmentIds },
+    };
+
+    if (query.search?.trim()) {
+        const searchRegex = new RegExp(escapeRegExp(query.search.trim()), "i");
+        const User = mongoose.model("User");
+
+        const [matchingAssignments, matchingUsers, matchingProfiles] = await Promise.all([
+            Assignment.find({
+                ...assignmentFilter,
+                $or: [
+                    { title: searchRegex },
+                    { subject: searchRegex },
+                    { description: searchRegex },
+                ],
+            })
+                .select("_id")
+                .lean(),
+            User.find({
+                isArchived: false,
+                $or: [
+                    { name: searchRegex },
+                    { email: searchRegex },
+                ],
+            })
+                .select("_id")
+                .lean(),
+            StudentProfile.find({
+                schoolId,
+                rollNumber: searchRegex,
+            })
+                .select("userId")
+                .lean(),
+        ]);
+
+        const matchedAssignmentIds = matchingAssignments.map((assignment) => assignment._id);
+        const matchedStudentIds = [
+            ...matchingUsers.map((user) => user._id.toString()),
+            ...matchingProfiles.map((profile) => profile.userId.toString()),
+        ];
+
+        const studentIdSet = [...new Set(matchedStudentIds)]
+            .filter((id) => mongoose.Types.ObjectId.isValid(id))
+            .map((id) => new mongoose.Types.ObjectId(id));
+
+        const searchClauses = [];
+        if (matchedAssignmentIds.length) {
+            searchClauses.push({ assignmentId: { $in: matchedAssignmentIds } });
+        }
+        if (studentIdSet.length) {
+            searchClauses.push({ studentId: { $in: studentIdSet } });
+        }
+
+        if (!searchClauses.length) {
+            return {
+                submissions: [],
+                pagination: {
+                    total: 0,
+                    page: parseInt(query.page, 10) || 0,
+                    pageSize: parseInt(query.pageSize, 10) || 25,
+                    totalPages: 0,
+                },
+            };
+        }
+
+        submissionFilter.$and = [
+            ...(submissionFilter.$and || []),
+            { $or: searchClauses },
+        ];
+    }
+
+    const page = parseInt(query.page, 10) || 0;
+    const pageSize = parseInt(query.pageSize, 10) || 25;
+    const skip = page * pageSize;
+
+    const [total, submissions] = await Promise.all([
+        Submission.countDocuments(submissionFilter),
+        Submission.find(submissionFilter)
+            .populate({
+                path: "assignmentId",
+                select: "title subject standard section dueDate status createdBy requiresSubmission attachments",
+                populate: {
+                    path: "createdBy",
+                    select: "name email",
+                },
+            })
+            .populate({
+                path: "studentId",
+                select: "name email",
+            })
+            .sort({ submittedAt: -1 })
+            .skip(skip)
+            .limit(pageSize)
+            .lean(),
+    ]);
+
+    const validSubmissions = submissions.filter((submission) => submission.assignmentId && submission.studentId);
+    const studentIds = validSubmissions.map((submission) => submission.studentId._id);
+    const studentProfiles = await StudentProfile.find({
+        schoolId,
+        userId: { $in: studentIds },
+    })
+        .select("userId rollNumber standard section")
+        .lean();
+
+    const profileMap = new Map(
+        studentProfiles.map((profile) => [profile.userId.toString(), profile])
+    );
+
+    return {
+        submissions: validSubmissions.map((submission) => {
+            const profile = profileMap.get(submission.studentId._id.toString());
+
+            return {
+                ...formatSubmission(submission),
+                assignment: formatAssignment(submission.assignmentId),
+                student: {
+                    _id: submission.studentId._id,
+                    name: submission.studentId.name,
+                    email: submission.studentId.email,
+                    rollNumber: profile?.rollNumber || null,
+                    standard: profile?.standard || null,
+                    section: profile?.section || null,
+                },
+            };
+        }),
+        pagination: {
+            total,
+            page,
+            pageSize,
+            totalPages: Math.ceil(total / pageSize),
+        },
+    };
+};
+
 export const getAssignment = async (schoolId, assignmentId, userId, role) => {
     if (!mongoose.Types.ObjectId.isValid(assignmentId)) {
         throw new BadRequestError("Invalid assignment ID");

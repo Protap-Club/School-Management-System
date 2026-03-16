@@ -6,6 +6,7 @@ import { AppError, BadRequestError, ValidationError } from "../../utils/customEr
 import {
     createAssignment,
     listAssignments,
+    listSubmittedAssignments,
     getAssignment,
     updateAssignment,
     deleteAssignment,
@@ -94,6 +95,7 @@ router.use(requireFeature("assignment"));
 
 router.get("/meta/metadata", checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN, USER_ROLES.TEACHER]), getAssignmentMetadata);
 router.get("/student", checkRole([USER_ROLES.STUDENT]), listAssignments);
+router.get("/submitted", checkWebOnly, checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN, USER_ROLES.TEACHER]), listSubmittedAssignments);
 router.get("/", checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN, USER_ROLES.TEACHER, USER_ROLES.STUDENT]), listAssignments);
 router.post(
     "/",
