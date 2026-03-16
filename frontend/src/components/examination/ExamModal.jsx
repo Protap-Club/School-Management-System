@@ -47,6 +47,11 @@ const ExamModal = ({ isOpen, onClose, onSubmit, editData, isLoading, userRole, u
     const isSuperAdmin = userRole === 'super_admin';
     const [form, setForm] = useState(INITIAL_FORM);
     const [errors, setErrors] = useState({});
+    const {
+        availableStandards: schoolAvailableStandards,
+        getSectionsForStandard,
+        allUniqueSections,
+    } = useSchoolClasses();
 
     // Filtered options based on teacher assignments
     const availableStandards = useMemo(() => {
@@ -57,8 +62,8 @@ const ExamModal = ({ isOpen, onClose, onSubmit, editData, isLoading, userRole, u
             }
             return []; // Return empty for teachers with no assignments
         }
-        return STANDARD_OPTIONS;
-    }, [isTeacher, user]);
+        return schoolAvailableStandards;
+    }, [isTeacher, user, schoolAvailableStandards]);
 
     const availableSections = useMemo(() => {
         const classes = user?.profile?.assignedClasses || user?.assignedClasses || [];
@@ -66,19 +71,20 @@ const ExamModal = ({ isOpen, onClose, onSubmit, editData, isLoading, userRole, u
             if (classes.length) {
                 // If a standard is selected, only show sections for that standard
                 if (form.standard) {
-                    return classes
+                    return [...new Set(classes
                         .filter(c => String(c.standard) === String(form.standard))
-                        .map(c => String(c.section))
+                        .map(c => String(c.section)))]
                         .sort();
                 }
                 return [...new Set(classes.map(c => String(c.section)))].sort();
             }
             return []; // Return empty for teachers with no assignments
         }
-        return SECTION_OPTIONS;
-    }, [isTeacher, user, form.standard]);
-    // Fetch classes data
-    const { loading: classesLoading, availableStandards, getSectionsForStandard, allUniqueSections } = useSchoolClasses();
+        if (form.standard) {
+            return getSectionsForStandard(form.standard);
+        }
+        return allUniqueSections;
+    }, [isTeacher, user, form.standard, getSectionsForStandard, allUniqueSections]);
 
     // Initialize form with edit data or reset to initial
     useEffect(() => {

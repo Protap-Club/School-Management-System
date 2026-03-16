@@ -72,7 +72,11 @@ const Examination = () => {
   const [deleteConfirm, setDeleteConfirm] = useState({ open: false, examId: null });
   const [toast, setToast] = useState({ type: '', text: '' });
   const [searchTerm, setSearchTerm] = useState('');
-  const { classesData, loading: classesLoading, availableStandards, getSectionsForStandard, allUniqueSections } = useSchoolClasses();
+  const {
+    availableStandards: schoolAvailableStandards,
+    getSectionsForStandard,
+    allUniqueSections,
+  } = useSchoolClasses();
 
   // Queries & Mutations
   const { data: exams = [], isLoading: examsLoading } = useExams(filters);
@@ -90,32 +94,28 @@ const Examination = () => {
       }
       return []; // Return empty for teachers with no assignments
     }
-    return STANDARD_OPTIONS;
-  }, [isTeacher, teacherProfile]);
+    return schoolAvailableStandards;
+  }, [isTeacher, teacherProfile, schoolAvailableStandards]);
 
   const availableSections = useMemo(() => {
     const assignedClasses = teacherProfile?.profile?.assignedClasses || teacherProfile?.assignedClasses || [];
     if (isTeacher) {
       if (assignedClasses.length > 0) {
         if (filters.standard) {
-          return assignedClasses
+          return [...new Set(assignedClasses
             .filter(c => String(c.standard) === String(filters.standard))
-            .map(c => String(c.section))
+            .map(c => String(c.section)))]
             .sort();
         }
         return [...new Set(assignedClasses.map(c => String(c.section)))].sort();
       }
       return []; // Return empty for teachers with no assignments
     }
-    return SECTION_OPTIONS;
-  }, [isTeacher, teacherProfile, filters.standard]);
-  // Fetch classes data for filters (Now handled by useSchoolClasses)
-  const availableSections = useMemo(() => {
     if (filters.standard) {
-        return getSectionsForStandard(filters.standard);
+      return getSectionsForStandard(filters.standard);
     }
     return allUniqueSections;
-  }, [filters.standard, getSectionsForStandard, allUniqueSections]);
+  }, [isTeacher, teacherProfile, filters.standard, getSectionsForStandard, allUniqueSections]);
 
   const showMessage = useCallback((type, text, duration = 3000) => {
     setToast({ type, text });
