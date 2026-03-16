@@ -1,4 +1,5 @@
 import Exam from "./Exam.model.js";
+import { CalendarEvent } from "../calendar/calendar.model.js";
 import TeacherProfile from "../user/model/TeacherProfile.model.js";
 import StudentProfile from "../user/model/StudentProfile.model.js";
 import { USER_ROLES } from "../../constants/userRoles.js";
@@ -211,6 +212,15 @@ export const deleteExam = async (schoolId, examId, user) => {
 
     exam.isActive = false;
     await exam.save();
+    const classKey = `${exam.standard}-${exam.section}`;
+    const deleted = await CalendarEvent.deleteMany({ sourceType: "exam", sourceId: exam._id });
+    if ((deleted?.deletedCount ?? 0) === 0) {
+        await CalendarEvent.deleteMany({
+            type: "exam",
+            title: exam.name,
+            targetClasses: [classKey]
+        });
+    }
     logger.info(`Exam deleted (soft): ${examId}`);
 };
 
@@ -221,6 +231,44 @@ export const deleteExam = async (schoolId, examId, user) => {
 const VALID_TRANSITIONS = {
     DRAFT: ["PUBLISHED", "CANCELLED"],
     PUBLISHED: ["COMPLETED", "CANCELLED"],
+};
+
+const buildDateTime = (dateValue, timeValue) => {
+    const date = new Date(dateValue);
+    if (!timeValue) return date;
+    const [hours, minutes] = String(timeValue).split(":").map(Number);
+    if (Number.isFinite(hours)) date.setHours(hours, Number.isFinite(minutes) ? minutes : 0, 0, 0);
+    return date;
+};
+
+const createExamCalendarEvents = async (exam, schoolId) => {
+    const classKey = `${exam.standard}-${exam.section}`;
+    const schedule = Array.isArray(exam.schedule) ? exam.schedule : [];
+
+    const events = schedule.map((item) => {
+        const start = buildDateTime(item.examDate, item.startTime);
+        const end = buildDateTime(item.examDate, item.endTime || item.startTime);
+        const allDay = !(item.startTime && item.endTime);
+
+        return {
+            title: item.subject,
+            description: item.syllabus || "",
+            start,
+            end,
+            allDay,
+            type: "exam",
+            targetAudience: "classes",
+            targetClasses: [classKey],
+            createdBy: exam.createdBy,
+            schoolId,
+            sourceType: "exam",
+            sourceId: exam._id
+        };
+    });
+
+    if (events.length) {
+        await CalendarEvent.insertMany(events);
+    }
 };
 
 export const updateStatus = async (schoolId, examId, newStatus, user) => {
@@ -249,6 +297,11 @@ export const updateStatus = async (schoolId, examId, newStatus, user) => {
 
     exam.status = newStatus;
     await exam.save();
+
+    if (newStatus === "PUBLISHED") {
+        await createExamCalendarEvents(exam, schoolId);
+    }
+
     logger.info(`Exam status changed: ${examId} → ${newStatus}`);
     return exam;
 };

@@ -55,6 +55,16 @@ const CalendarEventSchema = new mongoose.Schema({
     schoolId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'School'
+    },
+    // Optional linkage for system-generated events (e.g., exams)
+    sourceType: {
+        type: String,
+        enum: ['exam'],
+        required: false
+    },
+    sourceId: {
+        type: mongoose.Schema.Types.ObjectId,
+        required: false
     }
 }, { timestamps: true });
 
@@ -68,6 +78,7 @@ CalendarEventSchema.pre('validate', function () {
 // Index for efficient date range queries
 CalendarEventSchema.index({ start: 1, end: 1 });
 CalendarEventSchema.index({ schoolId: 1 });
+CalendarEventSchema.index({ sourceType: 1, sourceId: 1 });
 // Index for efficient audience-based filtering
 CalendarEventSchema.index({ schoolId: 1, targetAudience: 1 });
 // Index for date ranges within a school
