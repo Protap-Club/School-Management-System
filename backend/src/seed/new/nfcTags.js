@@ -13,9 +13,9 @@
 
 export const NFC_TAGS = [
     {
-        studentEmail: "aarav@dps.com",
+        studentEmail: "aarav.mehta.1a@nv.com",
         nfcUid: "53:DF:CC:FA:31:00:01",
-        label: "Aarav Sharma (DPS 10th-A)"
+        label: "Aarav Mehta (NV 1-A)"
     },
     // Add more tags here:
     // { studentEmail: "ananya@dps.com", nfcUid: "XX:XX:XX:XX:XX:XX:XX", label: "Ananya Verma (DPS 10th-A)" },

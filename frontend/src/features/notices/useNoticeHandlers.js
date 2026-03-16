@@ -7,11 +7,11 @@ import {
     useReceivedNotices, useAcknowledgeNotice, useAcknowledgments,
 } from './api/queries';
 import { ALLOWED_EXTENSIONS, IMAGE_EXTENSIONS, SELECTION_VALIDATORS, RECIPIENT_MAP } from './noticeConstants';
-import { getRecipientLabel, getFileIcon } from './NoticeComponents';
+import { getRecipientLabel, getFileIcon } from './NoticeUtils';
 
 export const useNoticeHandlers = () => {
     const { user: currentUser } = useAuth();
-    const isAdmin = currentUser?.role === 'admin';
+    const isAdmin = ['admin', 'super_admin'].includes(currentUser?.role);
     const isTeacher = currentUser?.role === 'teacher';
     const fileInputRef = useRef(null);
 
@@ -82,7 +82,7 @@ export const useNoticeHandlers = () => {
         : (receivedData?.data?.received || []);
 
     const showToast = useCallback((type, text) => { setToast({ type, text }); setTimeout(() => setToast({ type: '', text: '' }), 3000); }, []);
-    
+
     // Extracted utility
     const toggleSelection = (array, setArray, value) => { setArray(array.includes(value) ? array.filter(v => v !== value) : [...array, value]); };
 

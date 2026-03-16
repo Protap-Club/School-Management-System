@@ -164,7 +164,7 @@ const TimetablePage = () => {
                     <select value={selectedTimetable?._id || ''} onChange={(e) => selectTimetable(e.target.value)}
                       className="bg-gray-50 border border-gray-200 text-gray-800 text-sm rounded-lg focus:ring-primary focus:border-primary block p-2 min-w-[180px]">
                       {timetables.length === 0 && <option value="">No timetables</option>}
-                      {timetables.map(tt => <option key={tt._id} value={tt._id}>{tt.standard}-{tt.section} ({tt.academicYear})</option>)}
+                      {timetables.map(tt => <option key={tt._id} value={tt._id}>{tt.standard}{tt.section} ({tt.academicYear})</option>)}
                     </select>
                     <button onClick={() => setCreateState(prev => ({ ...prev, open: true }))} className="p-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors" title="Create Timetable">
                       <FaPlus className="text-sm" />

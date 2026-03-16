@@ -7,6 +7,8 @@ import noticeRoutes from "../module/notice/notice.route.js";
 import calendarRoutes from "../module/calendar/calendar.route.js";
 import timetableRoutes from "../module/timetable/timetable.route.js";
 import feesRoutes from "../module/fees/fees.route.js";
+import examinationRoutes from "../module/examination/examination.route.js";
+import assignmentRoutes from "../module/assignment/assignment.route.js";
 import { checkAuth } from "../middlewares/auth.middleware.js";
 import extractSchoolId from "../middlewares/school.middleware.js";
 
@@ -28,6 +30,8 @@ router.use("/notices", noticeRoutes);
 router.use("/calendar", calendarRoutes);
 router.use("/timetables", timetableRoutes);
 router.use("/fees", feesRoutes);
+router.use("/examinations", examinationRoutes);
+router.use("/assignments", assignmentRoutes);
 
 export default router;
 

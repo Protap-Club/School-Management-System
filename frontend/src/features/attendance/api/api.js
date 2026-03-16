@@ -20,6 +20,12 @@ export const attendanceApi = {
         return response.data;
     },
 
+    /** Fetch current user profile. */
+    getProfile: async () => {
+        const response = await api.get('/users/me/profile');
+        return response.data;
+    },
+
     /** Link an NFC tag to a student. */
     linkNfcTag: async ({ userId, tagId }) => {
         const response = await api.post('/attendance/nfc/link', { userId, tagId });

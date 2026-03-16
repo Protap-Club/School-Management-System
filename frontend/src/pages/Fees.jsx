@@ -48,7 +48,7 @@ const EmptyState = ({ icon: Icon, title, subtitle }) => (
 
 const Fees = () => {
     const { user } = useAuth();
-    const isAdmin = user?.role === 'admin';
+    const isAdmin = ['admin', 'super_admin'].includes(user?.role);
     const isTeacher = user?.role === 'teacher';
 
     const [activeTab, setActiveTab] = useState(isAdmin ? 'structures' : 'overview');

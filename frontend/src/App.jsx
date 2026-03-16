@@ -8,7 +8,7 @@ import { pages, PageLoader } from './routes';
 
 function App() {
     // Destructure lazy-loaded page components
-    const { Login, Dashboard, UsersPage, Settings, Attendance, Notice, TimetablePage, Calendar, Notifications, Fees } = pages;
+    const { Login, Dashboard, UsersPage, Settings, Attendance, Notice, TimetablePage, Calendar, Notifications, Fees, Examination } = pages;
 
     return (
         <Router>
@@ -44,6 +44,66 @@ function App() {
                             </ProtectedRoute>
                         }
                     />
+                    <Route
+                        path="/superadmin/attendance"
+                        element={
+                            <ProtectedRoute allowedRoles={['super_admin']}>
+                                <RequireFeature feature="attendance">
+                                    <Attendance />
+                                </RequireFeature>
+                            </ProtectedRoute>
+                        }
+                    />
+                    <Route
+                        path="/superadmin/attendance/:classId"
+                        element={
+                            <ProtectedRoute allowedRoles={['super_admin']}>
+                                <RequireFeature feature="attendance">
+                                    <Attendance />
+                                </RequireFeature>
+                            </ProtectedRoute>
+                        }
+                    />
+                    <Route
+                        path="/superadmin/notice"
+                        element={
+                            <ProtectedRoute allowedRoles={['super_admin']}>
+                                <RequireFeature feature="notice">
+                                    <Notice />
+                                </RequireFeature>
+                            </ProtectedRoute>
+                        }
+                    />
+                    <Route
+                        path="/superadmin/timetable"
+                        element={
+                            <ProtectedRoute allowedRoles={['super_admin']}>
+                                <RequireFeature feature="timetable">
+                                    <TimetablePage />
+                                </RequireFeature>
+                            </ProtectedRoute>
+                        }
+                    />
+                    <Route
+                        path="/superadmin/calendar"
+                        element={
+                            <ProtectedRoute allowedRoles={['super_admin']}>
+                                <RequireFeature feature="calendar">
+                                    <Calendar />
+                                </RequireFeature>
+                            </ProtectedRoute>
+                        }
+                    />
+                    <Route
+                        path="/superadmin/fees"
+                        element={
+                            <ProtectedRoute allowedRoles={['super_admin']}>
+                                <RequireFeature feature="fees">
+                                    <Fees />
+                                </RequireFeature>
+                            </ProtectedRoute>
+                        }
+                    />
 
                     {/* Admin Routes */}
                     <Route
@@ -64,6 +124,16 @@ function App() {
                     />
                     <Route
                         path="/admin/attendance"
+                        element={
+                            <ProtectedRoute allowedRoles={['admin']}>
+                                <RequireFeature feature="attendance">
+                                    <Attendance />
+                                </RequireFeature>
+                            </ProtectedRoute>
+                        }
+                    />
+                    <Route
+                        path="/admin/attendance/:classId"
                         element={
                             <ProtectedRoute allowedRoles={['admin']}>
                                 <RequireFeature feature="attendance">
@@ -108,6 +178,16 @@ function App() {
                             <ProtectedRoute allowedRoles={['admin']}>
                                 <RequireFeature feature="fees">
                                     <Fees />
+                                </RequireFeature>
+                            </ProtectedRoute>
+                        }
+                    />
+                    <Route
+                        path="/admin/examination"
+                        element={
+                            <ProtectedRoute allowedRoles={['admin']}>
+                                <RequireFeature feature="examination">
+                                    <Examination />
                                 </RequireFeature>
                             </ProtectedRoute>
                         }
@@ -168,6 +248,16 @@ function App() {
                             <ProtectedRoute allowedRoles={['teacher']}>
                                 <RequireFeature feature="fees">
                                     <Fees />
+                                </RequireFeature>
+                            </ProtectedRoute>
+                        }
+                    />
+                    <Route
+                        path="/teacher/examination"
+                        element={
+                            <ProtectedRoute allowedRoles={['teacher']}>
+                                <RequireFeature feature="examination">
+                                    <Examination />
                                 </RequireFeature>
                             </ProtectedRoute>
                         }

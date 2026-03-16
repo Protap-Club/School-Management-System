@@ -3,32 +3,67 @@ import { FaTimes, FaUserPlus, FaBuilding } from 'react-icons/fa';
 import api from '../../../lib/axios';
 import { useAuth } from '../../../features/auth';
 import { useCreateUser } from '../api/queries';
+import { useSchoolClasses } from '../../../hooks/useSchoolClasses';
 
-const InputField = ({ label, name, value, onChange, type = "text", required = false, ...props }) => (
+const InputField = ({ label, name, value, onChange, type = "text", required = false, isNumeric = false, ...props }) => (
     <div className="space-y-1">
         <label className="text-sm font-medium text-gray-700 flex items-center gap-1">
             {label} {required && <span className="text-red-500">*</span>}
         </label>
-        <input type={type} name={name} value={value} onChange={onChange}
+        <input type={type} name={name} value={value}
+            onChange={(e) => {
+                if (isNumeric) {
+                    const val = e.target.value.replace(/\D/g, '');
+                    onChange({ target: { name, value: val } });
+                } else {
+                    onChange(e);
+                }
+            }}
             className="w-full px-4 py-2 border border-blue-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all placeholder:text-gray-400"
             required={required} {...props} />
     </div>
 );
-const STANDARDS = ['9th', '10th', '11th', '12th'];
-const SECTIONS = ['A', 'B', 'C', 'D'];
+
+const SelectField = ({ label, name, value, onChange, options, placeholder, required = false, loading = false }) => (
+    <div className="space-y-1">
+        <label className="text-sm font-medium text-gray-700 flex items-center gap-1">
+            {label} {required && <span className="text-red-500">*</span>}
+        </label>
+        <select
+            name={name}
+            value={value}
+            onChange={onChange}
+            required={required}
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all bg-white disabled:opacity-60"
+            disabled={loading}
+        >
+            <option value="" disabled selected hidden>{loading ? 'Loading...' : `Select ${label}`}</option>
+            {options.map(opt => (
+                <option key={opt} value={opt}>{opt}</option>
+            ))}
+        </select>
+    </div>
+);
+
 const ROLE_COLORS = {
     student: 'border-emerald-500 text-emerald-600',
     teacher: 'border-blue-500 text-blue-600',
     admin: 'border-purple-500 text-purple-600'
 };
+
 const PARENT_SECTIONS = [
-    { key: 'father', emoji: '', label: "Father's Details", bg: 'bg-orange-50/50', border: 'border-orange-100/50', textColor: 'text-orange-700', nameField: 'fatherName', contactField: 'fatherContact', namePlaceholder: "Father's Full Name", contactPlaceholder: "Father's Phone Number" },
-    { key: 'mother', emoji: '', label: "Mother's Details", bg: 'bg-pink-50/50', border: 'border-pink-100/50', textColor: 'text-pink-700', nameField: 'motherName', contactField: 'motherContact', namePlaceholder: "Mother's Full Name", contactPlaceholder: "Mother's Phone Number" },
+    { key: 'father', label: "Father's Details", bg: 'bg-blue-50/30', border: 'border-blue-100/50', textColor: 'text-blue-700', nameField: 'fatherName', contactField: 'fatherContact', namePlaceholder: "Full Name", contactPlaceholder: "Phone Number" },
+    { key: 'mother', label: "Mother's Details", bg: 'bg-pink-50/30', border: 'border-pink-100/50', textColor: 'text-pink-700', nameField: 'motherName', contactField: 'motherContact', namePlaceholder: "Full Name", contactPlaceholder: "Phone Number" },
 ];
+
+const GUARDIAN_SECTION = { key: 'guardian', label: "Guardian's Details", bg: 'bg-purple-50/30', border: 'border-purple-100/50', textColor: 'text-purple-700', nameField: 'guardianName', contactField: 'guardianContact', namePlaceholder: "Full Name", contactPlaceholder: "Phone Number" };
+
 const INITIAL_FORM = {
-    firstName: '', middleName: '', lastName: '', email: '', department: '',
-    standard: '', section: '', rollNumber: '', course: '', year: '',
-    contactNo: '', fatherName: '', fatherContact: '', motherName: '', motherContact: '', schoolId: ''
+    firstName: '', middleName: '', lastName: '', email: '',
+    department: '', standard: '', section: '', rollNumber: '',
+    contactNo: '', schoolId: '',
+    fatherName: '', fatherContact: '', motherName: '', motherContact: '',
+    guardianName: '', guardianContact: '', address: ''
 };
 
 const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
@@ -38,36 +73,40 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
     const [schoolName, setSchoolName] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const [activeGuardianTab, setActiveGuardianTab] = useState('parents'); // 'parents' | 'guardian'
+
+    // Classes / sections fetched from backend via global hook
+    const { loading: classesLoading, availableStandards: standards, getSectionsForStandard, allUniqueSections } = useSchoolClasses();
+    const sections = formData.standard ? getSectionsForStandard(formData.standard) : allUniqueSections;
 
     const roleLabel = roleToAdd?.charAt(0).toUpperCase() + roleToAdd?.slice(1);
 
     useEffect(() => {
+        if (!isOpen) return;
+        // Reset form on open
+        setFormData({ ...INITIAL_FORM, schoolId: '' });
+        setError('');
+        setActiveGuardianTab('parents');
+
         const fetchSchoolDetails = async () => {
-            if (isOpen && user?.schoolId) {
-                // Case 1: schoolId is already a populated object with name
+            if (user?.schoolId) {
                 if (typeof user.schoolId === 'object' && user.schoolId.name) {
                     setSchoolName(user.schoolId.name);
                     setFormData(prev => ({ ...prev, schoolId: user.schoolId._id }));
-                }
-                // Case 2: schoolId is just an ID string - fetch the name
-                else {
+                } else {
                     setFormData(prev => ({ ...prev, schoolId: user.schoolId }));
                     try {
                         const response = await api.get('/school');
-                        if (response.data.success && response.data.data?.school?.name) {
-                            setSchoolName(response.data.data.school.name);
-                        } else {
-                            setSchoolName('School');
-                        }
-                    } catch (err) {
-                        console.error('Failed to fetch school name', err);
+                        setSchoolName(response.data?.data?.school?.name || 'School');
+                    } catch {
                         setSchoolName('School');
                     }
                 }
             }
         };
+
         fetchSchoolDetails();
-    }, [isOpen, user]);
+    }, [isOpen, user, roleToAdd]);
 
     if (!isOpen) return null;
 
@@ -78,9 +117,8 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
         setLoading(true);
         setError('');
         try {
-            const fullName = `${formData.firstName} ${formData.middleName ? formData.middleName + ' ' : ''}${formData.lastName}`.trim();
+            const fullName = `${formData.firstName}${formData.middleName ? ' ' + formData.middleName : ''} ${formData.lastName}`.trim();
 
-            // Clean up the payload: remove empty strings, trim crucial fields
             const payload = {
                 name: fullName,
                 role: roleToAdd,
@@ -88,138 +126,175 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
                 schoolId: formData.schoolId || user?.schoolId
             };
 
-            // Add role-specific fields
             if (roleToAdd === 'admin') {
                 if (formData.department) payload.department = formData.department;
             } else if (roleToAdd === 'teacher') {
                 if (formData.standard) payload.standard = formData.standard;
                 if (formData.section) payload.section = formData.section;
-                // Note: assignedClasses will be constructed on backend from standard/section if provided
             } else if (roleToAdd === 'student') {
-                const studentFields = ['rollNumber', 'standard', 'section', 'fatherName', 'fatherContact', 'motherName', 'motherContact'];
+                const studentFields = [
+                    'rollNumber', 'standard', 'section',
+                    'fatherName', 'fatherContact', 'motherName', 'motherContact',
+                    'guardianName', 'guardianContact', 'address'
+                ];
                 studentFields.forEach(field => {
                     if (formData[field]) payload[field] = formData[field];
                 });
-                if (formData.year) payload.year = parseInt(formData.year);
             }
 
-            // Global optional fields
             if (formData.contactNo) payload.contactNo = formData.contactNo;
 
             await createUserMutation.mutateAsync(payload);
             if (onSuccess) onSuccess();
             onClose();
-            setFormData({ ...INITIAL_FORM, schoolId: user?.schoolId || '' });
         } catch (err) {
             setError(err.response?.data?.message || err.response?.data?.errors?.[0]?.message || 'Failed to create user');
-        } finally { setLoading(false); }
+        } finally {
+            setLoading(false);
+        }
     };
 
     const renderSectionHeader = (dotColor, title) => (
-        <h4 className="text-sm font-bold text-gray-900 uppercase tracking-wider border-b border-gray-100 pb-2 flex items-center gap-2">
-            <span className={`w-2 h-2 rounded-full ${dotColor}`}></span>{title}
+        <h4 className="text-[11px] font-black text-gray-400 uppercase tracking-[0.2em] border-b border-gray-100 pb-2 flex items-center gap-2">
+            <span className={`w-1.5 h-1.5 rounded-full ${dotColor}`}></span>{title}
         </h4>
-    );
-
-    const renderSelect = (name, options, placeholder) => (
-        <div className="space-y-1">
-            <label className="text-sm font-medium text-gray-700 flex items-center gap-1">{name.charAt(0).toUpperCase() + name.slice(1)} <span className="text-red-500">*</span></label>
-            <select name={name} value={formData[name]} onChange={handleChange} required
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all bg-white">
-                <option value="">{placeholder}</option>
-                {options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-            </select>
-        </div>
     );
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden animate-fade-in-up flex flex-col max-h-[90vh]">
-                <div className="px-6 py-4 flex items-center justify-between bg-white border-b border-gray-100">
-                    <div className="flex items-center gap-3">
-                        <div className={`p-2 rounded-lg bg-gray-50 ${ROLE_COLORS[roleToAdd]?.split(' ')[1]}`}><FaUserPlus size={20} /></div>
+                {/* Header */}
+                <div className="px-8 py-6 flex items-center justify-between bg-white border-b border-gray-100">
+                    <div className="flex items-center gap-4">
+                        <div className={`w-12 h-12 rounded-2xl bg-gray-50 flex items-center justify-center shadow-sm ${ROLE_COLORS[roleToAdd]?.split(' ')[1]}`}><FaUserPlus size={24} /></div>
                         <div>
-                            <h3 className="text-xl font-bold text-gray-900">Add New {roleLabel}</h3>
-                            <p className="text-xs text-gray-500">Enter details to create a new account</p>
+                            <h3 className="text-2xl font-black text-gray-900 tracking-tight">Add {roleLabel}</h3>
+                            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mt-0.5">Registration Console</p>
                         </div>
                     </div>
-                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-2 rounded-full transition-all"><FaTimes size={20} /></button>
+                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-2.5 rounded-full transition-all"><FaTimes size={20} /></button>
                 </div>
-                <div className="p-6 overflow-y-auto custom-scrollbar flex-1">
+
+                <div className="p-8 overflow-y-auto custom-scrollbar flex-1 bg-gray-50/30">
                     {error && (
-                        <div className="mb-6 p-4 bg-red-50 text-red-600 rounded-xl text-sm border border-red-100 flex items-start gap-3">
+                        <div className="mb-6 p-4 bg-red-50 text-red-600 rounded-2xl text-sm border border-red-100 flex items-start gap-3 animate-shake">
                             <span className="mt-0.5">⚠️</span>
-                            <div><p className="font-semibold">Creation Failed</p><p>{error}</p></div>
+                            <div><p className="font-black uppercase tracking-wider text-xs">Error Detected</p><p className="font-medium mt-1">{error}</p></div>
                         </div>
                     )}
                     <form onSubmit={handleSubmit} className="space-y-8">
-                        <div className="bg-gray-50 rounded-xl p-4 border border-gray-100 flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-gray-400 shadow-sm border border-gray-100"><FaBuilding /></div>
-                            <div>
-                                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Target School</p>
-                                <p className="text-sm font-bold text-gray-800">{schoolName || 'Loading...'}</p>
+                        {/* Personal Details */}
+                        <div className="space-y-6">
+                            {renderSectionHeader('bg-blue-500', 'Identity & Contact')}
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                <InputField label="First Name" name="firstName" value={formData.firstName} onChange={handleChange} required />
+                                <InputField label="Middle Name" name="middleName" value={formData.middleName} onChange={handleChange} />
+                                <InputField label="Last Name" name="lastName" value={formData.lastName} onChange={handleChange} required />
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <InputField label="Email Address" name="email" type="email" value={formData.email} onChange={handleChange} required />
+                                <InputField label="Contact Number" name="contactNo" value={formData.contactNo} onChange={handleChange} isNumeric maxLength={10} />
                             </div>
                         </div>
-                        <div className="space-y-4">
-                            {renderSectionHeader('bg-blue-500', 'Personal Details')}
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <InputField label="First Name" name="firstName" value={formData.firstName} onChange={handleChange} required placeholder="John" />
-                                <InputField label="Middle Name" name="middleName" value={formData.middleName} onChange={handleChange} placeholder="M." />
-                                <InputField label="Last Name" name="lastName" value={formData.lastName} onChange={handleChange} required placeholder="Doe" />
-                            </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <InputField label="Email Address" name="email" type="email" value={formData.email} onChange={handleChange} required placeholder="john@example.com" />
-                                <InputField label="Contact Number" name="contactNo" value={formData.contactNo} onChange={handleChange} placeholder="+91 98765 43210" />
-                            </div>
-                        </div>
+
+                        {/* Admin — Department */}
                         {roleToAdd === 'admin' && (
-                            <div className="space-y-4">
-                                {renderSectionHeader('bg-purple-500', 'Professional Details')}
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <InputField label="Department" name="department" value={formData.department} onChange={handleChange} required placeholder="e.g. Administration" />
+                            <div className="space-y-6">
+                                {renderSectionHeader('bg-purple-500', 'Organizational Role')}
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <InputField label="Department" name="department" value={formData.department} onChange={handleChange} required />
                                 </div>
                             </div>
                         )}
+
+                        {/* Teacher — Class Assignment */}
                         {roleToAdd === 'teacher' && (
-                            <div className="space-y-4">
+                            <div className="space-y-6">
                                 {renderSectionHeader('bg-indigo-500', 'Academic Assignment')}
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    {renderSelect('standard', STANDARDS, 'Select Standard')}
-                                    {renderSelect('section', SECTIONS, 'Select Section')}
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <SelectField
+                                        label="Primary Standard" name="standard" value={formData.standard}
+                                        onChange={handleChange} required
+                                        options={standards} placeholder="Choose Class"
+                                        loading={classesLoading}
+                                    />
+                                    <SelectField
+                                        label="Primary Section" name="section" value={formData.section}
+                                        onChange={handleChange} required
+                                        options={sections} placeholder="Choose Section"
+                                        loading={classesLoading}
+                                    />
                                 </div>
                             </div>
                         )}
+
+                        {/* Student — Academic Details */}
                         {roleToAdd === 'student' && (
-                            <>
-                                <div className="space-y-4">
-                                    {renderSectionHeader('bg-emerald-500', 'Student Academic Details')}
-                                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                                        <InputField label="Roll Number" name="rollNumber" value={formData.rollNumber} onChange={handleChange} required placeholder="e.g. 101" />
-                                        <InputField label="Class" name="standard" value={formData.standard} onChange={handleChange} required placeholder="e.g. 10th" />
-                                        <InputField label="Section" name="section" value={formData.section} onChange={handleChange} required placeholder="e.g. A" />
-                                        <InputField label="Year" name="year" type="number" value={formData.year} onChange={handleChange} required min="1" max="6" />
+                            <div className="space-y-6">
+                                {renderSectionHeader('bg-emerald-500', 'Academic Details')}
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                    <InputField label="Roll Number" name="rollNumber" value={formData.rollNumber} onChange={handleChange} required isNumeric />
+                                    <SelectField
+                                        label="Standard" name="standard" value={formData.standard}
+                                        onChange={handleChange} required
+                                        options={standards}
+                                        loading={classesLoading}
+                                    />
+                                    <SelectField
+                                        label="Section" name="section" value={formData.section}
+                                        onChange={handleChange} required
+                                        options={sections}
+                                        loading={classesLoading}
+                                    />
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Guardian / Parent Details for Student */}
+                        {roleToAdd === 'student' && (
+                            <div className="space-y-6">
+                                <div className="flex items-center justify-between border-b border-gray-100 pb-2">
+                                    {renderSectionHeader('bg-orange-500', 'Family & Guardian Matrix')}
+                                    <div className="flex bg-gray-100 p-1 rounded-xl">
+                                        <button type="button" onClick={() => setActiveGuardianTab('parents')}
+                                            className={`px-4 py-1.5 rounded-lg text-xs font-black transition-all ${activeGuardianTab === 'parents' ? 'bg-white text-orange-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}>
+                                            PARENTS
+                                        </button>
+                                        <button type="button" onClick={() => setActiveGuardianTab('guardian')}
+                                            className={`px-4 py-1.5 rounded-lg text-xs font-black transition-all ${activeGuardianTab === 'guardian' ? 'bg-white text-purple-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}>
+                                            GUARDIAN
+                                        </button>
                                     </div>
                                 </div>
-                                <div className="space-y-4">
-                                    {renderSectionHeader('bg-orange-500', 'Parent / Guardian Details')}
-                                    {PARENT_SECTIONS.map(p => (
-                                        <div key={p.key} className={`${p.bg} rounded-lg p-3 border ${p.border} space-y-3`}>
-                                            <h5 className={`text-xs font-semibold ${p.textColor} uppercase tracking-wide flex items-center gap-2`}>
-                                                <span className="text-lg">{p.emoji}</span> {p.label}
-                                            </h5>
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                <InputField label="Name" name={p.nameField} value={formData[p.nameField]} onChange={handleChange} placeholder={p.namePlaceholder} />
-                                                <InputField label="Contact" name={p.contactField} value={formData[p.contactField]} onChange={handleChange} placeholder={p.contactPlaceholder} />
+
+                                {activeGuardianTab === 'parents' ? (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        {PARENT_SECTIONS.map(p => (
+                                            <div key={p.key} className={`${p.bg} rounded-3xl p-5 border ${p.border} space-y-4`}>
+                                                <h5 className={`text-[10px] font-black ${p.textColor} uppercase tracking-widest`}>{p.label}</h5>
+                                                <div className="space-y-4">
+                                                    <InputField label="Full Name" name={p.nameField} value={formData[p.nameField]} onChange={handleChange} />
+                                                    <InputField label="Contact No." name={p.contactField} value={formData[p.contactField]} onChange={handleChange} isNumeric maxLength={10} />
+                                                </div>
                                             </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className={`${GUARDIAN_SECTION.bg} rounded-3xl p-6 border ${GUARDIAN_SECTION.border} space-y-6`}>
+                                        <h5 className={`text-[10px] font-black ${GUARDIAN_SECTION.textColor} uppercase tracking-widest`}>{GUARDIAN_SECTION.label}</h5>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                            <InputField label="Full Name" name={GUARDIAN_SECTION.nameField} value={formData[GUARDIAN_SECTION.nameField]} onChange={handleChange} />
+                                            <InputField label="Contact No." name={GUARDIAN_SECTION.contactField} value={formData[GUARDIAN_SECTION.contactField]} onChange={handleChange} isNumeric maxLength={10} />
                                         </div>
-                                    ))}
-                                </div>
-                            </>
+                                    </div>
+                                )}
+
+                            </div>
                         )}
-                        <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 flex items-start gap-3">
-                            <span className="text-blue-500 mt-0.5">ℹ️</span>
-                            <p className="text-sm text-blue-700">A secure password will be <strong>auto-generated</strong> and sent to the user's email address.</p>
-                        </div>
+
+
+
+                        {/* Actions */}
                         <div className="pt-4 flex justify-end gap-3 border-t border-gray-100">
                             <button type="button" onClick={onClose} className="px-5 py-2.5 text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg transition-all font-medium text-sm">Cancel</button>
                             <button type="submit" disabled={loading}

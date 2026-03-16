@@ -30,6 +30,7 @@ router.get(
     validate(getUsersSchema),
     getUsers
 );
+router.get("/", validate(getUsersSchema), getUsers);
 
 // Get a single user by ID
 router.get(

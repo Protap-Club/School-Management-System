@@ -13,10 +13,15 @@ export const SectionHeader = ({ icon, iconBg, iconColor, title, subtitle }) => (
     </div>
 );
 
-export const TabButton = ({ tab, activeTab, icon, label, setActiveTab }) => (
+export const TabButton = ({ tab, activeTab, icon, label, setActiveTab, count }) => (
     <button onClick={() => setActiveTab(tab)}
-        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === tab ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
-        {React.cloneElement(icon, { className: "inline mr-2", size: 12 })}{label}
+        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${activeTab === tab ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+        {icon && React.cloneElement(icon, { size: 12 })}{label}
+        {count !== undefined && (
+            <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${activeTab === tab ? 'bg-primary text-white' : 'bg-gray-200 text-gray-500'}`}>
+                {count}
+            </span>
+        )}
     </button>
 );
 

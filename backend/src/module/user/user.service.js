@@ -40,13 +40,19 @@ export const createUser = async (creator, userData) => {
         createdBy: creator._id
     });
 
-    // Step 2: Create Role-Specific Profile
+    // Step 2: Create Role-Specific Profile (manual rollback on failure)
     if (config) {
-        await config.model.create({
-            userId: newUser._id,
-            schoolId: targetSchoolId,
-            ...config.extractFields(userData)
-        });
+        try {
+            await config.model.create({
+                userId: newUser._id,
+                schoolId: targetSchoolId,
+                ...config.extractFields(userData)
+            });
+        } catch (profileError) {
+            // Roll back: remove the user if profile creation fails
+            await User.deleteOne({ _id: newUser._id });
+            throw profileError;
+        }
     }
 
     // Step 3: Send welcome email (fire-and-forget, non-blocking)

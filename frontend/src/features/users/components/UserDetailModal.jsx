@@ -1,399 +1,408 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
-  FaTimes, FaUser, FaIdCard, FaBuilding, FaLayerGroup, FaEnvelope, FaPhone,
-  FaChalkboardTeacher, FaChevronLeft, FaChevronRight, FaClock, FaCheck,
-  FaTimesCircle, FaExclamationTriangle, FaEdit, FaSave, FaUndo
+  FaTimes, FaIdCard, FaBuilding, FaLayerGroup, FaEnvelope, FaPhone, FaSave, FaUser, FaTrash, FaChalkboardTeacher
 } from 'react-icons/fa';
+import api from '../../../api/axios';
 import { useUpdateUser } from '../api/queries';
 
-const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-
-const STATUS_CONFIG = {
-  present: {
-    color: 'bg-emerald-500 text-white',
-    light: 'bg-emerald-50 border-emerald-200',
-    icon: <FaCheck className="text-emerald-600" />,
-    iconBg: 'bg-emerald-100',
-    textColor: 'text-emerald-600',
-    legendColor: 'bg-emerald-500'
-  },
-  absent: {
-    color: 'bg-red-500 text-white',
-    light: 'bg-red-50 border-red-200',
-    icon: <FaTimesCircle className="text-red-600" />,
-    iconBg: 'bg-red-100',
-    textColor: 'text-red-600',
-    legendColor: 'bg-red-500'
-  },
-  late: {
-    color: 'bg-amber-500 text-white',
-    light: 'bg-amber-50 border-amber-200',
-    icon: <FaExclamationTriangle className="text-amber-600" />,
-    iconBg: 'bg-amber-100',
-    textColor: 'text-amber-600',
-    legendColor: 'bg-amber-500'
-  },
+const naturalSort = (arr) => {
+  return [...arr].sort((a, b) => {
+    return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
+  });
 };
 
-const LEGEND_ITEMS = [
-  { label: 'Present', color: 'bg-emerald-500' },
-  { label: 'Late', color: 'bg-amber-500' },
-  { label: 'Absent', color: 'bg-red-500' },
-  { label: 'No Data', color: 'bg-gray-200' },
-];
-
-const STAT_CARDS = [
-  { key: 'present', label: 'Present', ...STATUS_CONFIG.present },
-  { key: 'late', label: 'Late', ...STATUS_CONFIG.late },
-  { key: 'absent', label: 'Absent', ...STATUS_CONFIG.absent },
-];
-
 const UserDetailModal = ({ user, onClose, initialMode = 'view', onSuccess }) => {
-  if (!user) return null;
-
   const updateUserMutation = useUpdateUser();
-  const [currentDate, setCurrentDate] = useState(new Date());
-  const [history, setHistory] = useState([]);
-  const [stats, setStats] = useState({ present: 0, absent: 0, late: 0, total: 0 });
-  const [selectedDay, setSelectedDay] = useState(null);
-
-  // Editing state
-  const [isEditing, setIsEditing] = useState(initialMode === 'edit');
-  const [editForm, setEditForm] = useState({
-    name: user.name || '',
-    email: user.email || '',
-    contactNo: user.contactNo || '',
-    rollNumber: user.profile?.rollNumber || '',
-    standard: user.profile?.standard || '',
-    section: user.profile?.section || '',
-  });
+  const [mode, setMode] = useState(initialMode);
+  const [formData, setFormData] = useState({});
+  const [guardianTab, setGuardianTab] = useState('parents');
+  const [standards, setStandards] = useState([]);
+  const [sections, setSections] = useState([]);
 
   useEffect(() => {
-    generateMockHistory();
-    setEditForm({
-      name: user.name || '',
-      email: user.email || '',
-      contactNo: user.contactNo || '',
-      rollNumber: user.profile?.rollNumber || '',
-      standard: user.profile?.standard || '',
-      section: user.profile?.section || '',
-    });
-  }, [user]);
+    if (user) {
+      setFormData({
+        name: user.name || '',
+        email: user.email || '',
+        contactNo: user.contactNo || user.phoneNumber || '',
+        role: user.role || '',
+        profile: {
+          rollNumber: user.profile?.rollNumber || '',
+          standard: user.profile?.standard || '',
+          section: user.profile?.section || '',
+          department: user.profile?.department || '',
+          assignedClasses: user.profile?.assignedClasses || [],
+          fatherName: user.profile?.fatherName || '',
+          fatherContact: user.profile?.fatherContact || '',
+          motherName: user.profile?.motherName || '',
+          motherContact: user.profile?.motherContact || '',
+          guardianName: user.profile?.guardianName || '',
+          guardianContact: user.profile?.guardianContact || '',
+        }
+      });
+      setMode(initialMode);
+    }
+  }, [user, initialMode]);
 
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setEditForm(prev => ({ ...prev, [name]: value }));
-  };
+  const isStudent = user?.role === 'student';
+  const isTeacher = user?.role === 'teacher';
+  const isAdmin = user?.role === 'admin';
+  const isEditing = mode === 'edit';
+
+  useEffect(() => {
+    if (isEditing && (isStudent || isTeacher)) {
+      const fetchClasses = async () => {
+        try {
+          const response = await api.get('/school/classes');
+          const data = response.data?.data;
+          
+          let localData = { standards: [], sections: [] };
+          try {
+            const stored = localStorage.getItem('school_custom_classes');
+            if (stored) localData = JSON.parse(stored);
+          } catch (e) {
+            console.error('Failed to parse local classes', e);
+          }
+          
+          setStandards(naturalSort(Array.from(new Set([...(data?.standards || []), ...(localData.standards || [])]))));
+          setSections(naturalSort(Array.from(new Set([...(data?.sections || []), ...(localData.sections || [])]))));
+        } catch {
+          let localData = { standards: [], sections: [] };
+          try {
+            const stored = localStorage.getItem('school_custom_classes');
+            if (stored) localData = JSON.parse(stored);
+          } catch (e) {
+            console.error('Failed to parse local classes', e);
+          }
+          setStandards(naturalSort(localData.standards || []));
+          setSections(naturalSort(localData.sections || []));
+        }
+      };
+      fetchClasses();
+    }
+  }, [isEditing, isStudent, isTeacher]);
+
+  if (!user) return null;
 
   const handleSave = async () => {
     try {
-      const payload = {
-        _id: user._id,
-        name: editForm.name,
-        email: editForm.email,
-        contactNo: editForm.contactNo,
-      };
-
-      if (user.role === 'student') {
-        payload.profile = {
-          ...user.profile,
-          rollNumber: editForm.rollNumber,
-          standard: editForm.standard,
-          section: editForm.section,
-        };
-      }
-
-      await updateUserMutation.mutateAsync(payload);
-      if (onSuccess) onSuccess('User profile updated successfully');
-      setIsEditing(false);
+      await updateUserMutation.mutateAsync({ ...user, ...formData });
+      if (onSuccess) onSuccess('User updated successfully');
+      setMode('view');
     } catch (error) {
-      console.error('Failed to update user', error);
+      console.error('Update failed', error);
     }
   };
-
-  const generateMockHistory = () => {
-    const mockData = [];
-    const today = new Date();
-    let present = 0, absent = 0, late = 0;
-
-    for (let i = 0; i < 90; i++) {
-      const date = new Date(today);
-      date.setDate(today.getDate() - i);
-      if (date.getDay() === 0 || date.getDay() === 6 || date > today) continue;
-
-      const r = Math.random();
-      const status = r > 0.85 ? 'absent' : r > 0.75 ? 'late' : 'present';
-      if (status === 'present') present++;
-      if (status === 'absent') absent++;
-      if (status === 'late') late++;
-
-      let checkIn = '-';
-      if (status === 'present') checkIn = `8:${(Math.floor(Math.random() * 20) + 20).toString().padStart(2, '0')} AM`;
-      else if (status === 'late') checkIn = `9:${Math.floor(Math.random() * 30).toString().padStart(2, '0')} AM`;
-
-      mockData.push({ date: date.toISOString().split('T')[0], status, checkIn });
+  // Helper to get teacher's primary class
+  const getTeacherClass = () => {
+    const classes = formData.profile?.assignedClasses || [];
+    if (classes.length > 0) {
+      return `${classes[0].standard}${classes[0].section}`;
     }
-    setHistory(mockData);
-    setStats({ present, absent, late, total: present + absent + late });
+    return 'Not Assigned';
   };
-
-  const attendanceByDate = useMemo(() => Object.fromEntries(history.map(r => [r.date, r])), [history]);
-
-  const formatDate = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-
-  const nextMonth = () => {
-    const next = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1);
-    if (next <= new Date()) setCurrentDate(next);
-  };
-
-  const today = new Date();
-  const todayStr = formatDate(today);
-  const daysInMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
-  const firstDay = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).getDay();
-
-  const calendarDays = [];
-  for (let i = 0; i < firstDay; i++) {
-    calendarDays.push(<div key={`empty-${i}`} className="h-10 bg-gray-50/50 rounded"></div>);
-  }
-  for (let day = 1; day <= daysInMonth; day++) {
-    const dateObj = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
-    const dateStr = formatDate(dateObj);
-    const record = attendanceByDate[dateStr];
-    const isToday = dateStr === todayStr;
-    const isFuture = dateObj > today;
-    const isWeekend = dateObj.getDay() === 0 || dateObj.getDay() === 6;
-    const cfg = record ? STATUS_CONFIG[record.status] : null;
-
-    calendarDays.push(
-      <div key={day} onClick={() => record && setSelectedDay(record)}
-        className={`h-10 rounded-lg flex items-center justify-center text-sm font-medium transition-all
-          ${cfg ? 'cursor-pointer hover:scale-105 hover:shadow-md ' + cfg.color : ''}
-          ${!record && !isFuture && !isWeekend ? 'bg-gray-100 text-gray-400' : ''}
-          ${isFuture ? 'bg-gray-50 text-gray-300' : ''}
-          ${isWeekend && !record ? 'bg-gray-50 text-gray-300' : ''}
-          ${isToday && !record ? 'ring-2 ring-blue-500 ring-offset-1' : ''}
-          ${isToday && record ? 'ring-2 ring-white ring-offset-2 ring-offset-blue-500' : ''}`}
-        title={record ? `${record.status} - ${record.checkIn}` : isWeekend ? 'Weekend' : isFuture ? 'Future' : 'No data'}>
-        {day}
-      </div>
-    );
-  }
-
-  const attendancePercentage = stats.total > 0 ? Math.round(((stats.present + stats.late) / stats.total) * 100) : 0;
-
-  const isStudent = user.role === 'student';
-
-  const profileBadges = [
-    {
-      icon: <FaIdCard className="text-blue-500" />,
-      label: isStudent ? 'Roll:' : 'ID:',
-      value: isStudent ? user.profile?.rollNumber : `#${user._id?.slice(-6).toUpperCase()}`,
-      field: 'rollNumber',
-      editable: isStudent
-    },
-    {
-      icon: <FaEnvelope className="text-purple-500" />,
-      label: 'Email:',
-      value: user.email,
-      field: 'email',
-      editable: true
-    },
-    {
-      icon: <FaPhone className="text-emerald-500" />,
-      label: 'Phone:',
-      value: user.contactNo || user.phoneNumber || '-',
-      field: 'contactNo',
-      editable: true
-    },
-  ];
-
-  if (isStudent) {
-    profileBadges.push(
-      { icon: <FaBuilding className="text-orange-500" />, label: 'Class:', value: user.profile?.standard, field: 'standard', editable: true },
-      { icon: <FaLayerGroup className="text-indigo-500" />, label: 'Section:', value: user.profile?.section, field: 'section', editable: true }
-    );
-  }
 
   return (
     <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[60] p-4 animate-fadeIn">
-      <div className="bg-white rounded-3xl shadow-2xl max-w-4xl w-full max-h-[95vh] overflow-hidden flex flex-col">
+      <div className="bg-white rounded-3xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
         {/* Modal Header */}
         <div className="bg-gradient-to-r from-blue-600 to-indigo-700 p-6 text-white shrink-0">
-          <div className="flex justify-between items-start">
+          <div className="flex justify-between items-center">
             <div className="flex items-center gap-5">
-              <div className="w-16 h-16 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center text-2xl font-bold border-2 border-white/30 shadow-lg">
+              <div className="w-16 h-16 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center text-2xl font-bold border-2 border-white/30 shadow-lg overflow-hidden">
                 {user.avatarUrl ? (
-                  <img src={user.avatarUrl} alt="Avatar" className="w-full h-full object-cover rounded-2xl" />
+                  <img src={user.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
                 ) : (
-                  user.name?.charAt(0) || 'U'
+                  formData.name?.charAt(0) || 'U'
                 )}
               </div>
               <div>
                 {isEditing ? (
                   <input
-                    name="name"
-                    value={editForm.name}
-                    onChange={handleInputChange}
-                    className="bg-white/10 border-b border-white/30 text-2xl font-bold tracking-tight outline-none focus:border-white w-full py-1"
+                    type="text"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    className="bg-white/10 border-b-2 border-white/30 focus:border-white outline-none text-2xl font-bold px-1 w-full"
                   />
                 ) : (
-                  <h2 className="text-2xl font-bold tracking-tight">{user.name}</h2>
+                  <h2 className="text-2xl font-bold tracking-tight truncate max-w-[300px]" title={formData.name}>{formData.name}</h2>
                 )}
-                <div className="flex items-center gap-2 mt-1">
-                  <span className="px-2 py-0.5 bg-white/20 rounded text-[10px] font-bold uppercase tracking-wider">{user.role?.replace('_', ' ')}</span>
-                  {!isEditing && (
-                    <>
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-                      <span className="text-blue-100 text-xs font-medium">Active Member</span>
-                    </>
-                  )}
+                <div className="flex items-center gap-3 mt-1.5">
+                  <span className="px-2.5 py-0.5 bg-white/20 rounded-lg text-[10px] font-black uppercase tracking-wider">
+                    {user.role?.replace('_', ' ')}
+                  </span>
+                  <span className="w-1 h-1 rounded-full bg-emerald-400"></span>
+                  <span className="text-blue-100 text-xs font-bold uppercase tracking-widest">Active Member</span>
                 </div>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              {isEditing ? (
-                <>
-                  <button
-                    onClick={handleSave}
-                    disabled={updateUserMutation.isPending}
-                    className="flex items-center gap-2 px-4 py-2 bg-emerald-500 hover:bg-emerald-600 rounded-xl transition-all font-bold text-sm"
-                  >
-                    {updateUserMutation.isPending ? 'Saving...' : <><FaSave size={14} /> Save</>}
-                  </button>
-                  <button
-                    onClick={() => setIsEditing(false)}
-                    className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 rounded-xl transition-all font-bold text-sm"
-                  >
-                    <FaUndo size={14} /> Cancel
-                  </button>
-                </>
-              ) : (
+            <div className="flex items-center gap-3">
+              {isEditing && (
                 <button
-                  onClick={() => setIsEditing(true)}
-                  className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 rounded-xl transition-all font-bold text-sm"
+                  onClick={handleSave}
+                  disabled={updateUserMutation.isPending}
+                  className="flex items-center gap-2 px-5 py-2 bg-white text-blue-700 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-blue-50 transition-all shadow-lg disabled:opacity-50 shrink-0"
                 >
-                  <FaEdit size={14} /> Edit Profile
+                  <FaSave size={14} />
+                  {updateUserMutation.isPending ? 'Saving...' : 'Save Changes'}
                 </button>
               )}
-              <button onClick={onClose} className="p-2.5 hover:bg-white/10 rounded-xl transition-all ml-2"><FaTimes size={20} /></button>
+              <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-xl transition-all shrink-0">
+                <FaTimes size={20} />
+              </button>
             </div>
           </div>
-        </div>
-
-        {/* Action Bar / Badges */}
-        <div className="px-6 py-4 flex flex-wrap gap-3 bg-gray-50 border-b border-gray-100 shrink-0">
-          {profileBadges.map(({ icon, label, value, field, editable }) => (
-            <div key={label} className="flex items-center gap-2 px-3 py-2 bg-white rounded-xl border border-gray-200 text-xs shadow-sm shadow-gray-100/50">
-              {icon}<span className="text-gray-500 font-medium">{label}</span>
-              {isEditing && editable ? (
-                <input
-                  name={field}
-                  value={editForm[field]}
-                  onChange={handleInputChange}
-                  className="font-bold text-gray-800 outline-none border-b border-blue-200 focus:border-blue-500 w-24"
-                />
-              ) : (
-                <span className="font-bold text-gray-800">{value || '-'}</span>
-              )}
-            </div>
-          ))}
-          {!isEditing && (
-            <div className={`ml-auto flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold
-              ${attendancePercentage >= 90 ? 'bg-emerald-100 text-emerald-700' : attendancePercentage >= 75 ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'}`}>
-              <FaUser className="text-[10px]" />{attendancePercentage}% Presence (90 Days)
-            </div>
-          )}
         </div>
 
         {/* Content Area */}
-        <div className="flex-1 overflow-hidden flex">
-          {/* Main Calendar View */}
-          <div className="flex-1 p-6 overflow-y-auto border-r border-gray-100 custom-scrollbar">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-lg font-bold text-gray-800">Activity Calendar</h3>
-              <div className="flex items-center gap-4 bg-gray-100 p-1 rounded-xl">
-                <button onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1))}
-                  className="p-2 hover:bg-white rounded-lg text-gray-600 shadow-sm transition-all"><FaChevronLeft size={12} /></button>
-                <span className="text-sm font-bold text-gray-700 min-w-[120px] text-center">
-                  {currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
-                </span>
-                <button onClick={nextMonth}
-                  className="p-2 hover:bg-white rounded-lg text-gray-600 shadow-sm transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-                  disabled={new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1) > new Date()}>
-                  <FaChevronRight size={12} /></button>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-7 gap-2 mb-3">
-              {WEEKDAYS.map(day => (
-                <div key={day} className="h-10 flex items-center justify-center text-[10px] font-black text-gray-400 uppercase tracking-widest">{day}</div>
-              ))}
-            </div>
-            <div className="grid grid-cols-7 gap-2">{calendarDays}</div>
-
-            <div className="flex items-center justify-center gap-6 mt-8 pt-6 border-t border-gray-100">
-              {LEGEND_ITEMS.map(({ label, color }) => (
-                <div key={label} className="flex items-center gap-2 text-[11px] font-bold text-gray-500 uppercase tracking-wider">
-                  <div className={`w-3.5 h-3.5 rounded-md ${color} shadow-sm`}></div>{label}
+        <div className="flex-1 overflow-y-auto p-8 custom-scrollbar bg-gray-50/30">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            {/* Left Column: Basic Info & Badges */}
+            <div className="lg:col-span-1 space-y-6">
+              <h4 className="text-[11px] font-black text-gray-400 uppercase tracking-[0.2em] border-b border-gray-100 pb-2 flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>Identity & Contact
+              </h4>
+              <div className="space-y-3">
+                {/* ID / Department / Standard Card */}
+                <div className="p-4 bg-white rounded-2xl border border-gray-100 shadow-sm flex items-center gap-4">
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${isAdmin ? 'bg-purple-50 text-purple-600' : isTeacher ? 'bg-indigo-50 text-indigo-600' : 'bg-violet-50 text-violet-600'}`}>
+                    {isAdmin ? <FaBuilding /> : isTeacher ? <FaChalkboardTeacher /> : <FaIdCard />}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-0.5">
+                      {isAdmin ? 'Department' : isTeacher ? 'Standard' : 'Roll Number'}
+                    </p>
+                    {isEditing ? (
+                      <input
+                        type="text"
+                        className="w-full bg-gray-50 rounded px-3 py-1.5 text-sm font-black outline-none border border-gray-100 focus:border-blue-300 transition-all"
+                        value={isAdmin ? formData.profile?.department : isStudent ? formData.profile?.rollNumber : getTeacherClass()}
+                        readOnly={isTeacher} // Teacher class editing usually handled elsewhere
+                        onChange={(e) => {
+                          if (isAdmin) setFormData({ ...formData, profile: { ...formData.profile, department: e.target.value } });
+                          if (isStudent) setFormData({ ...formData, profile: { ...formData.profile, rollNumber: e.target.value.replace(/\D/g, '') } });
+                        }}
+                      />
+                    ) : (
+                      <span className="text-sm font-black text-gray-900 break-all">
+                        {isAdmin ? (formData.profile?.department || 'Not Provided') : isTeacher ? getTeacherClass() : (formData.profile?.rollNumber || `#${user._id?.slice(-6)?.toUpperCase()}`)}
+                      </span>
+                    )}
+                  </div>
                 </div>
-              ))}
-            </div>
-          </div>
 
-          {/* Sidebar Summary */}
-          <div className="w-80 p-6 bg-gray-50/50 overflow-y-auto shrink-0 custom-scrollbar">
-            <div className="mb-8">
-              <h4 className="text-[11px] font-black text-gray-400 uppercase tracking-[0.2em] mb-4">Quick Stats</h4>
-              <div className="grid grid-cols-1 gap-3">
-                {STAT_CARDS.map(({ key, label, icon, iconBg, textColor }) => (
-                  <div key={key} className="bg-white p-4 rounded-2xl border border-gray-100 flex items-center gap-4 shadow-sm shadow-gray-200/50">
-                    <div className={`w-12 h-12 rounded-xl ${iconBg} flex items-center justify-center text-xl`}>{icon}</div>
-                    <div>
-                      <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">{label}</p>
-                      <p className={`text-2xl font-black ${textColor}`}>{stats[key]}</p>
+                <div className="p-4 bg-white rounded-2xl border border-gray-100 shadow-sm flex items-center gap-4">
+                  <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0"><FaEnvelope /></div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-0.5">Email Address</p>
+                    {isEditing ? (
+                      <input
+                        type="email"
+                        className="w-full bg-gray-50 rounded px-3 py-1.5 text-sm font-black outline-none border border-gray-100 focus:border-blue-300 transition-all"
+                        value={formData.email}
+                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                      />
+                    ) : (
+                      <span className="text-sm font-black text-gray-900 break-all" title={formData.email}>{formData.email}</span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="p-4 bg-white rounded-2xl border border-gray-100 shadow-sm flex items-center gap-4">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0"><FaPhone /></div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-0.5">Contact Number</p>
+                    {isEditing ? (
+                      <input
+                        type="text"
+                        className="w-full bg-gray-50 rounded px-3 py-1.5 text-sm font-black outline-none border border-gray-100 focus:border-blue-300 transition-all"
+                        value={formData.contactNo}
+                        onChange={(e) => setFormData({ ...formData, contactNo: e.target.value.replace(/\D/g, '') })}
+                      />
+                    ) : (
+                      <span className="text-sm font-black text-gray-900 break-all">{formData.contactNo || 'Not Provided'}</span>
+                    )}
+                  </div>
+                </div>
+
+                {isStudent && (
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="p-4 bg-white rounded-2xl border border-gray-100 shadow-sm flex flex-col gap-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <div className="w-6 h-6 rounded-lg bg-orange-50 text-orange-600 flex items-center justify-center shrink-0 text-xs"><FaBuilding /></div>
+                        <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Standard</p>
+                      </div>
+                      {isEditing ? (
+                        <select
+                          className="w-full bg-gray-50 rounded px-2 py-1 text-xs font-black outline-none border border-gray-100 focus:border-blue-300 transition-all"
+                          value={formData.profile?.standard}
+                          onChange={(e) => setFormData({ ...formData, profile: { ...formData.profile, standard: e.target.value } })}
+                        >
+                          <option value="" disabled hidden>Standard</option>
+                          {standards.map(std => <option key={std} value={std}>{std}</option>)}
+                        </select>
+                      ) : (
+                        <span className="text-sm font-black text-gray-900">{formData.profile?.standard || 'N/A'}</span>
+                      )}
+                    </div>
+                    <div className="p-4 bg-white rounded-2xl border border-gray-100 shadow-sm flex flex-col gap-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <div className="w-6 h-6 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center shrink-0 text-xs"><FaLayerGroup /></div>
+                        <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Section</p>
+                      </div>
+                      {isEditing ? (
+                        <select
+                          className="w-full bg-gray-50 rounded px-2 py-1 text-xs font-black outline-none border border-gray-100 focus:border-blue-300 transition-all"
+                          value={formData.profile?.section}
+                          onChange={(e) => setFormData({ ...formData, profile: { ...formData.profile, section: e.target.value } })}
+                        >
+                          <option value="" disabled hidden>Section</option>
+                          {sections.map(sec => <option key={sec} value={sec}>{sec}</option>)}
+                        </select>
+                      ) : (
+                        <span className="text-sm font-black text-gray-900">{formData.profile?.section || 'N/A'}</span>
+                      )}
                     </div>
                   </div>
-                ))}
+                )}
               </div>
             </div>
 
-            <h4 className="text-[11px] font-black text-gray-400 uppercase tracking-[0.2em] mb-4">Selected Day Details</h4>
-            {selectedDay ? (
-              <div className={`p-5 rounded-2xl border-2 transition-all animate-fadeIn ${STATUS_CONFIG[selectedDay.status]?.light || 'bg-white border-gray-100'}`}>
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-2">
-                    <div className={`w-2 h-2 rounded-full ${STATUS_CONFIG[selectedDay.status]?.legendColor}`}></div>
-                    <span className="text-xs font-black uppercase tracking-widest text-gray-700">{selectedDay.status}</span>
+            {/* Middle/Right Column: Parent & Guardian Details (Student Only) */}
+            {isStudent && (
+              <div className="lg:col-span-2 space-y-6">
+                <div className="flex items-center justify-between border-b border-gray-100 pb-2">
+                  <h4 className="text-[11px] font-black text-gray-400 uppercase tracking-[0.2em]">Family & Guardian Matrix</h4>
+                  <div className="flex bg-gray-100 p-1 rounded-xl">
+                    <button type="button" onClick={() => setGuardianTab('parents')}
+                      className={`px-4 py-1.5 rounded-lg text-[10px] font-black transition-all ${guardianTab === 'parents' ? 'bg-white text-orange-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}>
+                      PARENTS
+                    </button>
+                    <button type="button" onClick={() => setGuardianTab('guardian')}
+                      className={`px-4 py-1.5 rounded-lg text-[10px] font-black transition-all ${guardianTab === 'guardian' ? 'bg-white text-purple-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}>
+                      GUARDIAN
+                    </button>
                   </div>
-                  <button onClick={() => setSelectedDay(null)} className="text-gray-400 hover:text-gray-600 transition-colors"><FaTimes size={12} /></button>
                 </div>
-                <div className="space-y-3">
-                  <p className="text-sm font-bold text-gray-800 leading-tight">
-                    {new Date(selectedDay.date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-                  </p>
-                  {selectedDay.checkIn !== '-' ? (
-                    <div className="flex items-center gap-3 p-3 bg-white/60 rounded-xl border border-white/80">
-                      <FaClock className="text-gray-400" />
-                      <div>
-                        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Check-in Time</p>
-                        <p className="text-sm font-bold text-gray-800">{selectedDay.checkIn}</p>
+
+                {guardianTab === 'parents' ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fadeIn">
+                    {/* Father Info */}
+                    <div className="bg-blue-50/30 p-6 rounded-3xl border border-blue-100/50 shadow-sm space-y-4">
+                      <div className="flex items-center gap-3 mb-2">
+                        <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-lg">F</div>
+                        <span className="text-sm font-black text-blue-800 uppercase tracking-wider">Father's Details</span>
+                      </div>
+                      <div className="space-y-4">
+                        <div>
+                          <p className="text-[10px] font-bold text-blue-400 uppercase tracking-widest leading-none mb-1.5">Full Name</p>
+                          {isEditing ? (
+                            <input
+                              className="w-full bg-white/50 border border-blue-100 focus:border-blue-400 rounded-lg py-2 px-3 text-sm font-bold outline-none"
+                              value={formData.profile?.fatherName}
+                              onChange={(e) => setFormData({ ...formData, profile: { ...formData.profile, fatherName: e.target.value } })}
+                            />
+                          ) : (
+                            <p className="text-sm font-bold text-gray-800">{formData.profile?.fatherName || 'Not Provided'}</p>
+                          )}
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-bold text-blue-400 uppercase tracking-widest leading-none mb-1.5">Contact Number</p>
+                          {isEditing ? (
+                            <input
+                              className="w-full bg-white/50 border border-blue-100 focus:border-blue-400 rounded-lg py-2 px-3 text-sm font-bold outline-none"
+                              value={formData.profile?.fatherContact}
+                              onChange={(e) => setFormData({ ...formData, profile: { ...formData.profile, fatherContact: e.target.value.replace(/\D/g, '') } })}
+                            />
+                          ) : (
+                            <p className="text-sm font-bold text-gray-800">{formData.profile?.fatherContact || 'Not Provided'}</p>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  ) : (
-                    <div className="p-3 bg-red-50/50 rounded-xl border border-red-100/50 italic text-[11px] text-red-500 font-medium text-center">
-                      No records found for this academic day.
+
+                    {/* Mother Info */}
+                    <div className="bg-pink-50/30 p-6 rounded-3xl border border-pink-100/50 shadow-sm space-y-4">
+                      <div className="flex items-center gap-3 mb-2">
+                        <div className="w-10 h-10 rounded-xl bg-pink-100 text-pink-600 flex items-center justify-center font-bold text-lg">M</div>
+                        <span className="text-sm font-black text-pink-800 uppercase tracking-wider">Mother's Details</span>
+                      </div>
+                      <div className="space-y-4">
+                        <div>
+                          <p className="text-[10px] font-bold text-pink-400 uppercase tracking-widest leading-none mb-1.5">Full Name</p>
+                          {isEditing ? (
+                            <input
+                              className="w-full bg-white/50 border border-pink-100 focus:border-pink-400 rounded-lg py-2 px-3 text-sm font-bold outline-none"
+                              value={formData.profile?.motherName}
+                              onChange={(e) => setFormData({ ...formData, profile: { ...formData.profile, motherName: e.target.value } })}
+                            />
+                          ) : (
+                            <p className="text-sm font-bold text-gray-800">{formData.profile?.motherName || 'Not Provided'}</p>
+                          )}
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-bold text-pink-400 uppercase tracking-widest leading-none mb-1.5">Contact Number</p>
+                          {isEditing ? (
+                            <input
+                              className="w-full bg-white/50 border border-pink-100 focus:border-pink-400 rounded-lg py-2 px-3 text-sm font-bold outline-none"
+                              value={formData.profile?.motherContact}
+                              onChange={(e) => setFormData({ ...formData, profile: { ...formData.profile, motherContact: e.target.value.replace(/\D/g, '') } })}
+                            />
+                          ) : (
+                            <p className="text-sm font-bold text-gray-800">{formData.profile?.motherContact || 'Not Provided'}</p>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                  )}
-                </div>
+                  </div>
+                ) : (
+                  /* Guardian Info */
+                  <div className="bg-purple-50/30 p-6 rounded-3xl border border-purple-100/50 shadow-sm space-y-4 animate-fadeIn">
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="w-10 h-10 rounded-xl bg-purple-100 text-purple-600 flex items-center justify-center font-bold text-lg">G</div>
+                      <span className="text-sm font-black text-purple-800 uppercase tracking-wider">Guardian Details</span>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div>
+                        <p className="text-[10px] font-bold text-purple-400 uppercase tracking-widest leading-none mb-1.5">Guardian Name</p>
+                        {isEditing ? (
+                          <input
+                            className="w-full bg-white/50 border border-purple-100 focus:border-purple-400 rounded-lg py-2 px-3 text-sm font-bold outline-none"
+                            value={formData.profile?.guardianName}
+                            onChange={(e) => setFormData({ ...formData, profile: { ...formData.profile, guardianName: e.target.value } })}
+                          />
+                        ) : (
+                          <p className="text-sm font-bold text-gray-800">{formData.profile?.guardianName || 'Not Provided'}</p>
+                        )}
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-bold text-purple-400 uppercase tracking-widest leading-none mb-1.5">Guardian Contact</p>
+                        {isEditing ? (
+                          <input
+                            className="w-full bg-white/50 border border-purple-100 focus:border-purple-400 rounded-lg py-2 px-3 text-sm font-bold outline-none"
+                            value={formData.profile?.guardianContact}
+                            onChange={(e) => setFormData({ ...formData, profile: { ...formData.profile, guardianContact: e.target.value.replace(/\D/g, '') } })}
+                          />
+                        ) : (
+                          <p className="text-sm font-bold text-gray-800">{formData.profile?.guardianContact || 'Not Provided'}</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
-            ) : (
-              <div className="text-center py-10 px-6 bg-white/50 border-2 border-dashed border-gray-200 rounded-3xl">
-                <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                  <FaUser className="text-gray-400" size={16} />
-                </div>
-                <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider leading-relaxed">
-                  Select a day in the calendar to view full details
-                </p>
+            )}
+            
+            {/* If not a student, show placeholder or role description to fill space */}
+            {!isStudent && (
+              <div className="lg:col-span-2 hidden lg:flex items-center justify-center border-2 border-dashed border-gray-100 rounded-3xl p-12 text-center opacity-40 grayscale group hover:opacity-100 hover:grayscale-0 transition-all duration-700">
+                  <div className="max-w-xs transition-transform group-hover:scale-105">
+                    <div className="w-24 h-24 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-6 group-hover:bg-blue-50 group-hover:rotate-12 transition-all">
+                        {isAdmin ? <FaBuilding className="text-gray-300 group-hover:text-purple-500" size={32} /> : <FaChalkboardTeacher className="text-gray-300 group-hover:text-indigo-500" size={32} />}
+                    </div>
+                    <h5 className="text-lg font-black text-gray-900 mb-2">Official Record</h5>
+                    <p className="text-xs font-medium text-gray-500 leading-relaxed uppercase tracking-wider">Authorized {user.role?.replace('_', ' ')} documents verified and integrated into school registry.</p>
+                  </div>
               </div>
             )}
           </div>
