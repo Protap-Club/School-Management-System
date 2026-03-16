@@ -5,6 +5,7 @@ import {
   useExams, useCreateExam, useUpdateExam, useDeleteExam, useUpdateExamStatus,
 } from '../features/examination';
 import { useProfile } from '../features/attendance';
+import { useSchoolClasses } from '../hooks/useSchoolClasses';
 import ExamModal from '../components/examination/ExamModal';
 import { FaPlus, FaEdit, FaTrash, FaEye, FaCalendarAlt, FaClock,
   FaChalkboardTeacher, FaCheckCircle, FaExclamationTriangle, FaBan, FaFilter, FaSearch, FaTimes, FaInfoCircle } from 'react-icons/fa';
@@ -25,9 +26,7 @@ const STATUS_STYLES = {
 
 const currentYear = new Date().getFullYear();
 
-// Static options for standards and sections (no backend dependency for now)
-const STANDARD_OPTIONS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'];
-const SECTION_OPTIONS = ['A', 'B', 'C'];
+// Dynamic options for standards and sections are handled by useSchoolClasses
 
 const CustomBadge = ({ styles, icon: Icon, label }) => (
   <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold border ${styles.bg} ${styles.color} ${styles.border}`}>
@@ -73,6 +72,7 @@ const Examination = () => {
   const [deleteConfirm, setDeleteConfirm] = useState({ open: false, examId: null });
   const [toast, setToast] = useState({ type: '', text: '' });
   const [searchTerm, setSearchTerm] = useState('');
+  const { classesData, loading: classesLoading, availableStandards, getSectionsForStandard, allUniqueSections } = useSchoolClasses();
 
   // Queries & Mutations
   const { data: exams = [], isLoading: examsLoading } = useExams(filters);
@@ -109,8 +109,15 @@ const Examination = () => {
     }
     return SECTION_OPTIONS;
   }, [isTeacher, teacherProfile, filters.standard]);
+  // Fetch classes data for filters (Now handled by useSchoolClasses)
+  const availableSections = useMemo(() => {
+    if (filters.standard) {
+        return getSectionsForStandard(filters.standard);
+    }
+    return allUniqueSections;
+  }, [filters.standard, getSectionsForStandard, allUniqueSections]);
 
-  const showMessage = useCallback((type, text) => {
+  const showMessage = useCallback((type, text, duration = 3000) => {
     setToast({ type, text });
     setTimeout(() => setToast({ type: '', text: '' }), 3000);
   }, []);

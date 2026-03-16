@@ -1,10 +1,64 @@
 import { CalendarEvent } from "./calendar.model.js";
+import StudentProfile from "../user/model/StudentProfile.model.js";
+import TeacherProfile from "../user/model/TeacherProfile.model.js";
 import logger from "../../config/logger.js";
-import { ConflictError, NotFoundError, BadRequestError } from "../../utils/customError.js";
+import { ConflictError, NotFoundError, BadRequestError, ForbiddenError } from "../../utils/customError.js";
+import { USER_ROLES } from "../../constants/userRoles.js";
+
+// Helper: Enforce teacher scope for writing calendar events
+const enforceTeacherScope = async (user, targetClasses) => {
+    if (user.role !== USER_ROLES.TEACHER) return;
+
+    const profile = await TeacherProfile.findOne({ schoolId: user.schoolId, userId: user._id })
+        .select('assignedClasses').lean();
+    
+    const allowed = (profile?.assignedClasses || []).map(c => `${c.standard}-${c.section}`);
+    const unauthorized = (targetClasses || []).filter(c => !allowed.includes(c));
+    
+    if (unauthorized.length) {
+        throw new ForbiddenError(`Not authorized for classes: ${unauthorized.join(', ')}`);
+    }
+};
+
+const validateTargetClasses = async (schoolId, targetClasses = []) => {
+    if (!Array.isArray(targetClasses) || targetClasses.length === 0) return;
+
+    const classFilters = targetClasses.map((cls) => {
+        const [standard, section] = String(cls).split("-");
+        return { schoolId, standard, section };
+    });
+
+    const hasInvalidFormat = classFilters.some(c => !c.standard || !c.section);
+    if (hasInvalidFormat) {
+        throw new BadRequestError("Invalid class format. Use '<standard>-<section>' (e.g., '10-A').");
+    }
+
+    const existing = await StudentProfile.find({ $or: classFilters })
+        .select("standard section")
+        .lean();
+
+    const validKeys = new Set(existing.map(c => `${c.standard}-${c.section}`));
+    const invalid = targetClasses.filter(c => !validKeys.has(c));
+
+    if (invalid.length) {
+        throw new BadRequestError(`Invalid class/section: ${invalid.join(", ")}`);
+    }
+};
 
 // Create a new calendar event
-export const createCalendarEvent = async (eventData, userId, schoolId) => {
-    const { title, start, end, allDay, type, description } = eventData;
+export const createCalendarEvent = async (eventData, user) => {
+    const { title, start, end, allDay, type, description, targetAudience, targetClasses } = eventData;
+    const schoolId = user.schoolId;
+
+    if (user.role === USER_ROLES.TEACHER) {
+        if (targetAudience === 'all') {
+            throw new ForbiddenError("Teachers cannot create school-wide events");
+        }
+        await enforceTeacherScope(user, targetClasses);
+    }
+    if (targetAudience === 'classes') {
+        await validateTargetClasses(schoolId, targetClasses);
+    }
 
     // Edge Case: Check if an exact duplicate event already exists to prevent spam
     const existingEvent = await CalendarEvent.findOne({
@@ -26,7 +80,9 @@ export const createCalendarEvent = async (eventData, userId, schoolId) => {
         allDay: allDay !== undefined ? allDay : true,
         type: type || 'event',
         description,
-        createdBy: userId,
+        targetAudience: user.role === USER_ROLES.TEACHER ? 'classes' : (targetAudience || 'all'),
+        targetClasses: targetClasses || [],
+        createdBy: user._id,
         schoolId
     });
 
@@ -37,18 +93,59 @@ export const createCalendarEvent = async (eventData, userId, schoolId) => {
 // Fetch calendar events with optional date range filter
 // Supports: start, end, type (web calendar view)
 //           upcoming, limit (mobile dashboard widget)
-export const fetchCalendarEvents = async (queryData, schoolId) => {
+// Receives full `user` object to apply role-based audience filtering
+export const fetchCalendarEvents = async (queryData, user) => {
     const { start, end, type, upcoming, limit } = queryData;
-    let query = {};
+    const schoolId = user.schoolId;
+    const userRole = user.role;
 
-    // Filter by school if provided
-    if (schoolId) {
-        query.schoolId = schoolId;
+    let query = { schoolId };
+
+    // ── Role-based audience filter ────────────────────────────────────────────
+    if (userRole === USER_ROLES.STUDENT) {
+        // Look up the student's class assignment
+        const profile = await StudentProfile.findOne({ schoolId, userId: user._id })
+            .select('standard section')
+            .lean();
+
+        if (profile) {
+            const classKey = `${profile.standard}-${profile.section}`;
+            query.$and = [{
+                $or: [
+                    { targetAudience: 'all' },
+                    { targetAudience: { $exists: false } },
+                    { targetAudience: null },
+                    { targetClasses: classKey }
+                ]
+            }];
+        } else {
+            // Student profile not found — show only school-wide events
+            query.targetAudience = 'all';
+        }
+    } else if (userRole === USER_ROLES.TEACHER) {
+        // Look up the teacher's assigned classes
+        const profile = await TeacherProfile.findOne({ schoolId, userId: user._id })
+            .select('assignedClasses')
+            .lean();
+
+        const classStrings = (profile?.assignedClasses || []).map(
+            (c) => `${c.standard}-${c.section}`
+        );
+
+        query.$and = [{
+            $or: [
+                { targetAudience: 'all' },
+                { targetAudience: { $exists: false } },
+                { targetAudience: null },
+                ...(classStrings.length ? [{ targetClasses: { $in: classStrings } }] : [])
+            ]
+        }];
     }
+    // Admin: no audience filter — sees everything
 
-    // Edge Case: If start/end provided, filter by that range (Optimized for Calendar View)
+    // ── Date range filter ────────────────────────────────────────────────────
     if (start && end) {
-        query.$or = [
+        const dateFilter = [
             // Events that start within the range
             { start: { $gte: new Date(start), $lte: new Date(end) } },
             // Events that end within the range
@@ -56,6 +153,12 @@ export const fetchCalendarEvents = async (queryData, schoolId) => {
             // Events that span the entire range
             { start: { $lte: new Date(start) }, end: { $gte: new Date(end) } }
         ];
+        // Merge with existing $and if present, otherwise use standalone $or
+        if (query.$and) {
+            query.$and.push({ $or: dateFilter });
+        } else {
+            query.$or = dateFilter;
+        }
     }
 
     // Mobile-friendly: return only upcoming events (start >= now)
@@ -77,7 +180,15 @@ export const fetchCalendarEvents = async (queryData, schoolId) => {
         .limit(parsedLimit)   // 0 = no limit (web default)
         .lean();
 
-    return events;
+    // ── Sunday exclusion ─────────────────────────────────────────────────────
+    // Single-day events that land exactly on Sunday are excluded.
+    // Multi-day events that merely span a Sunday are kept.
+    return events.filter((e) => {
+        const startDate = new Date(e.start);
+        const endDate = new Date(e.end);
+        const isSameDay = startDate.toDateString() === endDate.toDateString();
+        return !(isSameDay && startDate.getDay() === 0);
+    });
 };
 
 // Get a single calendar event by ID
@@ -95,13 +206,35 @@ export const getCalendarEventById = async (id) => {
 };
 
 // Update a calendar event
-export const updateCalendarEvent = async (id, updateData) => {
+export const updateCalendarEvent = async (id, updateData, user) => {
     // Check if event exists
     const event = await CalendarEvent.findById(id);
 
     if (!event) {
         logger.warn(`Calendar event not found for update: ${id}`);
         throw new NotFoundError("Event not found");
+    }
+
+    if (user.role === USER_ROLES.TEACHER) {
+        // Original event must not be school-wide
+        if (event.targetAudience === 'all') {
+            throw new ForbiddenError("Teachers cannot edit school-wide events");
+        }
+        await enforceTeacherScope(user, event.targetClasses);
+        
+        // New audience cannot be school-wide
+        if (updateData.targetAudience === 'all') {
+            throw new ForbiddenError("Teachers cannot make events school-wide");
+        }
+        // Must have permission on new target classes
+        if (updateData.targetClasses) {
+            await enforceTeacherScope(user, updateData.targetClasses);
+        }
+    }
+    const nextAudience = updateData.targetAudience ?? event.targetAudience;
+    const nextClasses = updateData.targetClasses ?? event.targetClasses ?? [];
+    if (nextAudience === 'classes') {
+        await validateTargetClasses(event.schoolId, nextClasses);
     }
 
     // Merge new dates with existing ones to validate range correctly
@@ -129,14 +262,72 @@ export const updateCalendarEvent = async (id, updateData) => {
 };
 
 // Delete a calendar event
-export const deleteCalendarEvent = async (id) => {
-    const deletedEvent = await CalendarEvent.findByIdAndDelete(id);
+export const deleteCalendarEvent = async (id, user) => {
+    const event = await CalendarEvent.findById(id);
 
-    if (!deletedEvent) {
+    if (!event) {
         logger.warn(`Calendar event not found for deletion: ${id}`);
         throw new NotFoundError("Event not found");
     }
 
+    if (user.role === USER_ROLES.TEACHER) {
+        if (event.targetAudience === 'all') {
+            throw new ForbiddenError("Teachers cannot delete school-wide events");
+        }
+        await enforceTeacherScope(user, event.targetClasses);
+    }
+
+    await CalendarEvent.findByIdAndDelete(id);
+
     logger.info(`Calendar event deleted: ${id}`);
     return { message: "Event deleted successfully" };
+};
+
+// Delete events by date
+export const deleteCalendarEventsByDate = async (dateStr, user, eventId) => {
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) {
+        throw new BadRequestError("Invalid date provided");
+    }
+    const startOfDay = new Date(date.setHours(0, 0, 0, 0));
+    const endOfDay = new Date(date.setHours(23, 59, 59, 999));
+
+    // If a specific eventId is provided, delete just that one event
+    if (eventId) {
+        const event = await CalendarEvent.findById(eventId);
+        if (!event) throw new NotFoundError("Event not found");
+        
+        if (user.role === USER_ROLES.TEACHER) {
+            if (event.targetAudience === 'all') {
+                throw new ForbiddenError("Teachers cannot delete school-wide events");
+            }
+            await enforceTeacherScope(user, event.targetClasses);
+        }
+        
+        await CalendarEvent.findByIdAndDelete(eventId);
+        return { message: "Event deleted successfully", deletedCount: 1 };
+    }
+
+    // Otherwise: delete all events on that date for the school
+    let query = {
+        schoolId: user.schoolId,
+        start: { $gte: startOfDay, $lte: endOfDay }
+    };
+
+    // Teachers can only bulk-delete events for their assigned classes
+    if (user.role === USER_ROLES.TEACHER) {
+        const profile = await TeacherProfile.findOne(
+            { schoolId: user.schoolId, userId: user._id }
+        ).select('assignedClasses').lean();
+        
+        const classKeys = (profile?.assignedClasses || []).map(c => `${c.standard}-${c.section}`);
+        if (!classKeys.length) {
+             throw new ForbiddenError("No assigned classes for this teacher. Cannot delete events.");
+        }
+        query.targetClasses = { $in: classKeys };
+        query.targetAudience = 'classes';
+    }
+
+    const result = await CalendarEvent.deleteMany(query);
+    return { message: `${result.deletedCount} event(s) deleted`, deletedCount: result.deletedCount };
 };
