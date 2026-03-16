@@ -519,6 +519,7 @@ const ExamModal = ({ isOpen, onClose, onSubmit, editData, isLoading, userRole, u
                                                             onChange={(e) => handleScheduleChange(index, 'totalMarks', e.target.value)}
                                                             className={inputClasses(`schedule_${index}_totalMarks`)}
                                                             placeholder="100"
+                                                            min="0"
                                                         />
                                                         {errors[`schedule_${index}_totalMarks`] && <p className="text-red-500 text-[10px] mt-1.5 ml-1">{errors[`schedule_${index}_totalMarks`]}</p>}
                                                     </div>
@@ -530,6 +531,7 @@ const ExamModal = ({ isOpen, onClose, onSubmit, editData, isLoading, userRole, u
                                                             onChange={(e) => handleScheduleChange(index, 'passingMarks', e.target.value)}
                                                             className={inputClasses(`schedule_${index}_passingMarks`)}
                                                             placeholder="35"
+                                                            min="0"
                                                         />
                                                         {errors[`schedule_${index}_passingMarks`] && <p className="text-red-500 text-[10px] mt-1.5 ml-1">{errors[`schedule_${index}_passingMarks`]}</p>}
                                                     </div>
