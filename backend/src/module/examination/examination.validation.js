@@ -39,6 +39,7 @@ export const createExamSchema = z.object({
         description: z.string().max(500).optional(),
         schedule: z.array(scheduleItemSchema).optional().default([]),
         schoolId: objectIdSchema.optional(),
+        status: z.enum(["DRAFT", "PUBLISHED", "COMPLETED", "CANCELLED"]).optional(),
     }),
 });
 
@@ -58,6 +59,12 @@ export const updateExamSchema = z.object({
         categoryDescription: z.string().max(200).optional(),
         description: z.string().max(500).optional(),
         schedule: z.array(scheduleItemSchema).optional(),
+        status: z.enum(["DRAFT", "PUBLISHED", "COMPLETED", "CANCELLED"]).optional(),
+        examType: z.enum(["TERM_EXAM", "CLASS_TEST"]).optional(),
+        standard: z.string().optional(),
+        section: z.string().optional(),
+        academicYear: z.number().optional(),
+        schoolId: objectIdSchema.optional(),
     }),
 });
 

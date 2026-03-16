@@ -193,12 +193,12 @@ const ExamModal = ({ isOpen, onClose, onSubmit, editData, isLoading, userRole, u
         return Object.keys(e).length === 0;
     };
 
-    const handleFormSubmit = (e) => {
-        if (e && e.preventDefault) e.preventDefault();
+    const handleFormSubmit = (targetStatus) => {
         if (!validate()) return;
 
         const payload = {
             ...form,
+            status: targetStatus || (isEdit ? editData.status : 'DRAFT'),
             academicYear: Number(form.academicYear),
             // Prune empty optional fields from main form
             categoryDescription: form.categoryDescription?.trim() || undefined,
@@ -212,7 +212,7 @@ const ExamModal = ({ isOpen, onClose, onSubmit, editData, isLoading, userRole, u
                     // Prune empty optional fields from schedule item
                     startTime: item.startTime || undefined,
                     endTime: item.endTime || undefined,
-                    assignedTeacher: item.assignedTeacher || undefined,
+                    assignedTeacher: item.assignedTeacher?._id || item.assignedTeacher || undefined,
                     syllabus: item.syllabus?.trim() || undefined,
                 };
                 return normalized;
@@ -366,22 +366,7 @@ const ExamModal = ({ isOpen, onClose, onSubmit, editData, isLoading, userRole, u
                                             )}
                                         </div>
 
-                                        {isSuperAdmin && (
-                                            <div>
-                                                <label className={labelClasses}>Target School ID *</label>
-                                                <input
-                                                    type="text"
-                                                    value={form.schoolId}
-                                                    onChange={(e) => handleChange('schoolId', e.target.value)}
-                                                    className={inputClasses('schoolId')}
-                                                    placeholder="Enter School MongoDB ID"
-                                                />
-                                                {errors.schoolId && <p className="text-red-500 text-[11px] font-medium mt-1.5 ml-1">{errors.schoolId}</p>}
-                                                <p className="text-[10px] text-slate-400 mt-1 italic">
-                                                    Required for Super Admins to link exam to a school.
-                                                </p>
-                                            </div>
-                                        )}
+                                        {/* Target School ID removed as requested (background handles single school) */}
 
                                         <div>
                                             <label className={labelClasses}>Class *</label>
@@ -577,24 +562,42 @@ const ExamModal = ({ isOpen, onClose, onSubmit, editData, isLoading, userRole, u
                         Discard Changes
                     </button>
                     
-                    <button
-                        type="button"
-                        onClick={handleFormSubmit}
-                        disabled={isLoading}
-                        className="px-10 py-3 bg-primary text-white rounded-xl transition-all font-bold text-sm shadow-lg shadow-primary/20 hover:bg-primary-hover disabled:opacity-50 disabled:grayscale"
-                    >
-                        {isLoading ? (
-                            <div className="flex items-center gap-3">
-                                <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
-                                <span>Processing...</span>
-                            </div>
+                    <div className="flex gap-3">
+                        {!isEdit ? (
+                            <button
+                                type="button"
+                                onClick={() => handleFormSubmit('DRAFT')}
+                                disabled={isLoading}
+                                className="px-8 py-3 bg-primary text-white rounded-xl transition-all font-bold text-sm hover:bg-primary-hover shadow-lg shadow-primary/20 disabled:opacity-50 flex items-center gap-2"
+                            >
+                                <FaPlus />
+                                <span>Save Evaluation as Draft</span>
+                            </button>
                         ) : (
-                            <div className="flex items-center gap-2">
-                                <FaSave />
-                                <span>{isEdit ? 'Update Examination' : 'Create Examination'}</span>
-                            </div>
+                            <button
+                                type="button"
+                                onClick={() => handleFormSubmit(editData.status === 'DRAFT' ? 'PUBLISHED' : editData.status)}
+                                disabled={isLoading}
+                                className={`px-8 py-3 text-white rounded-xl transition-all font-bold text-sm shadow-lg disabled:opacity-50 disabled:grayscale ${
+                                    editData.status === 'DRAFT' ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-200' : 'bg-primary hover:bg-primary-hover shadow-primary/20'
+                                }`}
+                            >
+                                {isLoading ? (
+                                    <div className="flex items-center gap-3">
+                                        <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+                                        <span>Processing...</span>
+                                    </div>
+                                ) : (
+                                    <div className="flex items-center gap-2">
+                                        <FaCheckCircle />
+                                        <span>
+                                            {editData.status === 'DRAFT' ? 'Publish Now' : 'Update Examination'}
+                                        </span>
+                                    </div>
+                                )}
+                            </button>
                         )}
-                    </button>
+                    </div>
                 </div>
             </div>
         </div>

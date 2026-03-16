@@ -126,10 +126,9 @@ const Examination = () => {
       );
     }
     // Admin can slice by status using tabs; teachers always see their full class list.
-    if (!isTeacher) {
-      if (activeTab === 'upcoming') result = result.filter(e => e.status === 'PUBLISHED');
-      if (activeTab === 'drafts') result = result.filter(e => e.status === 'DRAFT');
-    }
+    if (activeTab === 'upcoming') result = result.filter(e => e.status === 'PUBLISHED');
+    if (activeTab === 'drafts') result = result.filter(e => e.status === 'DRAFT');
+    if (activeTab === 'completed') result = result.filter(e => e.status === 'COMPLETED');
     return result;
   }, [exams, searchTerm, activeTab, isTeacher]);
 
@@ -163,7 +162,8 @@ const Examination = () => {
   return (
     <DashboardLayout>
       <div className="max-w-[1600px] mx-auto p-4 md:p-6 lg:p-8 animate-in fade-in duration-700">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+        <div className={selectedExam ? "no-print" : ""}>
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">
               {isTeacher ? 'My Class Exams' : 'Examination Management'}
@@ -209,6 +209,14 @@ const Examination = () => {
             label="Drafts" 
             count={exams.filter(e => e.status === 'DRAFT').length}
             icon={<FaExclamationTriangle />}
+          />
+          <TabButton 
+            tab="completed"
+            activeTab={activeTab} 
+            setActiveTab={setActiveTab} 
+            label="Completed" 
+            count={exams.filter(e => e.status === 'COMPLETED').length}
+            icon={<FaCheckCircle />}
           />
         </div>
 
@@ -321,7 +329,7 @@ const Examination = () => {
                             <FaEye size={16} />
                           </button>
                           
-                          {(isAdmin || (isTeacher && exam.createdBy === user._id)) && (
+                          {(isAdmin || (isTeacher && String(exam.createdBy?._id || exam.createdBy) === String(user?._id))) && (
                             <>
                               {exam.status === 'DRAFT' && (
                                 <button
@@ -332,7 +340,7 @@ const Examination = () => {
                                   <FaCheckCircle size={16} />
                                 </button>
                               )}
-                              {exam.status === 'PUBLISHED' && activeTab === 'upcoming' && (
+                              {exam.status === 'PUBLISHED' && (
                                 <button
                                   onClick={() => handleStatusUpdate(exam._id, 'COMPLETED')}
                                   className="p-2.5 text-emerald-600 hover:bg-emerald-50 rounded-xl border border-transparent hover:border-emerald-100 transition-all"
@@ -384,28 +392,31 @@ const Examination = () => {
           )}
         </div>
         )}
+      </div>
 
         {selectedExam && teacherTab === 'schedule' && (
-          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[60] p-4 overflow-y-auto animate-in fade-in duration-300">
-            <div className="bg-white rounded-3xl w-full max-w-4xl shadow-2xl my-auto">
-              <div className="p-6 md:p-8 border-b border-slate-100 flex items-center justify-between bg-slate-50/50 rounded-t-3xl">
-                <div className="flex items-center gap-4">
-                  <div className={`w-14 h-14 rounded-2xl flex items-center justify-center border-2 border-white shadow-sm ${EXAM_TYPES[selectedExam.examType]?.bg || 'bg-white'}`}>
-                    <FaCalendarAlt className={EXAM_TYPES[selectedExam.examType]?.color} size={24} />
-                  </div>
-                  <div>
-                    <h2 className="text-2xl font-bold text-slate-900 leading-tight">{selectedExam.name}</h2>
-                    <div className="flex items-center gap-2 mt-1">
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[60] p-4 overflow-y-auto animate-in fade-in duration-300 print:static print:bg-transparent print:backdrop-blur-none print:p-0">
+          <div className="bg-white rounded-[32px] w-full max-w-4xl shadow-2xl my-auto relative animate-in zoom-in-95 duration-300 printable-content">
+              <div className="max-h-[90vh] overflow-y-auto custom-scrollbar print:max-h-none print:overflow-visible no-scrollbar">
+                <div className="p-8 md:p-10 bg-white border-b border-slate-100 flex items-center justify-between rounded-t-[32px] sticky top-0 z-10 print:static print:border-none">
+                  <div className="flex items-center gap-5">
+                    <div className={`w-16 h-16 rounded-[22px] flex items-center justify-center border border-slate-100 shadow-sm ${EXAM_TYPES[selectedExam.examType]?.bg || 'bg-slate-50'}`}>
+                      <FaCalendarAlt className={EXAM_TYPES[selectedExam.examType]?.color} size={28} />
+                    </div>
+                    <div>
+                      <h2 className="text-3xl font-bold text-slate-900 tracking-tight">{selectedExam.name}</h2>
+                      <div className="flex items-center gap-2 mt-1.5 font-medium">
                       <CustomBadge styles={EXAM_TYPES[selectedExam.examType]} />
                       <CustomBadge styles={STATUS_STYLES[selectedExam.status]} icon={STATUS_STYLES[selectedExam.status]?.icon} />
                     </div>
                   </div>
                 </div>
+                
                 <button
                   onClick={() => setSelectedExam(null)}
-                  className="w-10 h-10 flex items-center justify-center rounded-xl bg-white border border-slate-200 text-slate-400 hover:text-rose-500 hover:border-rose-100 transition-all shadow-sm"
+                  className="w-12 h-12 flex items-center justify-center rounded-2xl bg-slate-50 text-slate-400 hover:bg-rose-50 hover:text-rose-500 transition-all border border-slate-100 no-print"
                 >
-                  <FaPlus className="rotate-45" size={20} />
+                  <FaPlus className="rotate-45" size={24} />
                 </button>
               </div>
 
@@ -488,29 +499,24 @@ const Examination = () => {
                 </div>
               </div>
 
-              <div className="p-6 bg-slate-50 rounded-b-3xl flex justify-end gap-3 border-t border-slate-100">
+              <div className="p-6 bg-slate-50 flex justify-center border-t border-slate-100 no-print">
                 <button
                   onClick={() => window.print()}
-                  className="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl font-bold hover:bg-slate-50 transition-all shadow-sm"
+                  className="flex items-center gap-3 px-10 py-3.5 bg-primary text-white rounded-2xl font-bold hover:bg-primary/90 transition-all shadow-xl shadow-primary/20 group"
                 >
-                  <FaCalendarAlt size={14} />
+                  <FaCalendarAlt size={18} className="group-hover:scale-110 transition-transform" />
                   <span>Download Schedule</span>
-                </button>
-                <button
-                  onClick={() => setSelectedExam(null)}
-                  className="px-8 py-2.5 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition-all shadow-lg shadow-slate-200"
-                >
-                  Close
                 </button>
               </div>
             </div>
           </div>
-        )}
+        </div>
+      )}
 
         {showModal.open && (
           <ExamModal
             isOpen={showModal.open}
-            user={{ ...user, ...teacherProfile }}
+            user={{ ...user, ...teacherProfile, _id: user?._id }}
             onClose={() => {
               setShowModal({ type: '', open: false, data: null });
               if (isTeacher) setTeacherTab('schedule');

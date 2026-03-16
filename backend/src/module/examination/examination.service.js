@@ -175,9 +175,9 @@ export const updateExam = async (schoolId, examId, data, user) => {
     }
     // Admins and Super Admins can update any exam (term or class test)
 
-    // Can only update DRAFT or PUBLISHED exams (Teachers only restricted)
-    if (user.role === USER_ROLES.TEACHER && ["COMPLETED", "CANCELLED"].includes(exam.status)) {
-        throw new BadRequestError(`Cannot update a ${exam.status.toLowerCase()} exam`);
+    // Can only update DRAFT or PUBLISHED exams (Teachers only restricted for CANCELLED)
+    if (user.role === USER_ROLES.TEACHER && exam.status === "CANCELLED") {
+        throw new BadRequestError(`Cannot update a cancelled exam`);
     }
 
     // Apply safe updates (don't allow changing examType, standard, section, academicYear)
@@ -187,6 +187,7 @@ export const updateExam = async (schoolId, examId, data, user) => {
         exam.categoryDescription = data.categoryDescription;
     if (data.description !== undefined) exam.description = data.description;
     if (data.schedule !== undefined) exam.schedule = data.schedule;
+    if (data.status !== undefined) exam.status = data.status;
 
     await exam.save();
     logger.info(`Exam updated: ${examId}`);
@@ -205,9 +206,6 @@ export const deleteExam = async (schoolId, examId, user) => {
     if (user.role === USER_ROLES.TEACHER) {
         if (exam.examType !== "CLASS_TEST" || String(exam.createdBy) !== String(user._id)) {
             throw new ForbiddenError("You can only delete your own class tests");
-        }
-        if (exam.status !== "DRAFT") {
-            throw new BadRequestError("Only DRAFT exams can be deleted. Cancel it instead.");
         }
     }
 
