@@ -79,6 +79,7 @@ const Fees = () => {
     const [overviewMonth, setOverviewMonth] = useState(currentMonth);
     const [selectedClass, setSelectedClass] = useState(null);
     const [overviewType, setOverviewType] = useState('');
+    const [overviewStatus, setOverviewStatus] = useState('all');
     const [selectedStudent, setSelectedStudent] = useState(null);
     const [paymentModal, setPaymentModal] = useState({ open: false, assignment: null });
     const [updateModal, setUpdateModal] = useState({ open: false, assignment: null });
@@ -175,13 +176,25 @@ const Fees = () => {
     }, [feeTypesResp]);
 
     const { filteredClassStudents, filteredClassSummary } = useMemo(() => {
-        if (!overviewType) return { 
+        if (!overviewType && overviewStatus === 'all') return { 
             filteredClassStudents: classStudents, 
             filteredClassSummary: classSummary 
         };
 
         const students = classStudents.map(student => {
-            const filteredFees = student.fees.filter(f => f.feeType === overviewType || f.name === overviewType);
+            const filteredFees = student.fees.filter(f => {
+                const matchesType = !overviewType || f.feeType === overviewType || f.name === overviewType;
+                
+                let matchesStatus = true;
+                if (overviewStatus === 'paid') {
+                    matchesStatus = f.status === 'PAID';
+                } else if (overviewStatus === 'pending') {
+                    matchesStatus = f.status === 'PENDING' || f.status === 'PARTIAL' || f.status === 'OVERDUE';
+                }
+                
+                return matchesType && matchesStatus;
+            });
+            
             if (filteredFees.length === 0) return null;
             return { ...student, fees: filteredFees };
         }).filter(Boolean);
@@ -194,7 +207,7 @@ const Fees = () => {
         };
 
         return { filteredClassStudents: students, filteredClassSummary: summary };
-    }, [classStudents, classSummary, overviewType]);
+    }, [classStudents, classSummary, overviewType, overviewStatus]);
 
     // Handlers
     const handleCreateStructure = async (data) => {
@@ -416,12 +429,22 @@ const Fees = () => {
                                     <select 
                                         value={overviewType} 
                                         onChange={(e) => setOverviewType(e.target.value)}
-                                        className="bg-transparent border-none text-sm font-bold text-gray-700 focus:ring-0 min-w-[140px]"
+                                        className="bg-transparent border-none text-sm font-bold text-gray-700 focus:ring-0 min-w-[100px]"
                                     >
-                                        <option value="">All Fee Types</option>
+                                        <option value="">Filter</option>
                                         {feeTypesList.map(t => (
                                             <option key={t.name} value={t.name}>{t.label}</option>
                                         ))}
+                                    </select>
+                                    <div className="w-[1px] h-4 bg-gray-200 mx-1"></div>
+                                    <select 
+                                        value={overviewStatus} 
+                                        onChange={(e) => setOverviewStatus(e.target.value)}
+                                        className="bg-transparent border-none text-sm font-bold text-gray-700 focus:ring-0"
+                                    >
+                                        <option value="all">All Status</option>
+                                        <option value="paid">Paid</option>
+                                        <option value="pending">Pending</option>
                                     </select>
                                 </div>
                             </div>
