@@ -68,7 +68,8 @@ export const getUsers = async (creator, filters = {}) => {
 
     // 1. INPUT VALIDATION & SANITIZATION
     const page = Math.max(0, filters.page || 0);
-    const pageSize = Math.min(100, Math.max(1, filters.pageSize || 25));
+    const maxPageSize = creator.role === USER_ROLES.TEACHER ? 5000 : 100;
+    const pageSize = Math.min(maxPageSize, Math.max(1, filters.pageSize || 25));
     const { page: _, pageSize: __, ...queryFilters } = filters;
 
     // 2. BUILD BASE QUERY WITH ACCESS CONTROL
