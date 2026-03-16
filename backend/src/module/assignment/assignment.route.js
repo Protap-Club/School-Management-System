@@ -2,7 +2,7 @@ import express from "express";
 import multer from "multer";
 import cloudinaryStorage from "multer-storage-cloudinary";
 import cloudinary from "../../config/cloudinary.js";
-import { AppError, ValidationError } from "../../utils/customError.js";
+import { AppError, BadRequestError, ValidationError } from "../../utils/customError.js";
 import {
     createAssignment,
     listAssignments,
@@ -62,7 +62,7 @@ const studentSubmissionUpload = multer({
             return;
         }
 
-        cb(new ValidationError("File type not allowed. Supported: PDF, JPG, JPEG"), false);
+        cb(new BadRequestError("File type not allowed. Supported: PDF, JPG, JPEG"), false);
     },
     limits: { fileSize: 10 * 1024 * 1024, files: 1 },
 });

@@ -153,6 +153,17 @@ export const AssignmentTable = ({
                                     <TableCell className="px-5 py-4">
                                         <div className="text-sm font-semibold text-gray-900 mb-0.5 group-hover:text-indigo-700 transition-colors">{assignment.title}</div>
                                         <div className="text-xs text-gray-500 line-clamp-1 max-w-[200px]">{assignment.description || 'No description'}</div>
+                                        <div className="mt-2 flex flex-wrap items-center gap-2 text-[10px] font-semibold uppercase tracking-wide text-gray-400">
+                                            <span className={`rounded-full px-2 py-0.5 ${assignment.requiresSubmission ? 'bg-amber-50 text-amber-700' : 'bg-slate-100 text-slate-500'}`}>
+                                                {assignment.requiresSubmission ? 'Submission Required' : 'No Submission'}
+                                            </span>
+                                            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-slate-500">
+                                                {assignment.attachmentsCount || 0} Attachment{assignment.attachmentsCount === 1 ? '' : 's'}
+                                            </span>
+                                            <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-emerald-700">
+                                                {assignment.submissionCount || 0} Submission{assignment.submissionCount === 1 ? '' : 's'}
+                                            </span>
+                                        </div>
                                     </TableCell>
                                     <TableCell className="px-5 py-4 text-sm text-gray-600 font-medium">
                                         {assignment.subject}

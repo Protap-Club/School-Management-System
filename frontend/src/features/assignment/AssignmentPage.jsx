@@ -12,8 +12,9 @@ export const AssignmentPage = () => {
     const { user } = useAuth();
     const isAdmin = user?.role === 'admin';
     const isTeacher = user?.role === 'teacher';
-    const canCreate = isTeacher; // Only teachers can create assignments
-    const canManage = isAdmin || isTeacher; // Both can see edit/delete buttons technically, but teacher mostly manages their own
+    const canCreate = isAdmin || isTeacher;
+    const canEdit = isAdmin || isTeacher;
+    const canDelete = isAdmin;
     
     // State
     const [page, setPage] = useState(0);
@@ -55,13 +56,13 @@ export const AssignmentPage = () => {
     };
 
     const handleEditClick = (assignment) => {
-        if (!canManage) return;
+        if (!canEdit) return;
         setEditingAssignment(assignment);
         setIsModalOpen(true);
     };
 
     const handleDeleteClick = async (assignment) => {
-        if (!canManage) return;
+        if (!canDelete) return;
         if (window.confirm(`Are you sure you want to delete "${assignment.title}"?`)) {
             try {
                 await deleteMutation.mutateAsync(assignment._id);
@@ -152,8 +153,8 @@ export const AssignmentPage = () => {
                         assignments={assignments}
                         loading={isLoading}
                         onViewClick={(a) => handleEditClick(a)}
-                        onEditClick={canManage ? handleEditClick : null}
-                        onDeleteClick={canManage ? handleDeleteClick : null}
+                        onEditClick={canEdit ? handleEditClick : null}
+                        onDeleteClick={canDelete ? handleDeleteClick : null}
                         currentPage={page}
                         totalItems={totalItems}
                         onPageChange={setPage}

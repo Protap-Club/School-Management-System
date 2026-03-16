@@ -19,11 +19,11 @@ export const useAssignments = ({ status = "all", standard = "all", section = "al
     });
 };
 
-export const useAssignmentById = (id) => {
+export const useAssignmentById = (id, enabled = true) => {
     return useQuery({
         queryKey: assignmentKeys.detail(id),
         queryFn: () => assignmentApi.getAssignmentById(id),
-        enabled: Boolean(id),
+        enabled: Boolean(id) && enabled,
     });
 };
 
@@ -54,6 +54,17 @@ export const useDeleteAssignment = () => {
         mutationFn: assignmentApi.deleteAssignment,
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: assignmentKeys.all });
+        },
+    });
+};
+
+export const useRemoveAssignmentAttachment = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: assignmentApi.removeAttachment,
+        onSuccess: (_, variables) => {
+            queryClient.invalidateQueries({ queryKey: assignmentKeys.all });
+            queryClient.invalidateQueries({ queryKey: assignmentKeys.detail(variables.id) });
         },
     });
 };

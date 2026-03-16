@@ -1,7 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { FaTimes, FaBook, FaSave, FaPaperclip, FaTrash } from 'react-icons/fa';
 import { useAssignmentOptions } from '../hooks/useAssignmentOptions';
-import { useCreateAssignment, useUpdateAssignment } from '../api/queries';
+import { useAssignmentById, useCreateAssignment, useRemoveAssignmentAttachment, useUpdateAssignment } from '../api/queries';
+import { useAuth } from '../../auth';
+
+const getApiErrorMessage = (err) =>
+    err.response?.data?.error?.message ||
+    err.response?.data?.message ||
+    err.response?.data?.errors?.[0]?.message ||
+    err.message ||
+    'Failed to save assignment';
 
 const InputField = ({ label, name, value, onChange, type = "text", required = false, ...props }) => (
     <div className="space-y-1">
@@ -57,18 +65,24 @@ const INITIAL_FORM = {
     standard: '',
     section: '',
     dueDate: '',
+    requiresSubmission: false,
     status: 'active'
 };
 
 export const AssignmentModal = ({ isOpen, onClose, assignmentToEdit = null }) => {
+    const { user } = useAuth();
+    const isAdmin = user?.role === 'admin';
     const createMutation = useCreateAssignment();
     const updateMutation = useUpdateAssignment();
+    const removeAttachmentMutation = useRemoveAssignmentAttachment();
     const fileInputRef = useRef(null);
 
     const [formData, setFormData] = useState({ ...INITIAL_FORM });
     const [selectedFiles, setSelectedFiles] = useState([]);
+    const [currentAttachments, setCurrentAttachments] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const { data: detailResponse, isLoading: detailLoading } = useAssignmentById(assignmentToEdit?._id, isOpen && Boolean(assignmentToEdit));
 
     const { 
         loading: optionsLoading, 
@@ -79,11 +93,13 @@ export const AssignmentModal = ({ isOpen, onClose, assignmentToEdit = null }) =>
 
     const sections = getSectionsForStandard(formData.standard);
     const subjects = getSubjectsForClass(formData.standard, formData.section);
+    const detailedAssignment = detailResponse?.data;
 
     useEffect(() => {
         if (!isOpen) return;
         setError('');
         setSelectedFiles([]);
+        setCurrentAttachments(assignmentToEdit?.attachments || []);
 
         if (assignmentToEdit) {
             setFormData({
@@ -93,6 +109,7 @@ export const AssignmentModal = ({ isOpen, onClose, assignmentToEdit = null }) =>
                 standard: assignmentToEdit.standard || '',
                 section: assignmentToEdit.section || '',
                 dueDate: assignmentToEdit.dueDate ? new Date(assignmentToEdit.dueDate).toISOString().split('T')[0] : '',
+                requiresSubmission: Boolean(assignmentToEdit.requiresSubmission),
                 status: assignmentToEdit.status || 'active'
             });
         } else {
@@ -100,12 +117,17 @@ export const AssignmentModal = ({ isOpen, onClose, assignmentToEdit = null }) =>
         }
     }, [isOpen, assignmentToEdit]);
 
+    useEffect(() => {
+        if (!detailedAssignment?.attachments) return;
+        setCurrentAttachments(detailedAssignment.attachments);
+    }, [detailedAssignment]);
+
     if (!isOpen) return null;
 
     const handleChange = (e) => {
-        const { name, value } = e.target;
+        const { name, value, type, checked } = e.target;
         setFormData(prev => {
-            const next = { ...prev, [name]: value };
+            const next = { ...prev, [name]: type === 'checkbox' ? checked : value };
             // Clear downstream selections if standard/section change
             if (name === 'standard') {
                 next.section = '';
@@ -125,6 +147,17 @@ export const AssignmentModal = ({ isOpen, onClose, assignmentToEdit = null }) =>
 
     const removeFile = (index) => {
         setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+    };
+
+    const handleRemoveExistingAttachment = async (publicId) => {
+        if (!assignmentToEdit?._id) return;
+
+        try {
+            await removeAttachmentMutation.mutateAsync({ id: assignmentToEdit._id, publicId });
+            setCurrentAttachments(prev => prev.filter(file => file.publicId !== publicId));
+        } catch (err) {
+            setError(getApiErrorMessage(err));
+        }
     };
 
     const handleSubmit = async (e) => {
@@ -149,13 +182,14 @@ export const AssignmentModal = ({ isOpen, onClose, assignmentToEdit = null }) =>
             }
             onClose();
         } catch (err) {
-            setError(err.response?.data?.message || err.response?.data?.errors?.[0]?.message || 'Failed to save assignment');
+            setError(getApiErrorMessage(err));
         } finally {
             setLoading(false);
         }
     };
 
     const isEditing = !!assignmentToEdit;
+    const canEditClassification = !isEditing || isAdmin;
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
@@ -208,6 +242,7 @@ export const AssignmentModal = ({ isOpen, onClose, assignmentToEdit = null }) =>
                                     }))} 
                                     placeholder="Select Class"
                                     loading={optionsLoading}
+                                    disabled={!canEditClassification}
                                 />
                                 <SelectField
                                     label="Section" name="section" value={formData.section}
@@ -215,7 +250,7 @@ export const AssignmentModal = ({ isOpen, onClose, assignmentToEdit = null }) =>
                                     options={sections.map(s => ({ label: `Section ${s}`, value: s }))} 
                                     placeholder="Choose Section"
                                     loading={optionsLoading}
-                                    disabled={!formData.standard}
+                                    disabled={!formData.standard || !canEditClassification}
                                 />
                                 <SelectField
                                     label="Subject" name="subject" value={formData.subject}
@@ -223,9 +258,25 @@ export const AssignmentModal = ({ isOpen, onClose, assignmentToEdit = null }) =>
                                     options={subjects.map(s => ({ label: s, value: s }))} 
                                     placeholder="Select Subject"
                                     loading={optionsLoading}
-                                    disabled={!formData.section}
+                                    disabled={!formData.section || !canEditClassification}
                                 />
                             </div>
+                        </div>
+
+                        <div className="rounded-xl border border-indigo-100 bg-indigo-50/50 px-4 py-3">
+                            <label className="flex items-start gap-3 cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    name="requiresSubmission"
+                                    checked={formData.requiresSubmission}
+                                    onChange={handleChange}
+                                    className="mt-1 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                />
+                                <div>
+                                    <p className="text-sm font-semibold text-gray-800">Require student submission</p>
+                                    <p className="text-xs text-gray-500">Turn this on when students must upload a PDF or JPG/JPEG file.</p>
+                                </div>
+                            </label>
                         </div>
 
                         {/* Attachments */}
@@ -242,16 +293,42 @@ export const AssignmentModal = ({ isOpen, onClose, assignmentToEdit = null }) =>
                                         <FaPaperclip size={20} />
                                     </div>
                                     <p className="text-sm font-medium text-gray-600">Click to upload documents</p>
-                                    <p className="text-[10px] text-gray-400">PDF, Word, or Images up to 10MB (Max 5 files)</p>
+                                    <p className="text-[10px] text-gray-400">Attach any supporting files up to 10MB each (Max 5 files)</p>
                                     <input 
                                         type="file" 
                                         ref={fileInputRef}
                                         onChange={handleFileChange} 
                                         multiple 
                                         className="hidden" 
-                                        accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
                                     />
                                 </div>
+
+                                {isEditing && currentAttachments.length > 0 && (
+                                    <div className="space-y-2">
+                                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Existing attachments</p>
+                                        {currentAttachments.map((file) => (
+                                            <div key={file.publicId} className="flex items-center justify-between p-3 bg-white border border-gray-100 rounded-lg shadow-sm">
+                                                <div className="flex items-center gap-3 min-w-0">
+                                                    <div className="p-2 bg-indigo-50 text-indigo-600 rounded">
+                                                        <FaBook size={12} />
+                                                    </div>
+                                                    <div className="min-w-0">
+                                                        <p className="text-sm font-medium text-gray-700 truncate">{file.originalName || file.name}</p>
+                                                        <p className="text-[10px] text-gray-400 uppercase">{file.fileType || 'file'}</p>
+                                                    </div>
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleRemoveExistingAttachment(file.publicId)}
+                                                    disabled={removeAttachmentMutation.isPending}
+                                                    className="text-gray-400 hover:text-red-500 transition-colors p-1 disabled:opacity-50"
+                                                >
+                                                    <FaTrash size={12} />
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
 
                                 {selectedFiles.length > 0 && (
                                     <div className="grid grid-cols-1 gap-2">
@@ -293,6 +370,71 @@ export const AssignmentModal = ({ isOpen, onClose, assignmentToEdit = null }) =>
                                 )}
                             </div>
                         </div>
+
+                        {isEditing && (
+                            <div className="space-y-4 pt-2">
+                                <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider flex items-center gap-2">
+                                    Submission Snapshot
+                                </h4>
+                                {detailLoading ? (
+                                    <div className="rounded-xl border border-gray-100 bg-white px-4 py-4 text-sm text-gray-500">
+                                        Loading submission details...
+                                    </div>
+                                ) : (
+                                    <div className="space-y-3">
+                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                            <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3">
+                                                <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-600">Required</p>
+                                                <p className="mt-1 text-sm font-semibold text-emerald-900">
+                                                    {formData.requiresSubmission ? 'Yes' : 'No'}
+                                                </p>
+                                            </div>
+                                            <div className="rounded-xl border border-indigo-100 bg-indigo-50 px-4 py-3">
+                                                <p className="text-[10px] font-bold uppercase tracking-wide text-indigo-600">Submissions</p>
+                                                <p className="mt-1 text-sm font-semibold text-indigo-900">
+                                                    {detailedAssignment?.submissions?.length || 0}
+                                                </p>
+                                            </div>
+                                            <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                                                <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Status</p>
+                                                <p className="mt-1 text-sm font-semibold text-slate-900 capitalize">
+                                                    {formData.status}
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        {detailedAssignment?.submissions?.length > 0 ? (
+                                            <div className="space-y-2">
+                                                {detailedAssignment.submissions.map((submission) => (
+                                                    <div key={submission._id} className="rounded-xl border border-gray-100 bg-white px-4 py-3 shadow-sm">
+                                                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                                                            <div>
+                                                                <p className="text-sm font-semibold text-gray-800">{submission.student?.name || 'Student'}</p>
+                                                                <p className="text-xs text-gray-500">{submission.student?.email || 'No email available'}</p>
+                                                            </div>
+                                                            <p className="text-xs text-gray-400">
+                                                                {submission.submittedAt ? new Date(submission.submittedAt).toLocaleString() : 'Submitted'}
+                                                            </p>
+                                                        </div>
+                                                        <div className="mt-2 flex flex-wrap gap-2">
+                                                            {(submission.files || []).map((file, index) => (
+                                                                <span key={`${submission._id}-${index}`} className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-600">
+                                                                    {file.originalName || file.name}
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <div className="rounded-xl border border-dashed border-gray-200 bg-white px-4 py-4 text-sm text-gray-500">
+                                                No student submissions yet.
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        )}
                     </form>
                 </div>
 

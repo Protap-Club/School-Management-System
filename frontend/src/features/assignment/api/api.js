@@ -41,6 +41,10 @@ export const assignmentApi = {
         const response = await api.delete(`/assignments/${id}`);
         return response.data;
     },
+    removeAttachment: async ({ id, publicId }) => {
+        const response = await api.delete(`/assignments/${id}/attachments/${encodeURIComponent(publicId)}`);
+        return response.data;
+    },
     getMetadata: async () => {
         const response = await api.get("/assignments/meta/metadata");
         return response.data;
