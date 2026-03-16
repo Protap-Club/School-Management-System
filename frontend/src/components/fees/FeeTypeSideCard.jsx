@@ -33,7 +33,7 @@ const FeeTypeSideCard = ({ onClose, onSuccess }) => {
     };
 
     return (
-        <div className="bg-white rounded-2xl shadow-xl border border-gray-100 w-80 animate-in slide-in-from-right duration-300">
+        <div className="bg-white rounded-2xl shadow-xl border border-gray-100 w-80">
             <div className="p-6 border-b border-gray-50 flex items-center justify-between">
                 <div>
                     <h3 className="text-lg font-bold text-gray-800">New Fee Type</h3>

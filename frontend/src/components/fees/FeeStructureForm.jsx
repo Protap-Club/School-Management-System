@@ -168,8 +168,9 @@ const FeeStructureForm = ({ onCancel, onSubmit, editData, isLoading }) => {
         `w-full px-3 py-1.5 border rounded-lg text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all ${errors[field] ? 'border-red-300 bg-red-50' : 'border-gray-200 bg-gray-50/10'}`;
 
     return (
-        <div className="flex items-start gap-6 max-w-6xl mx-auto">
-            <div className={`bg-white rounded-3xl shadow-xl shadow-gray-200/50 border border-gray-100 overflow-hidden transition-all duration-500 ${showSideCard ? 'w-[700px]' : 'w-full max-w-2xl mx-auto'}`}>
+        <div className="max-w-6xl mx-auto px-4">
+            <div className={`relative w-full max-w-2xl mx-auto transition-transform duration-500 ease-in-out ${showSideCard ? '-translate-x-40 lg:-translate-x-48' : 'translate-x-0'}`}>
+                <div className="bg-white rounded-3xl shadow-xl shadow-gray-200/50 border border-gray-100 overflow-hidden">
             <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
                 <div className="flex items-center gap-2">
                     <button onClick={onCancel} className="p-1.5 hover:bg-white rounded-lg transition-colors text-gray-400 hover:text-gray-900 border border-transparent hover:border-gray-100">
@@ -316,7 +317,18 @@ const FeeStructureForm = ({ onCancel, onSubmit, editData, isLoading }) => {
             </div>
 
             {showSideCard && (
-                <div className="mt-20">
+                <div className="absolute top-0 left-full ml-8 z-20 hidden lg:block">
+                    <FeeTypeSideCard 
+                        onClose={() => setShowSideCard(false)} 
+                        onSuccess={(newType) => {
+                            handleChange('feeType', newType);
+                        }}
+                    />
+                </div>
+            )}
+            {/* Fallback for smaller screens to ensure it's still visible */}
+            {showSideCard && (
+                <div className="lg:hidden fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
                     <FeeTypeSideCard 
                         onClose={() => setShowSideCard(false)} 
                         onSuccess={(newType) => {
@@ -326,6 +338,7 @@ const FeeStructureForm = ({ onCancel, onSubmit, editData, isLoading }) => {
                 </div>
             )}
         </div>
+    </div>
     );
 };
 
