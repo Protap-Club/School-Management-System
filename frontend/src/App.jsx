@@ -104,6 +104,16 @@ function App() {
                             </ProtectedRoute>
                         }
                     />
+                    <Route
+                        path="/superadmin/examination"
+                        element={
+                            <ProtectedRoute allowedRoles={['super_admin']}>
+                                <RequireFeature feature="examination">
+                                    <Examination />
+                                </RequireFeature>
+                            </ProtectedRoute>
+                        }
+                    />
 
                     {/* Admin Routes */}
                     <Route

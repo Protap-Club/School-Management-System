@@ -37,7 +37,7 @@ const SelectField = ({ label, name, value, onChange, options, placeholder, requi
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all bg-white disabled:opacity-60"
             disabled={loading}
         >
-            <option value="" disabled selected hidden>{loading ? 'Loading...' : `Select ${label}`}</option>
+            <option value="" disabled hidden>{loading ? 'Loading...' : `Select ${label}`}</option>
             {options.map(opt => (
                 <option key={opt} value={opt}>{opt}</option>
             ))}

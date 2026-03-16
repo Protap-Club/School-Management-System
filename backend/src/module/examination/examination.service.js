@@ -32,40 +32,53 @@ const assertTeacherClassAccess = async (userId, schoolId, standard, section) => 
 // ═══════════════════════════════════════════════════════════════
 
 export const createExam = async (schoolId, data, user) => {
+    // Use schoolId from data if not provided (for Super Admin)
+    const activeSchoolId = schoolId || data.schoolId;
+
+    if (!activeSchoolId) {
+        throw new BadRequestError("School ID is required");
+    }
+
     // Role-based exam type enforcement
     if (user.role === USER_ROLES.TEACHER) {
         if (data.examType !== "CLASS_TEST") {
             throw new ForbiddenError("Teachers can only create CLASS_TEST exams");
         }
-        await assertTeacherClassAccess(user._id, schoolId, data.standard, data.section);
+        await assertTeacherClassAccess(user._id, activeSchoolId, data.standard, data.section);
     } else if (user.role === USER_ROLES.ADMIN) {
         if (data.examType !== "TERM_EXAM") {
             throw new ForbiddenError("Admins should create TERM_EXAM exams");
         }
     }
+    // SUPER_ADMIN has no restrictions on examType
 
-    // Check for duplicate
-    const exists = await Exam.exists({
-        schoolId,
+    // Check for duplicate (Only conflict with DRAFT or PUBLISHED exams with same name)
+    const activeConflict = await Exam.findOne({
+        schoolId: activeSchoolId,
         name: data.name,
         academicYear: data.academicYear,
         standard: data.standard,
         section: data.section,
         examType: data.examType,
-    });
-
-    if (exists) {
+        status: { $in: ["DRAFT", "PUBLISHED"] },
+        isActive: true,
+    }).lean();
+    
+    if (activeConflict) {
         throw new ConflictError(
-            `Exam "${data.name}" already exists for ${data.standard}-${data.section} (${data.academicYear})`
+            `An active exam "${data.name}" already exists for ${data.standard}-${data.section}. Please complete or cancel it before creating another with the same name.`
         );
     }
 
-    const exam = await Exam.create({
-        schoolId,
+    // Prepare create data
+    const createData = {
         ...data,
+        schoolId: activeSchoolId,
         createdBy: user._id,
         createdByRole: user.role,
-    });
+    };
+
+    const exam = await Exam.create(createData);
 
     logger.info(
         `Exam created: ${exam._id} (${exam.examType}: "${exam.name}" for ${exam.standard}-${exam.section})`
@@ -78,7 +91,13 @@ export const createExam = async (schoolId, data, user) => {
 // ═══════════════════════════════════════════════════════════════
 
 export const getExams = async (schoolId, filters = {}, user) => {
-    const query = { schoolId, isActive: true };
+    const query = { isActive: true };
+    if (schoolId) query.schoolId = schoolId;
+
+    // Super Admin can filter by schoolId from params if not in context
+    if (user.role === USER_ROLES.SUPER_ADMIN && !schoolId && filters.schoolId) {
+        query.schoolId = filters.schoolId;
+    }
 
     // Role-based filtering
     if (user.role === USER_ROLES.TEACHER) {
@@ -115,7 +134,10 @@ export const getExams = async (schoolId, filters = {}, user) => {
 // ═══════════════════════════════════════════════════════════════
 
 export const getExamById = async (schoolId, examId, user) => {
-    const exam = await Exam.findOne({ _id: examId, schoolId, isActive: true })
+    const query = { _id: examId, isActive: true };
+    if (schoolId) query.schoolId = schoolId;
+
+    const exam = await Exam.findOne(query)
         .populate("createdBy", "name email")
         .populate("schedule.assignedTeacher", "name email")
         .lean();
@@ -130,6 +152,7 @@ export const getExamById = async (schoolId, examId, user) => {
         );
         if (!hasAccess) throw new ForbiddenError("You don't have access to this exam");
     }
+    // ADMIN and SUPER_ADMIN have full access
 
 
     return exam;
@@ -149,15 +172,12 @@ export const updateExam = async (schoolId, examId, data, user) => {
             throw new ForbiddenError("You can only update your own class tests");
         }
         await assertTeacherClassAccess(user._id, schoolId, exam.standard, exam.section);
-    } else if (user.role === USER_ROLES.ADMIN) {
-        if (exam.examType !== "TERM_EXAM") {
-            throw new ForbiddenError("Admins can only update term exams");
-        }
     }
+    // Admins and Super Admins can update any exam (term or class test)
 
-    // Can only update DRAFT or PUBLISHED exams
-    if (["COMPLETED", "CANCELLED"].includes(exam.status)) {
-        throw new BadRequestError(`Cannot update a ${exam.status.toLowerCase()} exam`);
+    // Can only update DRAFT or PUBLISHED exams (Teachers only restricted for CANCELLED)
+    if (user.role === USER_ROLES.TEACHER && exam.status === "CANCELLED") {
+        throw new BadRequestError(`Cannot update a cancelled exam`);
     }
 
     // Apply safe updates (don't allow changing examType, standard, section, academicYear)
@@ -167,6 +187,7 @@ export const updateExam = async (schoolId, examId, data, user) => {
         exam.categoryDescription = data.categoryDescription;
     if (data.description !== undefined) exam.description = data.description;
     if (data.schedule !== undefined) exam.schedule = data.schedule;
+    if (data.status !== undefined) exam.status = data.status;
 
     await exam.save();
     logger.info(`Exam updated: ${examId}`);
@@ -186,10 +207,6 @@ export const deleteExam = async (schoolId, examId, user) => {
         if (exam.examType !== "CLASS_TEST" || String(exam.createdBy) !== String(user._id)) {
             throw new ForbiddenError("You can only delete your own class tests");
         }
-    }
-
-    if (exam.status !== "DRAFT") {
-        throw new BadRequestError("Only DRAFT exams can be deleted. Cancel it instead.");
     }
 
     exam.isActive = false;
@@ -215,11 +232,8 @@ export const updateStatus = async (schoolId, examId, newStatus, user) => {
         if (exam.examType !== "CLASS_TEST" || String(exam.createdBy) !== String(user._id)) {
             throw new ForbiddenError("You can only change status of your own class tests");
         }
-    } else if (user.role === USER_ROLES.ADMIN) {
-        if (exam.examType !== "TERM_EXAM") {
-            throw new ForbiddenError("Admins can only change status of term exams");
-        }
     }
+    // Admins and Super Admins can change status of any exam
 
     const allowed = VALID_TRANSITIONS[exam.status];
     if (!allowed || !allowed.includes(newStatus)) {
