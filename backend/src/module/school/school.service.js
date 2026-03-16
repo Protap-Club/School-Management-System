@@ -129,16 +129,28 @@ export const hasFeature = async (schoolId, featureKey) => {
 
 // Gets unique standards, sections, subjects and rooms for a school
 export const getSchoolClasses = async (schoolId) => {
-    const [standards, sections, subjects, rooms] = await Promise.all([
+    const [standards, sections, subjects, rooms, classPairs] = await Promise.all([
         StudentProfile.distinct("standard", { schoolId }),
         StudentProfile.distinct("section", { schoolId }),
         TimetableEntry.distinct("subject", { schoolId }),
-        TimetableEntry.distinct("roomNumber", { schoolId })
+        TimetableEntry.distinct("roomNumber", { schoolId }),
+        StudentProfile.find({ schoolId }).select("standard section").lean()
     ]);
+
+    const classKeySet = new Set();
+    const classSections = [];
+    for (const pair of classPairs) {
+        const key = `${pair.standard}-${pair.section}`;
+        if (!classKeySet.has(key)) {
+            classKeySet.add(key);
+            classSections.push({ standard: pair.standard, section: pair.section });
+        }
+    }
 
     return {
         standards: standards.sort(),
         sections: sections.sort(),
+        classSections,
         subjects: subjects.filter(Boolean).sort(),
         rooms: rooms.filter(Boolean).sort()
     };

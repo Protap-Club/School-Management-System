@@ -19,6 +19,8 @@ const seedCalendar = async () => {
     ...event,
     start: new Date(event.start),
     end: new Date(event.end),
+    targetAudience: "all",
+    targetClasses: [],
     schoolId: school._id,
     createdBy: admin?._id || null,
   }));
