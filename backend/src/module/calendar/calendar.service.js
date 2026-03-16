@@ -20,6 +20,31 @@ const enforceTeacherScope = async (user, targetClasses) => {
     }
 };
 
+const validateTargetClasses = async (schoolId, targetClasses = []) => {
+    if (!Array.isArray(targetClasses) || targetClasses.length === 0) return;
+
+    const classFilters = targetClasses.map((cls) => {
+        const [standard, section] = String(cls).split("-");
+        return { schoolId, standard, section };
+    });
+
+    const hasInvalidFormat = classFilters.some(c => !c.standard || !c.section);
+    if (hasInvalidFormat) {
+        throw new BadRequestError("Invalid class format. Use '<standard>-<section>' (e.g., '10-A').");
+    }
+
+    const existing = await StudentProfile.find({ $or: classFilters })
+        .select("standard section")
+        .lean();
+
+    const validKeys = new Set(existing.map(c => `${c.standard}-${c.section}`));
+    const invalid = targetClasses.filter(c => !validKeys.has(c));
+
+    if (invalid.length) {
+        throw new BadRequestError(`Invalid class/section: ${invalid.join(", ")}`);
+    }
+};
+
 // Create a new calendar event
 export const createCalendarEvent = async (eventData, user) => {
     const { title, start, end, allDay, type, description, targetAudience, targetClasses } = eventData;
@@ -30,6 +55,9 @@ export const createCalendarEvent = async (eventData, user) => {
             throw new ForbiddenError("Teachers cannot create school-wide events");
         }
         await enforceTeacherScope(user, targetClasses);
+    }
+    if (targetAudience === 'classes') {
+        await validateTargetClasses(schoolId, targetClasses);
     }
 
     // Edge Case: Check if an exact duplicate event already exists to prevent spam
@@ -85,6 +113,8 @@ export const fetchCalendarEvents = async (queryData, user) => {
             query.$and = [{
                 $or: [
                     { targetAudience: 'all' },
+                    { targetAudience: { $exists: false } },
+                    { targetAudience: null },
                     { targetClasses: classKey }
                 ]
             }];
@@ -105,6 +135,8 @@ export const fetchCalendarEvents = async (queryData, user) => {
         query.$and = [{
             $or: [
                 { targetAudience: 'all' },
+                { targetAudience: { $exists: false } },
+                { targetAudience: null },
                 ...(classStrings.length ? [{ targetClasses: { $in: classStrings } }] : [])
             ]
         }];
@@ -198,6 +230,11 @@ export const updateCalendarEvent = async (id, updateData, user) => {
         if (updateData.targetClasses) {
             await enforceTeacherScope(user, updateData.targetClasses);
         }
+    }
+    const nextAudience = updateData.targetAudience ?? event.targetAudience;
+    const nextClasses = updateData.targetClasses ?? event.targetClasses ?? [];
+    if (nextAudience === 'classes') {
+        await validateTargetClasses(event.schoolId, nextClasses);
     }
 
     // Merge new dates with existing ones to validate range correctly

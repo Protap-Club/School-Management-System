@@ -68,7 +68,7 @@ export const getUsers = async (creator, filters = {}) => {
 
     // 1. INPUT VALIDATION & SANITIZATION
     const page = Math.max(0, filters.page || 0);
-    const maxPageSize = creator.role === USER_ROLES.TEACHER ? 5000 : 100;
+    const maxPageSize = [USER_ROLES.TEACHER, USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN].includes(creator.role) ? 5000 : 100;
     const pageSize = Math.min(maxPageSize, Math.max(1, filters.pageSize || 25));
     const { page: _, pageSize: __, ...queryFilters } = filters;
 
