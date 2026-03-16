@@ -1,9 +1,9 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import { useAssignments, useDeleteAssignment } from './api/queries';
 import { AssignmentFilters } from './components/AssignmentFilters';
 import { AssignmentTable } from './components/AssignmentTable';
 import { AssignmentModal } from './components/AssignmentModal';
-import { FaBook } from 'react-icons/fa';
+import { FaBook, FaPlus } from 'react-icons/fa';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import { useAuth } from '../auth';
 import useDebounce from '../../hooks/useDebounce';
@@ -19,7 +19,7 @@ export const AssignmentPage = () => {
     const [page, setPage] = useState(0);
     const [pageSize] = useState(25);
     const [searchQuery, setSearchQuery] = useState('');
-    const debouncedSearch = useDebounce(searchQuery, 500);
+    const debouncedSearch = useDebounce(searchQuery, 300);
     
     // Filters
     const [standardFilter, setStandardFilter] = useState('all');
@@ -37,6 +37,7 @@ export const AssignmentPage = () => {
         section: sectionFilter === 'all' ? undefined : sectionFilter,
         subject: subjectFilter === 'all' ? undefined : subjectFilter,
         status: statusFilter,
+        search: debouncedSearch,
         page,
         pageSize
     };
@@ -44,16 +45,8 @@ export const AssignmentPage = () => {
     const { data: response, isLoading } = useAssignments(queryParams);
     const deleteMutation = useDeleteAssignment();
 
-    let assignments = response?.data?.assignments || [];
+    const assignments = response?.data?.assignments || [];
     const totalItems = response?.data?.pagination?.total || 0;
-
-    if (debouncedSearch) {
-        const lowerQuery = debouncedSearch.toLowerCase();
-        assignments = assignments.filter(a => 
-            a.title?.toLowerCase().includes(lowerQuery) || 
-            a.subject?.toLowerCase().includes(lowerQuery)
-        );
-    }
 
     // Handlers
     const handleAddClick = () => {
@@ -76,6 +69,11 @@ export const AssignmentPage = () => {
                 console.error('Failed to delete assignment:', error);
             }
         }
+    };
+
+    const handleSearchChange = (value) => {
+        setSearchQuery(value);
+        setPage(0);
     };
 
     return (
@@ -109,7 +107,7 @@ export const AssignmentPage = () => {
                 <div className="flex items-center gap-2 p-1 bg-gray-100/80 rounded-xl w-fit">
                     {[
                         { id: 'active', label: 'Active Assignments', count: statusFilter === 'active' ? totalItems : null },
-                        { id: 'closed', label: 'Archive / Closed', count: statusFilter === 'closed' ? totalItems : null }
+                        { id: 'closed', label: 'Closed', count: statusFilter === 'closed' ? totalItems : null }
                     ].map(tab => (
                         <button
                             key={tab.id}
@@ -134,7 +132,7 @@ export const AssignmentPage = () => {
                     {/* Filters & Search */}
                     <AssignmentFilters 
                         searchQuery={searchQuery}
-                        onSearchChange={setSearchQuery}
+                        onSearchChange={handleSearchChange}
                         standardFilter={standardFilter}
                         onStandardChange={(val) => { setStandardFilter(val); setSectionFilter('all'); setSubjectFilter('all'); setPage(0); }}
                         sectionFilter={sectionFilter}

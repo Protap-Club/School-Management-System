@@ -18,6 +18,8 @@ const mapFiles = (files = []) =>
         name: f.originalname,
     }));
 
+const escapeRegExp = (value = "") => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
 // Resolves the teacher's assigned classes (standards + sections) from both Profile and Timetable
 const getTeacherClasses = async (schoolId, userId) => {
     // Source 1: Teacher Profile (Primary assignments)
@@ -163,6 +165,24 @@ export const listAssignments = async (schoolId, userId, role, platform, query = 
     // Common optional filters for non-students
     if (role !== USER_ROLES.STUDENT) {
         if (query.status && query.status !== "all") filter.status = query.status;
+    }
+
+    if (query.subject && query.subject !== "all") {
+        filter.subject = query.subject;
+    }
+
+    if (query.search?.trim()) {
+        const searchRegex = new RegExp(escapeRegExp(query.search.trim()), "i");
+        filter.$and = [
+            ...(filter.$and || []),
+            {
+                $or: [
+                    { title: searchRegex },
+                    { subject: searchRegex },
+                    { description: searchRegex },
+                ],
+            },
+        ];
     }
 
     const page = parseInt(query.page) || 0;
@@ -449,42 +469,84 @@ export const getAssignmentMetadata = async (schoolId, userRole, userId) => {
 
     let entries = [];
     let allTimetablesForAdmin = [];
+    let profileClasses = [];
+    let assignments = [];
 
     const { Timetable, TimetableEntry } = await import("../timetable/Timetable.model.js");
 
     if (isTeacher) {
-        entries = await TimetableEntry.find({ schoolId, teacherId: userId })
-            .populate({
-                path: 'timetableId',
-                select: 'standard section'
-            })
+        const teacherClasses = await getTeacherClasses(schoolId, userId);
+        const teacherClassFilter = teacherClasses.map(({ standard, section }) => ({ standard, section }));
+        const profile = await TeacherProfile.findOne({ schoolId, userId })
+            .select("assignedClasses")
             .lean();
-    } else {
-        // Admin: Get all scheduled entries (for subjects) AND all timetables (for full class list)
-        const [foundEntries, foundTimetables] = await Promise.all([
-            TimetableEntry.find({ schoolId })
+
+        profileClasses = profile?.assignedClasses || [];
+
+        const [foundEntries, foundAssignments] = await Promise.all([
+            TimetableEntry.find({ schoolId, teacherId: userId })
                 .populate({
-                    path: 'timetableId',
-                    select: 'standard section'
+                    path: "timetableId",
+                    select: "standard section",
                 })
                 .lean(),
-            Timetable.find({ schoolId }).lean()
+            Assignment.find({ schoolId, $or: teacherClassFilter })
+                .select("standard section subject")
+                .lean(),
+        ]);
+
+        entries = foundEntries;
+        assignments = foundAssignments;
+    } else {
+        // Admin: Get all scheduled entries (for subjects) AND all timetables (for full class list)
+        const [foundEntries, foundTimetables, foundAssignments] = await Promise.all([
+            TimetableEntry.find({ schoolId })
+                .populate({
+                    path: "timetableId",
+                    select: "standard section",
+                })
+                .lean(),
+            Timetable.find({ schoolId }).lean(),
+            Assignment.find({ schoolId })
+                .select("standard section subject")
+                .lean(),
         ]);
         entries = foundEntries;
         allTimetablesForAdmin = foundTimetables;
+        assignments = foundAssignments;
     }
-
-    // Also fetch any existing subjects from assignments to ensure filter is populated for older data
-    const existingSubjects = await Assignment.find({ schoolId }).distinct('subject');
 
     // Structured Metadata Building
     const standards = new Set();
     const sections = new Set();
-    const subjects = new Set(existingSubjects);
+    const subjects = new Set();
     const mappings = {
         classSections: {}, // { "10": ["A", "B"] }
         sectionSubjects: {} // { "10-A": ["Math"], "10-B": ["Science"] }
     };
+
+    profileClasses.forEach(({ standard, section, subjects: profileSubjects = [] }) => {
+        if (!standard || !section) return;
+
+        standards.add(standard);
+        sections.add(section);
+
+        if (!mappings.classSections[standard]) {
+            mappings.classSections[standard] = new Set();
+        }
+        mappings.classSections[standard].add(section);
+
+        const key = `${standard}-${section}`;
+        if (!mappings.sectionSubjects[key]) {
+            mappings.sectionSubjects[key] = new Set();
+        }
+
+        profileSubjects.forEach((subject) => {
+            if (!subject) return;
+            subjects.add(subject);
+            mappings.sectionSubjects[key].add(subject);
+        });
+    });
 
     // For Admins, ensure all Classes/Sections are represented even if they have no periods assigned
     if (!isTeacher) {
@@ -525,6 +587,28 @@ export const getAssignmentMetadata = async (schoolId, userRole, userId) => {
             mappings.sectionSubjects[key] = new Set();
         }
         if (sub) mappings.sectionSubjects[key].add(sub);
+    });
+
+    assignments.forEach(({ standard, section, subject }) => {
+        if (!standard || !section) return;
+
+        standards.add(standard);
+        sections.add(section);
+
+        if (!mappings.classSections[standard]) {
+            mappings.classSections[standard] = new Set();
+        }
+        mappings.classSections[standard].add(section);
+
+        const key = `${standard}-${section}`;
+        if (!mappings.sectionSubjects[key]) {
+            mappings.sectionSubjects[key] = new Set();
+        }
+
+        if (subject) {
+            subjects.add(subject);
+            mappings.sectionSubjects[key].add(subject);
+        }
     });
 
     // Convert Sets to sorted Arrays

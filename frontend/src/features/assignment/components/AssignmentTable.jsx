@@ -182,28 +182,34 @@ export const AssignmentTable = ({
                                         </Badge>
                                     </TableCell>
                                     <TableCell className="px-5 py-4 text-right">
-                                        <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <button
-                                                onClick={(e) => { e.stopPropagation(); onViewClick(assignment); }}
-                                                className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all shadow-sm"
-                                                title="View Details"
-                                            >
-                                                <FaEye size={14} />
-                                            </button>
-                                            <button
-                                                onClick={(e) => { e.stopPropagation(); onEditClick(assignment); }}
-                                                className="p-2 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-all shadow-sm"
-                                                title="Edit Assignment"
-                                            >
-                                                <FaEdit size={14} />
-                                            </button>
-                                            <button
-                                                onClick={(e) => { e.stopPropagation(); onDeleteClick(assignment); }}
-                                                className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all shadow-sm"
-                                                title="Delete Assignment"
-                                            >
-                                                <FaTrash size={14} />
-                                            </button>
+                                        <div className="flex items-center justify-end gap-1">
+                                            {onViewClick && (
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); onViewClick(assignment); }}
+                                                    className="p-2 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all shadow-sm"
+                                                    title="View Details"
+                                                >
+                                                    <FaEye size={14} />
+                                                </button>
+                                            )}
+                                            {onEditClick && (
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); onEditClick(assignment); }}
+                                                    className="p-2 text-gray-500 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-all shadow-sm"
+                                                    title="Edit Assignment"
+                                                >
+                                                    <FaEdit size={14} />
+                                                </button>
+                                            )}
+                                            {onDeleteClick && (
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); onDeleteClick(assignment); }}
+                                                    className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all shadow-sm"
+                                                    title="Delete Assignment"
+                                                >
+                                                    <FaTrash size={14} />
+                                                </button>
+                                            )}
                                         </div>
                                     </TableCell>
                                 </TableRow>

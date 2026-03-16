@@ -9,11 +9,11 @@ export const assignmentKeys = {
     metadata: () => [...assignmentKeys.all, "metadata"],
 };
 
-export const useAssignments = ({ status = "all", standard = "all", section = "all", subject = "all", page = 0, pageSize = 25 } = {}) => {
+export const useAssignments = ({ status = "all", standard = "all", section = "all", subject = "all", search = "", page = 0, pageSize = 25 } = {}) => {
     return useQuery({
-        queryKey: assignmentKeys.list({ status, standard, section, subject, page, pageSize }),
+        queryKey: assignmentKeys.list({ status, standard, section, subject, search, page, pageSize }),
         queryFn: async () => {
-            const response = await assignmentApi.getAssignments({ status, standard, section, subject, page, pageSize });
+            const response = await assignmentApi.getAssignments({ status, standard, section, subject, search, page, pageSize });
             return response;
         },
     });

@@ -1,7 +1,7 @@
 import api from "../../../lib/axios";
 
 export const assignmentApi = {
-    getAssignments: async ({ status, standard, section, subject, page = 0, pageSize = 25 } = {}) => {
+    getAssignments: async ({ status, standard, section, subject, search, page = 0, pageSize = 25 } = {}) => {
         const params = new URLSearchParams({
             page: String(page),
             pageSize: String(pageSize),
@@ -11,6 +11,7 @@ export const assignmentApi = {
         if (standard && standard !== "all") params.append("standard", standard);
         if (section && section !== "all") params.append("section", section);
         if (subject && subject !== "all") params.append("subject", subject);
+        if (search?.trim()) params.append("search", search.trim());
 
         const response = await api.get(`/assignments?${params.toString()}`);
         return response.data;
