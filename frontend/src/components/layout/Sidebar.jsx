@@ -138,8 +138,8 @@ const Sidebar = () => {
                     teacherLinks.push({ path: '/teacher/examination', label: 'Examination', icon: <FaGraduationCap /> });
                 }
 
-                // Settings always last
-                teacherLinks.push({ path: '/teacher/settings', label: 'Settings', icon: <FaCog /> });
+                // Removed settings for teachers as requested
+                // teacherLinks.push({ path: '/teacher/settings', label: 'Settings', icon: <FaCog /> });
 
                 return teacherLinks;
             default:

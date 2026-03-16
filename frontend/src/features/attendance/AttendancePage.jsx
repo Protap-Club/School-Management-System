@@ -88,7 +88,7 @@ const AttendancePage = () => {
 
     // Queries & Mutations
     const { data: studentsRes, isLoading: studentsLoading } = useStudents();
-    const { data: teachersRes, isLoading: teachersLoading } = useTeachers();
+    const { data: teachersRes, isLoading: teachersLoading } = useTeachers(isAdmin);
     const { data: attendanceRes, isLoading: attendanceLoading } = useTodayAttendance();
     const manualMutation = useMarkManualAttendance();
 
