@@ -65,3 +65,15 @@ export const getEventsQuerySchema = z.object({
         limit: z.union([z.string(), z.number()]).optional().transform(val => val ? Number(val) : undefined),
     }).optional(),
 });
+
+// Delete By Date query
+export const deleteByDateSchema = z.object({
+    params: z.object({
+        date: z.string({ required_error: "Date is required" }).refine(val => !isNaN(Date.parse(val)), {
+            message: "Invalid date format. Use YYYY-MM-DD.",
+        }),
+    }),
+    query: z.object({
+        eventId: objectIdSchema.optional(),
+    }).optional(),
+});

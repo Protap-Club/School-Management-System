@@ -2,12 +2,35 @@ import { CalendarEvent } from "./calendar.model.js";
 import StudentProfile from "../user/model/StudentProfile.model.js";
 import TeacherProfile from "../user/model/TeacherProfile.model.js";
 import logger from "../../config/logger.js";
-import { ConflictError, NotFoundError, BadRequestError } from "../../utils/customError.js";
+import { ConflictError, NotFoundError, BadRequestError, ForbiddenError } from "../../utils/customError.js";
 import { USER_ROLES } from "../../constants/userRoles.js";
 
+// Helper: Enforce teacher scope for writing calendar events
+const enforceTeacherScope = async (user, targetClasses) => {
+    if (user.role !== USER_ROLES.TEACHER) return;
+
+    const profile = await TeacherProfile.findOne({ schoolId: user.schoolId, userId: user._id })
+        .select('assignedClasses').lean();
+    
+    const allowed = (profile?.assignedClasses || []).map(c => `${c.standard}-${c.section}`);
+    const unauthorized = (targetClasses || []).filter(c => !allowed.includes(c));
+    
+    if (unauthorized.length) {
+        throw new ForbiddenError(`Not authorized for classes: ${unauthorized.join(', ')}`);
+    }
+};
+
 // Create a new calendar event
-export const createCalendarEvent = async (eventData, userId, schoolId) => {
+export const createCalendarEvent = async (eventData, user) => {
     const { title, start, end, allDay, type, description, targetAudience, targetClasses } = eventData;
+    const schoolId = user.schoolId;
+
+    if (user.role === USER_ROLES.TEACHER) {
+        if (targetAudience === 'all') {
+            throw new ForbiddenError("Teachers cannot create school-wide events");
+        }
+        await enforceTeacherScope(user, targetClasses);
+    }
 
     // Edge Case: Check if an exact duplicate event already exists to prevent spam
     const existingEvent = await CalendarEvent.findOne({
@@ -29,9 +52,9 @@ export const createCalendarEvent = async (eventData, userId, schoolId) => {
         allDay: allDay !== undefined ? allDay : true,
         type: type || 'event',
         description,
-        targetAudience: targetAudience || 'all',
+        targetAudience: user.role === USER_ROLES.TEACHER ? 'classes' : (targetAudience || 'all'),
         targetClasses: targetClasses || [],
-        createdBy: userId,
+        createdBy: user._id,
         schoolId
     });
 
@@ -151,13 +174,30 @@ export const getCalendarEventById = async (id) => {
 };
 
 // Update a calendar event
-export const updateCalendarEvent = async (id, updateData) => {
+export const updateCalendarEvent = async (id, updateData, user) => {
     // Check if event exists
     const event = await CalendarEvent.findById(id);
 
     if (!event) {
         logger.warn(`Calendar event not found for update: ${id}`);
         throw new NotFoundError("Event not found");
+    }
+
+    if (user.role === USER_ROLES.TEACHER) {
+        // Original event must not be school-wide
+        if (event.targetAudience === 'all') {
+            throw new ForbiddenError("Teachers cannot edit school-wide events");
+        }
+        await enforceTeacherScope(user, event.targetClasses);
+        
+        // New audience cannot be school-wide
+        if (updateData.targetAudience === 'all') {
+            throw new ForbiddenError("Teachers cannot make events school-wide");
+        }
+        // Must have permission on new target classes
+        if (updateData.targetClasses) {
+            await enforceTeacherScope(user, updateData.targetClasses);
+        }
     }
 
     // Merge new dates with existing ones to validate range correctly
@@ -185,14 +225,72 @@ export const updateCalendarEvent = async (id, updateData) => {
 };
 
 // Delete a calendar event
-export const deleteCalendarEvent = async (id) => {
-    const deletedEvent = await CalendarEvent.findByIdAndDelete(id);
+export const deleteCalendarEvent = async (id, user) => {
+    const event = await CalendarEvent.findById(id);
 
-    if (!deletedEvent) {
+    if (!event) {
         logger.warn(`Calendar event not found for deletion: ${id}`);
         throw new NotFoundError("Event not found");
     }
 
+    if (user.role === USER_ROLES.TEACHER) {
+        if (event.targetAudience === 'all') {
+            throw new ForbiddenError("Teachers cannot delete school-wide events");
+        }
+        await enforceTeacherScope(user, event.targetClasses);
+    }
+
+    await CalendarEvent.findByIdAndDelete(id);
+
     logger.info(`Calendar event deleted: ${id}`);
     return { message: "Event deleted successfully" };
+};
+
+// Delete events by date
+export const deleteCalendarEventsByDate = async (dateStr, user, eventId) => {
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) {
+        throw new BadRequestError("Invalid date provided");
+    }
+    const startOfDay = new Date(date.setHours(0, 0, 0, 0));
+    const endOfDay = new Date(date.setHours(23, 59, 59, 999));
+
+    // If a specific eventId is provided, delete just that one event
+    if (eventId) {
+        const event = await CalendarEvent.findById(eventId);
+        if (!event) throw new NotFoundError("Event not found");
+        
+        if (user.role === USER_ROLES.TEACHER) {
+            if (event.targetAudience === 'all') {
+                throw new ForbiddenError("Teachers cannot delete school-wide events");
+            }
+            await enforceTeacherScope(user, event.targetClasses);
+        }
+        
+        await CalendarEvent.findByIdAndDelete(eventId);
+        return { message: "Event deleted successfully", deletedCount: 1 };
+    }
+
+    // Otherwise: delete all events on that date for the school
+    let query = {
+        schoolId: user.schoolId,
+        start: { $gte: startOfDay, $lte: endOfDay }
+    };
+
+    // Teachers can only bulk-delete events for their assigned classes
+    if (user.role === USER_ROLES.TEACHER) {
+        const profile = await TeacherProfile.findOne(
+            { schoolId: user.schoolId, userId: user._id }
+        ).select('assignedClasses').lean();
+        
+        const classKeys = (profile?.assignedClasses || []).map(c => `${c.standard}-${c.section}`);
+        if (!classKeys.length) {
+             throw new ForbiddenError("No assigned classes for this teacher. Cannot delete events.");
+        }
+        query.targetClasses = { $in: classKeys };
+        query.targetAudience = 'classes';
+    }
+
+    const result = await CalendarEvent.deleteMany(query);
+    return { message: `${result.deletedCount} event(s) deleted`, deletedCount: result.deletedCount };
 };

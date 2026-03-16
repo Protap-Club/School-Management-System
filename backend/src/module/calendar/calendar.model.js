@@ -70,5 +70,7 @@ CalendarEventSchema.index({ start: 1, end: 1 });
 CalendarEventSchema.index({ schoolId: 1 });
 // Index for efficient audience-based filtering
 CalendarEventSchema.index({ schoolId: 1, targetAudience: 1 });
+// Index for date ranges within a school
+CalendarEventSchema.index({ schoolId: 1, start: 1, end: 1 });
 
 export const CalendarEvent = mongoose.model('CalendarEvent', CalendarEventSchema);
