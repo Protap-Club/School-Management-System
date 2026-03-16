@@ -395,10 +395,9 @@ const renderFormField = (label, children) => (
                 <div className="space-y-3">
                   {getEventsForDate[selectedDateStr].map(event => {
                     const colors = getTypeColors(event.type);
-                    // Determine if current user can edit this specific event. 
-                    // Admins can edit anything.
-                    // Teachers can only edit non-school-wide events that they have access to. Wait, for UI simplicity, if they see it and it's 'classes', let's assume they can edit it (backend verifies). Actually backend throws 403 if they edit a school-wide event.
-                    const canEditEvent = isAdmin || (isTeacher && event.targetAudience !== 'all');
+                    // Determine if current user can edit this specific event.
+                    // Exam events created from Examination module are read-only here.
+                    const canEditEvent = !event.sourceType && (isAdmin || (isTeacher && event.targetAudience !== 'all'));
 
                     return (
                       <div key={event._id} className="bg-white border text-left border-gray-200 rounded-xl overflow-hidden hover:shadow-md transition-shadow relative group">

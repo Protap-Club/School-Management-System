@@ -214,6 +214,9 @@ export const updateCalendarEvent = async (id, updateData, user) => {
         logger.warn(`Calendar event not found for update: ${id}`);
         throw new NotFoundError("Event not found");
     }
+    if (event.sourceType === "exam") {
+        throw new ForbiddenError("Exam events can only be edited from the Examination module");
+    }
 
     if (user.role === USER_ROLES.TEACHER) {
         // Original event must not be school-wide
@@ -269,6 +272,9 @@ export const deleteCalendarEvent = async (id, user) => {
         logger.warn(`Calendar event not found for deletion: ${id}`);
         throw new NotFoundError("Event not found");
     }
+    if (event.sourceType === "exam") {
+        throw new ForbiddenError("Exam events can only be deleted from the Examination module");
+    }
 
     if (user.role === USER_ROLES.TEACHER) {
         if (event.targetAudience === 'all') {
@@ -296,6 +302,9 @@ export const deleteCalendarEventsByDate = async (dateStr, user, eventId) => {
     if (eventId) {
         const event = await CalendarEvent.findById(eventId);
         if (!event) throw new NotFoundError("Event not found");
+        if (event.sourceType === "exam") {
+            throw new ForbiddenError("Exam events can only be deleted from the Examination module");
+        }
         
         if (user.role === USER_ROLES.TEACHER) {
             if (event.targetAudience === 'all') {
@@ -311,7 +320,8 @@ export const deleteCalendarEventsByDate = async (dateStr, user, eventId) => {
     // Otherwise: delete all events on that date for the school
     let query = {
         schoolId: user.schoolId,
-        start: { $gte: startOfDay, $lte: endOfDay }
+        start: { $gte: startOfDay, $lte: endOfDay },
+        sourceType: { $ne: "exam" }
     };
 
     // Teachers can only bulk-delete events for their assigned classes
