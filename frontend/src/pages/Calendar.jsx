@@ -7,26 +7,35 @@ import api from '../lib/axios';
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const TYPE_CONFIG = {
   national: { bg: 'bg-emerald-500', text: 'text-white', light: 'bg-emerald-100 text-emerald-700 border-emerald-200', label: 'National Holiday' },
-  exam: { bg: 'bg-blue-500', text: 'text-white', light: 'bg-blue-100 text-blue-700 border-blue-200', label: 'Examination' },
+  exam: { bg: 'bg-blue-500', text: 'text-white', light: 'bg-blue-100 text-blue-700 border-blue-200', label: 'Exam' },
   custom: { bg: 'bg-amber-400', text: 'text-amber-900', light: 'bg-amber-100 text-amber-700 border-amber-200', label: 'Custom' },
-  event: { bg: 'bg-purple-500', text: 'text-white', light: 'bg-purple-100 text-purple-700 border-purple-200', label: 'Event' },
 };
 const LEGEND_ITEMS = [
   { color: 'bg-emerald-500', label: 'National Holiday' },
   { color: 'bg-blue-500', label: 'Exam' },
   { color: 'bg-amber-400', label: 'Custom' },
-  { color: 'bg-purple-500', label: 'Event' },
 ];
-const getTypeColors = (type) => TYPE_CONFIG[type] || TYPE_CONFIG.event;
+const getTypeColors = (type) => TYPE_CONFIG[type] || TYPE_CONFIG.national;
 const formatDate = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 
-const resetFormForDate = (dateStr) => ({ title: '', startDate: dateStr, endDate: dateStr, type: 'event', description: '', allDay: true, targetAudience: 'all', targetClasses: [] });
-const loadFormFromEvent = (event) => ({
-  _id: event._id, title: event.title, startDate: formatDate(new Date(event.start)),
-  endDate: formatDate(new Date(event.end)), type: event.type || 'event', description: event.description || '', allDay: event.allDay !== false,
-  targetAudience: event.targetAudience || 'all',
-  targetClasses: event.targetClasses || [],
+const resetFormForDate = (dateStr) => ({ 
+  title: '', startDate: dateStr, startTime: '09:00', endDate: dateStr, endTime: '10:00', 
+  type: 'national', description: '', allDay: true, targetAudience: 'all', targetClasses: [] 
 });
+const loadFormFromEvent = (event) => {
+  const s = new Date(event.start);
+  const e = new Date(event.end);
+  return {
+    _id: event._id, title: event.title, 
+    startDate: formatDate(s),
+    startTime: `${String(s.getHours()).padStart(2, '0')}:${String(s.getMinutes()).padStart(2, '0')}`,
+    endDate: formatDate(e), 
+    endTime: `${String(e.getHours()).padStart(2, '0')}:${String(e.getMinutes()).padStart(2, '0')}`,
+    type: TYPE_CONFIG[event.type] ? event.type : 'national', description: event.description || '', allDay: event.allDay !== false,
+    targetAudience: event.targetAudience || 'all',
+    targetClasses: event.targetClasses || [],
+  };
+};
 
 const INPUT_CLASS = 'w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-sm';
 
@@ -52,6 +61,8 @@ const Calendar = () => {
   
   // Class list for target audience picker
   const [classes, setClasses] = useState([]);
+  const [availableClasses, setAvailableClasses] = useState({ standards: [], sections: [], classSections: [] });
+  const [adminClassInput, setAdminClassInput] = useState({ standard: '', section: '' });
 
   // Fetch classes for dropdown based on role
   useEffect(() => {
@@ -60,9 +71,10 @@ const Calendar = () => {
     // Teachers fetch ONLY their assigned classes from their profile
     // Admins fetch ALL school classes from timetables API
     if (isTeacher) {
-      api.get('/users/profile/me')
+      api.get('/users/me/profile')
         .then(res => {
-          const profile = res.data?.data;
+          const userObj = res.data?.data;
+          const profile = userObj?.profile || userObj;
           const assigned = profile?.assignedClasses || [];
           setClasses(
             assigned.map(t => ({
@@ -73,19 +85,37 @@ const Calendar = () => {
         })
         .catch(() => {});
     } else {
-      api.get('/timetables')
+      api.get('/school/classes')
         .then(res => {
-          const timetables = res.data?.data || [];
-          setClasses(
-            timetables.map(t => ({
-              value: `${t.standard}-${t.section}`,
-              label: `Class ${t.standard} - Section ${t.section}`,
-            }))
-          );
+          const data = res.data?.data || { standards: [], sections: [], classSections: [] };
+          setAvailableClasses({
+            standards: (data.standards || []).map(v => String(v)),
+            sections: (data.sections || []).map(v => String(v).toUpperCase()),
+            classSections: (data.classSections || []).map(c => ({
+              standard: String(c.standard),
+              section: String(c.section).toUpperCase(),
+            })),
+          });
         })
         .catch(() => {});
     }
   }, [canEdit, isTeacher]);
+
+  const normalizedStandard = adminClassInput.standard.trim();
+  const normalizedSection = adminClassInput.section.trim().toUpperCase();
+  const adminClassKey = normalizedStandard && normalizedSection ? `${normalizedStandard}-${normalizedSection}` : '';
+  const classSectionKeys = useMemo(
+    () => new Set((availableClasses.classSections || []).map(c => `${c.standard}-${c.section}`)),
+    [availableClasses]
+  );
+  const isAdminClassValid = isAdmin && formData.targetAudience === 'classes'
+    && normalizedStandard
+    && normalizedSection
+    && (classSectionKeys.size
+      ? classSectionKeys.has(adminClassKey)
+      : (availableClasses.standards.includes(normalizedStandard) && availableClasses.sections.includes(normalizedSection)));
+  const isClassSelectionInvalid = formData.targetAudience === 'classes'
+    && (isAdmin ? !isAdminClassValid : formData.targetClasses.length === 0);
 
   const showMessage = (text, type = 'success') => { setMessage({ text, type }); setTimeout(() => setMessage({ text: '', type: '' }), 3000); };
   const updateFormField = (field, value) => setFormData(prev => ({ ...prev, [field]: value }));
@@ -139,6 +169,7 @@ const Calendar = () => {
 
   const openCreateEventModal = (dateStr) => {
     setFormData(resetFormForDate(dateStr));
+    setAdminClassInput({ standard: '', section: '' });
     setShowEditModal(true);
     // Note: Teacher can only create targeted events, default them to 'classes'
     if (isTeacher) {
@@ -148,6 +179,11 @@ const Calendar = () => {
 
   const openEditEventModal = (event) => {
     setFormData(loadFormFromEvent(event));
+    if (isAdmin) {
+      const classKey = event?.targetClasses?.[0] || '';
+      const [standard = '', section = ''] = classKey.split('-');
+      setAdminClassInput({ standard, section });
+    }
     setShowEditModal(true);
   };
 
@@ -162,7 +198,39 @@ const Calendar = () => {
     if (!formData.title.trim()) return;
     try {
       setSaving(true);
-      const payload = { title: formData.title.trim(), start: new Date(formData.startDate).toISOString(), end: new Date(formData.endDate).toISOString(), allDay: formData.allDay, type: formData.type, description: formData.description, targetAudience: formData.targetAudience, targetClasses: formData.targetClasses };
+
+      if (isAdmin && formData.targetAudience === 'classes' && !isAdminClassValid) {
+        showMessage('Please enter a valid class and section.', 'error');
+        setSaving(false);
+        return;
+      }
+
+      let startD, endD;
+      if (formData.allDay) {
+        startD = new Date(formData.startDate);
+        startD.setHours(0, 0, 0, 0);
+        endD = new Date(formData.endDate);
+        endD.setHours(23, 59, 59, 999);
+      } else {
+        startD = new Date(`${formData.startDate}T${formData.startTime}:00`);
+        endD = new Date(`${formData.endDate}T${formData.endTime}:00`);
+      }
+      
+      const resolvedTargetClasses = isAdmin && formData.targetAudience === 'classes'
+        ? (adminClassKey ? [adminClassKey] : [])
+        : formData.targetClasses;
+
+      const payload = { 
+        title: formData.title.trim(), 
+        start: startD.toISOString(), 
+        end: endD.toISOString(), 
+        allDay: formData.allDay, 
+        type: formData.type, 
+        description: formData.description, 
+        targetAudience: formData.targetAudience, 
+        targetClasses: resolvedTargetClasses 
+      };
+      
       if (formData._id) { await api.put(`/calendar/${formData._id}`, payload); showMessage('Event updated!'); }
       else { await api.post('/calendar', payload); showMessage('Event created!'); }
       setShowEditModal(false); fetchEvents();
@@ -226,9 +294,12 @@ const Calendar = () => {
     return cells;
   }, [currentDate, daysInMonth, firstDay, getEventsForDate, canEdit, handleDayClick, handleEventHover]);
 
-  const renderFormField = (label, children) => (
-    <div><label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">{label}</label>{children}</div>
-  );
+const INPUT_CLASS = 'w-full px-4 py-3.5 bg-white border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 text-sm font-medium transition-all';
+const LABEL_CLASS = 'block text-[11px] font-bold text-gray-500 uppercase tracking-[0.2em] mb-2';
+
+const renderFormField = (label, children) => (
+  <div className="space-y-2"><label className={LABEL_CLASS}>{label}</label>{children}</div>
+);
 
   return (
     <DashboardLayout>
@@ -381,120 +452,181 @@ const Calendar = () => {
         </div>
       )}
 
-      {/* ── Create / Edit Event Form Modal ── */}
+          {/* ── Premium Create / Edit Event Form Modal ── */}
       {showEditModal && (
-        <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-md flex items-center justify-center z-[60] p-4 animate-fadeIn">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden flex flex-col max-h-[95vh]">
-            <div className={`px-6 py-5 text-white bg-gradient-to-r ${formData._id ? 'from-amber-600 to-orange-600' : 'from-indigo-600 to-purple-600'}`}>
-              <div className="flex justify-between items-center">
-                <h3 className="text-lg font-bold tracking-wide">{formData._id ? 'Edit Calendar Event' : 'Create New Event'}</h3>
-                <button onClick={() => setShowEditModal(false)} className="p-1.5 hover:bg-white/20 rounded-lg transition-colors"><FaTimes size={16} /></button>
-              </div>
-            </div>
-            <div className="p-6 space-y-5 overflow-y-auto">
-              {renderFormField('Event Title',
-                <input type="text" value={formData.title} onChange={(e) => updateFormField('title', e.target.value)} placeholder="e.g., Annual Sports Day" autoFocus className={INPUT_CLASS} />
-              )}
-              <div className="grid grid-cols-2 gap-4">
-                {renderFormField('Start Date',
-                  <input type="date" value={formData.startDate} className={INPUT_CLASS}
-                    onChange={(e) => setFormData(prev => ({ ...prev, startDate: e.target.value, endDate: prev.endDate < e.target.value ? e.target.value : prev.endDate }))} />
-                )}
-                {renderFormField('End Date',
-                  <input type="date" value={formData.endDate} min={formData.startDate} onChange={(e) => updateFormField('endDate', e.target.value)} className={INPUT_CLASS} />
-                )}
-              </div>
-              <div className="flex items-center gap-2">
-                 <input type="checkbox" id="allDay" checked={formData.allDay} onChange={(e) => updateFormField('allDay', e.target.checked)} className="w-4 h-4 accent-indigo-600 rounded cursor-pointer" />
-                 <label htmlFor="allDay" className="text-sm font-semibold text-gray-700 cursor-pointer">All Day Event</label>
-              </div>
-              
-              {renderFormField('Event Type',
-                <select value={formData.type} onChange={(e) => updateFormField('type', e.target.value)} className={`${INPUT_CLASS} bg-gray-50 font-medium`}>
-                  {Object.entries(TYPE_CONFIG).map(([key, cfg]) => <option key={key} value={key}>{cfg.label}</option>)}
-                </select>
-              )}
-              
-              {/* Audience picker */}
-              <div className="bg-gray-50/50 p-4 rounded-xl border border-gray-100">
-                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-3">Event Audience</label>
-                
-                {isTeacher && formData.targetAudience === 'all' && (
-                   <p className="text-xs text-amber-600 font-semibold mb-3 bg-amber-50 p-2 rounded border border-amber-100">
-                     Teachers cannot edit school-wide events.
-                   </p>
-                )}
+        <div className="fixed inset-0 bg-indigo-900/30 backdrop-blur-md flex items-center justify-center z-[60] p-4 animate-fadeIn">
+          <div className="bg-[#fbfbfe] rounded-[28px] shadow-2xl border border-indigo-100/60 max-w-5xl w-full flex flex-col md:flex-row overflow-hidden relative z-10">
+            
+            {/* Close Button */}
+            <button onClick={() => setShowEditModal(false)} className="absolute top-6 right-6 z-30 w-10 h-10 flex items-center justify-center bg-white border border-gray-200 text-gray-500 rounded-full transition-colors hover:text-gray-800 hover:border-gray-300">
+              <FaTimes size={14} />
+            </button>
 
-                <div className="space-y-3">
-                  <label className={`flex items-center gap-3 cursor-pointer group ${isTeacher ? 'opacity-50 pointer-events-none' : ''}`}>
-                    <input type="radio" name="targetAudience" value="all"
-                      checked={formData.targetAudience === 'all'}
-                      onChange={() => setFormData(prev => ({ ...prev, targetAudience: 'all', targetClasses: [] }))}
-                      className="accent-indigo-600 w-4 h-4 mt-0.5"
-                      disabled={isTeacher}
-                    />
-                    <div>
-                      <span className="text-sm font-bold text-gray-900 block">Entire School</span>
-                      <span className="text-xs font-medium text-gray-500">Visible to every student and teacher</span>
+            {/* Left Column: Core Subject details */}
+            <div className="w-full md:w-[60%] flex flex-col h-full border-r border-gray-100/80 bg-transparent p-8 relative">
+              <h3 className="text-3xl font-black text-gray-900 tracking-tight mb-8 relative z-10">
+                {formData._id ? 'Edit Event' : 'Create Event'}
+                <div className="w-16 h-1 bg-indigo-600 rounded-full mt-3 opacity-90"></div>
+              </h3>
+
+              <div className="space-y-6 flex-1 overflow-y-auto custom-scrollbar pr-3 relative z-10">
+                {renderFormField('Event Title',
+                  <input type="text" value={formData.title} onChange={(e) => updateFormField('title', e.target.value)} placeholder="e.g., Annual Sports Day" autoFocus className={INPUT_CLASS} />
+                )}
+                
+                <div className="grid grid-cols-2 gap-5">
+                  {renderFormField('Start Date',
+                    <div className="relative group">
+                      <FaCalendarAlt className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-indigo-500 transition-colors" />
+                      <input type="date" value={formData.startDate} className={`${INPUT_CLASS} pl-11`}
+                        onChange={(e) => setFormData(prev => ({ ...prev, startDate: e.target.value, endDate: prev.endDate < e.target.value ? e.target.value : prev.endDate }))} />
                     </div>
-                  </label>
-                  <label className="flex items-center gap-3 cursor-pointer group">
-                    <input type="radio" name="targetAudience" value="classes"
-                      checked={formData.targetAudience === 'classes'}
-                      onChange={() => updateFormField('targetAudience', 'classes')}
-                      className="accent-indigo-600 w-4 h-4 mt-0.5"
-                    />
-                    <div>
-                      <span className="text-sm font-bold text-gray-900 block">Specific Classes Only</span>
-                      <span className="text-xs font-medium text-gray-500">{isTeacher ? 'Select from your assigned classes' : 'Target specific classes or sections'}</span>
+                  )}
+                  {renderFormField('End Date',
+                    <div className="relative group">
+                      <FaCalendarAlt className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-indigo-500 transition-colors" />
+                      <input type="date" value={formData.endDate} min={formData.startDate} onChange={(e) => updateFormField('endDate', e.target.value)} className={`${INPUT_CLASS} pl-11`} />
                     </div>
-                  </label>
+                  )}
                 </div>
-                {/* Class selector */}
-                {formData.targetAudience === 'classes' && (
-                  <div className="mt-4 bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm">
-                    {classes.length === 0 ? (
-                      <p className="text-xs font-semibold text-gray-400 text-center py-4">No classes available</p>
-                    ) : (
-                      <div className="max-h-40 overflow-y-auto divide-y divide-gray-100 custom-scrollbar">
-                        {classes.map(cls => {
-                          const checked = formData.targetClasses.includes(cls.value);
-                          return (
-                            <label key={cls.value}
-                              className={`flex items-center gap-3 px-3 py-2.5 cursor-pointer transition-colors ${checked ? 'bg-indigo-50/50' : 'bg-white hover:bg-gray-50'}`}>
-                              <input type="checkbox" checked={checked}
-                                onChange={() => {
-                                  setFormData(prev => ({
-                                    ...prev,
-                                    targetClasses: checked
-                                      ? prev.targetClasses.filter(v => v !== cls.value)
-                                      : [...prev.targetClasses, cls.value]
-                                  }));
-                                }}
-                                className="accent-indigo-600 w-4 h-4 shrink-0 rounded"
-                              />
-                              <span className={`text-sm ${checked ? 'font-bold text-indigo-800' : 'font-semibold text-gray-700'}`}>{cls.label}</span>
-                            </label>
-                          );
-                        })}
+                
+                <label className="flex items-center gap-3 rounded-2xl border border-gray-200 bg-white px-4 py-3.5 text-sm font-semibold text-gray-700">
+                  <input type="checkbox" id="allDay" checked={formData.allDay} onChange={(e) => updateFormField('allDay', e.target.checked)} className="w-5 h-5 accent-indigo-600 rounded-md" />
+                  All Day Event
+                </label>
+
+                {!formData.allDay && (
+                  <div className="grid grid-cols-2 gap-5 animate-fadeIn">
+                    {renderFormField('Start Time',
+                      <div className="relative group">
+                        <FaClock className="absolute left-4 top-1/2 -translate-y-1/2 text-indigo-400 group-focus-within:text-indigo-600 transition-colors" />
+                        <input type="time" value={formData.startTime} onChange={(e) => updateFormField('startTime', e.target.value)} className={`${INPUT_CLASS} pl-11`} />
+                      </div>
+                    )}
+                    {renderFormField('End Time',
+                      <div className="relative group">
+                        <FaClock className="absolute left-4 top-1/2 -translate-y-1/2 text-indigo-400 group-focus-within:text-indigo-600 transition-colors" />
+                        <input type="time" value={formData.endTime} onChange={(e) => updateFormField('endTime', e.target.value)} className={`${INPUT_CLASS} pl-11`} />
                       </div>
                     )}
                   </div>
                 )}
+                
+                {renderFormField('Event Description',
+                  <textarea value={formData.description} onChange={(e) => updateFormField('description', e.target.value)} placeholder="Add specific details or instructions..." rows={5} className={`${INPUT_CLASS} resize-none`} />
+                )}
               </div>
-              
-              {renderFormField('Description (Optional)',
-                <textarea value={formData.description} onChange={(e) => updateFormField('description', e.target.value)} placeholder="Add specific details or instructions..." rows={3} className={`${INPUT_CLASS} resize-none`} />
-              )}
-
             </div>
-            <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex gap-3 mt-auto">
-              <button onClick={() => setShowEditModal(false)} className="flex-1 px-4 py-2.5 text-gray-700 bg-white border border-gray-200 hover:bg-gray-100 hover:text-gray-900 rounded-xl transition-all text-sm font-bold shadow-sm">Cancel</button>
-              <button onClick={handleSaveEvent} disabled={!formData.title.trim() || saving || (formData.targetAudience === 'classes' && formData.targetClasses.length === 0)}
-                className="flex-[2] bg-indigo-600 text-white py-2.5 rounded-xl font-bold hover:bg-indigo-700 hover:shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm shadow-sm ring-1 ring-indigo-600/50">
-                {saving && <FaSpinner className="animate-spin" />}
-                {formData.targetAudience === 'classes' && formData.targetClasses.length === 0 ? 'Select a Class' : formData._id ? 'Update Event' : 'Create Event'}
-              </button>
+
+            {/* Right Column: Configuration & Audience */}
+            <div className="w-full md:w-[40%] flex flex-col h-full bg-transparent relative">
+              <div className="p-8 flex-1 overflow-hidden flex flex-col relative z-10">
+                {renderFormField('Event Type',
+                  <select value={formData.type} onChange={(e) => updateFormField('type', e.target.value)} className={`${INPUT_CLASS} appearance-none cursor-pointer font-semibold text-gray-700`}>
+                    {Object.entries(TYPE_CONFIG).map(([key, cfg]) => <option key={key} value={key}>{cfg.label}</option>)}
+                  </select>
+                )}
+                
+                <div className="mt-8 flex-1 flex flex-col overflow-hidden">
+                  <label className={LABEL_CLASS}>Event Audience</label>
+                  
+                  {isTeacher && formData.targetAudience === 'all' && (
+                     <div className="text-xs text-amber-700 font-bold mb-3 bg-amber-100/50 px-3 py-2.5 rounded-xl border border-amber-200/50 flex items-center gap-2">
+                       <FaTimes className="text-amber-500"/>
+                       Teachers cannot edit school-wide events.
+                     </div>
+                  )}
+
+                  <div className="flex bg-gray-50 p-1.5 rounded-2xl border border-gray-200 shrink-0">
+                    <button
+                      onClick={() => !isTeacher && setFormData(prev => ({ ...prev, targetAudience: 'all', targetClasses: [] }))}
+                      disabled={isTeacher}
+                      className={`flex-1 py-2.5 text-sm font-semibold rounded-xl transition-all ${formData.targetAudience === 'all' ? 'bg-indigo-600 text-white shadow-md' : 'text-gray-600 hover:text-gray-900'} ${isTeacher ? 'opacity-40 cursor-not-allowed' : ''}`}
+                    >
+                      Entire School
+                    </button>
+                    <button
+                      onClick={() => updateFormField('targetAudience', 'classes')}
+                      className={`flex-1 py-2.5 text-sm font-semibold rounded-xl transition-all ${formData.targetAudience === 'classes' ? 'bg-indigo-600 text-white shadow-md' : 'text-gray-600 hover:text-gray-900'}`}
+                    >
+                      Specific Classes
+                    </button>
+                  </div>
+                  
+                  {/* Class selector */}
+                  {formData.targetAudience === 'classes' && (
+                    isAdmin ? (
+                      <div className="mt-4 bg-white border border-gray-200 rounded-2xl p-4">
+                        <div className="grid grid-cols-2 gap-3">
+                          <input
+                            type="text"
+                            value={adminClassInput.standard}
+                            onChange={(e) => setAdminClassInput(prev => ({ ...prev, standard: e.target.value }))}
+                            placeholder="Class (e.g., 10)"
+                            className={INPUT_CLASS}
+                          />
+                          <input
+                            type="text"
+                            value={adminClassInput.section}
+                            onChange={(e) => setAdminClassInput(prev => ({ ...prev, section: e.target.value }))}
+                            placeholder="Section (e.g., A)"
+                            className={INPUT_CLASS}
+                          />
+                        </div>
+                        <p className={`mt-3 text-xs font-semibold ${isAdminClassValid ? 'text-emerald-600' : 'text-gray-500'}`}>
+                          {isAdminClassValid ? 'Class and section verified.' : 'Enter a valid class and section to continue.'}
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="mt-4 bg-white border border-gray-200 rounded-2xl overflow-hidden flex-1 flex flex-col">
+                        {classes.length === 0 ? (
+                          <div className="flex flex-col items-center justify-center flex-1 py-8 opacity-60">
+                            <FaUsers size={32} className="text-gray-300 mb-3" />
+                            <p className="text-sm font-bold text-gray-400">No classes assigned to you</p>
+                          </div>
+                        ) : (
+                          <div className="overflow-y-auto flex-1 custom-scrollbar p-2.5 space-y-2">
+                            {classes.map(cls => {
+                              const checked = formData.targetClasses.includes(cls.value);
+                              return (
+                                <label key={cls.value}
+                                  className={`flex items-center gap-3 px-3 py-2.5 cursor-pointer rounded-xl transition-all border ${checked ? 'bg-indigo-50 border-indigo-200 shadow-sm' : 'bg-white border-transparent hover:bg-gray-50'}`}>
+                                  <input type="checkbox" checked={checked}
+                                    onChange={() => {
+                                      setFormData(prev => ({
+                                        ...prev,
+                                        targetClasses: checked
+                                          ? prev.targetClasses.filter(v => v !== cls.value)
+                                          : [...prev.targetClasses, cls.value]
+                                      }));
+                                    }}
+                                    className="accent-indigo-600 w-4 h-4 shrink-0 rounded transition-transform active:scale-95"
+                                  />
+                                  <span className={`text-sm ${checked ? 'font-black text-indigo-900' : 'font-bold text-gray-600'}`}>{cls.label}</span>
+                                </label>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  )}
+                </div>
+              </div>
+
+              {/* Action Buttons fixed to bottom of right column */}
+              <div className="p-6 bg-white border-t border-gray-100 flex gap-3 shrink-0 mt-auto justify-end">
+                <button onClick={() => setShowEditModal(false)} className="px-5 py-3 text-gray-600 bg-gray-100 hover:bg-gray-200 hover:text-gray-900 rounded-2xl transition-colors text-sm font-bold">
+                  Cancel
+                </button>
+                <button onClick={handleSaveEvent} disabled={!formData.title.trim() || saving || isClassSelectionInvalid}
+                  className="px-6 py-3 bg-indigo-600 text-white rounded-2xl font-bold hover:bg-indigo-700 hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm shadow-md">
+                  {saving && <FaSpinner className="animate-spin" />}
+                  {isClassSelectionInvalid
+                    ? (isAdmin ? 'Enter Valid Class & Section' : 'Select a Class to Continue')
+                    : (formData._id ? 'Update Event' : 'Create Event')}
+                </button>
+              </div>
             </div>
           </div>
         </div>
