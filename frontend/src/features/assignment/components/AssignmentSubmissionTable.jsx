@@ -1,5 +1,5 @@
 import React from 'react';
-import { FaPaperclip, FaRegClock } from 'react-icons/fa';
+import { FaDownload, FaPaperclip, FaRegClock } from 'react-icons/fa';
 import {
     Table,
     TableBody,
@@ -73,6 +73,31 @@ const formatDateTime = (value) => {
         hour: 'numeric',
         minute: '2-digit',
     });
+};
+
+const FileDownloadLink = ({ file, tone = 'slate' }) => {
+    const toneClasses = tone === 'indigo'
+        ? 'border-indigo-200 bg-indigo-50 text-indigo-700 hover:border-indigo-300 hover:bg-indigo-100'
+        : 'border-slate-200 bg-slate-50 text-slate-700 hover:border-slate-300 hover:bg-slate-100';
+
+    return (
+        <a
+            href={file.url}
+            target="_blank"
+            rel="noreferrer"
+            download={file.originalName || file.name || 'attachment'}
+            className={`flex items-center justify-between gap-3 rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${toneClasses}`}
+        >
+            <span className="flex min-w-0 items-center gap-2">
+                <FaPaperclip size={11} />
+                <span className="truncate">{file.originalName || file.name || 'Attachment'}</span>
+            </span>
+            <span className="inline-flex items-center gap-1 whitespace-nowrap">
+                <FaDownload size={11} />
+                Download
+            </span>
+        </a>
+    );
 };
 
 export const AssignmentSubmissionTable = ({
@@ -172,18 +197,39 @@ export const AssignmentSubmissionTable = ({
                                 </TableCell>
                                 <TableCell className="px-5 py-4 align-top">
                                     <div className="space-y-2">
-                                        {(submission.files || []).map((file) => (
-                                            <a
-                                                key={file.publicId || file.url}
-                                                href={file.url}
-                                                target="_blank"
-                                                rel="noreferrer"
-                                                className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-medium text-slate-700 transition-colors hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
-                                            >
-                                                <FaPaperclip size={11} />
-                                                <span className="truncate">{file.originalName || file.name || 'Attachment'}</span>
-                                            </a>
-                                        ))}
+                                        <div>
+                                            <div className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-gray-400">
+                                                Assignment Materials
+                                            </div>
+                                            <div className="space-y-2">
+                                                {(submission.assignment?.attachments || []).length > 0 ? (
+                                                    (submission.assignment.attachments || []).map((file) => (
+                                                        <FileDownloadLink
+                                                            key={`material-${file.publicId || file.url}`}
+                                                            file={file}
+                                                            tone="indigo"
+                                                        />
+                                                    ))
+                                                ) : (
+                                                    <div className="rounded-lg border border-dashed border-slate-200 px-3 py-2 text-xs text-slate-400">
+                                                        No materials attached
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <div className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-gray-400">
+                                                Student Files
+                                            </div>
+                                            <div className="space-y-2">
+                                                {(submission.files || []).map((file) => (
+                                                    <FileDownloadLink
+                                                        key={`submission-${file.publicId || file.url}`}
+                                                        file={file}
+                                                    />
+                                                ))}
+                                            </div>
+                                        </div>
                                     </div>
                                 </TableCell>
                             </TableRow>
