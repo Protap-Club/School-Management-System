@@ -20,7 +20,7 @@ export const AssignmentPage = () => {
     
     // State
     const [page, setPage] = useState(0);
-    const [pageSize] = useState(25);
+    const [pageSize, setPageSize] = useState(25);
     const [searchQuery, setSearchQuery] = useState('');
     const debouncedSearch = useDebounce(searchQuery, 300);
     
@@ -176,7 +176,9 @@ export const AssignmentPage = () => {
                             loading={isLoading}
                             currentPage={page}
                             totalItems={totalItems}
+                            pageSize={pageSize}
                             onPageChange={setPage}
+                            onPageSizeChange={(value) => { setPageSize(value); setPage(0); }}
                         />
                     ) : (
                         <AssignmentTable 
@@ -187,7 +189,9 @@ export const AssignmentPage = () => {
                             onDeleteClick={canDelete ? handleDeleteClick : null}
                             currentPage={page}
                             totalItems={totalItems}
+                            pageSize={pageSize}
                             onPageChange={setPage}
+                            onPageSizeChange={(value) => { setPageSize(value); setPage(0); }}
                         />
                     )}
                 </div>
