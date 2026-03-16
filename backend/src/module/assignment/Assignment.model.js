@@ -6,6 +6,8 @@ const attachmentSchema = new mongoose.Schema(
     url: { type: String, required: true },
     publicId: { type: String, required: true },
     name: { type: String, required: true },
+    originalName: { type: String },
+    fileType: { type: String },
   },
   { _id: false }
 );
@@ -55,6 +57,10 @@ const assignmentSchema = new mongoose.Schema(
     attachments: {
       type: [attachmentSchema],
       default: [],
+    },
+    requiresSubmission: {
+      type: Boolean,
+      default: false,
     },
     status: {
       type: String,

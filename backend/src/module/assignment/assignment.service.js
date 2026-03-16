@@ -8,93 +8,262 @@ import { deleteFromCloudinary } from "../../middlewares/upload.middleware.js";
 import { USER_ROLES } from "../../constants/userRoles.js";
 import logger from "../../config/logger.js";
 
-// ── Helpers ─────────────────────────────────────────────────────
+const normalizeFileType = (file = {}) => {
+    const originalName = file.originalname || file.name || "";
+    const extension = originalName.includes(".")
+        ? originalName.split(".").pop().toLowerCase()
+        : "";
 
-// Maps multer-cloudinary file objects to our attachment sub-doc shape
+    if (file.mimetype === "application/pdf" || extension === "pdf") return "pdf";
+    if (["image/jpeg", "image/jpg"].includes(file.mimetype) || ["jpeg", "jpg"].includes(extension)) return "jpg";
+    if (file.mimetype === "image/png" || extension === "png") return "png";
+    if (file.mimetype === "application/msword" || extension === "doc") return "doc";
+    if (file.mimetype === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" || extension === "docx") return "docx";
+
+    return extension || (file.mimetype ? file.mimetype.split("/").pop() : null);
+};
+
 const mapFiles = (files = []) =>
-    files.map((f) => ({
-        url: f.path || f.secure_url,
-        publicId: f.filename || f.public_id,
-        name: f.originalname,
-    }));
+    files.map((file) => {
+        const originalName = file.originalname || file.name || "file";
+
+        return {
+            url: file.path || file.secure_url,
+            publicId: file.filename || file.public_id,
+            name: originalName,
+            originalName,
+            fileType: normalizeFileType(file),
+        };
+    });
+
+const formatFile = (file = {}) => {
+    const originalName = file.originalName || file.name || "file";
+
+    return {
+        ...file,
+        name: originalName,
+        originalName,
+        fileType: file.fileType || null,
+    };
+};
+
+const formatSubmission = (submission) => {
+    if (!submission) return null;
+
+    return {
+        ...submission,
+        files: (submission.files || []).map(formatFile),
+    };
+};
+
+const formatAssignment = (assignment, extras = {}) => {
+    const attachments = (assignment.attachments || []).map(formatFile);
+
+    return {
+        ...assignment,
+        attachments,
+        attachmentsCount: attachments.length,
+        requiresSubmission: Boolean(assignment.requiresSubmission),
+        ...(extras.hasSubmitted !== undefined && {
+            hasSubmitted: extras.hasSubmitted,
+            submitted: extras.hasSubmitted,
+        }),
+        ...(extras.submissionCount !== undefined && { submissionCount: extras.submissionCount }),
+    };
+};
+
+const normalizeDueDate = (value) => {
+    if (!value) return null;
+
+    const trimmed = String(value).trim();
+
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+        const parsedDate = new Date(`${trimmed}T23:59:59.999Z`);
+        return Number.isNaN(parsedDate.getTime()) ? null : parsedDate;
+    }
+
+    const parsedDate = new Date(trimmed);
+    return Number.isNaN(parsedDate.getTime()) ? null : parsedDate;
+};
+
+const assertFutureDueDate = (value) => {
+    const dueDate = normalizeDueDate(value);
+
+    if (!dueDate) {
+        throw new BadRequestError("Due date must be a valid date");
+    }
+
+    if (dueDate <= new Date()) {
+        throw new BadRequestError("Due date must be in the future");
+    }
+
+    return dueDate;
+};
+
+const normalizeBoolean = (value, defaultValue = false) => {
+    if (value === undefined) return defaultValue;
+    if (value === true || value === "true") return true;
+    if (value === false || value === "false") return false;
+    return Boolean(value);
+};
 
 const escapeRegExp = (value = "") => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-// Resolves the teacher's assigned classes (standards + sections) from both Profile and Timetable
-const getTeacherClasses = async (schoolId, userId) => {
-    // Source 1: Teacher Profile (Primary assignments)
+const getTeacherAssignmentScope = async (schoolId, userId) => {
     const profile = await TeacherProfile.findOne({ schoolId, userId })
         .select("assignedClasses")
         .lean();
 
     const profileClasses = profile?.assignedClasses || [];
 
-    // Source 2: Timetable (Dynamic schedule)
     const { TimetableEntry } = await import("../timetable/Timetable.model.js");
     const entries = await TimetableEntry.find({ schoolId, teacherId: userId })
-        .populate({ path: 'timetableId', select: 'standard section' })
+        .populate({ path: "timetableId", select: "standard section" })
         .lean();
 
-    const timetableClasses = entries.map(e => ({
-        standard: e.timetableId?.standard,
-        section: e.timetableId?.section
-    })).filter(c => c.standard && c.section);
-
-    // Merge and Deduplicate
-    const allUnique = [];
+    const classes = [];
+    const subjectMap = new Map();
     const seen = new Set();
 
-    [...profileClasses, ...timetableClasses].forEach(c => {
-        const key = `${c.standard}-${c.section}`;
+    const registerClass = (standard, section) => {
+        if (!standard || !section) return;
+
+        const key = `${standard}-${section}`;
         if (!seen.has(key)) {
             seen.add(key);
-            allUnique.push({ standard: c.standard, section: c.section });
+            classes.push({ standard, section });
+        }
+
+        if (!subjectMap.has(key)) {
+            subjectMap.set(key, new Set());
+        }
+    };
+
+    profileClasses.forEach(({ standard, section, subjects = [] }) => {
+        registerClass(standard, section);
+        const key = `${standard}-${section}`;
+
+        subjects.forEach((subject) => {
+            if (!subject) return;
+            subjectMap.get(key)?.add(subject);
+        });
+    });
+
+    entries.forEach((entry) => {
+        const standard = entry.timetableId?.standard;
+        const section = entry.timetableId?.section;
+        const subject = entry.subject;
+
+        registerClass(standard, section);
+
+        if (subject) {
+            subjectMap.get(`${standard}-${section}`)?.add(subject);
         }
     });
 
-    if (allUnique.length === 0) {
+    if (classes.length === 0) {
         throw new BadRequestError("No classes assigned to this teacher");
     }
-    return allUnique;
+
+    return {
+        classes,
+        subjectMap,
+        profileClasses,
+        entries,
+    };
 };
 
-// Checks ownership — teachers can only modify their own assignments
+const getTeacherClasses = async (schoolId, userId) => {
+    const scope = await getTeacherAssignmentScope(schoolId, userId);
+    return scope.classes;
+};
+
+const assertTeacherAssignmentAccess = (scope, standard, section, subject) => {
+    const classKey = `${standard}-${section}`;
+    const hasClassAccess = scope.classes.some(
+        (entry) => entry.standard === standard && entry.section === section
+    );
+
+    if (!hasClassAccess) {
+        throw new ForbiddenError(`You do not have permission to access Class ${standard}-${section}`);
+    }
+
+    if (!subject) return;
+
+    const allowedSubjects = scope.subjectMap.get(classKey);
+    if (allowedSubjects?.size && !allowedSubjects.has(subject)) {
+        throw new ForbiddenError(`You do not have permission to use subject "${subject}" for Class ${standard}-${section}`);
+    }
+};
+
 const checkOwnership = (assignment, userId, role) => {
     if (role === USER_ROLES.TEACHER && assignment.createdBy.toString() !== userId.toString()) {
         throw new ForbiddenError("You can only modify your own assignments");
     }
 };
 
-// ── Assignment CRUD ─────────────────────────────────────────────
+const assertCanViewAssignment = async (assignment, schoolId, userId, role) => {
+    if (role === USER_ROLES.ADMIN) {
+        return;
+    }
 
-// Create a new assignment
-export const createAssignment = async (schoolId, userId, role, body, files) => {
-    let { standard, section } = body;
-
-    // Teachers can specify class, but must be one of their assigned classes
     if (role === USER_ROLES.TEACHER) {
         const classes = await getTeacherClasses(schoolId, userId);
-        
-        // If teacher didn't specify, default to first class (legacy behavior/convenience)
-        if (!standard || !section) {
-            standard = classes[0].standard;
-            section = classes[0].section;
-        } else {
-            // Validate requested class exists in their profile
-            const hasAccess = classes.some(c => c.standard === standard && c.section === section);
-            if (!hasAccess) {
-                throw new ForbiddenError(`You do not have permission to create assignments for Class ${standard}-${section}`);
-            }
+        const hasAccess = classes.some(
+            (entry) => entry.standard === assignment.standard && entry.section === assignment.section
+        );
+
+        if (!hasAccess) {
+            throw new ForbiddenError("You do not have access to this assignment");
         }
+
+        return;
     }
 
-    // Admins must provide standard and section
+    const profile = await StudentProfile.findOne({ schoolId, userId }).lean();
+    if (!profile) {
+        throw new NotFoundError("Student profile not found");
+    }
+
+    if (profile.standard !== assignment.standard || profile.section !== assignment.section) {
+        throw new ForbiddenError("You do not have access to this assignment");
+    }
+};
+
+const buildAssignmentSummaryMap = async (assignmentIds = []) => {
+    if (!assignmentIds.length) {
+        return new Map();
+    }
+
+    const submissionCounts = await Submission.aggregate([
+        { $match: { assignmentId: { $in: assignmentIds } } },
+        { $group: { _id: "$assignmentId", count: { $sum: 1 } } },
+    ]);
+
+    return new Map(submissionCounts.map((entry) => [entry._id.toString(), entry.count]));
+};
+
+export const createAssignment = async (schoolId, userId, role, body, files) => {
+    let { standard, section, subject } = body;
+    const dueDate = assertFutureDueDate(body.dueDate);
+
+    if (!subject) {
+        throw new BadRequestError("Subject is required");
+    }
+
+    if (role === USER_ROLES.TEACHER) {
+        const scope = await getTeacherAssignmentScope(schoolId, userId);
+
+        if (!standard || !section) {
+            standard = scope.classes[0].standard;
+            section = scope.classes[0].section;
+        }
+
+        assertTeacherAssignmentAccess(scope, standard, section, subject);
+    }
+
     if (!standard || !section) {
         throw new BadRequestError("Standard and section are required");
-    }
-
-    if (new Date(body.dueDate) <= new Date()) {
-        throw new BadRequestError("Due date must be in the future");
     }
 
     const assignment = await Assignment.create({
@@ -102,36 +271,35 @@ export const createAssignment = async (schoolId, userId, role, body, files) => {
         createdBy: userId,
         title: body.title,
         description: body.description || "",
-        subject: body.subject,
+        subject,
         standard,
         section,
-        dueDate: body.dueDate,
+        dueDate,
         attachments: mapFiles(files),
+        requiresSubmission: normalizeBoolean(body.requiresSubmission, false),
     });
 
     logger.info(`Assignment created: ${assignment._id}`);
-    return assignment;
+    return formatAssignment(assignment.toObject());
 };
 
-// List assignments (role-scoped)
 export const listAssignments = async (schoolId, userId, role, platform, query = {}) => {
     const filter = { schoolId };
 
     if (role === USER_ROLES.TEACHER) {
-        const classes = await getTeacherClasses(schoolId, userId);
-        const allowedStandards = [...new Set(classes.map(c => c.standard))];
-        
+        const scope = await getTeacherAssignmentScope(schoolId, userId);
+        const allowedStandards = [...new Set(scope.classes.map((entry) => entry.standard))];
+
         if (query.standard && query.standard !== "all") {
             if (!allowedStandards.includes(query.standard)) {
-                filter.standard = "unauthorized_selection"; 
+                filter.standard = "unauthorized_selection";
             } else {
                 filter.standard = query.standard;
-                
-                // Filter sections based on selection
-                const allowedSections = classes
-                    .filter(c => c.standard === query.standard)
-                    .map(c => c.section);
-                
+
+                const allowedSections = scope.classes
+                    .filter((entry) => entry.standard === query.standard)
+                    .map((entry) => entry.section);
+
                 if (query.section && query.section !== "all") {
                     if (!allowedSections.includes(query.section)) {
                         filter.section = "unauthorized_selection";
@@ -143,28 +311,32 @@ export const listAssignments = async (schoolId, userId, role, platform, query = 
                 }
             }
         } else {
-            // Default: Show everything teacher is assigned to
-            filter.$or = classes.map(c => ({
-                standard: c.standard,
-                section: c.section
+            filter.$or = scope.classes.map((entry) => ({
+                standard: entry.standard,
+                section: entry.section,
             }));
+        }
+
+        if (query.standard && query.standard !== "all" && query.section && query.section !== "all" && query.subject && query.subject !== "all") {
+            assertTeacherAssignmentAccess(scope, query.standard, query.section, query.subject);
         }
     } else if (role === USER_ROLES.STUDENT) {
         const profile = await StudentProfile.findOne({ schoolId, userId }).lean();
         if (!profile) throw new NotFoundError("Student profile not found");
+
         filter.standard = profile.standard;
         filter.section = profile.section;
         filter.status = "active";
     } else {
-        // Admin/Super Admin — optional query filters
         if (query.standard && query.standard !== "all") filter.standard = query.standard;
         if (query.section && query.section !== "all") filter.section = query.section;
-        if (query.subject && query.subject !== "all") filter.subject = query.subject;
+        if (query.teacherId && mongoose.Types.ObjectId.isValid(query.teacherId)) {
+            filter.createdBy = query.teacherId;
+        }
     }
 
-    // Common optional filters for non-students
-    if (role !== USER_ROLES.STUDENT) {
-        if (query.status && query.status !== "all") filter.status = query.status;
+    if (role !== USER_ROLES.STUDENT && query.status && query.status !== "all") {
+        filter.status = query.status;
     }
 
     if (query.subject && query.subject !== "all") {
@@ -185,8 +357,8 @@ export const listAssignments = async (schoolId, userId, role, platform, query = 
         ];
     }
 
-    const page = parseInt(query.page) || 0;
-    const pageSize = parseInt(query.pageSize) || 25;
+    const page = parseInt(query.page, 10) || 0;
+    const pageSize = parseInt(query.pageSize, 10) || 25;
     const skip = page * pageSize;
 
     const [total, assignments] = await Promise.all([
@@ -196,13 +368,14 @@ export const listAssignments = async (schoolId, userId, role, platform, query = 
             .sort({ createdAt: -1 })
             .skip(skip)
             .limit(pageSize)
-            .lean()
+            .lean(),
     ]);
 
-    // Attach submission flag for students
-    let finalAssignments = assignments;
-    if (role === USER_ROLES.STUDENT) {
-        const assignmentIds = assignments.map((a) => a._id);
+    const assignmentIds = assignments.map((assignment) => assignment._id);
+    const submissionCountMap = await buildAssignmentSummaryMap(assignmentIds);
+
+    let submittedSet = new Set();
+    if (role === USER_ROLES.STUDENT && assignmentIds.length) {
         const submissions = await Submission.find({
             assignmentId: { $in: assignmentIds },
             studentId: userId,
@@ -210,26 +383,28 @@ export const listAssignments = async (schoolId, userId, role, platform, query = 
             .select("assignmentId")
             .lean();
 
-        const submittedSet = new Set(submissions.map((s) => s.assignmentId.toString()));
-        finalAssignments = assignments.map((a) => ({
-            ...a,
-            submitted: submittedSet.has(a._id.toString()),
-        }));
+        submittedSet = new Set(submissions.map((entry) => entry.assignmentId.toString()));
     }
 
     return {
-        assignments: finalAssignments,
+        assignments: assignments.map((assignment) =>
+            formatAssignment(assignment, {
+                hasSubmitted: role === USER_ROLES.STUDENT
+                    ? submittedSet.has(assignment._id.toString())
+                    : undefined,
+                submissionCount: submissionCountMap.get(assignment._id.toString()) || 0,
+            })
+        ),
         pagination: {
             total,
             page,
             pageSize,
             totalPages: Math.ceil(total / pageSize),
-        }
+        },
     };
 };
 
-// Get a single assignment by ID
-export const getAssignment = async (schoolId, assignmentId) => {
+export const getAssignment = async (schoolId, assignmentId, userId, role) => {
     if (!mongoose.Types.ObjectId.isValid(assignmentId)) {
         throw new BadRequestError("Invalid assignment ID");
     }
@@ -239,10 +414,35 @@ export const getAssignment = async (schoolId, assignmentId) => {
         .lean();
 
     if (!assignment) throw new NotFoundError("Assignment not found");
-    return assignment;
+
+    await assertCanViewAssignment(assignment, schoolId, userId, role);
+
+    const response = formatAssignment(assignment);
+
+    if (role === USER_ROLES.ADMIN || role === USER_ROLES.TEACHER) {
+        const submissions = await Submission.find({ assignmentId }).lean();
+        const studentIds = submissions.map((entry) => entry.studentId);
+        const User = mongoose.model("User");
+        const students = await User.find({ _id: { $in: studentIds } })
+            .select("name email")
+            .lean();
+        const studentMap = new Map(students.map((student) => [student._id.toString(), student]));
+
+        response.submissions = submissions.map((submission) => ({
+            ...formatSubmission(submission),
+            student: studentMap.get(submission.studentId.toString()) || null,
+        }));
+    }
+
+    if (role === USER_ROLES.STUDENT) {
+        const mySubmission = await Submission.findOne({ assignmentId, studentId: userId, schoolId }).lean();
+        response.hasSubmitted = Boolean(mySubmission);
+        response.submitted = Boolean(mySubmission);
+    }
+
+    return response;
 };
 
-// Update an assignment
 export const updateAssignment = async (schoolId, assignmentId, userId, role, body, files) => {
     if (!mongoose.Types.ObjectId.isValid(assignmentId)) {
         throw new BadRequestError("Invalid assignment ID");
@@ -253,59 +453,82 @@ export const updateAssignment = async (schoolId, assignmentId, userId, role, bod
 
     checkOwnership(assignment, userId, role);
 
-    if (body.dueDate !== undefined && new Date(body.dueDate) <= new Date()) {
-        throw new BadRequestError("Due date must be in the future");
+    const nextStandard = body.standard ?? assignment.standard;
+    const nextSection = body.section ?? assignment.section;
+    const nextSubject = body.subject ?? assignment.subject;
+
+    if (role === USER_ROLES.TEACHER) {
+        const attemptedClassChange = (
+            (body.standard !== undefined && body.standard !== assignment.standard) ||
+            (body.section !== undefined && body.section !== assignment.section) ||
+            (body.subject !== undefined && body.subject !== assignment.subject)
+        );
+
+        if (attemptedClassChange) {
+            throw new ForbiddenError("Teachers cannot change class, section, or subject after creation");
+        }
+    }
+
+    if (role === USER_ROLES.ADMIN) {
+        assignment.standard = nextStandard;
+        assignment.section = nextSection;
+        assignment.subject = nextSubject;
+    }
+
+    if (body.dueDate !== undefined) {
+        assignment.dueDate = assertFutureDueDate(body.dueDate);
     }
 
     if (body.title !== undefined) assignment.title = body.title;
     if (body.description !== undefined) assignment.description = body.description;
-    if (body.dueDate !== undefined) assignment.dueDate = body.dueDate;
+    if (body.requiresSubmission !== undefined) {
+        assignment.requiresSubmission = normalizeBoolean(body.requiresSubmission, assignment.requiresSubmission);
+    }
     if (body.status !== undefined) assignment.status = body.status;
 
-    // Append new attachments if provided
     if (files?.length) {
         assignment.attachments.push(...mapFiles(files));
     }
 
     await assignment.save();
     logger.info(`Assignment updated: ${assignmentId}`);
-    return assignment;
+    return formatAssignment(assignment.toObject());
 };
 
-// Delete an assignment and cascade-clean submissions + Cloudinary files
 export const deleteAssignment = async (schoolId, assignmentId, userId, role) => {
     if (!mongoose.Types.ObjectId.isValid(assignmentId)) {
         throw new BadRequestError("Invalid assignment ID");
     }
 
+    if (role !== USER_ROLES.ADMIN) {
+        throw new ForbiddenError("Only admins can delete assignments");
+    }
+
     const assignment = await Assignment.findOne({ _id: assignmentId, schoolId });
     if (!assignment) throw new NotFoundError("Assignment not found");
 
-    checkOwnership(assignment, userId, role);
-
-    // Clean assignment attachments from Cloudinary
-    for (const att of assignment.attachments) {
-        await deleteFromCloudinary(att.publicId);
+    for (const attachment of assignment.attachments) {
+        await deleteFromCloudinary(attachment.url);
     }
 
-    // Clean submission files from Cloudinary and delete submissions
     const submissions = await Submission.find({ assignmentId }).lean();
-    for (const sub of submissions) {
-        for (const file of sub.files) {
-            await deleteFromCloudinary(file.publicId);
+    for (const submission of submissions) {
+        for (const file of submission.files) {
+            await deleteFromCloudinary(file.url);
         }
     }
+
     await Submission.deleteMany({ assignmentId });
     await Assignment.deleteOne({ _id: assignmentId });
 
     logger.info(`Assignment deleted with cascade: ${assignmentId}`);
 };
 
-// Remove a single attachment from an assignment
 export const removeAttachment = async (schoolId, assignmentId, userId, role, publicId) => {
     if (!mongoose.Types.ObjectId.isValid(assignmentId)) {
         throw new BadRequestError("Invalid assignment ID");
     }
+
     if (!publicId || typeof publicId !== "string") {
         throw new BadRequestError("Invalid attachment public ID");
     }
@@ -315,36 +538,44 @@ export const removeAttachment = async (schoolId, assignmentId, userId, role, pub
 
     checkOwnership(assignment, userId, role);
 
-    const attachmentIndex = assignment.attachments.findIndex((a) => a.publicId === publicId);
+    const attachmentIndex = assignment.attachments.findIndex((entry) => entry.publicId === publicId);
     if (attachmentIndex === -1) throw new NotFoundError("Attachment not found");
 
-    await deleteFromCloudinary(publicId);
-    assignment.attachments.splice(attachmentIndex, 1);
+    const [attachment] = assignment.attachments.splice(attachmentIndex, 1);
+    if (attachment?.url) {
+        await deleteFromCloudinary(attachment.url);
+    }
+
     await assignment.save();
 
     logger.info(`Attachment removed from assignment ${assignmentId}: ${publicId}`);
-    return assignment;
+    return formatAssignment(assignment.toObject());
 };
 
-// ── Submission ──────────────────────────────────────────────────
-
-// Student submits (or re-submits) an assignment
 export const submitAssignment = async (schoolId, assignmentId, studentId, files) => {
     if (!mongoose.Types.ObjectId.isValid(assignmentId)) {
         throw new BadRequestError("Invalid assignment ID");
     }
+
     if (!files?.length) {
-        throw new BadRequestError("At least one file is required for submission");
+        throw new BadRequestError("A submission file is required");
+    }
+
+    if (files.length > 1) {
+        throw new BadRequestError("Only one submission file is allowed");
     }
 
     const assignment = await Assignment.findOne({ _id: assignmentId, schoolId }).lean();
     if (!assignment) throw new NotFoundError("Assignment not found");
 
+    if (!assignment.requiresSubmission) {
+        throw new BadRequestError("This assignment does not require a submission");
+    }
+
     if (assignment.status === "closed") {
         throw new BadRequestError("Assignment is closed for submissions");
     }
 
-    // Validate student belongs to the same class as the assignment
     const profile = await StudentProfile.findOne({ schoolId, userId: studentId }).lean();
     if (!profile) throw new NotFoundError("Student profile not found");
 
@@ -355,20 +586,20 @@ export const submitAssignment = async (schoolId, assignmentId, studentId, files)
     const isLate = new Date() > new Date(assignment.dueDate);
     const mappedFiles = mapFiles(files);
 
-    // Check for existing submission (re-submission replaces old files)
     const existing = await Submission.findOne({ assignmentId, studentId });
 
     if (existing) {
-        // Delete old files from Cloudinary before replacing
         for (const file of existing.files) {
-            await deleteFromCloudinary(file.publicId);
+            await deleteFromCloudinary(file.url);
         }
+
         existing.files = mappedFiles;
         existing.isLate = isLate;
         existing.submittedAt = new Date();
         await existing.save();
+
         logger.info(`Re-submission for assignment ${assignmentId} by student ${studentId}`);
-        return existing;
+        return formatSubmission(existing.toObject());
     }
 
     const submission = await Submission.create({
@@ -380,31 +611,35 @@ export const submitAssignment = async (schoolId, assignmentId, studentId, files)
     });
 
     logger.info(`Submission created for assignment ${assignmentId} by student ${studentId}`);
-    return submission;
+    return formatSubmission(submission.toObject());
 };
 
-// Get a student's own submission for an assignment
 export const getMySubmission = async (schoolId, assignmentId, studentId) => {
     if (!mongoose.Types.ObjectId.isValid(assignmentId)) {
         throw new BadRequestError("Invalid assignment ID");
     }
 
-    // Return null if not found — student just hasn't submitted yet
-    return await Submission.findOne({ assignmentId, studentId, schoolId }).lean();
+    const assignment = await Assignment.findOne({ _id: assignmentId, schoolId }).lean();
+    if (!assignment) {
+        throw new NotFoundError("Assignment not found");
+    }
+
+    await assertCanViewAssignment(assignment, schoolId, studentId, USER_ROLES.STUDENT);
+
+    const submission = await Submission.findOne({ assignmentId, studentId, schoolId }).lean();
+    return formatSubmission(submission);
 };
 
-// Teacher/admin view: all submissions merged with class roster
 export const listSubmissions = async (schoolId, assignmentId, userId, role) => {
     if (!mongoose.Types.ObjectId.isValid(assignmentId)) {
         throw new BadRequestError("Invalid assignment ID");
     }
 
     const assignment = await Assignment.findOne({ _id: assignmentId, schoolId })
-        .select("title subject standard section dueDate status createdBy")
+        .select("title subject standard section dueDate status createdBy requiresSubmission attachments")
         .lean();
     if (!assignment) throw new NotFoundError("Assignment not found");
 
-    // Teachers can only view submissions for assignments they created
     if (role === USER_ROLES.TEACHER && assignment.createdBy.toString() !== userId.toString()) {
         throw new ForbiddenError("You can only view submissions for your own assignments");
     }
@@ -417,8 +652,7 @@ export const listSubmissions = async (schoolId, assignmentId, userId, role) => {
         .select("userId rollNumber")
         .lean();
 
-    const studentUserIds = studentProfiles.map((p) => p.userId);
-
+    const studentUserIds = studentProfiles.map((profile) => profile.userId);
     const User = mongoose.model("User");
     const students = await User.find({
         _id: { $in: studentUserIds },
@@ -427,43 +661,40 @@ export const listSubmissions = async (schoolId, assignmentId, userId, role) => {
         .select("name email")
         .lean();
 
-    // Build a rollNumber lookup from profiles
-    const rollMap = new Map(studentProfiles.map((p) => [p.userId.toString(), p.rollNumber]));
-
-    // Get all submissions for this assignment
+    const rollMap = new Map(studentProfiles.map((profile) => [profile.userId.toString(), profile.rollNumber]));
     const submissions = await Submission.find({ assignmentId }).lean();
-    const subMap = new Map(submissions.map((s) => [s.studentId.toString(), s]));
+    const submissionMap = new Map(submissions.map((submission) => [submission.studentId.toString(), submission]));
 
-    // Merge student info with submission status
-    const merged = students.map((s) => {
-        const sub = subMap.get(s._id.toString());
+    const mergedStudents = students.map((student) => {
+        const submission = submissionMap.get(student._id.toString());
+
         return {
-            studentId: s._id,
-            name: s.name,
-            rollNumber: rollMap.get(s._id.toString()) || null,
-            submitted: !!sub,
-            ...(sub && {
-                submittedAt: sub.submittedAt,
-                isLate: sub.isLate,
-                files: sub.files.map((f) => ({ url: f.url, name: f.name })),
+            studentId: student._id,
+            name: student.name,
+            email: student.email,
+            rollNumber: rollMap.get(student._id.toString()) || null,
+            submitted: Boolean(submission),
+            ...(submission && {
+                submittedAt: submission.submittedAt,
+                isLate: submission.isLate,
+                files: (submission.files || []).map(formatFile),
             }),
         };
     });
 
-    const submittedCount = merged.filter((s) => s.submitted).length;
+    const submittedCount = mergedStudents.filter((entry) => entry.submitted).length;
 
     return {
-        assignment,
+        assignment: formatAssignment(assignment, { submissionCount: submittedCount }),
         counts: {
-            totalStudents: merged.length,
+            totalStudents: mergedStudents.length,
             submitted: submittedCount,
-            pending: merged.length - submittedCount,
+            pending: mergedStudents.length - submittedCount,
         },
-        students: merged,
+        students: mergedStudents,
     };
 };
 
-// Gets unique standards, sections, and subjects available for assignment creation
 export const getAssignmentMetadata = async (schoolId, userRole, userId) => {
     const isTeacher = userRole === USER_ROLES.TEACHER;
 
@@ -475,30 +706,15 @@ export const getAssignmentMetadata = async (schoolId, userRole, userId) => {
     const { Timetable, TimetableEntry } = await import("../timetable/Timetable.model.js");
 
     if (isTeacher) {
-        const teacherClasses = await getTeacherClasses(schoolId, userId);
-        const teacherClassFilter = teacherClasses.map(({ standard, section }) => ({ standard, section }));
-        const profile = await TeacherProfile.findOne({ schoolId, userId })
-            .select("assignedClasses")
+        const scope = await getTeacherAssignmentScope(schoolId, userId);
+        const teacherClassFilter = scope.classes.map(({ standard, section }) => ({ standard, section }));
+
+        profileClasses = scope.profileClasses;
+        entries = scope.entries;
+        assignments = await Assignment.find({ schoolId, $or: teacherClassFilter })
+            .select("standard section subject")
             .lean();
-
-        profileClasses = profile?.assignedClasses || [];
-
-        const [foundEntries, foundAssignments] = await Promise.all([
-            TimetableEntry.find({ schoolId, teacherId: userId })
-                .populate({
-                    path: "timetableId",
-                    select: "standard section",
-                })
-                .lean(),
-            Assignment.find({ schoolId, $or: teacherClassFilter })
-                .select("standard section subject")
-                .lean(),
-        ]);
-
-        entries = foundEntries;
-        assignments = foundAssignments;
     } else {
-        // Admin: Get all scheduled entries (for subjects) AND all timetables (for full class list)
         const [foundEntries, foundTimetables, foundAssignments] = await Promise.all([
             TimetableEntry.find({ schoolId })
                 .populate({
@@ -511,18 +727,18 @@ export const getAssignmentMetadata = async (schoolId, userRole, userId) => {
                 .select("standard section subject")
                 .lean(),
         ]);
+
         entries = foundEntries;
         allTimetablesForAdmin = foundTimetables;
         assignments = foundAssignments;
     }
 
-    // Structured Metadata Building
     const standards = new Set();
     const sections = new Set();
     const subjects = new Set();
     const mappings = {
-        classSections: {}, // { "10": ["A", "B"] }
-        sectionSubjects: {} // { "10-A": ["Math"], "10-B": ["Science"] }
+        classSections: {},
+        sectionSubjects: {},
     };
 
     profileClasses.forEach(({ standard, section, subjects: profileSubjects = [] }) => {
@@ -548,45 +764,43 @@ export const getAssignmentMetadata = async (schoolId, userRole, userId) => {
         });
     });
 
-    // For Admins, ensure all Classes/Sections are represented even if they have no periods assigned
     if (!isTeacher) {
-        allTimetablesForAdmin.forEach(tt => {
-            const std = tt.standard;
-            const sec = tt.section;
-            if (!std || !sec) return;
+        allTimetablesForAdmin.forEach((timetable) => {
+            const standard = timetable.standard;
+            const section = timetable.section;
+            if (!standard || !section) return;
 
-            standards.add(std);
-            sections.add(sec);
-            if (!mappings.classSections[std]) {
-                mappings.classSections[std] = new Set();
+            standards.add(standard);
+            sections.add(section);
+
+            if (!mappings.classSections[standard]) {
+                mappings.classSections[standard] = new Set();
             }
-            mappings.classSections[std].add(sec);
+            mappings.classSections[standard].add(section);
         });
     }
 
-    entries.forEach(entry => {
-        const std = entry.timetableId?.standard;
-        const sec = entry.timetableId?.section;
-        const sub = entry.subject;
+    entries.forEach((entry) => {
+        const standard = entry.timetableId?.standard;
+        const section = entry.timetableId?.section;
+        const subject = entry.subject;
 
-        if (!std || !sec) return;
+        if (!standard || !section) return;
 
-        standards.add(std);
-        sections.add(sec);
-        if (sub) subjects.add(sub);
+        standards.add(standard);
+        sections.add(section);
+        if (subject) subjects.add(subject);
 
-        // Map Standard -> Sections
-        if (!mappings.classSections[std]) {
-            mappings.classSections[std] = new Set();
+        if (!mappings.classSections[standard]) {
+            mappings.classSections[standard] = new Set();
         }
-        mappings.classSections[std].add(sec);
+        mappings.classSections[standard].add(section);
 
-        // Map Section -> Subjects
-        const key = `${std}-${sec}`;
+        const key = `${standard}-${section}`;
         if (!mappings.sectionSubjects[key]) {
             mappings.sectionSubjects[key] = new Set();
         }
-        if (sub) mappings.sectionSubjects[key].add(sub);
+        if (subject) mappings.sectionSubjects[key].add(subject);
     });
 
     assignments.forEach(({ standard, section, subject }) => {
@@ -611,21 +825,21 @@ export const getAssignmentMetadata = async (schoolId, userRole, userId) => {
         }
     });
 
-    // Convert Sets to sorted Arrays
     const result = {
-        standards: Array.from(standards).sort((a, b) => (parseInt(a) || 0) - (parseInt(b) || 0)),
+        standards: Array.from(standards).sort((a, b) => (parseInt(a, 10) || 0) - (parseInt(b, 10) || 0)),
         sections: Array.from(sections).sort(),
         subjects: Array.from(subjects).sort(),
         mappings: {
             classSections: {},
-            sectionSubjects: {}
-        }
+            sectionSubjects: {},
+        },
     };
 
-    Object.keys(mappings.classSections).forEach(std => {
-        result.mappings.classSections[std] = Array.from(mappings.classSections[std]).sort();
+    Object.keys(mappings.classSections).forEach((standard) => {
+        result.mappings.classSections[standard] = Array.from(mappings.classSections[standard]).sort();
     });
-    Object.keys(mappings.sectionSubjects).forEach(key => {
+
+    Object.keys(mappings.sectionSubjects).forEach((key) => {
         result.mappings.sectionSubjects[key] = Array.from(mappings.sectionSubjects[key]).sort();
     });
 

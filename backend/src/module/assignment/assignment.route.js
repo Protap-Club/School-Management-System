@@ -2,6 +2,7 @@ import express from "express";
 import multer from "multer";
 import cloudinaryStorage from "multer-storage-cloudinary";
 import cloudinary from "../../config/cloudinary.js";
+import { AppError, ValidationError } from "../../utils/customError.js";
 import {
     createAssignment,
     listAssignments,
@@ -26,13 +27,13 @@ import {
     submitAssignmentSchema,
 } from "./assignment.validation.js";
 
-// Cloudinary storage scoped to school assignments folder
 const assignmentStorage = cloudinaryStorage({
     cloudinary: { v2: cloudinary },
     params: function (req, file, cb) {
         const folder = req.schoolId
             ? `schools/${req.schoolId}/assignments`
             : "schools/default/assignments";
+
         cb(null, {
             folder,
             resource_type: "raw",
@@ -41,50 +42,94 @@ const assignmentStorage = cloudinaryStorage({
     },
 });
 
-const ALLOWED_MIMETYPES = [
+const ALLOWED_STUDENT_MIMETYPES = [
     "application/pdf",
-    "application/msword",
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     "image/jpeg",
     "image/jpg",
-    "image/png",
 ];
 
-const fileFilter = (req, file, cb) => {
-    if (ALLOWED_MIMETYPES.includes(file.mimetype)) {
-        cb(null, true);
-    } else {
-        cb(
-            new Error("File type not allowed. Supported: PDF, DOC, DOCX, JPG, JPEG, PNG"),
-            false
-        );
-    }
-};
-
-const upload = multer({
+const teacherUpload = multer({
     storage: assignmentStorage,
-    fileFilter,
+    fileFilter: (req, file, cb) => cb(null, true),
     limits: { fileSize: 10 * 1024 * 1024 },
 });
+
+const studentSubmissionUpload = multer({
+    storage: assignmentStorage,
+    fileFilter: (req, file, cb) => {
+        if (ALLOWED_STUDENT_MIMETYPES.includes(file.mimetype)) {
+            cb(null, true);
+            return;
+        }
+
+        cb(new ValidationError("File type not allowed. Supported: PDF, JPG, JPEG"), false);
+    },
+    limits: { fileSize: 10 * 1024 * 1024, files: 1 },
+});
+
+const withUploadHandling = (middleware, fileSizeMessage) => (req, res, next) => {
+    middleware(req, res, (err) => {
+        if (!err) {
+            next();
+            return;
+        }
+
+        if (err instanceof multer.MulterError) {
+            if (err.code === "LIMIT_FILE_SIZE") {
+                next(new AppError(fileSizeMessage, 413, "PAYLOAD_TOO_LARGE"));
+                return;
+            }
+
+            next(new ValidationError(err.message));
+            return;
+        }
+
+        next(err);
+    });
+};
 
 const router = express.Router();
 
 router.use(requireFeature("assignment"));
 
-// Assignment CRUD (teacher/admin — web only)
 router.get("/meta/metadata", checkRole([USER_ROLES.ADMIN, USER_ROLES.TEACHER]), getAssignmentMetadata);
+router.get("/student", checkRole([USER_ROLES.STUDENT]), listAssignments);
 router.get("/", checkRole([USER_ROLES.ADMIN, USER_ROLES.TEACHER, USER_ROLES.STUDENT]), listAssignments);
-router.post("/", checkWebOnly, checkRole([USER_ROLES.ADMIN, USER_ROLES.TEACHER]), upload.array("attachments", 5), validate(createAssignmentSchema), createAssignment);
+router.post(
+    "/",
+    checkWebOnly,
+    checkRole([USER_ROLES.ADMIN, USER_ROLES.TEACHER]),
+    withUploadHandling(teacherUpload.array("attachments", 5), "Attachment size must be 10MB or less"),
+    validate(createAssignmentSchema),
+    createAssignment
+);
 
 router.get("/:id", checkRole([USER_ROLES.ADMIN, USER_ROLES.TEACHER, USER_ROLES.STUDENT]), validate(assignmentIdParamsSchema), getAssignment);
-router.put("/:id", checkWebOnly, checkRole([USER_ROLES.ADMIN, USER_ROLES.TEACHER]), upload.array("attachments", 5), validate(updateAssignmentSchema), updateAssignment);
-router.delete("/:id", checkWebOnly, checkRole([USER_ROLES.ADMIN, USER_ROLES.TEACHER]), validate(assignmentIdParamsSchema), deleteAssignment);
+router.put(
+    "/:id",
+    checkWebOnly,
+    checkRole([USER_ROLES.ADMIN, USER_ROLES.TEACHER]),
+    withUploadHandling(teacherUpload.array("attachments", 5), "Attachment size must be 10MB or less"),
+    validate(updateAssignmentSchema),
+    updateAssignment
+);
+router.delete("/:id", checkWebOnly, checkRole([USER_ROLES.ADMIN]), validate(assignmentIdParamsSchema), deleteAssignment);
 
-// Attachment management (teacher/admin — web only)
 router.delete("/:id/attachments/:publicId", checkWebOnly, checkRole([USER_ROLES.ADMIN, USER_ROLES.TEACHER]), validate(assignmentIdParamsSchema), removeAttachment);
 
-// Submission routes (student submits via mobile, teacher/admin views on web)
-router.post("/:id/submit", checkRole([USER_ROLES.STUDENT]), upload.array("files", 5), validate(submitAssignmentSchema), submitAssignment);
+router.post(
+    "/:id/submit",
+    checkRole([USER_ROLES.STUDENT]),
+    withUploadHandling(
+        studentSubmissionUpload.fields([
+            { name: "file", maxCount: 1 },
+            { name: "files", maxCount: 1 },
+        ]),
+        "Submission file size must be 10MB or less"
+    ),
+    validate(submitAssignmentSchema),
+    submitAssignment
+);
 router.get("/:id/my-submission", checkRole([USER_ROLES.STUDENT]), validate(assignmentIdParamsSchema), getMySubmission);
 router.get("/:id/submissions", checkWebOnly, checkRole([USER_ROLES.ADMIN, USER_ROLES.TEACHER]), validate(assignmentIdParamsSchema), listSubmissions);
 

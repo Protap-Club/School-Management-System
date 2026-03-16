@@ -2,6 +2,18 @@ import * as assignmentService from "./assignment.service.js";
 import asyncHandler from "../../utils/asyncHandler.js";
 import logger from "../../config/logger.js";
 
+const normalizeUploadedFiles = (files) => {
+    if (Array.isArray(files)) {
+        return files;
+    }
+
+    if (!files || typeof files !== "object") {
+        return [];
+    }
+
+    return Object.values(files).flat().filter(Boolean);
+};
+
 // ── Assignment Controllers ──────────────────────────────────────
 
 // POST /assignments
@@ -12,7 +24,7 @@ export const createAssignment = asyncHandler(async (req, res) => {
         req.user._id,
         req.user.role,
         req.body,
-        req.files || []
+        normalizeUploadedFiles(req.files)
     );
 
     res.status(201).json({
@@ -61,7 +73,9 @@ export const listAssignments = asyncHandler(async (req, res) => {
 export const getAssignment = asyncHandler(async (req, res) => {
     const result = await assignmentService.getAssignment(
         req.schoolId,
-        req.params.id
+        req.params.id,
+        req.user._id,
+        req.user.role
     );
 
     res.status(200).json({
@@ -79,7 +93,7 @@ export const updateAssignment = asyncHandler(async (req, res) => {
         req.user._id,
         req.user.role,
         req.body,
-        req.files || []
+        normalizeUploadedFiles(req.files)
     );
 
     res.status(200).json({
@@ -132,7 +146,7 @@ export const submitAssignment = asyncHandler(async (req, res) => {
         req.schoolId,
         req.params.id,
         req.user._id,
-        req.files || []
+        normalizeUploadedFiles(req.files)
     );
 
     res.status(201).json({
