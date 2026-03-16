@@ -48,8 +48,6 @@ const AvatarDropdown = () => {
                 return '/superadmin/settings';
             case 'admin':
                 return '/admin/settings';
-            case 'teacher':
-                return '/teacher/settings';
             default:
                 return '/settings';
         }
@@ -89,16 +87,18 @@ const AvatarDropdown = () => {
                     </div>
 
                     <div className="py-1">
-                        <button
-                            onClick={() => {
-                                navigate(getSettingsPath());
-                                setIsOpen(false);
-                            }}
-                            className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                        >
-                            <FaCog className="text-gray-400" />
-                            <span>Settings</span>
-                        </button>
+                        {user?.role !== 'teacher' && (
+                            <button
+                                onClick={() => {
+                                    navigate(getSettingsPath());
+                                    setIsOpen(false);
+                                }}
+                                className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                            >
+                                <FaCog className="text-gray-400" />
+                                <span>Settings</span>
+                            </button>
+                        )}
 
                         <div className="h-px bg-border-subtle my-1" />
 

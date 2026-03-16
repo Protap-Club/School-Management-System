@@ -50,7 +50,10 @@ const buildAttendanceMap = (records = []) => {
 const buildClassGroups = (students = [], teachers = []) => {
     const groups = {};
     students.forEach(student => {
-        const std = student.profile?.standard || 'Unassigned';
+        // Hide "Unassigned" class by skipping students without a assigned standard
+        if (!student.profile?.standard) return;
+
+        const std = student.profile.standard;
         const sec = student.profile?.section || '';
         const key = `${std} ${sec}`.trim();
         if (!groups[key]) {
