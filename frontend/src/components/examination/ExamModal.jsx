@@ -172,11 +172,23 @@ const ExamModal = ({ isOpen, onClose, onSubmit, editData, isLoading, userRole, u
     }, []);
 
     const addScheduleItem = useCallback(() => {
-        setForm(prev => ({
-            ...prev,
-            schedule: [...prev.schedule, { ...INITIAL_FORM.schedule[0] }]
-        }));
-    }, []);
+        setForm(prev => {
+            const lastItem = prev.schedule[prev.schedule.length - 1];
+            const newItem = {
+                ...INITIAL_FORM.schedule[0],
+                // Carry over values from the last item to improve UX
+                startTime: lastItem?.startTime || '',
+                endTime: lastItem?.endTime || '',
+                totalMarks: lastItem?.totalMarks || '',
+                passingMarks: lastItem?.passingMarks || '',
+                examDate: ''
+            };
+            return {
+                ...prev,
+                schedule: [...prev.schedule, newItem]
+            };
+        });
+    }, [INITIAL_FORM.schedule]);
 
     const removeScheduleItem = useCallback((index) => {
         setForm(prev => ({

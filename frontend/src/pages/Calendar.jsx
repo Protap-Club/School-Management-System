@@ -128,7 +128,7 @@ const Calendar = () => {
       
       const [calRes, examRes] = await Promise.all([
         api.get('/calendar', { params: { start: startOfMonth.toISOString(), end: endOfMonth.toISOString() } }),
-        api.get('/examinations', { params: { status: 'PUBLISHED' } })
+        !isAdmin ? api.get('/examinations', { params: { status: 'PUBLISHED' } }) : Promise.resolve({ data: { success: false } })
       ]);
 
       let allEvents = [];

@@ -348,6 +348,18 @@ const Examination = () => {
                 <tbody className="divide-y divide-slate-100">
                   {filteredExams.map((exam) => {
                     const firstSchedule = exam.schedule?.[0];
+                    const subjects = (exam.schedule || []).map(s => s.subject).filter(Boolean);
+                    const dates = (exam.schedule || [])
+                      .map(s => s.examDate)
+                      .filter(Boolean)
+                      .sort((a, b) => new Date(a) - new Date(b));
+                    
+                    const minDate = dates.length > 0 ? new Date(dates[0]) : null;
+                    const maxDate = dates.length > 0 ? new Date(dates[dates.length - 1]) : null;
+
+                    const allSameTime = exam.schedule?.length > 1 && 
+                      exam.schedule.every(s => s.startTime === exam.schedule[0].startTime && s.endTime === exam.schedule[0].endTime);
+
                     const durationInMins = firstSchedule ? (() => {
                       const [h1, m1] = (firstSchedule.startTime || '00:00').split(':').map(Number);
                       const [h2, m2] = (firstSchedule.endTime || '00:00').split(':').map(Number);
@@ -363,17 +375,36 @@ const Examination = () => {
                           </div>
                         </td>
                         <td className="px-6 py-5 text-center">
-                          <span className="inline-flex items-center px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-primary/10 text-primary border border-primary/20 shadow-sm">
-                            {firstSchedule?.subject || 'Multiple'}
-                          </span>
+                          <div className="flex flex-wrap gap-1 justify-center max-w-[150px] mx-auto text-center">
+                            {subjects.length > 0 ? (
+                              <>
+                                {subjects.slice(0, 2).map((sub, i) => (
+                                  <span key={i} className="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest bg-primary/10 text-primary border border-primary/20 shadow-sm whitespace-nowrap">
+                                    {sub}
+                                  </span>
+                                ))}
+                                {subjects.length > 2 && (
+                                  <span className="text-[9px] font-bold text-slate-400 ml-1">+{subjects.length - 2}</span>
+                                )}
+                              </>
+                            ) : (
+                                <span className="text-slate-400 text-xs italic">No subjects</span>
+                            )}
+                          </div>
                         </td>
                         <td className="px-6 py-5">
                           <div className="flex flex-col gap-0.5">
                             <div className="text-sm font-bold text-slate-700">
-                              {firstSchedule ? new Date(firstSchedule.examDate).toLocaleDateString() : 'N/A'}
+                              {minDate ? (
+                                minDate.toDateString() === maxDate.toDateString() 
+                                  ? minDate.toLocaleDateString()
+                                  : `${minDate.getDate()}/${minDate.getMonth() + 1} - ${maxDate.toLocaleDateString()}`
+                              ) : 'N/A'}
                             </div>
                             <div className="text-[11px] font-medium text-slate-500">
-                              {firstSchedule ? `${firstSchedule.startTime} - ${firstSchedule.endTime || 'N/A'}` : 'No schedule'}
+                              {exam.schedule?.length > 1 
+                                ? (allSameTime ? `${exam.schedule[0].startTime} - ${exam.schedule[0].endTime}` : `${exam.schedule.length} Sessions`)
+                                : (firstSchedule ? `${firstSchedule.startTime} - ${firstSchedule.endTime || 'N/A'}` : 'No schedule')}
                             </div>
                           </div>
                         </td>
