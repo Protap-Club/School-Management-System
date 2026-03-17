@@ -100,6 +100,8 @@ const Fees = () => {
     const [payoutConfirmModal, setPayoutConfirmModal] = useState({ open: false, salary: null, remarks: '' });
     const [staffDashboardPage, setStaffDashboardPage] = useState(1);
     const STAFF_DASHBOARD_PER_PAGE = 15;
+    const [editingSalaryId, setEditingSalaryId] = useState(null);
+    const [editingAmount, setEditingAmount] = useState('');
 
     // Filter logic
     useEffect(() => {
@@ -364,6 +366,25 @@ const Fees = () => {
             showToast('success', `Payout processed for ${MONTH_LABELS[payoutConfirmModal.salary.month]} ${payoutConfirmModal.salary.year}`);
             setPayoutConfirmModal({ open: false, salary: null, remarks: '' });
         } catch (err) { showToast('error', 'Failed to update status'); }
+    };
+
+    const handleSaveSalaryAmount = async (salaryId) => {
+        const amount = Number(editingAmount);
+        if (isNaN(amount) || amount < 0) {
+            showToast('error', 'Please enter a valid salary amount');
+            return;
+        }
+        try {
+            await updateSalaryStatusMut.mutateAsync({ 
+                id: salaryId, 
+                data: { amount } 
+            });
+            showToast('success', 'Salary amount updated successfully');
+            setEditingSalaryId(null);
+            setEditingAmount('');
+        } catch (err) {
+            showToast('error', err?.response?.data?.message || 'Failed to update amount');
+        }
     };
 
     const renderStudentOverview = () => {
@@ -1261,7 +1282,48 @@ const Fees = () => {
                                                                 return (
                                                                     <tr key={salary._id} className="hover:bg-gray-50/50 transition-colors">
                                                                         <td className="px-6 py-4 font-bold text-gray-900">{MONTH_LABELS[salary.month]} {salary.year}</td>
-                                                                        <td className="px-6 py-4 font-black text-gray-900">₹{salary.amount?.toLocaleString()}</td>
+                                                                        <td className="px-6 py-4 font-black text-gray-900">
+                                                                            {editingSalaryId === salary._id ? (
+                                                                                <div className="flex items-center gap-2">
+                                                                                    <input 
+                                                                                        type="number" 
+                                                                                        min="0"
+                                                                                        value={editingAmount} 
+                                                                                        onChange={(e) => {
+                                                                                            const val = e.target.value;
+                                                                                            if (val === '' || Number(val) >= 0) {
+                                                                                                setEditingAmount(val);
+                                                                                            }
+                                                                                        }}
+                                                                                        className="w-24 px-2 py-1 text-sm border border-violet-200 rounded-lg focus:ring-violet-500 focus:border-violet-500"
+                                                                                        autoFocus
+                                                                                    />
+                                                                                    <button 
+                                                                                        onClick={() => handleSaveSalaryAmount(salary._id)}
+                                                                                        title="Save" 
+                                                                                        className="p-1.5 text-emerald-500 hover:bg-emerald-50 rounded-lg transition-all"
+                                                                                    ><FaCheck size={12} /></button>
+                                                                                    <button 
+                                                                                        onClick={() => { setEditingSalaryId(null); setEditingAmount(''); }}
+                                                                                        title="Cancel" 
+                                                                                        className="p-1.5 text-red-400 hover:bg-red-50 rounded-lg transition-all"
+                                                                                    ><FaTimes size={12} /></button>
+                                                                                </div>
+                                                                            ) : (
+                                                                                <div className="flex items-center gap-2 group/amount">
+                                                                                    ₹{salary.amount?.toLocaleString()}
+                                                                                    {isPending && (
+                                                                                        <button 
+                                                                                            onClick={() => { setEditingSalaryId(salary._id); setEditingAmount(salary.amount); }}
+                                                                                            className="p-1 text-violet-500 hover:text-violet-600 transition-all"
+                                                                                            title="Edit Amount"
+                                                                                        >
+                                                                                            <FaEdit size={12} />
+                                                                                        </button>
+                                                                                    )}
+                                                                                </div>
+                                                                            )}
+                                                                        </td>
                                                                         <td className="px-6 py-4">
                                                                             <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
                                                                                 isPaid ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'

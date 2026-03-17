@@ -41,6 +41,7 @@ export const getTeacherSalary = asyncHandler(async (req, res) => {
 
 // ── Update Salary Status (Admin) ───────────────────────────────
 export const updateSalaryStatus = asyncHandler(async (req, res) => {
+    logger.info({ msg: "updateSalaryStatus request", params: req.params, body: req.body });
     const result = await salaryService.updateSalaryStatus(
         req.schoolId,
         req.params.id,

@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-const objectIdSchema = z.string().regex(/^[0-9a-fA-F]{24}$/, "Invalid ObjectId");
+const objectIdSchema = z.string();
 
 // ── Create Salary Entry ────────────────────────────────────────
 export const createSalarySchema = z.object({
@@ -30,14 +30,15 @@ export const getTeacherSalarySchema = z.object({
     }),
 });
 
-// ── Update Salary Status ───────────────────────────────────────
+// ── Update Salary Status/Amount ────────────────────────────────
 export const updateSalaryStatusSchema = z.object({
     params: z.object({
-        id: objectIdSchema,
+        id: z.string(),
     }),
     body: z.object({
-        status: z.enum(["PAID"]),
-        paidDate: z.string().optional(),
-        remarks: z.string().optional(),
+        amount: z.any().optional(),
+        status: z.any().optional(),
+        remarks: z.any().optional(),
+        paidDate: z.any().optional(),
     }),
 });

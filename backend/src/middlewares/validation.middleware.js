@@ -1,17 +1,20 @@
 import { z } from 'zod';
 import logger from "../config/logger.js";
 import { ValidationError } from "../utils/customError.js";
+import fs from 'fs';
 
 // Middleware to validate request data against Zod schema.
 
 export const validate = (schema) => (req, res, next) => {
     try {
         // Validate all inputs strictly
-        const parsedData = schema.parse({
+        const dataToParse = {
             body: req.body,
             query: req.query,
             params: req.params,
-        });
+        };
+        console.log("[VALIDATION_INPUT]", JSON.stringify(dataToParse, null, 2));
+        const parsedData = schema.parse(dataToParse);
 
         // Assign parsed (and potentially transformed/defaulted) data back to req
         req.body = parsedData.body;
@@ -30,6 +33,11 @@ export const validate = (schema) => (req, res, next) => {
             }));
 
             // Log full details for debugging
+            console.error("[VALIDATION_ERROR_DETAILS]", JSON.stringify(errors, null, 2));
+            try {
+                fs.writeFileSync('C:/Users/Jay/val_error.json', JSON.stringify({ errors, dataToParse }, null, 2));
+            } catch (e) {}
+            
             logger.warn({
                 msg: "Validation Failed",
                 errors: errors

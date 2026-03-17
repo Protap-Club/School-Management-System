@@ -76,14 +76,23 @@ export const getTeacherSalary = async (schoolId, teacherId, year) => {
     return { summary, salaries };
 };
 
-// ── Update Salary Status (Admin) ───────────────────────────────
+// ── Update Salary Status/Amount (Admin) ────────────────────────
 export const updateSalaryStatus = async (schoolId, id, data) => {
     const salary = await Salary.findOne({ _id: id, schoolId });
     if (!salary) throw new NotFoundError("Salary record not found");
 
+    // If status is being changed to PAID
     if (data.status === "PAID") {
         salary.status = "PAID";
         salary.paidDate = data.paidDate || new Date();
+    }
+
+    // Amount can ONLY be updated if status is currently PENDING
+    if (data.amount !== undefined) {
+        if (salary.status !== "PENDING") {
+            throw new BadRequestError("Cannot update amount for a salary that is already PAID");
+        }
+        salary.amount = data.amount;
     }
 
     if (data.remarks !== undefined) {
@@ -91,6 +100,6 @@ export const updateSalaryStatus = async (schoolId, id, data) => {
     }
 
     await salary.save();
-    logger.info(`Salary ${id} status updated to ${salary.status}`);
+    logger.info(`Salary ${id} updated (status: ${salary.status}, amount: ${salary.amount})`);
     return salary;
 };
