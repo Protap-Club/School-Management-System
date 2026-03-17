@@ -12,6 +12,7 @@ import {
     FaCalendarDay,
     FaMoneyBillWave,
     FaGraduationCap,
+    FaBook,
 } from 'react-icons/fa';
 
 const Sidebar = () => {
@@ -59,6 +60,11 @@ const Sidebar = () => {
                     superAdminLinks.push({ path: '/superadmin/examination', label: 'Examination', icon: <FaGraduationCap /> });
                 }
 
+                // Assignments
+                if (hasFeature('assignment')) {
+                    superAdminLinks.push({ path: '/superadmin/assignments', label: 'Assignments', icon: <FaBook /> });
+                }
+
                 // Settings always last
                 superAdminLinks.push({ path: '/superadmin/settings', label: 'Settings', icon: <FaCog /> });
 
@@ -101,6 +107,10 @@ const Sidebar = () => {
                     adminLinks.push({ path: '/admin/examination', label: 'Examination', icon: <FaGraduationCap /> });
                 }
 
+                if (hasFeature('assignment')) {
+                    adminLinks.push({ path: '/admin/assignments', label: 'Assignments', icon: <FaBook /> });
+                }
+
                 // Settings always last
                 adminLinks.push({ path: '/admin/settings', label: 'Settings', icon: <FaCog /> });
 
@@ -141,6 +151,11 @@ const Sidebar = () => {
                 // 8. Examination
                 if (hasFeature('examination')) {
                     teacherLinks.push({ path: '/teacher/examination', label: 'Examination', icon: <FaGraduationCap /> });
+                }
+
+                // Assignments
+                if (hasFeature('assignment')) {
+                    teacherLinks.push({ path: '/teacher/assignments', label: 'Assignments', icon: <FaBook /> });
                 }
 
                 // Removed settings for teachers as requested
