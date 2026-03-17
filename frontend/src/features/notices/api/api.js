@@ -102,13 +102,19 @@ export const noticesApi = {
 
     // Get teachers list
     getTeachers: async () => {
-        const response = await api.get('/users?role=teacher&pageSize=100');
+        const response = await api.get('/users?role=teacher&pageSize=5000');
         return response.data;
     },
 
     // Get all users (students + teachers)
-    getAllUsers: async () => {
-        const response = await api.get('/users?pageSize=100');
+    getAllUsers: async (filters = {}) => {
+        const params = new URLSearchParams();
+        // Server-side search avoids loading thousands of users just to filter on the client.
+        if (filters.search) params.append('search', filters.search);
+        if (filters.role && filters.role !== 'all') params.append('role', filters.role);
+        params.append('pageSize', filters.pageSize || '5000');
+        const query = params.toString();
+        const response = await api.get(`/users${query ? `?${query}` : ''}`);
         return response.data;
     },
 
