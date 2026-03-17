@@ -103,8 +103,15 @@ export const noticesApi = {
     },
 
     // Acknowledge a notice (receivers only)
-    acknowledgeNotice: async (id, responseMessage = '') => {
-        const response = await api.post(`/notices/${id}/acknowledge`, { responseMessage });
+    acknowledgeNotice: async (id, { responseMessage = '', files = [] } = {}) => {
+        const formData = new FormData();
+        if (responseMessage) {
+            formData.append('responseMessage', responseMessage);
+        }
+        if (files && files.length > 0) {
+            files.forEach((file) => formData.append('ackAttachments', file));
+        }
+        const response = await api.post(`/notices/${id}/acknowledge`, formData);
         return response.data;
     },
 

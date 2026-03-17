@@ -148,7 +148,8 @@ export const acknowledgeNotice = asyncHandler(async (req, res) => {
         req.schoolId,
         req.params.id,
         req.user,
-        req.body.responseMessage
+        req.body.responseMessage,
+        req.files || []
     );
 
     res.status(200).json({

@@ -7,6 +7,7 @@ import { deleteFromCloudinary } from "../../middlewares/upload.middleware.js";
 import cloudinary from "../../config/cloudinary.js";
 import StudentProfile from "../user/model/StudentProfile.model.js";
 import TeacherProfile from "../user/model/TeacherProfile.model.js";
+import User from "../user/model/User.model.js";
 
 /**
  * Generates a download URL for a Cloudinary attachment.
@@ -210,6 +211,28 @@ export const getReceivedNotices = async (schoolId, user) => {
     const userId = user._id;
     const role = user.role;
 
+    if (role === USER_ROLES.ADMIN || role === USER_ROLES.SUPER_ADMIN) {
+        const teacherUsers = await User.find({ schoolId, role: USER_ROLES.TEACHER })
+            .select('_id')
+            .lean();
+        const teacherIds = teacherUsers.map(t => t._id);
+
+        if (teacherIds.length === 0) {
+            return [];
+        }
+
+        const results = await Notice.find({
+            schoolId,
+            createdBy: { $in: teacherIds }
+        })
+            .populate("createdBy", "name email role")
+            .sort({ createdAt: -1 })
+            .limit(50)
+            .lean();
+
+        return enrichWithSignedUrls(results);
+    }
+
     // 1. Gather all target strings/IDs the user is a part of
     const targetRecipients = [userId.toString()]; // User's own ID
 
@@ -320,7 +343,7 @@ export const deleteNotice = async (schoolId, noticeId, userId) => {
 // ACKNOWLEDGMENT SERVICES
 
 // Record a user's acknowledgment of a notice
-export const acknowledgeNotice = async (schoolId, noticeId, user, responseMessage) => {
+export const acknowledgeNotice = async (schoolId, noticeId, user, responseMessage, files = []) => {
     if (!mongoose.Types.ObjectId.isValid(noticeId)) {
         throw new BadRequestError("Invalid notice ID");
     }
@@ -342,13 +365,66 @@ export const acknowledgeNotice = async (schoolId, noticeId, user, responseMessag
         throw new ConflictError("You have already acknowledged this notice");
     }
 
-    notice.acknowledgments.push({
-        userId: user._id,
-        role: user.role,
-        timestamp: new Date(),
-        responseMessage: responseMessage.trim(),
+    const cleanupUploadedFiles = async () => {
+        for (const file of files || []) {
+            const fileUrl = file.path || file.secure_url || file.url;
+            if (fileUrl) {
+                try {
+                    await deleteFromCloudinary(fileUrl);
+                } catch (cleanupError) {
+                    logger.warn(`Failed to cleanup uploaded file: ${cleanupError.message}`);
+                }
+            } else if (file.public_id || file.filename) {
+                try {
+                    await cloudinary.uploader.destroy(file.public_id || file.filename, { resource_type: 'raw' });
+                } catch (cleanupError) {
+                    logger.warn(`Failed to cleanup uploaded file: ${cleanupError.message}`);
+                }
+            }
+        }
+    };
+
+    const attachments = (files || []).map((file) => {
+        const fileUrl = file.path || file.secure_url || file.url;
+        const filePublicId = file.filename || file.public_id;
+        return {
+            filename: filePublicId,
+            originalName: file.originalname,
+            path: fileUrl,
+            secure_url: fileUrl,
+            public_id: filePublicId,
+            size: file.size,
+            mimetype: file.mimetype,
+        };
     });
-    await notice.save();
+
+    const trimmedMessage = (responseMessage || '').trim();
+    const hasMessage = trimmedMessage.length > 0;
+    const hasAttachments = attachments.length > 0;
+
+    if (hasMessage && trimmedMessage.length < 2 && !hasAttachments) {
+        await cleanupUploadedFiles();
+        throw new BadRequestError("Response message must be at least 2 characters long");
+    }
+
+    if (!hasMessage && !hasAttachments) {
+        await cleanupUploadedFiles();
+        throw new BadRequestError("Please provide a response message (min 2 chars) or at least one attachment");
+    }
+
+    try {
+        notice.acknowledgments.push({
+            userId: user._id,
+            role: user.role,
+            timestamp: new Date(),
+            responseMessage: trimmedMessage,
+            attachments,
+        });
+        await notice.save();
+    } catch (saveError) {
+        await cleanupUploadedFiles();
+        throw saveError;
+    }
 
     logger.info(`Notice ${noticeId} acknowledged by ${user._id} (${user.role})`);
     return { message: "Notice acknowledged successfully" };
@@ -393,6 +469,10 @@ export const getAcknowledgments = async (schoolId, noticeId, requestingUserId) =
         role: a.role,
         timestamp: a.timestamp,
         responseMessage: a.responseMessage || '',
+        attachments: (a.attachments || []).map(att => ({
+            ...att,
+            secure_url: getDownloadUrl(att),
+        })),
     }));
 
     const User = mongoose.model("User");
