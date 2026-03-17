@@ -402,7 +402,7 @@ const Examination = () => {
       </div>
 
         {selectedExam && teacherTab === 'schedule' && (
-          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[60] p-4 overflow-y-auto animate-in fade-in duration-300 print:static print:bg-transparent print:backdrop-blur-none print:p-0">
+          <div className="modal-overlay fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[60] p-4 overflow-y-auto animate-in fade-in duration-300 print:static print:bg-transparent print:backdrop-blur-none print:p-0">
           <div className="bg-white rounded-[32px] w-full max-w-4xl shadow-2xl my-auto relative animate-in zoom-in-95 duration-300 printable-content">
               <div className="max-h-[90vh] overflow-y-auto custom-scrollbar print:max-h-none print:overflow-visible no-scrollbar">
                 <div className="p-8 md:p-10 bg-white border-b border-slate-100 flex items-center justify-between rounded-t-[32px] sticky top-0 z-10 print:static print:border-none">
@@ -558,7 +558,7 @@ const Examination = () => {
 
         {/* Delete Confirmation Modal */}
         {deleteConfirm.open && (
-          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4 animate-in fade-in duration-300">
+          <div className="modal-overlay fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4 animate-in fade-in duration-300">
             <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl p-8 animate-in zoom-in-95 duration-300">
               <div className="w-16 h-16 bg-rose-50 rounded-2xl flex items-center justify-center text-rose-500 mb-6 mx-auto border border-rose-100">
                 <FaTrash size={24} />

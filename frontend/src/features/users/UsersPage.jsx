@@ -44,7 +44,7 @@ const SORT_OPTIONS = [
     { key: 'email', label: 'Email' },
 ];
 const ROLE_ORDER = { super_admin: 0, admin: 1, teacher: 2, student: 3 };
-const MODAL_OVERLAY = 'fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4';
+const MODAL_OVERLAY = 'modal-overlay fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4';
 
 const UsersPage = () => {
     const { user: currentUser } = useAuth();

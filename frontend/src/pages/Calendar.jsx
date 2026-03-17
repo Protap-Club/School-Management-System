@@ -372,7 +372,7 @@ const renderFormField = (label, children) => (
 
       {/* ── Day Details Modal ── */}
       {showDayModal && selectedDateStr && (
-        <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-fadeIn">
+        <div className="modal-overlay fixed inset-0 bg-gray-900/60 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-fadeIn">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
             <div className="px-5 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
                <div>
@@ -453,7 +453,7 @@ const renderFormField = (label, children) => (
 
           {/* ── Premium Create / Edit Event Form Modal ── */}
       {showEditModal && (
-        <div className="fixed inset-0 bg-indigo-900/30 backdrop-blur-md flex items-center justify-center z-[60] p-4 animate-fadeIn">
+        <div className="modal-overlay fixed inset-0 bg-indigo-900/30 backdrop-blur-md flex items-center justify-center z-[60] p-4 animate-fadeIn">
           <div className="bg-[#fbfbfe] rounded-[28px] shadow-2xl border border-indigo-100/60 max-w-5xl w-full flex flex-col md:flex-row overflow-hidden relative z-10">
             
             {/* Close Button */}

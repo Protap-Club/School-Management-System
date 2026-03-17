@@ -106,7 +106,7 @@ const StudentHistoryModal = ({ student, onClose }) => {
   ];
 
   return (
-    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[60] p-4 animate-fadeIn">
+    <div className="modal-overlay fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[60] p-4 animate-fadeIn">
       <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
         <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-5 text-white shrink-0">
           <div className="flex justify-between items-start">
