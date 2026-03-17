@@ -58,10 +58,10 @@ export const useNoticeHandlers = () => {
     // Data hooks
     const { data: noticesData } = useNotices(historyFilters);
     const { data: receivedData } = useReceivedNotices();
-    const { data: classesData } = useClasses(isAdmin);
-    const { data: studentsData } = useStudents(isTeacher);
-    const { data: teachersData } = useTeachers(isAdmin);
-    const { data: allUsersData } = useAllUsers(isAdmin);
+    const { data: classesData } = useClasses(isAdmin); // Admins need all classes
+    const { data: studentsData } = useStudents(isTeacher); // Teachers need their students
+    const { data: teachersData } = useTeachers(isAdmin); // Admins might need teachers list
+    const { data: allUsersData } = useAllUsers(isAdmin); // Admins need all users
     const { data: groupsData } = useGroups();
     const createNoticeMutation = useCreateNotice();
     const isSending = createNoticeMutation.isPending;

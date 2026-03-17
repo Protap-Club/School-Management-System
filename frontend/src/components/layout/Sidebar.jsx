@@ -54,6 +54,11 @@ const Sidebar = () => {
                     superAdminLinks.push({ path: '/superadmin/fees', label: 'Fees', icon: <FaMoneyBillWave /> });
                 }
 
+                // Examination
+                if (hasFeature('examination')) {
+                    superAdminLinks.push({ path: '/superadmin/examination', label: 'Examination', icon: <FaGraduationCap /> });
+                }
+
                 // Settings always last
                 superAdminLinks.push({ path: '/superadmin/settings', label: 'Settings', icon: <FaCog /> });
 
@@ -138,8 +143,8 @@ const Sidebar = () => {
                     teacherLinks.push({ path: '/teacher/examination', label: 'Examination', icon: <FaGraduationCap /> });
                 }
 
-                // Settings always last
-                teacherLinks.push({ path: '/teacher/settings', label: 'Settings', icon: <FaCog /> });
+                // Removed settings for teachers as requested
+                // teacherLinks.push({ path: '/teacher/settings', label: 'Settings', icon: <FaCog /> });
 
                 return teacherLinks;
             default:

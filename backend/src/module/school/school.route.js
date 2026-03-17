@@ -12,7 +12,7 @@ const router = express.Router();
 router.use(extractSchoolId);
 
 router.get("/", getSchoolById);
-router.get("/classes", checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN, USER_ROLES.TEACHER]), getSchoolClasses);
+router.get("/classes", checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN]), getSchoolClasses);
 router.put("/", checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN]), validate(updateSchoolSchema), updateSchool);
 router.put("/logo", checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN]), upload.single("logo"), validate(uploadLogoSchema), uploadSchoolLogo);
 router.patch("/features", checkRole([USER_ROLES.SUPER_ADMIN]), validate(updateFeaturesSchema), updateFeatures);

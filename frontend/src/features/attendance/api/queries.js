@@ -22,10 +22,11 @@ export const useStudents = () => {
 };
 
 /** Fetch all teachers (admin view). */
-export const useTeachers = () => {
+export const useTeachers = (enabled = true) => {
     return useQuery({
         queryKey: attendanceKeys.teachers(),
         queryFn: attendanceApi.getTeachers,
+        enabled,
     });
 };
 
