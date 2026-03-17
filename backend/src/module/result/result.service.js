@@ -1,14 +1,13 @@
 import mongoose from "mongoose";
 import Result from "./result.model.js";
 import Exam from "../examination/Exam.model.js";
+import { Notice } from "../notice/Notice.model.js";
 import User from "../user/model/User.model.js";
 import StudentProfile from "../user/model/StudentProfile.model.js";
-import TeacherProfile from "../user/model/TeacherProfile.model.js";
 import { USER_ROLES } from "../../constants/userRoles.js";
 import {
     BadRequestError,
     ConflictError,
-    ForbiddenError,
     NotFoundError,
 } from "../../utils/customError.js";
 import logger from "../../config/logger.js";
@@ -183,28 +182,22 @@ const assertCompletedExam = (exam) => {
     }
 };
 
-const assertTeacherExamAccess = async (userId, schoolId, exam) => {
-    const profile = await TeacherProfile.findOne({ userId, schoolId })
-        .select("assignedClasses")
-        .lean();
+const assertStaffAccess = async () => true;
 
-    if (!profile) {
-        throw new ForbiddenError("Teacher profile not found");
-    }
+const createResultPublishedNotice = async (schoolId, exam, userId) => {
+    const classLabel = `${exam.standard} ${exam.section}`;
 
-    const hasAccess = profile.assignedClasses?.some(
-        (item) => item.standard === exam.standard && item.section === exam.section
-    );
-
-    if (!hasAccess) {
-        throw new ForbiddenError("You can only manage results for your assigned classes");
-    }
-};
-
-const assertStaffAccess = async (schoolId, exam, user) => {
-    if (user.role === USER_ROLES.TEACHER) {
-        await assertTeacherExamAccess(user._id, schoolId, exam);
-    }
+    return Notice.create({
+        schoolId,
+        createdBy: userId,
+        title: `Results declared for Class ${classLabel}`,
+        message: `Results declared for ${classLabel} students. Please check your result. If you find any change or problem, report it to your class teacher within 2 days.`,
+        recipientType: "classes",
+        recipients: [`${exam.standard}-${exam.section}`],
+        type: "notice",
+        status: "sent",
+        requiresAcknowledgment: false,
+    });
 };
 
 const getClassRoster = async (schoolId, exam) => {
@@ -451,25 +444,6 @@ export const getCompletedExams = async (schoolId, user, platform) => {
         status: "COMPLETED",
         isActive: true,
     };
-
-    if (user.role === USER_ROLES.TEACHER) {
-        const teacherProfile = await TeacherProfile.findOne({
-            schoolId,
-            userId: user._id,
-        })
-            .select("assignedClasses")
-            .lean();
-
-        const assignedClasses = teacherProfile?.assignedClasses || [];
-        if (!assignedClasses.length) {
-            return [];
-        }
-
-        query.$or = assignedClasses.map((item) => ({
-            standard: item.standard,
-            section: item.section,
-        }));
-    }
 
     const exams = await Exam.find(query)
         .select("name examType category academicYear standard section status schedule createdAt")
@@ -750,6 +724,16 @@ export const publishExamResults = async (schoolId, examId, user) => {
 
     logger.info(`Results published: exam=${examId} updated=${updateResult.modifiedCount}`);
 
+    let noticeGenerated = false;
+    try {
+        await createResultPublishedNotice(schoolId, exam, user._id);
+        noticeGenerated = true;
+    } catch (error) {
+        logger.warn(
+            `Result publish notice could not be created for exam=${examId}: ${error.message}`
+        );
+    }
+
     const refreshedResults = await Result.find({ schoolId, examId }).select("status").lean();
     return {
         exam: buildExamSummary(exam),
@@ -757,6 +741,7 @@ export const publishExamResults = async (schoolId, examId, user) => {
         publishedAt,
         editableUntil,
         publishedCount: updateResult.modifiedCount,
+        noticeGenerated,
     };
 };
 
