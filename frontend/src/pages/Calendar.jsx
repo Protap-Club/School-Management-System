@@ -125,9 +125,49 @@ const Calendar = () => {
       setLoading(true);
       const startOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
       const endOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
-      const response = await api.get('/calendar', { params: { start: startOfMonth.toISOString(), end: endOfMonth.toISOString() } });
-      if (response.data.success) setEvents(response.data.data);
-    } catch (error) { console.error('Failed to fetch events:', error); showMessage('Failed to load events', 'error'); }
+      
+      const [calRes, examRes] = await Promise.all([
+        api.get('/calendar', { params: { start: startOfMonth.toISOString(), end: endOfMonth.toISOString() } }),
+        !isAdmin ? api.get('/examinations', { params: { status: 'PUBLISHED' } }) : Promise.resolve({ data: { success: false } })
+      ]);
+
+      let allEvents = [];
+      if (calRes.data.success) {
+        allEvents = [...calRes.data.data];
+      }
+
+      if (examRes.data.success && Array.isArray(examRes.data.data)) {
+        const exams = examRes.data.data;
+        exams.forEach(exam => {
+          if (exam.schedule && Array.isArray(exam.schedule)) {
+            exam.schedule.forEach((s, idx) => {
+              if (s.examDate) {
+                const start = new Date(`${s.examDate.split('T')[0]}T${s.startTime || '09:00'}:00`);
+                const end = new Date(`${s.examDate.split('T')[0]}T${s.endTime || s.startTime || '10:00'}:00`);
+                
+                allEvents.push({
+                  _id: `exam-${exam._id}-${idx}`,
+                  title: s.subject,
+                  start: start.toISOString(),
+                  end: end.toISOString(),
+                  type: 'exam',
+                  description: exam.description || `Class ${exam.standard} - ${exam.section}`,
+                  allDay: false,
+                  targetAudience: 'classes',
+                  targetClasses: [`${exam.standard}-${exam.section}`],
+                  sourceType: 'exam' // Mark as coming from exams module
+                });
+              }
+            });
+          }
+        });
+      }
+
+      setEvents(allEvents);
+    } catch (error) { 
+      console.error('Failed to fetch events:', error); 
+      showMessage('Failed to load calendar events', 'error'); 
+    }
     finally { setLoading(false); }
   }, [currentDate]);
 
@@ -415,10 +455,10 @@ const renderFormField = (label, children) => (
                            <div className="flex flex-wrap gap-2 mb-2 items-center">
                               <span className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider ${colors.light}`}>{TYPE_CONFIG[event.type]?.label || 'Event'}</span>
                               {!event.allDay && (
-                                <div className="flex items-center gap-1.5 text-[11px] font-semibold text-gray-500 bg-gray-50 px-2 py-0.5 rounded border border-gray-100">
-                                   <FaClock className="text-gray-400"/>
-                                   {new Date(event.start).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} - {new Date(event.end).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                                </div>
+                                 <div className="flex items-center gap-1.5 text-[11px] font-semibold text-gray-500 bg-gray-50 px-2 py-0.5 rounded border border-gray-100">
+                                    <FaClock className="text-gray-400"/>
+                                    {new Date(event.start).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} - {event.end ? new Date(event.end).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 'TBD'}
+                                 </div>
                               )}
                            </div>
                            {event.targetAudience === 'classes' && event.targetClasses?.length > 0 && (

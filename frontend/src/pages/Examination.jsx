@@ -4,24 +4,24 @@ import { useAuth } from '../features/auth';
 import {
   useExams, useCreateExam, useUpdateExam, useDeleteExam, useUpdateExamStatus,
 } from '../features/examination';
-import { useProfile } from '../features/attendance';
+import { useProfile, useStudents } from '../features/attendance';
 import { useSchoolClasses } from '../hooks/useSchoolClasses';
 import ExamModal from '../components/examination/ExamModal';
 import { FaPlus, FaEdit, FaTrash, FaEye, FaCalendarAlt, FaClock,
-  FaChalkboardTeacher, FaCheckCircle, FaExclamationTriangle, FaBan, FaFilter, FaSearch, FaTimes, FaInfoCircle } from 'react-icons/fa';
+  FaChalkboardTeacher, FaCheckCircle, FaExclamationTriangle, FaBan, FaFilter, FaSearch, FaTimes, FaInfoCircle, FaUserGraduate, FaLayerGroup, FaBolt } from 'react-icons/fa';
 import { TabButton } from '../components/ui/NoticeUIComponents';
 
 // Constants
 const EXAM_TYPES = {
-  TERM_EXAM: { label: 'Term Exam', color: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-100' },
+  TERM_EXAM: { label: 'Term Exam', color: 'text-primary', bg: 'bg-primary/10', border: 'border-primary/20' },
   CLASS_TEST: { label: 'Class Test', color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-100' },
 };
 
 const STATUS_STYLES = {
   DRAFT: { label: 'Draft', color: 'text-slate-600', bg: 'bg-slate-50', border: 'border-slate-200', icon: FaExclamationTriangle },
-  PUBLISHED: { label: 'Published', color: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-200', icon: FaCalendarAlt },
-  COMPLETED: { label: 'Completed', color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-200', icon: FaCheckCircle },
-  CANCELLED: { label: 'Cancelled', color: 'text-rose-600', bg: 'bg-rose-50', border: 'border-rose-200', icon: FaBan },
+  PUBLISHED: { label: 'Published', color: 'text-primary', bg: 'bg-primary/10', border: 'border-primary/20', icon: FaCalendarAlt },
+  COMPLETED: { label: 'Completed', color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-200', icon: null },
+  CANCELLED: { label: 'Cancelled', color: 'text-rose-600', bg: 'bg-rose-50', border: 'border-rose-200', icon: null },
 };
 
 const currentYear = new Date().getFullYear();
@@ -43,6 +43,18 @@ const EmptyState = ({ icon: Icon, title, subtitle, action }) => (
     <h3 className="text-lg font-bold text-slate-900 mb-1">{title}</h3>
     <p className="text-slate-500 text-center max-w-sm mb-6 text-sm">{subtitle}</p>
     {action}
+  </div>
+);
+
+const StatsCard = ({ label, value, icon: Icon, colorClass, bgClass }) => (
+  <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex items-center gap-5 transition-all hover:shadow-md">
+    <div className={`w-14 h-14 rounded-2xl ${bgClass} flex items-center justify-center ${colorClass} shadow-inner`}>
+      <Icon size={24} />
+    </div>
+    <div>
+      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">{label}</p>
+      <h3 className="text-2xl font-black text-slate-900 leading-tight">{value}</h3>
+    </div>
   </div>
 );
 
@@ -84,6 +96,18 @@ const Examination = () => {
   const updateExamMutation = useUpdateExam();
   const deleteExamMutation = useDeleteExam();
   const updateStatusMutation = useUpdateExamStatus();
+  const { data: studentsRes } = useStudents();
+
+  const students = useMemo(() => studentsRes?.data?.users || [], [studentsRes]);
+
+  const getCandidateCount = useCallback((standard, section) => {
+    if (!standard) return 0;
+    return students.filter(s => 
+      String(s.profile?.standard) === String(standard) && 
+      (!section || String(s.profile?.section) === String(section))
+    ).length;
+  }, [students]);
+
 
   // Filtered dropdown options
   const availableStandards = useMemo(() => {
@@ -124,6 +148,7 @@ const Examination = () => {
 
   const filteredExams = useMemo(() => {
     let result = exams;
+    
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
       result = result.filter(e => 
@@ -137,7 +162,31 @@ const Examination = () => {
     if (activeTab === 'drafts') result = result.filter(e => e.status === 'DRAFT');
     if (activeTab === 'completed') result = result.filter(e => e.status === 'COMPLETED');
     return result;
-  }, [exams, searchTerm, activeTab, isTeacher]);
+  }, [exams, searchTerm, activeTab]);
+
+  const stats = useMemo(() => {
+    const now = new Date();
+    return {
+      total: exams.length,
+      upcoming: exams.filter(e => e.status === 'PUBLISHED').length,
+      ongoing: exams.filter(e => {
+        if (e.status !== 'PUBLISHED' || !e.schedule) return false;
+        return e.schedule.some(s => {
+          const start = new Date(s.examDate);
+          const [h1, m1] = (s.startTime || '00:00').split(':').map(Number);
+          start.setHours(h1, m1);
+          
+          const end = new Date(s.examDate);
+          const [h2, m2] = (s.endTime || '23:59').split(':').map(Number);
+          end.setHours(h2, m2);
+          
+          return now >= start && now <= end;
+        });
+      }).length,
+      completed: exams.filter(e => e.status === 'COMPLETED').length,
+      drafts: exams.filter(e => e.status === 'DRAFT').length,
+    };
+  }, [exams]);
 
   const handleStatusUpdate = async (examId, status) => {
     try {
@@ -168,108 +217,111 @@ const Examination = () => {
 
   return (
     <DashboardLayout>
-      <div className="max-w-[1600px] mx-auto p-4 md:p-6 lg:p-8 animate-in fade-in duration-700">
+      <div className="max-w-[1400px] mx-auto p-4 md:p-6 lg:p-8 animate-in fade-in duration-700">
         <div className={selectedExam ? "no-print" : ""}>
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">
-              {isTeacher ? 'My Class Exams' : 'Examination Management'}
-            </h1>
-            <p className="text-gray-500 mt-1">
-              {isTeacher
-                ? 'View and manage exams scheduled for your assigned classes'
-                : 'Plan, schedule and manage academic assessments across all classes'}
-            </p>
+          {/* Header Section */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
+            <div>
+              <h1 className="text-4xl font-black text-slate-900 tracking-tight mb-2">Examination Schedules</h1>
+              <p className="text-slate-500 font-medium">Manage and monitor {stats.total} scheduled examination sessions.</p>
+            </div>
+            {(isAdmin || isTeacher) && (
+              <div className="flex items-center gap-3">
+                <button 
+                  onClick={() => setShowModal({ type: 'create', open: true, data: null })}
+                  className="px-6 py-3.5 bg-[#f06124] text-white rounded-2xl font-bold hover:bg-[#d95620] transition-all shadow-lg shadow-orange-100 flex items-center gap-2 active:scale-95"
+                >
+                  <FaPlus size={16} />
+                  <span>Create New Exam</span>
+                </button>
+              </div>
+            )}
           </div>
-          {(isAdmin || isTeacher) && (
-            <button
-              onClick={() => setShowModal({ type: 'create', open: true, data: null })}
-              className="flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-xl hover:bg-primary-hover transition-all font-bold shadow-lg shadow-primary/20 hover:-translate-y-0.5"
-            >
-              <FaPlus size={14} />
-              <span>Create Exam</span>
-            </button>
-          )}
-        </div>
 
-        <div className="flex gap-1 bg-gray-100 p-1 rounded-xl w-fit mb-6">
-          <TabButton 
-            tab="all"
-            activeTab={activeTab} 
-            setActiveTab={setActiveTab} 
-            label="All Exams" 
-            count={exams.length}
-            icon={<FaFilter />}
-          />
-          <TabButton 
-            tab="upcoming"
-            activeTab={activeTab} 
-            setActiveTab={setActiveTab} 
-            label="Scheduled" 
-            count={exams.filter(e => e.status === 'PUBLISHED').length}
-            icon={<FaCalendarAlt />}
-          />
-          <TabButton 
-            tab="drafts"
-            activeTab={activeTab} 
-            setActiveTab={setActiveTab} 
-            label="Drafts" 
-            count={exams.filter(e => e.status === 'DRAFT').length}
-            icon={<FaExclamationTriangle />}
-          />
-          <TabButton 
-            tab="completed"
-            activeTab={activeTab} 
-            setActiveTab={setActiveTab} 
-            label="Completed" 
-            count={exams.filter(e => e.status === 'COMPLETED').length}
-            icon={<FaCheckCircle />}
-          />
-        </div>
+          {/* Stats Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+            <StatsCard 
+              label="Total Exams" 
+              value={stats.total} 
+              icon={FaLayerGroup} 
+              colorClass="text-primary" 
+              bgClass="bg-primary/10" 
+            />
+            <StatsCard 
+              label="Upcoming" 
+              value={stats.upcoming} 
+              icon={FaCalendarAlt} 
+              colorClass="text-orange-600" 
+              bgClass="bg-orange-50" 
+            />
+            <StatsCard 
+              label="Completed" 
+              value={stats.completed} 
+              icon={FaCheckCircle} 
+              colorClass="text-slate-600" 
+              bgClass="bg-slate-50" 
+            />
+          </div>
 
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm mb-6 overflow-hidden">
-          <div className="p-5 bg-slate-50/50 border-b border-slate-100">
-            <div className="flex flex-col lg:flex-row gap-4">
-              <div className="relative flex-1 group">
-                <FaSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors" />
-                <input
-                  type="text"
-                  placeholder="Search by exam name, class or description..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all shadow-sm"
+          {/* Filters and Search */}
+          <div className="bg-white p-2 rounded-[32px] border border-slate-100 shadow-sm mb-8">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-2">
+              <div className="flex items-center gap-1 bg-slate-50 p-1.5 rounded-2xl border border-slate-100">
+                <TabButton 
+                  tab="all" activeTab={activeTab} setActiveTab={setActiveTab} label={`All Exams (${stats.total})`} 
+                  className={activeTab === 'all' ? 'bg-white shadow-sm' : ''}
+                />
+                <TabButton 
+                  tab="upcoming" activeTab={activeTab} setActiveTab={setActiveTab} label={`Schedule (${stats.upcoming})`}
+                  className={activeTab === 'upcoming' ? 'bg-white shadow-sm' : ''}
+                />
+                <TabButton 
+                  tab="drafts" activeTab={activeTab} setActiveTab={setActiveTab} label={`Drafts (${stats.drafts})`}
+                  className={activeTab === 'drafts' ? 'bg-white shadow-sm' : ''}
+                />
+                <TabButton 
+                  tab="completed" activeTab={activeTab} setActiveTab={setActiveTab} label={`Completed (${stats.completed})`}
+                  className={activeTab === 'completed' ? 'bg-white shadow-sm' : ''}
                 />
               </div>
-              <div className="flex flex-wrap gap-3">
-                <select
-                  value={filters.examType}
-                  onChange={(e) => setFilters(f => ({ ...f, examType: e.target.value }))}
-                  className="px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:border-primary transition-all outline-none min-w-[140px] shadow-sm cursor-pointer"
-                >
-                  <option value="">All Types</option>
-                  <option value="TERM_EXAM">Term Exam</option>
-                  <option value="CLASS_TEST">Class Test</option>
-                </select>
-                <select
-                  value={filters.standard}
-                  onChange={(e) => setFilters(f => ({ ...f, standard: e.target.value, section: '' }))}
-                  className="px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:border-primary transition-all outline-none min-w-[120px] shadow-sm cursor-pointer"
-                >
-                  <option value="">All Classes</option>
-                  {availableStandards.map(s => <option key={s} value={s}>Class {s}</option>)}
-                </select>
-                <select
-                  value={filters.section}
-                  onChange={(e) => setFilters(f => ({ ...f, section: e.target.value }))}
-                  className="px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:border-primary transition-all outline-none min-w-[110px] shadow-sm cursor-pointer"
-                >
-                  <option value="">All Sections</option>
-                  {availableSections.map(s => <option key={s} value={s}>Section {s}</option>)}
-                </select>
+              
+              <div className="flex flex-1 items-center gap-4 max-w-2xl px-2">
+                <div className="relative flex-1 group">
+                  <FaSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors" size={16} />
+                  <input
+                    type="text"
+                    placeholder="Search exams, classes or descriptions..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full pl-12 pr-4 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:bg-white transition-all text-sm font-medium"
+                  />
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  <select
+                    value={filters.standard}
+                    onChange={(e) => setFilters(f => ({ ...f, standard: e.target.value, section: '' }))}
+                    className="px-4 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-slate-700 focus:outline-none hover:bg-slate-100 transition-all cursor-pointer min-w-[130px]"
+                  >
+                    <option value="">All Classes</option>
+                    {availableStandards.map(std => (
+                      <option key={std} value={std}>Class {std}</option>
+                    ))}
+                  </select>
+                  <select
+                    value={filters.section}
+                    onChange={(e) => setFilters(f => ({ ...f, section: e.target.value }))}
+                    className="px-4 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-slate-700 focus:outline-none hover:bg-slate-100 transition-all cursor-pointer min-w-[120px]"
+                  >
+                    <option value="">All Sections</option>
+                    {(filters.standard ? availableSections : allUniqueSections).map(sec => (
+                      <option key={sec} value={sec}>{sec}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
             </div>
           </div>
-        </div>
 
         {(!isTeacher || teacherTab === 'schedule') && (
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden min-h-[400px]">
@@ -284,98 +336,138 @@ const Examination = () => {
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-slate-50/50 border-b border-slate-100">
-                    <th className="px-6 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Exam Information</th>
-                    <th className="px-6 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Classification</th>
-                    <th className="px-6 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider text-center">Status</th>
-                    <th className="px-6 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Schedule</th>
-                    <th className="px-6 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider text-right uppercase">Actions</th>
+                    <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Exam Name & ID</th>
+                    <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Subject</th>
+                    <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Date & Time</th>
+                    <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Duration</th>
+                    <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Candidates</th>
+                    <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</th>
+                    <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {filteredExams.map((exam) => (
-                    <tr key={exam._id} className="group hover:bg-slate-50/80 transition-all duration-200">
-                      <td className="px-6 py-5">
-                        <div className="flex items-center gap-3">
-                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center border font-bold text-sm ${EXAM_TYPES[exam.examType]?.bg || 'bg-slate-50'} ${EXAM_TYPES[exam.examType]?.color || 'text-slate-500'}`}>
-                            {exam.name.substring(0, 2).toUpperCase()}
-                          </div>
+                  {filteredExams.map((exam) => {
+                    const firstSchedule = exam.schedule?.[0];
+                    const subjects = (exam.schedule || []).map(s => s.subject).filter(Boolean);
+                    const dates = (exam.schedule || [])
+                      .map(s => s.examDate)
+                      .filter(Boolean)
+                      .sort((a, b) => new Date(a) - new Date(b));
+                    
+                    const minDate = dates.length > 0 ? new Date(dates[0]) : null;
+                    const maxDate = dates.length > 0 ? new Date(dates[dates.length - 1]) : null;
+
+                    const allSameTime = exam.schedule?.length > 1 && 
+                      exam.schedule.every(s => s.startTime === exam.schedule[0].startTime && s.endTime === exam.schedule[0].endTime);
+
+                    const durationInMins = firstSchedule ? (() => {
+                      const [h1, m1] = (firstSchedule.startTime || '00:00').split(':').map(Number);
+                      const [h2, m2] = (firstSchedule.endTime || '00:00').split(':').map(Number);
+                      return (h2 * 60 + m2) - (h1 * 60 + m1);
+                    })() : 0;
+
+                    return (
+                      <tr key={exam._id} className="group hover:bg-slate-50/80 transition-all duration-200">
+                        <td className="px-6 py-5">
                           <div>
-                            <div className="font-bold text-slate-900 group-hover:text-primary transition-colors">{exam.name}</div>
-                            <div className="text-xs text-slate-500 mt-0.5 line-clamp-1">{exam.description || 'No description provided'}</div>
+                            <div className="font-bold text-slate-900 leading-tight mb-0.5">{exam.name}</div>
+                            <div className="text-[11px] font-bold text-slate-500">Class {exam.standard} - {exam.section || 'All Sections'}</div>
                           </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-5">
-                        <div className="flex flex-col gap-1.5">
-                          <CustomBadge styles={EXAM_TYPES[exam.examType]} />
-                          <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-600">
-                            <span className="px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200">C-{exam.standard}</span>
-                            <span className="px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200">S-{exam.section}</span>
+                        </td>
+                        <td className="px-6 py-5 text-center">
+                          <div className="flex flex-wrap gap-1 justify-center max-w-[150px] mx-auto text-center">
+                            {subjects.length > 0 ? (
+                              <>
+                                {subjects.slice(0, 2).map((sub, i) => (
+                                  <span key={i} className="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest bg-primary/10 text-primary border border-primary/20 shadow-sm whitespace-nowrap">
+                                    {sub}
+                                  </span>
+                                ))}
+                                {subjects.length > 2 && (
+                                  <span className="text-[9px] font-bold text-slate-400 ml-1">+{subjects.length - 2}</span>
+                                )}
+                              </>
+                            ) : (
+                                <span className="text-slate-400 text-xs italic">No subjects</span>
+                            )}
                           </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-5 text-center">
-                        <CustomBadge styles={STATUS_STYLES[exam.status]} icon={STATUS_STYLES[exam.status]?.icon} />
-                      </td>
-                      <td className="px-6 py-5">
-                        <div className="flex flex-col gap-1">
-                          <div className="flex items-center gap-2 text-sm text-slate-700 font-medium">
-                            <FaCalendarAlt size={12} className="text-slate-400" />
-                            <span>{exam.schedule?.length || 0} subjects</span>
+                        </td>
+                        <td className="px-6 py-5">
+                          <div className="flex flex-col gap-0.5">
+                            <div className="text-sm font-bold text-slate-700">
+                              {minDate ? (
+                                minDate.toDateString() === maxDate.toDateString() 
+                                  ? minDate.toLocaleDateString()
+                                  : `${minDate.getDate()}/${minDate.getMonth() + 1} - ${maxDate.toLocaleDateString()}`
+                              ) : 'N/A'}
+                            </div>
+                            <div className="text-[11px] font-medium text-slate-500">
+                              {exam.schedule?.length > 1 
+                                ? (allSameTime ? `${exam.schedule[0].startTime} - ${exam.schedule[0].endTime}` : `${exam.schedule.length} Sessions`)
+                                : (firstSchedule ? `${firstSchedule.startTime} - ${firstSchedule.endTime || 'N/A'}` : 'No schedule')}
+                            </div>
                           </div>
-                          <div className="text-[11px] text-slate-500 ml-5 font-medium">AY {exam.academicYear}</div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-5">
-                        <div className="flex items-center justify-end gap-2 transition-opacity">
-                          <button
-                            onClick={() => setSelectedExam(exam)}
-                            className="p-2.5 text-slate-500 hover:text-primary hover:bg-white rounded-xl border border-transparent hover:border-slate-200 hover:shadow-sm transition-all"
-                            title="View Details"
-                          >
-                            <FaEye size={16} />
-                          </button>
-                          
-                          {(isAdmin || (isTeacher && String(exam.createdBy?._id || exam.createdBy) === String(user?._id))) && (
-                            <>
-                              {exam.status === 'DRAFT' && (
+                        </td>
+                        <td className="px-6 py-5">
+                          <div className="text-sm font-bold text-slate-700">{durationInMins > 0 ? `${durationInMins} mins` : 'N/A'}</div>
+                        </td>
+                        <td className="px-6 py-5 text-center">
+                          <div className="relative inline-block">
+                            <span className="text-sm font-black text-slate-800 tracking-tight">
+                              {getCandidateCount(exam.standard, exam.section)}
+                            </span>
+                            <div className="w-full h-1 bg-orange-500 rounded-full mt-1"></div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-5">
+                          <div className="flex items-center gap-2">
+                            <div className={`w-2 h-2 rounded-full ${exam.status === 'PUBLISHED' ? 'bg-orange-500 animate-pulse' : exam.status === 'COMPLETED' ? 'bg-slate-400' : 'bg-primary'}`}></div>
+                            <span className={`text-[11px] font-black uppercase tracking-widest ${exam.status === 'PUBLISHED' ? 'text-orange-600' : exam.status === 'COMPLETED' ? 'text-slate-500' : 'text-primary'}`}>
+                              {exam.status === 'PUBLISHED' ? 'Upcoming' : exam.status === 'COMPLETED' ? 'Completed' : exam.status === 'DRAFT' ? 'Draft' : exam.status}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-5">
+                          <div className="flex items-center justify-center gap-3">
+                            <button
+                              onClick={() => setSelectedExam(exam)}
+                              className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-all"
+                              title="View Details"
+                            >
+                              <FaEye size={18} />
+                            </button>
+                            {(isAdmin || (isTeacher && String(exam.createdBy?._id || exam.createdBy) === String(user?._id))) && (
+                              <>
+                                {exam.status !== 'COMPLETED' && activeTab !== 'all' && (
+                                  <button
+                                    onClick={() => handleStatusUpdate(exam._id, exam.status === 'DRAFT' ? 'PUBLISHED' : 'COMPLETED')}
+                                    className="p-2 text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 rounded-lg transition-all"
+                                    title={exam.status === 'DRAFT' ? "Publish Exam" : "Mark as Completed"}
+                                  >
+                                    <FaCheckCircle size={18} />
+                                  </button>
+                                )}
                                 <button
-                                  onClick={() => handleStatusUpdate(exam._id, 'PUBLISHED')}
-                                  className="p-2.5 text-emerald-500 hover:bg-emerald-50 rounded-xl border border-transparent hover:border-emerald-100 transition-all"
-                                  title="Publish Exam"
+                                  onClick={() => setShowModal({ type: 'edit', open: true, data: exam })}
+                                  className="p-2 text-slate-400 hover:text-orange-500 hover:bg-orange-50 rounded-lg transition-all"
+                                  title="Edit Exam"
                                 >
-                                  <FaCheckCircle size={16} />
+                                  <FaEdit size={18} />
                                 </button>
-                              )}
-                              {exam.status === 'PUBLISHED' && (
                                 <button
-                                  onClick={() => handleStatusUpdate(exam._id, 'COMPLETED')}
-                                  className="p-2.5 text-emerald-600 hover:bg-emerald-50 rounded-xl border border-transparent hover:border-emerald-100 transition-all"
-                                  title="Mark as Completed"
+                                  onClick={() => setDeleteConfirm({ open: true, examId: exam._id })}
+                                  className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all"
+                                  title="Delete Exam"
                                 >
-                                  <FaCheckCircle size={16} />
+                                  <FaTrash size={18} />
                                 </button>
-                              )}
-                              <button
-                                onClick={() => setShowModal({ type: 'edit', open: true, data: exam })}
-                                className="p-2.5 text-blue-500 hover:bg-blue-50 rounded-xl border border-transparent hover:border-blue-100 transition-all"
-                                title="Edit Exam"
-                              >
-                                <FaEdit size={16} />
-                              </button>
-                              <button
-                                onClick={() => setDeleteConfirm({ open: true, examId: exam._id })}
-                                className="p-2.5 text-rose-500 hover:bg-rose-50 rounded-xl border border-transparent hover:border-rose-100 transition-all"
-                                title="Delete Exam"
-                              >
-                                <FaTrash size={16} />
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                              </>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
