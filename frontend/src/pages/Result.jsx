@@ -517,10 +517,6 @@ const Result = () => {
               <SummaryCard icon={FaLock} title="Locked" value={currentCounts.locked || 0} accent="text-rose-600" bg="bg-rose-50/40" />
             </div>
 
-            <div className="bg-blue-50 border border-blue-100 rounded-2xl px-5 py-4 text-sm text-blue-700">
-              Publishing only affects saved draft results. Students with pending results can still be completed later, and published results remain editable until the lock window ends.
-            </div>
-
             <div className="flex gap-1 bg-gray-100 p-1 rounded-xl w-fit">
               <TabButton
                 tab="students"
@@ -528,7 +524,7 @@ const Result = () => {
                 setActiveTab={setExamTab}
                 icon={<FaUserGraduate />}
                 label="Students"
-                count={examStudents.length}
+                count={filteredStudents.length}
               />
               <TabButton
                 tab="results"
@@ -632,6 +628,10 @@ const Result = () => {
                       className="w-full pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all shadow-sm"
                     />
                   </div>
+                </div>
+
+                <div className="px-5 py-4 border-b border-slate-100 bg-blue-50/80 text-sm text-blue-800">
+                  Publishing only affects saved draft results. Students with pending results can still be completed later, and published results stay editable for 7 days from the publish date before they lock automatically.
                 </div>
 
                 <div className="overflow-x-auto">
