@@ -47,6 +47,8 @@ const ExamModal = ({ isOpen, onClose, onSubmit, editData, isLoading, userRole, u
     const isSuperAdmin = userRole === 'super_admin';
     const [form, setForm] = useState(INITIAL_FORM);
     const [errors, setErrors] = useState({});
+    const initialFormRef = React.useRef(INITIAL_FORM);
+    const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
     const {
         availableStandards: schoolAvailableStandards,
         getSectionsForStandard,
@@ -89,8 +91,9 @@ const ExamModal = ({ isOpen, onClose, onSubmit, editData, isLoading, userRole, u
     // Initialize form with edit data or reset to initial
     useEffect(() => {
         if (isOpen) {
+            let base = { ...INITIAL_FORM };
             if (editData) {
-                setForm({
+                base = {
                     name: editData.name || '',
                     examType: editData.examType || '',
                     category: editData.category || 'OTHER',
@@ -105,18 +108,16 @@ const ExamModal = ({ isOpen, onClose, onSubmit, editData, isLoading, userRole, u
                         examDate: s.examDate ? s.examDate.split('T')[0] : '',
                         startTime: s.startTime || '',
                         endTime: s.endTime || '',
-                        totalMarks: s.totalMarks || '',
-                        passingMarks: s.passingMarks || '',
+                        totalMarks: String(s.totalMarks || ''),
+                        passingMarks: String(s.passingMarks || ''),
                         assignedTeacher: s.assignedTeacher || '',
                         syllabus: s.syllabus || ''
                     })) : [{ ...INITIAL_FORM.schedule[0] }]
-                });
+                };
             } else {
-                const base = { ...INITIAL_FORM };
                 // Role-based default exam type and class
                 if (isTeacher) {
                     base.examType = 'CLASS_TEST';
-                    // Teacher form does not expose standard/section inputs;
                     base.standard = '';
                     base.section = '';
                 } else if (isAdmin) {
@@ -128,12 +129,31 @@ const ExamModal = ({ isOpen, onClose, onSubmit, editData, isLoading, userRole, u
                 } else if (!base.schoolId) {
                     base.schoolId = '';
                 }
-
-                setForm(base);
             }
+            setForm(base);
+            initialFormRef.current = base;
             setErrors({});
+            setShowDiscardConfirm(false);
         }
     }, [isOpen, editData, isTeacher, isAdmin, isSuperAdmin, user]);
+
+    const isDirty = useMemo(() => {
+        return JSON.stringify(form) !== JSON.stringify(initialFormRef.current);
+    }, [form]);
+
+    const handleCloseRequest = useCallback(() => {
+        if (isDirty) {
+            setShowDiscardConfirm(true);
+        } else {
+            onClose();
+        }
+    }, [isDirty, onClose]);
+
+    const handleReset = useCallback(() => {
+        setForm(initialFormRef.current);
+        setShowDiscardConfirm(false);
+        setErrors({});
+    }, []);
 
     const handleChange = useCallback((field, value) => {
         setForm(prev => ({ ...prev, [field]: value }));
@@ -264,7 +284,7 @@ const ExamModal = ({ isOpen, onClose, onSubmit, editData, isLoading, userRole, u
                         </div>
                     </div>
                     <button
-                        onClick={onClose}
+                        onClick={handleCloseRequest}
                         className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition-all"
                     >
                         <FaTimes size={20} />
@@ -290,7 +310,6 @@ const ExamModal = ({ isOpen, onClose, onSubmit, editData, isLoading, userRole, u
                                                     value={form.name}
                                                     onChange={(e) => handleChange('name', e.target.value)}
                                                     className={inputClasses('name')}
-                                                    placeholder="e.g., Annual Mid-Term Assessment 2024"
                                                 />
                                                 <FaInfoCircle className={`absolute right-3.5 top-1/2 -translate-y-1/2 transition-colors ${errors.name ? 'text-red-400' : 'text-slate-300 group-hover:text-slate-400'}`} size={14} />
                                             </div>
@@ -361,7 +380,6 @@ const ExamModal = ({ isOpen, onClose, onSubmit, editData, isLoading, userRole, u
                                                         value={form.categoryDescription}
                                                         onChange={(e) => handleChange('categoryDescription', e.target.value)}
                                                         className={inputClasses('categoryDescription')}
-                                                        placeholder="e.g., Special assessment for project-based learning"
                                                     />
                                                     {errors.categoryDescription && (
                                                         <p className="text-red-500 text-[11px] font-medium mt-1.5 ml-1">
@@ -410,7 +428,6 @@ const ExamModal = ({ isOpen, onClose, onSubmit, editData, isLoading, userRole, u
                                                 value={form.description}
                                                 onChange={(e) => handleChange('description', e.target.value)}
                                                 className={`${inputClasses('description')} min-h-[80px] py-3`}
-                                                placeholder="Provide any specific instructions for students or staff regarding this exam..."
                                             />
                                         </div>
                                     </div>
@@ -472,7 +489,6 @@ const ExamModal = ({ isOpen, onClose, onSubmit, editData, isLoading, userRole, u
                                                             value={item.subject}
                                                             onChange={(e) => handleScheduleChange(index, 'subject', e.target.value)}
                                                             className={`${inputClasses(`schedule_${index}_subject`)} pl-10`}
-                                                            placeholder="e.g., Mathematics"
                                                         />
                                                     </div>
                                                     {errors[`schedule_${index}_subject`] && <p className="text-red-500 text-[10px] mt-1.5 ml-1">{errors[`schedule_${index}_subject`]}</p>}
@@ -521,11 +537,11 @@ const ExamModal = ({ isOpen, onClose, onSubmit, editData, isLoading, userRole, u
                                                     <div className="flex-1">
                                                         <label className={labelClasses}>Total *</label>
                                                         <input
-                                                            type="number"
+                                                            type="text"
+                                                            onInput={(e) => e.target.value = e.target.value.replace(/[^0-9]/g, '')}
                                                             value={item.totalMarks}
                                                             onChange={(e) => handleScheduleChange(index, 'totalMarks', e.target.value)}
                                                             className={inputClasses(`schedule_${index}_totalMarks`)}
-                                                            placeholder="100"
                                                             min="0"
                                                         />
                                                         {errors[`schedule_${index}_totalMarks`] && <p className="text-red-500 text-[10px] mt-1.5 ml-1">{errors[`schedule_${index}_totalMarks`]}</p>}
@@ -533,11 +549,11 @@ const ExamModal = ({ isOpen, onClose, onSubmit, editData, isLoading, userRole, u
                                                     <div className="flex-1">
                                                         <label className={labelClasses}>Pass *</label>
                                                         <input
-                                                            type="number"
+                                                            type="text"
+                                                            onInput={(e) => e.target.value = e.target.value.replace(/[^0-9]/g, '')}
                                                             value={item.passingMarks}
                                                             onChange={(e) => handleScheduleChange(index, 'passingMarks', e.target.value)}
                                                             className={inputClasses(`schedule_${index}_passingMarks`)}
-                                                            placeholder="35"
                                                             min="0"
                                                         />
                                                         {errors[`schedule_${index}_passingMarks`] && <p className="text-red-500 text-[10px] mt-1.5 ml-1">{errors[`schedule_${index}_passingMarks`]}</p>}
@@ -550,7 +566,6 @@ const ExamModal = ({ isOpen, onClose, onSubmit, editData, isLoading, userRole, u
                                                         value={item.syllabus}
                                                         onChange={(e) => handleScheduleChange(index, 'syllabus', e.target.value)}
                                                         className={`${inputClasses(`schedule_${index}_syllabus`)} min-h-[60px] resize-none py-2.5`}
-                                                        placeholder="Mention specific chapters or units covered in this paper..."
                                                     />
                                                 </div>
                                             </div>
@@ -565,7 +580,7 @@ const ExamModal = ({ isOpen, onClose, onSubmit, editData, isLoading, userRole, u
                 <div className="px-8 py-5 border-t border-gray-100 flex items-center justify-between bg-white overflow-hidden relative">
                     <button
                         type="button"
-                        onClick={onClose}
+                        onClick={handleCloseRequest}
                         className="px-6 py-2.5 text-gray-500 hover:text-gray-700 hover:bg-gray-50 rounded-xl transition-all font-bold text-sm"
                     >
                         Discard Changes
@@ -609,6 +624,36 @@ const ExamModal = ({ isOpen, onClose, onSubmit, editData, isLoading, userRole, u
                     </div>
                 </div>
             </div>
+
+            {/* Discard Changes Confirmation */}
+            {showDiscardConfirm && (
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4 animate-in fade-in duration-300">
+                    <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl p-8 animate-in zoom-in-95 duration-300">
+                        <div className="w-16 h-16 bg-amber-50 rounded-2xl flex items-center justify-center text-amber-500 mb-6 mx-auto border border-amber-100">
+                            <FaExclamationTriangle size={24} />
+                        </div>
+                        <h3 className="text-xl font-bold text-slate-900 text-center mb-2">Unsaved Changes</h3>
+                        <p className="text-slate-500 text-center mb-8">
+                            You have unsaved changes. Are you sure you want to discard them? This action cannot be undone.
+                        </p>
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => setShowDiscardConfirm(false)}
+                                className="flex-1 px-6 py-3 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200 transition-all active:scale-95"
+                            >
+                                Keep Editing
+                            </button>
+                            <button
+                                onClick={handleReset}
+                                className="flex-1 px-6 py-3 bg-red-500 text-white rounded-xl font-bold hover:bg-red-600 transition-all shadow-lg shadow-red-200 active:scale-95 flex items-center justify-center gap-2"
+                            >
+                                <FaTrash size={14} />
+                                <span>Discard Changes</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
