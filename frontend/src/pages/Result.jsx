@@ -324,7 +324,7 @@ const Result = () => {
   return (
     <DashboardLayout>
       {toast.text && (
-        <div className={`fixed top-6 right-6 z-[100] px-5 py-3.5 rounded-xl shadow-lg flex items-center gap-3 animate-fadeIn backdrop-blur-sm ${toast.type === 'success' ? 'bg-emerald-500/90 text-white' : 'bg-red-500/90 text-white'}`}>
+        <div className={`fixed top-6 right-6 z-100 px-5 py-3.5 rounded-xl shadow-lg flex items-center gap-3 animate-fadeIn backdrop-blur-sm ${toast.type === 'success' ? 'bg-emerald-500/90 text-white' : 'bg-red-500/90 text-white'}`}>
           <div className="w-6 h-6 rounded-full flex items-center justify-center bg-white/20">
             {toast.type === 'success' ? <FaCheckCircle size={12} /> : <FaTimes size={12} />}
           </div>
@@ -332,7 +332,7 @@ const Result = () => {
         </div>
       )}
 
-      <div className="max-w-[1600px] mx-auto p-4 md:p-6 lg:p-8 space-y-6 animate-in fade-in duration-700">
+      <div className="max-w-1600px mx-auto p-4 md:p-6 lg:p-8 space-y-6 animate-in fade-in duration-700">
         {!selectedExam ? (
           <>
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -374,7 +374,7 @@ const Result = () => {
                     <select
                       value={filters.standard}
                       onChange={(event) => setFilters((current) => ({ ...current, standard: event.target.value, section: '' }))}
-                      className="px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:border-primary transition-all min-w-[120px] shadow-sm cursor-pointer"
+                      className="px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:border-primary transition-all min-w-120px shadow-sm cursor-pointer"
                     >
                       <option value="">All Classes</option>
                       {availableStandards.map((standard) => (
@@ -386,7 +386,7 @@ const Result = () => {
                     <select
                       value={filters.section}
                       onChange={(event) => setFilters((current) => ({ ...current, section: event.target.value }))}
-                      className="px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:border-primary transition-all min-w-[120px] shadow-sm cursor-pointer"
+                      className="px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:border-primary transition-all min-w-120px shadow-sm cursor-pointer"
                     >
                       <option value="">All Sections</option>
                       {availableSections.map((section) => (
