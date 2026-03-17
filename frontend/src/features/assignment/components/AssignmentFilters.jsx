@@ -1,6 +1,13 @@
 import React from 'react';
-import { FaBook, FaChevronDown, FaPlus, FaSearch } from 'react-icons/fa';
+import { FaBook, FaPlus, FaSearch } from 'react-icons/fa';
 import { useAssignmentOptions } from '../hooks/useAssignmentOptions';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "../../../components/ui/select";
 
 const FilterSelect = ({
     value,
@@ -10,19 +17,26 @@ const FilterSelect = ({
     icon = null,
     placeholder,
 }) => (
-    <div className={`group relative flex h-11 min-w-[150px] items-center rounded-xl border bg-white px-3 shadow-sm transition-all ${disabled ? 'border-slate-200 opacity-60' : 'border-slate-200 hover:border-slate-300 focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-500/10'}`}>
-        {icon && <span className="mr-2 text-slate-400 transition-colors group-focus-within:text-indigo-500">{icon}</span>}
-        <select
-            value={value}
-            onChange={onChange}
+    <div className="flex flex-col min-w-[160px]">
+        <Select 
+            value={value?.toString()} 
+            onValueChange={(val) => onChange({ target: { value: val } })}
             disabled={disabled}
-            className="h-full w-full appearance-none bg-transparent pr-7 text-sm font-semibold text-slate-700 outline-none"
         >
-            {options.map((option) => (
-                <option key={option.value} value={option.value}>{option.label}</option>
-            ))}
-        </select>
-        <FaChevronDown className="pointer-events-none absolute right-3 text-xs text-slate-400 transition-colors group-focus-within:text-indigo-500" />
+            <SelectTrigger className="h-13 w-full rounded-xl border-slate-200 bg-white px-4 shadow-sm transition-all hover:border-indigo-300 focus:ring-4 focus:ring-indigo-50/50 focus:border-indigo-600 text-sm font-semibold text-slate-700">
+                <div className="flex items-center gap-2.5">
+                    {icon && <span className="text-slate-400">{icon}</span>}
+                    <SelectValue placeholder={placeholder} />
+                </div>
+            </SelectTrigger>
+            <SelectContent className="rounded-xl border-slate-100 shadow-xl z-[150] overflow-hidden">
+                {options.map((option) => (
+                    <SelectItem key={option.value} value={option.value.toString()} className="text-sm py-2.5 px-4 cursor-pointer focus:bg-indigo-50 focus:text-indigo-700 rounded-lg mx-1 my-0.5 transition-colors">
+                        {option.label}
+                    </SelectItem>
+                ))}
+            </SelectContent>
+        </Select>
     </div>
 );
 
@@ -89,13 +103,13 @@ export const AssignmentFilters = ({
 
             {/* Search Input */}
             <div className="relative z-0 min-w-[220px] flex-1">
-                <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-400"><FaSearch size={14} /></span>
+                <span className="absolute inset-y-0 left-0 flex items-center pl-4 text-slate-400"><FaSearch size={14} /></span>
                 <input
                     type="text"
                     placeholder={searchPlaceholder}
                     value={searchQuery}
                     onChange={(e) => onSearchChange(e.target.value)}
-                    className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 text-sm text-slate-700 shadow-sm transition-all placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/10"
+                    className="h-13 w-full rounded-xl border border-slate-200 bg-white pl-11 pr-4 text-sm text-slate-700 shadow-sm transition-all placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-4 focus:ring-indigo-50/50 sm:text-base font-medium"
                 />
             </div>
 

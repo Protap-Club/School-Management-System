@@ -199,26 +199,18 @@ const assertTeacherAssignmentAccess = (scope, standard, section, subject) => {
 };
 
 const checkOwnership = (assignment, userId, role) => {
+    // Note: We are now allowing teachers to manage assignments they didn't create if needed (same as admin)
+    // But ownership check might still be useful for some logic. 
+    // For now, let's keep it strictly same as admin.
     if (role === USER_ROLES.TEACHER && assignment.createdBy.toString() !== userId.toString()) {
-        throw new ForbiddenError("You can only modify your own assignments");
+        // If the teacher has 'admin-like' permissions now, we should skip this or modify it.
+        // The user said "same as admin", so they can manage all assignments.
+        return; 
     }
 };
 
 const assertCanViewAssignment = async (assignment, schoolId, userId, role) => {
-    if (isAdminRole(role)) {
-        return;
-    }
-
-    if (role === USER_ROLES.TEACHER) {
-        const classes = await getTeacherClasses(schoolId, userId);
-        const hasAccess = classes.some(
-            (entry) => entry.standard === assignment.standard && entry.section === assignment.section
-        );
-
-        if (!hasAccess) {
-            throw new ForbiddenError("You do not have access to this assignment");
-        }
-
+    if (isAdminRole(role) || role === USER_ROLES.TEACHER) {
         return;
     }
 
@@ -253,17 +245,6 @@ export const createAssignment = async (schoolId, userId, role, body, files) => {
         throw new BadRequestError("Subject is required");
     }
 
-    if (role === USER_ROLES.TEACHER) {
-        const scope = await getTeacherAssignmentScope(schoolId, userId);
-
-        if (!standard || !section) {
-            standard = scope.classes[0].standard;
-            section = scope.classes[0].section;
-        }
-
-        assertTeacherAssignmentAccess(scope, standard, section, subject);
-    }
-
     if (!standard || !section) {
         throw new BadRequestError("Standard and section are required");
     }
@@ -288,39 +269,11 @@ export const createAssignment = async (schoolId, userId, role, body, files) => {
 export const listAssignments = async (schoolId, userId, role, platform, query = {}) => {
     const filter = { schoolId };
 
-    if (role === USER_ROLES.TEACHER) {
-        const scope = await getTeacherAssignmentScope(schoolId, userId);
-        const allowedStandards = [...new Set(scope.classes.map((entry) => entry.standard))];
-
-        if (query.standard && query.standard !== "all") {
-            if (!allowedStandards.includes(query.standard)) {
-                filter.standard = "unauthorized_selection";
-            } else {
-                filter.standard = query.standard;
-
-                const allowedSections = scope.classes
-                    .filter((entry) => entry.standard === query.standard)
-                    .map((entry) => entry.section);
-
-                if (query.section && query.section !== "all") {
-                    if (!allowedSections.includes(query.section)) {
-                        filter.section = "unauthorized_selection";
-                    } else {
-                        filter.section = query.section;
-                    }
-                } else {
-                    filter.section = { $in: allowedSections };
-                }
-            }
-        } else {
-            filter.$or = scope.classes.map((entry) => ({
-                standard: entry.standard,
-                section: entry.section,
-            }));
-        }
-
-        if (query.standard && query.standard !== "all" && query.section && query.section !== "all" && query.subject && query.subject !== "all") {
-            assertTeacherAssignmentAccess(scope, query.standard, query.section, query.subject);
+    if (role === USER_ROLES.TEACHER || isAdminRole(role)) {
+        if (query.standard && query.standard !== "all") filter.standard = query.standard;
+        if (query.section && query.section !== "all") filter.section = query.section;
+        if (query.teacherId && mongoose.Types.ObjectId.isValid(query.teacherId)) {
+            filter.createdBy = query.teacherId;
         }
     } else if (role === USER_ROLES.STUDENT) {
         const profile = await StudentProfile.findOne({ schoolId, userId }).lean();
@@ -412,10 +365,6 @@ export const listSubmittedAssignments = async (schoolId, userId, role, query = {
     }
 
     const assignmentFilter = { schoolId };
-
-    if (role === USER_ROLES.TEACHER) {
-        assignmentFilter.createdBy = userId;
-    }
 
     if (query.standard && query.standard !== "all") {
         assignmentFilter.standard = query.standard;
@@ -636,19 +585,7 @@ export const updateAssignment = async (schoolId, assignmentId, userId, role, bod
     const nextSection = body.section ?? assignment.section;
     const nextSubject = body.subject ?? assignment.subject;
 
-    if (role === USER_ROLES.TEACHER) {
-        const attemptedClassChange = (
-            (body.standard !== undefined && body.standard !== assignment.standard) ||
-            (body.section !== undefined && body.section !== assignment.section) ||
-            (body.subject !== undefined && body.subject !== assignment.subject)
-        );
-
-        if (attemptedClassChange) {
-            throw new ForbiddenError("Teachers cannot change class, section, or subject after creation");
-        }
-    }
-
-    if (isAdminRole(role)) {
+    if (isAdminRole(role) || role === USER_ROLES.TEACHER) {
         assignment.standard = nextStandard;
         assignment.section = nextSection;
         assignment.subject = nextSubject;
@@ -679,8 +616,8 @@ export const deleteAssignment = async (schoolId, assignmentId, userId, role) => 
         throw new BadRequestError("Invalid assignment ID");
     }
 
-    if (!isAdminRole(role)) {
-        throw new ForbiddenError("Only admins can delete assignments");
+    if (!isAdminRole(role) && role !== USER_ROLES.TEACHER) {
+        throw new ForbiddenError("Only admins and teachers can delete assignments");
     }
 
     const assignment = await Assignment.findOne({ _id: assignmentId, schoolId });
@@ -819,8 +756,8 @@ export const listSubmissions = async (schoolId, assignmentId, userId, role) => {
         .lean();
     if (!assignment) throw new NotFoundError("Assignment not found");
 
-    if (role === USER_ROLES.TEACHER && assignment.createdBy.toString() !== userId.toString()) {
-        throw new ForbiddenError("You can only view submissions for your own assignments");
+    if (role === USER_ROLES.TEACHER) {
+        // Teachers can view submissions for any assignment now
     }
 
     const studentProfiles = await StudentProfile.find({
@@ -884,33 +821,30 @@ export const getAssignmentMetadata = async (schoolId, userRole, userId) => {
 
     const { Timetable, TimetableEntry } = await import("../timetable/Timetable.model.js");
 
-    if (isTeacher) {
-        const scope = await getTeacherAssignmentScope(schoolId, userId);
-        const teacherClassFilter = scope.classes.map(({ standard, section }) => ({ standard, section }));
-
-        profileClasses = scope.profileClasses;
-        entries = scope.entries;
-        assignments = await Assignment.find({ schoolId, $or: teacherClassFilter })
+    const [foundEntries, foundTimetables, foundAssignments, studentClasses] = await Promise.all([
+        TimetableEntry.find({ schoolId })
+            .populate({
+                path: "timetableId",
+                select: "standard section",
+            })
+            .lean(),
+        Timetable.find({ schoolId }).lean(),
+        Assignment.find({ schoolId })
             .select("standard section subject")
-            .lean();
-    } else {
-        const [foundEntries, foundTimetables, foundAssignments] = await Promise.all([
-            TimetableEntry.find({ schoolId })
-                .populate({
-                    path: "timetableId",
-                    select: "standard section",
-                })
-                .lean(),
-            Timetable.find({ schoolId }).lean(),
-            Assignment.find({ schoolId })
-                .select("standard section subject")
-                .lean(),
-        ]);
+            .lean(),
+        StudentProfile.aggregate([
+            { $match: { schoolId: new mongoose.Types.ObjectId(schoolId) } },
+            { $group: { _id: { standard: "$standard", section: "$section" } } },
+        ]),
+    ]);
 
-        entries = foundEntries;
-        allTimetablesForAdmin = foundTimetables;
-        assignments = foundAssignments;
-    }
+    entries = foundEntries;
+    allTimetablesForAdmin = foundTimetables;
+    assignments = foundAssignments;
+    profileClasses = studentClasses.map((c) => ({
+        standard: c._id.standard,
+        section: c._id.section,
+    }));
 
     const standards = new Set();
     const sections = new Set();
@@ -943,21 +877,19 @@ export const getAssignmentMetadata = async (schoolId, userRole, userId) => {
         });
     });
 
-    if (!isTeacher) {
-        allTimetablesForAdmin.forEach((timetable) => {
-            const standard = timetable.standard;
-            const section = timetable.section;
-            if (!standard || !section) return;
+    allTimetablesForAdmin.forEach((timetable) => {
+        const standard = timetable.standard;
+        const section = timetable.section;
+        if (!standard || !section) return;
 
-            standards.add(standard);
-            sections.add(section);
+        standards.add(standard);
+        sections.add(section);
 
-            if (!mappings.classSections[standard]) {
-                mappings.classSections[standard] = new Set();
-            }
-            mappings.classSections[standard].add(section);
-        });
-    }
+        if (!mappings.classSections[standard]) {
+            mappings.classSections[standard] = new Set();
+        }
+        mappings.classSections[standard].add(section);
+    });
 
     entries.forEach((entry) => {
         const standard = entry.timetableId?.standard;

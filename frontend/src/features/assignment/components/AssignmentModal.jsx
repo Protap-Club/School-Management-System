@@ -3,6 +3,13 @@ import { FaBook, FaChevronDown, FaPaperclip, FaSave, FaTimes, FaTrash } from 're
 import { useAssignmentOptions } from '../hooks/useAssignmentOptions';
 import { useAssignmentById, useCreateAssignment, useRemoveAssignmentAttachment, useUpdateAssignment } from '../api/queries';
 import { useAuth } from '../../auth';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "../../../components/ui/select";
 
 const getApiErrorMessage = (err) =>
     err.response?.data?.error?.message ||
@@ -36,28 +43,26 @@ const TextAreaField = ({ label, name, value, onChange, required = false, rows = 
 );
 
 const SelectField = ({ label, name, value, onChange, options, placeholder, required = false, loading = false, disabled = false }) => (
-    <div className="space-y-1.5">
+    <div className="space-y-1.5 min-w-[140px]">
         <label className="text-xs font-bold text-gray-500 uppercase tracking-tight ml-1">
             {label} {required && <span className="text-red-500">*</span>}
         </label>
-        <div className={`group relative flex items-center rounded-xl border bg-white px-4 shadow-sm transition-all ${loading || disabled ? 'border-gray-200 opacity-60' : 'border-gray-200 hover:border-gray-300 focus-within:border-indigo-600 focus-within:ring-2 focus-within:ring-indigo-500/10'}`}>
-            <select
-                name={name}
-                value={value}
-                onChange={onChange}
-                required={required}
-                className="h-11 w-full appearance-none bg-transparent pr-7 text-sm font-medium text-gray-700 outline-none cursor-pointer"
-                disabled={loading || disabled}
-            >
-                <option value="" disabled hidden>{loading ? 'Loading...' : placeholder || `Select ${label}`}</option>
+        <Select 
+            value={value?.toString() || ""} 
+            onValueChange={(val) => onChange({ target: { name, value: val } })}
+            disabled={loading || disabled}
+        >
+            <SelectTrigger className="h-13 w-full rounded-xl border-gray-200 bg-white px-4 shadow-sm transition-all hover:border-indigo-300 focus:ring-4 focus:ring-indigo-50/50 focus:border-indigo-600 text-sm font-semibold text-gray-700">
+                <SelectValue placeholder={loading ? 'Loading...' : placeholder || `Select ${label}`} />
+            </SelectTrigger>
+            <SelectContent className="rounded-xl border-gray-100 shadow-xl z-[150] overflow-hidden">
                 {options.map((opt, idx) => (
-                    <option key={idx} value={opt.value}>
+                    <SelectItem key={idx} value={opt.value.toString()} className="text-sm py-2.5 px-4 cursor-pointer focus:bg-indigo-50 focus:text-indigo-700 rounded-lg mx-1 my-0.5 transition-colors">
                         {opt.label}
-                    </option>
+                    </SelectItem>
                 ))}
-            </select>
-            <FaChevronDown className="pointer-events-none absolute right-4 text-xs text-gray-400 transition-colors group-focus-within:text-indigo-500" />
-        </div>
+            </SelectContent>
+        </Select>
     </div>
 );
 
@@ -192,7 +197,8 @@ export const AssignmentModal = ({ isOpen, onClose, assignmentToEdit = null }) =>
     };
 
     const isEditing = !!assignmentToEdit;
-    const canEditClassification = !isEditing || isAdmin;
+    const isTeacher = user?.role === 'teacher';
+    const canEditClassification = !isEditing || isAdmin || isTeacher;
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
