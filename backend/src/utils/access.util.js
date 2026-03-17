@@ -8,7 +8,7 @@ import { ForbiddenError } from "./customError.js";
  * @returns {Object} query object for MongoDB/Mongoose
  */
 export const buildAccessQuery = (creator, filters = {}) => {
-    const { name, isArchived, role, userIds, ...otherFilters } = filters;
+    const { name, search, isArchived, role, userIds, ...otherFilters } = filters;
     const query = {
         schoolId: creator.schoolId,
         ...otherFilters
@@ -21,7 +21,16 @@ export const buildAccessQuery = (creator, filters = {}) => {
 
     query.isArchived = isArchived !== undefined ? isArchived : false;
 
-    if (name) query.name = { $regex: name, $options: "i" };
+    // Prefer server-side search to avoid sending huge user lists to the client.
+    // This is used by admin-facing notice flows to lookup users across the school.
+    if (search) {
+        query.$or = [
+            { name: { $regex: search, $options: "i" } },
+            { email: { $regex: search, $options: "i" } },
+        ];
+    } else if (name) {
+        query.name = { $regex: name, $options: "i" };
+    }
 
     // Role-based scoping: determine which roles the caller is allowed to see
     const allowedRoles = VIEWABLE_ROLES[creator.role] || [USER_ROLES.STUDENT];
