@@ -486,6 +486,7 @@ const ExamModal = ({ isOpen, onClose, onSubmit, editData, isLoading, userRole, u
                                                             value={item.examDate}
                                                             onChange={(e) => handleScheduleChange(index, 'examDate', e.target.value)}
                                                             className={inputClasses(`schedule_${index}_examDate`)}
+                                                            min={new Date().toISOString().split('T')[0]}
                                                         />
                                                     </div>
                                                     {errors[`schedule_${index}_examDate`] && <p className="text-red-500 text-[10px] mt-1.5 ml-1">{errors[`schedule_${index}_examDate`]}</p>}

@@ -20,8 +20,8 @@ const EXAM_TYPES = {
 const STATUS_STYLES = {
   DRAFT: { label: 'Draft', color: 'text-slate-600', bg: 'bg-slate-50', border: 'border-slate-200', icon: FaExclamationTriangle },
   PUBLISHED: { label: 'Published', color: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-200', icon: FaCalendarAlt },
-  COMPLETED: { label: 'Completed', color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-200', icon: FaCheckCircle },
-  CANCELLED: { label: 'Cancelled', color: 'text-rose-600', bg: 'bg-rose-50', border: 'border-rose-200', icon: FaBan },
+  COMPLETED: { label: 'Completed', color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-200', icon: null },
+  CANCELLED: { label: 'Cancelled', color: 'text-rose-600', bg: 'bg-rose-50', border: 'border-rose-200', icon: null },
 };
 
 const currentYear = new Date().getFullYear();
@@ -124,6 +124,18 @@ const Examination = () => {
 
   const filteredExams = useMemo(() => {
     let result = exams;
+    
+    // Automatically remove/filter exams after their date is over
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayTime = today.getTime();
+
+    result = result.filter(e => {
+      if (!e.schedule || e.schedule.length === 0) return true;
+      const lastDate = Math.max(...e.schedule.map(s => new Date(s.examDate).getTime()));
+      return lastDate >= todayTime;
+    });
+
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
       result = result.filter(e => 
@@ -137,7 +149,7 @@ const Examination = () => {
     if (activeTab === 'drafts') result = result.filter(e => e.status === 'DRAFT');
     if (activeTab === 'completed') result = result.filter(e => e.status === 'COMPLETED');
     return result;
-  }, [exams, searchTerm, activeTab, isTeacher]);
+  }, [exams, searchTerm, activeTab]);
 
   const handleStatusUpdate = async (examId, status) => {
     try {
@@ -199,7 +211,7 @@ const Examination = () => {
             setActiveTab={setActiveTab} 
             label="All Exams" 
             count={exams.length}
-            icon={<FaFilter />}
+            icon={null}
           />
           <TabButton 
             tab="upcoming"
@@ -223,7 +235,7 @@ const Examination = () => {
             setActiveTab={setActiveTab} 
             label="Completed" 
             count={exams.filter(e => e.status === 'COMPLETED').length}
-            icon={<FaCheckCircle />}
+            icon={null}
           />
         </div>
 
@@ -288,7 +300,7 @@ const Examination = () => {
                     <th className="px-6 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Classification</th>
                     <th className="px-6 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider text-center">Status</th>
                     <th className="px-6 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Schedule</th>
-                    <th className="px-6 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider text-right uppercase">Actions</th>
+                    <th className="px-6 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider text-center uppercase">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -327,7 +339,7 @@ const Examination = () => {
                         </div>
                       </td>
                       <td className="px-6 py-5">
-                        <div className="flex items-center justify-end gap-2 transition-opacity">
+                        <div className="flex items-center justify-center gap-2 transition-opacity">
                           <button
                             onClick={() => setSelectedExam(exam)}
                             className="p-2.5 text-slate-500 hover:text-primary hover:bg-white rounded-xl border border-transparent hover:border-slate-200 hover:shadow-sm transition-all"
@@ -338,7 +350,7 @@ const Examination = () => {
                           
                           {(isAdmin || (isTeacher && String(exam.createdBy?._id || exam.createdBy) === String(user?._id))) && (
                             <>
-                              {exam.status === 'DRAFT' && (
+                              {activeTab !== 'all' && exam.status === 'DRAFT' && (
                                 <button
                                   onClick={() => handleStatusUpdate(exam._id, 'PUBLISHED')}
                                   className="p-2.5 text-emerald-500 hover:bg-emerald-50 rounded-xl border border-transparent hover:border-emerald-100 transition-all"
@@ -347,7 +359,7 @@ const Examination = () => {
                                   <FaCheckCircle size={16} />
                                 </button>
                               )}
-                              {exam.status === 'PUBLISHED' && (
+                              {activeTab !== 'all' && exam.status === 'PUBLISHED' && (
                                 <button
                                   onClick={() => handleStatusUpdate(exam._id, 'COMPLETED')}
                                   className="p-2.5 text-emerald-600 hover:bg-emerald-50 rounded-xl border border-transparent hover:border-emerald-100 transition-all"
