@@ -14,6 +14,7 @@ export const useNoticeHandlers = () => {
     const isAdmin = ['admin', 'super_admin'].includes(currentUser?.role);
     const isTeacher = currentUser?.role === 'teacher';
     const fileInputRef = useRef(null);
+    const PAGE_SIZE = 12;
 
     // Compose state
     const [activeTab, setActiveTab] = useState('compose');
@@ -52,6 +53,8 @@ export const useNoticeHandlers = () => {
     const [historyFilters, setHistoryFilters] = useState({ type: 'all', sentTo: 'all', date: 'all' });
     const [viewItem, setViewItem] = useState(null);
     const [toast, setToast] = useState({ type: '', text: '' });
+    const [historyPage, setHistoryPage] = useState(1);
+    const [receivedPage, setReceivedPage] = useState(1);
 
     const selectionState = useMemo(() => ({ selectedClasses, selectedUsers, selectedStudents, selectedGroups }), [selectedClasses, selectedUsers, selectedStudents, selectedGroups]);
 
@@ -199,6 +202,28 @@ export const useNoticeHandlers = () => {
         );
     }, [historyItems, historySearch]);
 
+    useEffect(() => {
+        setHistoryPage(1);
+    }, [historySearch, historyFilters, historyItems.length]);
+
+    useEffect(() => {
+        setReceivedPage(1);
+    }, [receivedItems.length]);
+
+    const totalHistoryPages = Math.max(1, Math.ceil(filteredHistory.length / PAGE_SIZE));
+    const totalReceivedPages = Math.max(1, Math.ceil(receivedItems.length / PAGE_SIZE));
+
+    useEffect(() => {
+        if (historyPage > totalHistoryPages) setHistoryPage(totalHistoryPages);
+    }, [historyPage, totalHistoryPages]);
+
+    useEffect(() => {
+        if (receivedPage > totalReceivedPages) setReceivedPage(totalReceivedPages);
+    }, [receivedPage, totalReceivedPages]);
+
+    const pagedHistory = filteredHistory.slice((historyPage - 1) * PAGE_SIZE, historyPage * PAGE_SIZE);
+    const pagedReceivedItems = receivedItems.slice((receivedPage - 1) * PAGE_SIZE, receivedPage * PAGE_SIZE);
+
     return {
         currentUser, isAdmin, isTeacher, fileInputRef,
         activeTab, setActiveTab,
@@ -208,6 +233,8 @@ export const useNoticeHandlers = () => {
         newGroupName, setNewGroupName, newGroupStudents, setNewGroupStudents, newGroupTeachers, setNewGroupTeachers,
         historySearch, setHistorySearch, historyFilters, setHistoryFilters, viewItem, setViewItem, toast, showToast,
         isSending, students, teachers, allUsers, classes, groups, historyItems, receivedItems, filteredHistory,
+        historyPage, setHistoryPage, totalHistoryPages, pagedHistory,
+        receivedPage, setReceivedPage, totalReceivedPages, pagedReceivedItems,
         toggleSelection, handleFileUpload, removeAttachment, handleSendClick, resetComposeState, handleFinalSend, handleDeleteHistory, handleCreateGroup, handleDeleteGroup, handleDownload
     };
 };

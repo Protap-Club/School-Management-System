@@ -22,6 +22,8 @@ const Notice = () => {
         newGroupName, setNewGroupName, newGroupStudents, setNewGroupStudents, newGroupTeachers, setNewGroupTeachers,
         historySearch, setHistorySearch, historyFilters, setHistoryFilters, viewItem, setViewItem, toast,
         isSending, students, teachers, allUsers, classes, groups, receivedItems, filteredHistory,
+        historyPage, setHistoryPage, totalHistoryPages, pagedHistory,
+        receivedPage, setReceivedPage, totalReceivedPages, pagedReceivedItems,
         toggleSelection, handleFileUpload, removeAttachment, handleSendClick, handleFinalSend, handleDeleteHistory, handleCreateGroup, handleDeleteGroup, handleDownload,
         currentUser
     } = handlers;
@@ -247,7 +249,7 @@ const Notice = () => {
                                     <p className="text-gray-500 text-sm mt-1">Try adjusting your filters or search terms</p>
                                 </div>
                             ) : (
-                                filteredHistory.map(item => (
+                                pagedHistory.map(item => (
                                     <div key={item.id} className="bg-white rounded-2xl border border-gray-200 p-5 hover:shadow-md transition-shadow group">
                                         <div className="flex flex-col md:flex-row gap-4 items-start md:items-center">
                                             {/* Icon */}
@@ -317,6 +319,27 @@ const Notice = () => {
                                     </div>
                                 ))
                             )}
+                            {filteredHistory.length > 0 && totalHistoryPages > 1 && (
+                                <div className="flex items-center justify-between pt-2">
+                                    <span className="text-xs text-gray-500">Page {historyPage} of {totalHistoryPages}</span>
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            onClick={() => setHistoryPage(p => Math.max(1, p - 1))}
+                                            disabled={historyPage === 1}
+                                            className="px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                            Prev
+                                        </button>
+                                        <button
+                                            onClick={() => setHistoryPage(p => Math.min(totalHistoryPages, p + 1))}
+                                            disabled={historyPage === totalHistoryPages}
+                                            className="px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                            Next
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
                 )}
@@ -336,7 +359,7 @@ const Notice = () => {
                                 <p className="text-gray-500 text-sm mt-1">Notices sent to you will appear here</p>
                             </div>
                         ) : (
-                            receivedItems.map(item => (
+                            pagedReceivedItems.map(item => (
                                 <div key={item._id} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 hover:shadow-md transition-shadow max-w-4xl">
                                     {/* Top Row */}
                                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 py-1 mb-4 border-b border-gray-50/50 pb-3">
@@ -349,13 +372,27 @@ const Notice = () => {
                                                     {(item.createdBy?.name || 'U').charAt(0).toUpperCase()}
                                                 </div>
                                             )}
-                                            <div className="flex items-center gap-2">
-                                                <span className="font-semibold text-gray-800 text-[15px]">
-                                                    {item.createdBy?.name || 'System User'}
-                                                </span>
-                                                <span className="bg-[#EBF1FF] text-[#3B82F6] text-[10px] font-extrabold px-2 py-0.5 rounded-md uppercase tracking-wide">
-                                                    {item.createdBy?.role || 'User'}
-                                                </span>
+                                            <div>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="font-semibold text-gray-800 text-[15px]">
+                                                        {item.createdBy?.name || 'System User'}
+                                                    </span>
+                                                    <span className="bg-[#EBF1FF] text-[#3B82F6] text-[10px] font-extrabold px-2 py-0.5 rounded-md uppercase tracking-wide">
+                                                        {item.createdBy?.role || 'User'}
+                                                    </span>
+                                                </div>
+                                                {isAdmin && (
+                                                    <div className="mt-0.5 flex flex-wrap items-center gap-2 text-[11px] text-gray-500">
+                                                        <span className="px-2 py-0.5 rounded-md bg-gray-100 text-gray-600">
+                                                            {getRecipientLabel(item)}
+                                                        </span>
+                                                        {item.requiresAcknowledgment === true && (
+                                                            <span className="px-2 py-0.5 rounded-md bg-amber-50 text-amber-700">
+                                                                Acks {item.acknowledgments?.length || 0}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
 
@@ -417,6 +454,27 @@ const Notice = () => {
                                     </div>
                                 </div>
                             ))
+                        )}
+                        {receivedItems.length > 0 && totalReceivedPages > 1 && (
+                            <div className="flex items-center justify-between pt-2 max-w-4xl">
+                                <span className="text-xs text-gray-500">Page {receivedPage} of {totalReceivedPages}</span>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={() => setReceivedPage(p => Math.max(1, p - 1))}
+                                        disabled={receivedPage === 1}
+                                        className="px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        Prev
+                                    </button>
+                                    <button
+                                        onClick={() => setReceivedPage(p => Math.min(totalReceivedPages, p + 1))}
+                                        disabled={receivedPage === totalReceivedPages}
+                                        className="px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        Next
+                                    </button>
+                                </div>
+                            </div>
                         )}
                     </div>
                 )}
