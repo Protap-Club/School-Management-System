@@ -1,0 +1,756 @@
+import React, { useCallback, useMemo, useState } from 'react';
+import DashboardLayout from '../layouts/DashboardLayout';
+import {
+  useCompletedResultExams,
+  usePublishExamResults,
+  useResultExamResults,
+  useResultExamStudents,
+  useSaveResult,
+} from '../features/result';
+import { TabButton } from '../components/ui/NoticeUIComponents';
+import ResultEntryModal from '../features/result/components/ResultEntryModal';
+import ResultDetailModal from '../features/result/components/ResultDetailModal';
+import {
+  FaArrowLeft,
+  FaBookOpen,
+  FaCheckCircle,
+  FaClipboardList,
+  FaEdit,
+  FaEye,
+  FaFilter,
+  FaGraduationCap,
+  FaLock,
+  FaPlus,
+  FaSearch,
+  FaTimes,
+  FaUpload,
+  FaUserGraduate,
+} from 'react-icons/fa';
+
+const RESULT_STATUS_STYLES = {
+  draft: {
+    label: 'Draft',
+    className: 'bg-slate-50 text-slate-700 border-slate-200',
+  },
+  published: {
+    label: 'Published',
+    className: 'bg-blue-50 text-blue-700 border-blue-200',
+  },
+  locked: {
+    label: 'Locked',
+    className: 'bg-rose-50 text-rose-700 border-rose-200',
+  },
+};
+
+const PASS_FAIL_STYLES = {
+  pass: {
+    label: 'Pass',
+    className: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  },
+  fail: {
+    label: 'Fail',
+    className: 'bg-rose-50 text-rose-700 border-rose-200',
+  },
+};
+
+const readError = (error, fallback) =>
+  error?.response?.data?.message || error?.message || fallback;
+
+const StatusBadge = ({ status }) => {
+  const style = RESULT_STATUS_STYLES[status] || RESULT_STATUS_STYLES.draft;
+  return (
+    <span className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-semibold ${style.className}`}>
+      <span className="w-1.5 h-1.5 rounded-full bg-current opacity-70"></span>
+      {style.label}
+    </span>
+  );
+};
+
+const OutcomeBadge = ({ outcome }) => {
+  const style = PASS_FAIL_STYLES[outcome] || PASS_FAIL_STYLES.pass;
+  return (
+    <span className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-semibold uppercase ${style.className}`}>
+      {style.label}
+    </span>
+  );
+};
+
+const SummaryCard = ({ icon: Icon, title, value, accent = 'text-slate-900', bg = 'bg-white' }) => (
+  <div className={`rounded-2xl border border-slate-200 ${bg} p-5`}>
+    <div className="flex items-center justify-between gap-3">
+      <div>
+        <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400">{title}</p>
+        <p className={`text-2xl font-bold mt-2 ${accent}`}>{value}</p>
+      </div>
+      <div className="w-11 h-11 rounded-2xl bg-slate-100 text-slate-500 flex items-center justify-center">
+        {React.createElement(Icon, { size: 18 })}
+      </div>
+    </div>
+  </div>
+);
+
+const EmptyState = ({ icon: Icon, title, subtitle, action }) => (
+  <div className="bg-white rounded-3xl border border-dashed border-slate-300 p-12 text-center">
+    <div className="w-16 h-16 rounded-2xl bg-slate-50 text-slate-300 border border-slate-100 flex items-center justify-center mx-auto mb-4">
+      {React.createElement(Icon, { size: 24 })}
+    </div>
+    <h3 className="text-lg font-bold text-slate-900">{title}</h3>
+    <p className="text-sm text-slate-500 mt-2 max-w-md mx-auto">{subtitle}</p>
+    {action ? <div className="mt-6">{action}</div> : null}
+  </div>
+);
+
+const SkeletonRows = ({ rows = 5, columns = 5 }) => (
+  <>
+    {Array.from({ length: rows }).map((_, rowIndex) => (
+      <tr key={rowIndex} className="animate-pulse">
+        {Array.from({ length: columns }).map((__, columnIndex) => (
+          <td key={columnIndex} className="px-5 py-4">
+            <div className="h-4 bg-slate-100 rounded-lg w-3/4"></div>
+          </td>
+        ))}
+      </tr>
+    ))}
+  </>
+);
+
+const Result = () => {
+  const [selectedExam, setSelectedExam] = useState(null);
+  const [examTab, setExamTab] = useState('students');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [studentSearch, setStudentSearch] = useState('');
+  const [resultSearch, setResultSearch] = useState('');
+  const [filters, setFilters] = useState({ standard: '', section: '' });
+  const [toast, setToast] = useState({ type: '', text: '' });
+  const [entryModal, setEntryModal] = useState({ open: false, student: null, result: null });
+  const [detailModal, setDetailModal] = useState({ open: false, result: null });
+
+  const completedExamsQuery = useCompletedResultExams();
+  const examStudentsQuery = useResultExamStudents(selectedExam?._id);
+  const examResultsQuery = useResultExamResults(selectedExam?._id);
+  const saveResultMutation = useSaveResult();
+  const publishResultsMutation = usePublishExamResults();
+
+  const completedExams = useMemo(() => completedExamsQuery.data || [], [completedExamsQuery.data]);
+  const examStudentsData = examStudentsQuery.data;
+  const examResultsData = examResultsQuery.data;
+  const currentExam = examStudentsData?.exam || examResultsData?.exam || selectedExam;
+  const currentCounts = examStudentsData?.counts || examResultsData?.counts || selectedExam?.counts || {};
+  const examStudents = useMemo(() => examStudentsData?.students || [], [examStudentsData]);
+  const examResults = useMemo(() => examResultsData?.results || [], [examResultsData]);
+
+  const examResultMap = useMemo(
+    () => new Map(examResults.map((item) => [String(item.student?._id), item])),
+    [examResults]
+  );
+
+  const availableStandards = useMemo(
+    () => [...new Set(completedExams.map((item) => String(item.standard)))].sort((a, b) => Number(a) - Number(b)),
+    [completedExams]
+  );
+
+  const availableSections = useMemo(() => {
+    const filteredByStandard = filters.standard
+      ? completedExams.filter((item) => String(item.standard) === String(filters.standard))
+      : completedExams;
+
+    return [...new Set(filteredByStandard.map((item) => String(item.section)))].sort();
+  }, [completedExams, filters.standard]);
+
+  const filteredExams = useMemo(() => {
+    return completedExams.filter((item) => {
+      const matchesSearch =
+        !searchTerm ||
+        item.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        String(item.standard).toLowerCase().includes(searchTerm.toLowerCase()) ||
+        String(item.section).toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesStandard = !filters.standard || String(item.standard) === String(filters.standard);
+      const matchesSection = !filters.section || String(item.section) === String(filters.section);
+      return matchesSearch && matchesStandard && matchesSection;
+    });
+  }, [completedExams, filters.section, filters.standard, searchTerm]);
+
+  const filteredStudents = useMemo(() => {
+    return examStudents.filter((item) => {
+      if (item.result) {
+        return false;
+      }
+
+      const source = `${item.name} ${item.rollNumber || ''}`;
+      return source.toLowerCase().includes(studentSearch.toLowerCase());
+    });
+  }, [examStudents, studentSearch]);
+
+  const filteredResults = useMemo(() => {
+    return examResults.filter((item) => {
+      const source = `${item.student?.name || ''} ${item.student?.rollNumber || ''} ${item.summary?.grade || ''} ${item.summary?.status || ''}`;
+      return source.toLowerCase().includes(resultSearch.toLowerCase());
+    });
+  }, [examResults, resultSearch]);
+
+  const examOverview = useMemo(() => {
+    return completedExams.reduce(
+      (acc, item) => {
+        acc.totalExams += 1;
+        acc.totalStudents += item.counts?.totalStudents || 0;
+        acc.enteredResults += item.counts?.enteredResults || 0;
+        acc.pendingResults += item.counts?.pendingResults || 0;
+        return acc;
+      },
+      {
+        totalExams: 0,
+        totalStudents: 0,
+        enteredResults: 0,
+        pendingResults: 0,
+      }
+    );
+  }, [completedExams]);
+
+  const showMessage = useCallback((type, text, duration = 3200) => {
+    setToast({ type, text });
+    setTimeout(() => setToast({ type: '', text: '' }), duration);
+  }, []);
+
+  const handleOpenExam = (exam) => {
+    setSelectedExam(exam);
+    setExamTab('students');
+    setStudentSearch('');
+    setResultSearch('');
+  };
+
+  const handleBackToList = () => {
+    setSelectedExam(null);
+    setEntryModal({ open: false, student: null, result: null });
+    setDetailModal({ open: false, result: null });
+  };
+
+  const handleOpenEntry = useCallback(
+    (studentRow) => {
+      const fullResult = examResultMap.get(String(studentRow.studentId)) || null;
+      if (studentRow.result && !fullResult && examResultsQuery.isLoading) {
+        showMessage('error', 'Result details are still loading. Please try again.');
+        return false;
+      }
+
+      setEntryModal({
+        open: true,
+        student: studentRow,
+        result: fullResult,
+      });
+
+      return true;
+    },
+    [examResultMap, examResultsQuery.isLoading, showMessage]
+  );
+
+  const findNextEditableStudent = useCallback(
+    (studentId) => {
+      const currentIndex = filteredStudents.findIndex(
+        (item) => String(item.studentId) === String(studentId)
+      );
+
+      if (currentIndex === -1) {
+        return null;
+      }
+
+      for (let index = currentIndex + 1; index < filteredStudents.length; index += 1) {
+        const candidate = filteredStudents[index];
+        if (!candidate.result || candidate.result.canEdit !== false) {
+          return candidate;
+        }
+      }
+
+      return null;
+    },
+    [filteredStudents]
+  );
+
+  const currentEntryPosition = useMemo(() => {
+    if (!entryModal.student?.studentId) {
+      return '';
+    }
+
+    const index = filteredStudents.findIndex(
+      (item) => String(item.studentId) === String(entryModal.student.studentId)
+    );
+
+    if (index === -1) {
+      return '';
+    }
+
+    return `${index + 1} of ${filteredStudents.length} students`;
+  }, [entryModal.student, filteredStudents]);
+
+  const handleSaveResult = useCallback(
+    async (payload, options = {}) => {
+      try {
+        await saveResultMutation.mutateAsync(payload);
+        if (options.moveToNext) {
+          const upcomingStudent = findNextEditableStudent(payload.studentId);
+          showMessage(
+            'success',
+            upcomingStudent
+              ? 'Result saved. Moved to the next student.'
+              : 'Result saved successfully'
+          );
+
+          if (upcomingStudent && handleOpenEntry(upcomingStudent)) {
+            return;
+          }
+        } else {
+          showMessage('success', 'Result saved successfully');
+        }
+
+        setExamTab('results');
+        setEntryModal({ open: false, student: null, result: null });
+      } catch (error) {
+        showMessage('error', readError(error, 'Failed to save result'));
+      }
+    },
+    [findNextEditableStudent, handleOpenEntry, saveResultMutation, showMessage]
+  );
+
+  const handlePublishResults = async () => {
+    if (!selectedExam?._id) return;
+    try {
+      const response = await publishResultsMutation.mutateAsync(selectedExam._id);
+      const publishedCount = response?.data?.publishedCount ?? 0;
+      showMessage('success', `${publishedCount} result${publishedCount === 1 ? '' : 's'} published successfully`);
+    } catch (error) {
+      showMessage('error', readError(error, 'Failed to publish results'));
+    }
+  };
+
+  return (
+    <DashboardLayout>
+      {toast.text && (
+        <div className={`fixed top-6 right-6 z-[100] px-5 py-3.5 rounded-xl shadow-lg flex items-center gap-3 animate-fadeIn backdrop-blur-sm ${toast.type === 'success' ? 'bg-emerald-500/90 text-white' : 'bg-red-500/90 text-white'}`}>
+          <div className="w-6 h-6 rounded-full flex items-center justify-center bg-white/20">
+            {toast.type === 'success' ? <FaCheckCircle size={12} /> : <FaTimes size={12} />}
+          </div>
+          <span className="font-medium">{toast.text}</span>
+        </div>
+      )}
+
+      <div className="max-w-[1600px] mx-auto p-4 md:p-6 lg:p-8 space-y-6 animate-in fade-in duration-700">
+        {!selectedExam ? (
+          <>
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900">
+                  Result Management
+                </h1>
+                <p className="text-gray-500 mt-1">
+                  Manage marks entry, result generation, and publishing for all completed exams
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+              <SummaryCard icon={FaGraduationCap} title="Completed Exams" value={examOverview.totalExams} />
+              <SummaryCard icon={FaUserGraduate} title="Students Covered" value={examOverview.totalStudents} accent="text-primary" />
+              <SummaryCard icon={FaCheckCircle} title="Results Entered" value={examOverview.enteredResults} accent="text-emerald-600" bg="bg-emerald-50/40" />
+              <SummaryCard icon={FaClipboardList} title="Pending Results" value={examOverview.pendingResults} accent="text-amber-600" bg="bg-amber-50/40" />
+            </div>
+
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+              <div className="p-5 bg-slate-50/60 border-b border-slate-100">
+                <div className="flex flex-col lg:flex-row gap-4">
+                  <div className="relative flex-1">
+                    <FaSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="text"
+                      value={searchTerm}
+                      onChange={(event) => setSearchTerm(event.target.value)}
+                      placeholder="Search by exam name, class, or section..."
+                      className="w-full pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all shadow-sm"
+                    />
+                  </div>
+                  <div className="flex flex-wrap gap-3">
+                    <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400 px-2">
+                      <FaFilter size={11} />
+                      Filters
+                    </div>
+                    <select
+                      value={filters.standard}
+                      onChange={(event) => setFilters((current) => ({ ...current, standard: event.target.value, section: '' }))}
+                      className="px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:border-primary transition-all min-w-[120px] shadow-sm cursor-pointer"
+                    >
+                      <option value="">All Classes</option>
+                      {availableStandards.map((standard) => (
+                        <option key={standard} value={standard}>
+                          Class {standard}
+                        </option>
+                      ))}
+                    </select>
+                    <select
+                      value={filters.section}
+                      onChange={(event) => setFilters((current) => ({ ...current, section: event.target.value }))}
+                      className="px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:border-primary transition-all min-w-[120px] shadow-sm cursor-pointer"
+                    >
+                      <option value="">All Sections</option>
+                      {availableSections.map((section) => (
+                        <option key={section} value={section}>
+                          Section {section}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left">
+                  <thead>
+                    <tr className="border-b border-slate-100 bg-slate-50/40">
+                      <th className="px-5 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Exam</th>
+                      <th className="px-5 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Class</th>
+                      <th className="px-5 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Subjects</th>
+                      <th className="px-5 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Counts</th>
+                      <th className="px-5 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {completedExamsQuery.isLoading ? (
+                      <SkeletonRows rows={5} columns={5} />
+                    ) : filteredExams.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="px-5 py-10">
+                          <EmptyState
+                            icon={FaBookOpen}
+                            title="No completed exams found"
+                            subtitle="Once an exam reaches completed status, it will appear here for marks entry and result publishing."
+                          />
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredExams.map((exam) => (
+                        <tr key={exam._id} className="hover:bg-slate-50/70 transition-colors">
+                          <td className="px-5 py-5">
+                            <div>
+                              <div className="font-bold text-slate-900">{exam.name}</div>
+                              <div className="text-xs text-slate-500 mt-1">
+                                AY {exam.academicYear} · {exam.examType?.replace('_', ' ')}
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-5 py-5">
+                            <div className="flex items-center gap-2 text-sm text-slate-700 font-medium">
+                              <span className="px-2 py-1 rounded-lg bg-slate-100 border border-slate-200">
+                                {exam.standard}
+                              </span>
+                              <span className="px-2 py-1 rounded-lg bg-slate-100 border border-slate-200">
+                                {exam.section}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="px-5 py-5 text-sm text-slate-600">{exam.subjectsCount || 0} subjects</td>
+                          <td className="px-5 py-5">
+                            <div className="flex flex-wrap gap-2">
+                              <span className="px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 text-xs font-semibold">
+                                Entered {exam.counts?.enteredResults || 0}
+                              </span>
+                              <span className="px-2.5 py-1 rounded-lg bg-amber-50 text-amber-700 text-xs font-semibold">
+                                Pending {exam.counts?.pendingResults || 0}
+                              </span>
+                              <span className="px-2.5 py-1 rounded-lg bg-blue-50 text-blue-700 text-xs font-semibold">
+                                Published {exam.counts?.published || 0}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="px-5 py-5 text-right">
+                            <button
+                              onClick={() => handleOpenExam(exam)}
+                              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary text-white font-semibold hover:bg-primary-hover transition-all shadow-lg shadow-primary/20"
+                            >
+                              <FaEye size={12} />
+                              <span>Open Results</span>
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
+              <div className="flex items-start gap-4">
+                <button
+                  onClick={handleBackToList}
+                  className="w-12 h-12 rounded-2xl bg-white border border-slate-200 text-slate-600 hover:text-primary hover:border-primary/30 transition-all flex items-center justify-center shadow-sm"
+                >
+                  <FaArrowLeft size={16} />
+                </button>
+                <div>
+                  <h1 className="text-3xl font-bold text-slate-900">{currentExam?.name}</h1>
+                  <p className="text-slate-500 mt-1">
+                    Class {currentExam?.standard} - {currentExam?.section} · AY {currentExam?.academicYear}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-3">
+                <button
+                  onClick={handlePublishResults}
+                  disabled={publishResultsMutation.isPending || !currentCounts.draft}
+                  className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-primary text-white font-semibold hover:bg-primary-hover transition-all shadow-lg shadow-primary/20 disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {publishResultsMutation.isPending ? (
+                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <FaUpload size={13} />
+                  )}
+                  <span>{currentCounts.draft ? 'Publish Draft Results' : 'Nothing To Publish'}</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
+              <SummaryCard icon={FaUserGraduate} title="Total Students" value={currentCounts.totalStudents || 0} />
+              <SummaryCard icon={FaCheckCircle} title="Entered" value={currentCounts.enteredResults || 0} accent="text-emerald-600" bg="bg-emerald-50/40" />
+              <SummaryCard icon={FaClipboardList} title="Pending" value={currentCounts.pendingResults || 0} accent="text-amber-600" bg="bg-amber-50/40" />
+              <SummaryCard icon={FaUpload} title="Published" value={currentCounts.published || 0} accent="text-blue-600" bg="bg-blue-50/40" />
+              <SummaryCard icon={FaLock} title="Locked" value={currentCounts.locked || 0} accent="text-rose-600" bg="bg-rose-50/40" />
+            </div>
+
+            <div className="bg-blue-50 border border-blue-100 rounded-2xl px-5 py-4 text-sm text-blue-700">
+              Publishing only affects saved draft results. Students with pending results can still be completed later, and published results remain editable until the lock window ends.
+            </div>
+
+            <div className="flex gap-1 bg-gray-100 p-1 rounded-xl w-fit">
+              <TabButton
+                tab="students"
+                activeTab={examTab}
+                setActiveTab={setExamTab}
+                icon={<FaUserGraduate />}
+                label="Students"
+                count={examStudents.length}
+              />
+              <TabButton
+                tab="results"
+                activeTab={examTab}
+                setActiveTab={setExamTab}
+                icon={<FaBookOpen />}
+                label="Saved Results"
+                count={examResults.length}
+              />
+            </div>
+
+            {examTab === 'students' && (
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                <div className="p-5 border-b border-slate-100 bg-slate-50/60 flex flex-col lg:flex-row gap-4 lg:items-center justify-between">
+                  <div>
+                    <h2 className="text-xl font-bold text-slate-900">Student Result Entry</h2>
+                    <p className="text-sm text-slate-500 mt-1">Students leave this list once their result is saved.</p>
+                  </div>
+                  <div className="relative w-full lg:w-80">
+                    <FaSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="text"
+                      value={studentSearch}
+                      onChange={(event) => setStudentSearch(event.target.value)}
+                      placeholder="Search student or roll number..."
+                      className="w-full pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all shadow-sm"
+                    />
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left">
+                    <thead>
+                      <tr className="border-b border-slate-100 bg-slate-50/40">
+                        <th className="px-5 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Student</th>
+                        <th className="px-5 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Roll</th>
+                        <th className="px-5 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {examStudentsQuery.isLoading ? (
+                        <SkeletonRows rows={6} columns={3} />
+                      ) : filteredStudents.length === 0 ? (
+                        <tr>
+                          <td colSpan={3} className="px-5 py-10">
+                            <EmptyState
+                              icon={FaUserGraduate}
+                              title="No pending result entries"
+                              subtitle="Saved students are now available in the Saved Results tab."
+                            />
+                          </td>
+                        </tr>
+                      ) : (
+                        filteredStudents.map((student) => {
+                          return (
+                            <tr key={student.studentId} className="hover:bg-slate-50/70 transition-colors">
+                              <td className="px-5 py-4">
+                                <div>
+                                  <div className="font-semibold text-slate-900">{student.name}</div>
+                                  {student.email ? (
+                                    <div className="text-xs text-slate-500 mt-1">{student.email}</div>
+                                  ) : null}
+                                </div>
+                              </td>
+                              <td className="px-5 py-4 text-slate-700 font-medium">{student.rollNumber || '-'}</td>
+                              <td className="px-5 py-4">
+                                <div className="flex items-center justify-end gap-2">
+                                  <button
+                                    onClick={() => handleOpenEntry(student)}
+                                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary text-white font-semibold hover:bg-primary-hover transition-all shadow-lg shadow-primary/20 disabled:opacity-60 disabled:cursor-not-allowed"
+                                  >
+                                    <FaPlus size={12} />
+                                    <span>Add Result</span>
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {examTab === 'results' && (
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                <div className="p-5 border-b border-slate-100 bg-slate-50/60 flex flex-col lg:flex-row gap-4 lg:items-center justify-between">
+                  <div>
+                    <h2 className="text-xl font-bold text-slate-900">Saved Results</h2>
+                    <p className="text-sm text-slate-500 mt-1">Review saved marks, grades, and publish status.</p>
+                  </div>
+                  <div className="relative w-full lg:w-80">
+                    <FaSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="text"
+                      value={resultSearch}
+                      onChange={(event) => setResultSearch(event.target.value)}
+                      placeholder="Search by student, roll number, or status..."
+                      className="w-full pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all shadow-sm"
+                    />
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left">
+                    <thead>
+                      <tr className="border-b border-slate-100 bg-slate-50/40">
+                        <th className="px-5 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Student</th>
+                        <th className="px-5 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Status</th>
+                        <th className="px-5 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Percentage</th>
+                        <th className="px-5 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Grade</th>
+                        <th className="px-5 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Outcome</th>
+                        <th className="px-5 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {examResultsQuery.isLoading ? (
+                        <SkeletonRows rows={5} columns={6} />
+                      ) : filteredResults.length === 0 ? (
+                        <tr>
+                          <td colSpan={6} className="px-5 py-10">
+                            <EmptyState
+                              icon={FaBookOpen}
+                              title="No results saved yet"
+                              subtitle="Use the student roster tab to enter marks and generate results."
+                            />
+                          </td>
+                        </tr>
+                      ) : (
+                        filteredResults.map((item) => (
+                          <tr key={item._id} className="hover:bg-slate-50/70 transition-colors">
+                            <td className="px-5 py-4">
+                              <div>
+                                <div className="font-semibold text-slate-900">{item.student?.name}</div>
+                                <div className="text-xs text-slate-500 mt-1">Roll {item.student?.rollNumber || '-'}</div>
+                              </div>
+                            </td>
+                            <td className="px-5 py-4">
+                              <StatusBadge status={item.summary?.status} />
+                            </td>
+                            <td className="px-5 py-4 text-slate-700 font-semibold">{item.summary?.percentage}%</td>
+                            <td className="px-5 py-4 text-slate-700 font-semibold">{item.summary?.grade}</td>
+                            <td className="px-5 py-4">
+                              <OutcomeBadge outcome={item.summary?.resultStatus} />
+                            </td>
+                            <td className="px-5 py-4">
+                              <div className="flex items-center justify-end gap-2">
+                                <button
+                                  onClick={() => setDetailModal({ open: true, result: item })}
+                                  className="p-2.5 text-slate-500 hover:text-primary hover:bg-slate-100 rounded-xl transition-all"
+                                  title="View Result"
+                                >
+                                  <FaEye size={15} />
+                                </button>
+                                <button
+                                  onClick={() =>
+                                    setEntryModal({
+                                      open: true,
+                                      student: {
+                                        studentId: item.student?._id,
+                                        name: item.student?.name,
+                                        rollNumber: item.student?.rollNumber,
+                                        email: item.student?.email,
+                                      },
+                                      result: item,
+                                    })
+                                  }
+                                  disabled={!item.summary?.canEdit}
+                                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary text-white font-semibold hover:bg-primary-hover transition-all shadow-lg shadow-primary/20 disabled:opacity-60 disabled:cursor-not-allowed"
+                                >
+                                  <FaEdit size={12} />
+                                  <span>Edit</span>
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+      <ResultEntryModal
+        key={`${currentExam?._id || 'exam'}-${entryModal.student?.studentId || 'student'}-${entryModal.result?._id || 'new'}`}
+        isOpen={entryModal.open}
+        exam={currentExam}
+        student={entryModal.student}
+        currentResult={entryModal.result}
+        onClose={() => setEntryModal({ open: false, student: null, result: null })}
+        onSubmit={handleSaveResult}
+        isSaving={saveResultMutation.isPending}
+        studentPositionLabel={currentEntryPosition}
+      />
+
+      <ResultDetailModal
+        isOpen={detailModal.open}
+        result={detailModal.result}
+        onClose={() => setDetailModal({ open: false, result: null })}
+        onEdit={() => {
+          const result = detailModal.result;
+          setDetailModal({ open: false, result: null });
+          setEntryModal({
+            open: true,
+            student: {
+              studentId: result?.student?._id,
+              name: result?.student?.name,
+              rollNumber: result?.student?.rollNumber,
+              email: result?.student?.email,
+            },
+            result,
+          });
+        }}
+      />
+    </DashboardLayout>
+  );
+};
+
+export default Result;

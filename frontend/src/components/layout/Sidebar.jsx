@@ -12,6 +12,7 @@ import {
     FaCalendarDay,
     FaMoneyBillWave,
     FaGraduationCap,
+    FaClipboardCheck,
 } from 'react-icons/fa';
 
 const Sidebar = () => {
@@ -99,6 +100,7 @@ const Sidebar = () => {
                 // 8. Examination
                 if (hasFeature('examination')) {
                     adminLinks.push({ path: '/admin/examination', label: 'Examination', icon: <FaGraduationCap /> });
+                    adminLinks.push({ path: '/admin/result', label: 'Results', icon: <FaClipboardCheck /> });
                 }
 
                 // Settings always last
@@ -141,6 +143,7 @@ const Sidebar = () => {
                 // 8. Examination
                 if (hasFeature('examination')) {
                     teacherLinks.push({ path: '/teacher/examination', label: 'Examination', icon: <FaGraduationCap /> });
+                    teacherLinks.push({ path: '/teacher/result', label: 'Results', icon: <FaClipboardCheck /> });
                 }
 
                 // Removed settings for teachers as requested
