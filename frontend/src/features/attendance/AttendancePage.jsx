@@ -50,7 +50,10 @@ const buildAttendanceMap = (records = []) => {
 const buildClassGroups = (students = [], teachers = []) => {
     const groups = {};
     students.forEach(student => {
-        const std = student.profile?.standard || 'Unassigned';
+        // Hide "Unassigned" class by skipping students without a assigned standard
+        if (!student.profile?.standard) return;
+
+        const std = student.profile.standard;
         const sec = student.profile?.section || '';
         const key = `${std} ${sec}`.trim();
         if (!groups[key]) {
@@ -88,7 +91,7 @@ const AttendancePage = () => {
 
     // Queries & Mutations
     const { data: studentsRes, isLoading: studentsLoading } = useStudents();
-    const { data: teachersRes, isLoading: teachersLoading } = useTeachers();
+    const { data: teachersRes, isLoading: teachersLoading } = useTeachers(isAdmin);
     const { data: attendanceRes, isLoading: attendanceLoading } = useTodayAttendance();
     const manualMutation = useMarkManualAttendance();
 
@@ -245,7 +248,7 @@ const AttendancePage = () => {
         return () => disconnectSocket();
     }, [currentUser?.schoolId]);
 
-
+    // ─── Access Guards ──────────────────────────────────
     if (!featuresLoading && !hasFeature('attendance')) return (
         <DashboardLayout>
             <div className="flex flex-col items-center justify-center p-12 text-center h-[60vh]">

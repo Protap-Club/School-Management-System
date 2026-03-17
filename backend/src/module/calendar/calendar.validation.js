@@ -19,6 +19,8 @@ export const createEventSchema = z.object({
         allDay: z.boolean().optional().default(true),
         type: z.enum(["national", "exam", "custom", "event"]).optional().default("event"),
         description: z.string().optional(),
+        targetAudience: z.enum(["all", "classes"]).optional().default("all"),
+        targetClasses: z.array(z.string()).optional().default([]),
     }).refine(data => new Date(data.start) <= new Date(data.end), {
         message: "End date must be after or equal to start date",
         path: ["end"],
@@ -41,6 +43,8 @@ export const updateEventSchema = z.object({
         allDay: z.boolean().optional(),
         type: z.enum(["national", "exam", "custom", "event"]).optional(),
         description: z.string().optional(),
+        targetAudience: z.enum(["all", "classes"]).optional(),
+        targetClasses: z.array(z.string()).optional(),
     }),
 });
 
@@ -59,5 +63,17 @@ export const getEventsQuerySchema = z.object({
         type: z.enum(["national", "exam", "custom", "event"]).optional(),
         upcoming: z.union([z.string(), z.boolean()]).optional(),
         limit: z.union([z.string(), z.number()]).optional().transform(val => val ? Number(val) : undefined),
+    }).optional(),
+});
+
+// Delete By Date query
+export const deleteByDateSchema = z.object({
+    params: z.object({
+        date: z.string({ required_error: "Date is required" }).refine(val => !isNaN(Date.parse(val)), {
+            message: "Invalid date format. Use YYYY-MM-DD.",
+        }),
+    }),
+    query: z.object({
+        eventId: objectIdSchema.optional(),
     }).optional(),
 });

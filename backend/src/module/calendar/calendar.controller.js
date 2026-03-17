@@ -4,7 +4,8 @@ import {
     fetchCalendarEvents,
     getCalendarEventById,
     updateCalendarEvent,
-    deleteCalendarEvent
+    deleteCalendarEvent,
+    deleteCalendarEventsByDate
 } from "./calendar.service.js";
 import asyncHandler from "../../utils/asyncHandler.js";
 
@@ -40,7 +41,7 @@ export const createEvent = asyncHandler(async (req, res) => {
     const userId = req.user._id;
     const schoolId = req.user.schoolId;
 
-    const result = await createCalendarEvent(req.body, userId, schoolId);
+    const result = await createCalendarEvent(req.body, req.user);
 
     return res.status(201).json({
         success: true,
@@ -56,9 +57,7 @@ export const createEvent = asyncHandler(async (req, res) => {
  * @query   start, end, type (existing) | upcoming, limit (mobile-friendly)
  */
 export const getEvents = asyncHandler(async (req, res) => {
-    const schoolId = req.user.schoolId;
-
-    const result = await fetchCalendarEvents(req.query, schoolId);
+    const result = await fetchCalendarEvents(req.query, req.user);
 
     // Mobile: return streamlined response for student app
     if (req.platform === "mobile") {
@@ -110,7 +109,7 @@ export const getEventById = asyncHandler(async (req, res) => {
 export const updateEvent = asyncHandler(async (req, res) => {
     const { id } = req.params;
 
-    const result = await updateCalendarEvent(id, req.body);
+    const result = await updateCalendarEvent(id, req.body, req.user);
 
     return res.status(200).json({
         success: true,
@@ -127,7 +126,25 @@ export const updateEvent = asyncHandler(async (req, res) => {
 export const deleteEvent = asyncHandler(async (req, res) => {
     const { id } = req.params;
 
-    await deleteCalendarEvent(id);
+    await deleteCalendarEvent(id, req.user);
 
     return res.status(204).end();
+});
+
+/**
+ * @desc    Delete a calendar event by date (bulk or single)
+ * @route   DELETE /api/v1/calendar/date/:date
+ * @access  Private (Admin, Super Admin, Teacher)
+ */
+export const deleteEventsByDate = asyncHandler(async (req, res) => {
+    const { date } = req.params;
+    const { eventId } = req.query || {};
+
+    const result = await deleteCalendarEventsByDate(date, req.user, eventId);
+
+    return res.status(200).json({
+        success: true,
+        message: result.message,
+        deletedCount: result.deletedCount
+    });
 });

@@ -108,7 +108,19 @@ function App() {
                         path="/superadmin/assignments"
                         element={
                             <ProtectedRoute allowedRoles={['super_admin']}>
-                                <Assignments />
+                               <RequireFeature feature="assignment">
+                                  <Assignments />
+                               </RequireFeature>
+                             </ProtectedRoute>
+                        }
+                    />
+                    <Route
+                        path="/superadmin/examination"
+                        element={
+                            <ProtectedRoute allowedRoles={['super_admin']}>
+                                <RequireFeature feature="examination">
+                                    <Examination />
+                                </RequireFeature>
                             </ProtectedRoute>
                         }
                     />
