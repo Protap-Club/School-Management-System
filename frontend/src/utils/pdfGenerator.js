@@ -96,21 +96,29 @@ export const generateSalaryReceipt = (salary, teacher) => {
         const pageWidth = doc.internal.pageSize.width;
 
         // Design Elements
-        doc.setFillColor(79, 70, 229); // primary color
-        doc.rect(0, 0, pageWidth, 40, 'F');
-
-        doc.setFontSize(24);
-        doc.setTextColor(255, 255, 255);
+        // Removed filled rect background for print friendliness
+        doc.setFontSize(16); // Reduced from 18
+        doc.setTextColor(40, 40, 40); // Black text for title
         doc.text('SALARY RECEIPT', 14, 25);
 
         // School Info
+        doc.setFontSize(16); // Increased from 14
+        doc.setTextColor(40, 40, 40); // Black text
+        doc.setFont(undefined, 'bold');
+        doc.text('Navrachna International School', pageWidth - 14, 22, { align: 'right' }); // Adjusted y
         doc.setFontSize(10);
-        doc.text('Navrachna International School', pageWidth - 14, 20, { align: 'right' });
-        doc.text('Academic Year 2026', pageWidth - 14, 27, { align: 'right' });
+        doc.setFont(undefined, 'normal');
+        doc.setTextColor(100, 100, 100); // Dark Gray
+        doc.text('Academic Year 2026', pageWidth - 14, 29, { align: 'right' }); // Adjusted y
+
+        // Subtle Header Divider
+        doc.setDrawColor(220, 220, 220); // Light/Medium gray
+        doc.setLineWidth(0.5);
+        doc.line(14, 38, pageWidth - 14, 38);
 
         // Details Section
         doc.setTextColor(40, 40, 40);
-        doc.setFontSize(12);
+        doc.setFontSize(11);
         doc.setFont(undefined, 'bold');
         doc.text('TEACHER DETAILS', 14, 55);
         doc.line(14, 57, 60, 57);
@@ -119,13 +127,15 @@ export const generateSalaryReceipt = (salary, teacher) => {
         doc.setFontSize(10);
         doc.text(`Name: ${teacher?.name || '-'}`, 14, 65);
         doc.text(`Email: ${teacher?.email || '-'}`, 14, 72);
-        doc.text(`Role: Teacher`, 14, 79);
+        doc.text(`Contact No: ${teacher?.contactNo || '-'}`, 14, 79);
 
         doc.setFont(undefined, 'bold');
+        doc.setFontSize(11);
         doc.text('PAYMENT DETAILS', pageWidth / 2 + 10, 55);
         doc.line(pageWidth / 2 + 10, 57, pageWidth / 2 + 60, 57);
 
         doc.setFont(undefined, 'normal');
+        doc.setFontSize(10);
         doc.text(`Receipt No: PAY-${salary?._id?.substring(salary._id.length - 6).toUpperCase() || 'N/A'}`, pageWidth / 2 + 10, 65);
         doc.text(`Month/Year: ${MONTH_LABELS[salary?.month] || ''} ${salary?.year || ''}`, pageWidth / 2 + 10, 72);
         doc.text(`Payment Date: ${salary?.paidDate ? new Date(salary.paidDate).toLocaleDateString() : 'N/A'}`, pageWidth / 2 + 10, 79);
@@ -142,20 +152,35 @@ export const generateSalaryReceipt = (salary, teacher) => {
             headStyles: { fillColor: [243, 244, 246], textColor: [40, 40, 40], fontStyle: 'bold', lineWidth: 0.1 },
             styles: { cellPadding: 6, lineColor: [229, 231, 235], lineWidth: 0.1 },
             columnStyles: {
-                2: { halign: 'right', fontStyle: 'bold' }
+                2: { halign: 'center', fontStyle: 'bold' } // Center aligned
+            },
+            didParseCell: function(data) {
+                // Ensure the Amount heading is also centered
+                if (data.section === 'head' && data.column.index === 2) {
+                    data.cell.styles.halign = 'center';
+                }
             }
         });
 
         // Total Amount Box
-        const finalY = (doc.lastAutoTable?.finalY || 120) + 10;
-        doc.setFillColor(79, 70, 229);
-        doc.roundedRect(pageWidth - 84, finalY, 70, 20, 2, 2, 'F');
-        doc.setTextColor(255, 255, 255);
-        doc.setFontSize(8);
-        doc.text('TOTAL PAID', pageWidth - 79, finalY + 7);
-        doc.setFontSize(14);
+        const finalY = (doc.lastAutoTable?.finalY || 120) + 15; // Increased spacing
+        const boxWidth = 80;
+        const boxX = pageWidth - 14 - boxWidth; // Aligned with right margin of table
+        
+        doc.setFillColor(249, 250, 251); // gray-50
+        doc.setDrawColor(229, 231, 235); // gray-200
+        doc.roundedRect(boxX, finalY, boxWidth, 24, 2, 2, 'FD'); // Fill and stroke
+        
+        doc.setTextColor(100, 100, 100); // gray text for label
+        doc.setFontSize(9); // Size for TOTAL PAID
         doc.setFont(undefined, 'bold');
-        doc.text(`INR ${salary?.amount?.toLocaleString() || 0}`, pageWidth - 79, finalY + 16);
+        // Center text horizontally in the box
+        doc.text('TOTAL PAID', boxX + (boxWidth / 2), finalY + 9, { align: 'center' });
+        
+        doc.setTextColor(40, 40, 40); // black text for amount
+        doc.setFontSize(14); // Size for Amount
+        doc.setFont(undefined, 'bold');
+        doc.text(`INR ${salary?.amount?.toLocaleString() || 0}`, boxX + (boxWidth / 2), finalY + 18, { align: 'center' });
 
         // Footer
         doc.setTextColor(150, 150, 150);

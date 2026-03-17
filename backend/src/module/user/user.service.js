@@ -247,6 +247,7 @@ export const getMyProfile = async (userId) => {
         name: user.name,
         email: user.email,
         role: user.role,
+        contactNo: user.contactNo,
         schoolId: user.schoolId,
         isActive: user.isActive,
         profile: user.studentProfile || user.teacherProfile || user.adminProfile || null

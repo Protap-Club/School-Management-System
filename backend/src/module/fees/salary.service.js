@@ -42,7 +42,7 @@ export const getSalaryEntries = async (schoolId, filters = {}) => {
     if (filters.status) query.status = filters.status;
 
     const salaries = await Salary.find(query)
-        .populate("teacherId", "name email")
+        .populate("teacherId", "name email contactNo")
         .sort({ year: -1, month: -1 })
         .lean();
 
