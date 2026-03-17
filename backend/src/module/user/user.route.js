@@ -25,17 +25,14 @@ router.get("/me/profile", getMyProfile);
 // List all users (scoped by role & school)
 router.get(
     "/",
-    checkWebOnly,
     checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN, USER_ROLES.TEACHER]),
     validate(getUsersSchema),
     getUsers
 );
-router.get("/", validate(getUsersSchema), getUsers);
 
 // Get a single user by ID
 router.get(
     "/:id",
-    checkWebOnly,
     checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN, USER_ROLES.TEACHER]),
     validate(userIdParamsSchema),
     getUserById
