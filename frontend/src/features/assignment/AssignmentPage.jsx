@@ -17,13 +17,13 @@ export const AssignmentPage = () => {
     const canEdit = isAdmin || isTeacher;
     const canDelete = isAdmin;
     const canViewSubmitted = isAdmin || isTeacher;
-    
+
     // State
     const [page, setPage] = useState(0);
     const [pageSize, setPageSize] = useState(25);
     const [searchQuery, setSearchQuery] = useState('');
     const debouncedSearch = useDebounce(searchQuery, 300);
-    
+
     // Filters
     const [standardFilter, setStandardFilter] = useState('all');
     const [sectionFilter, setSectionFilter] = useState('all');
@@ -105,7 +105,7 @@ export const AssignmentPage = () => {
     return (
         <DashboardLayout>
             <div className="max-w-7xl mx-auto space-y-6 px-4 sm:px-6 lg:px-8 py-8">
-                
+
                 {/* Header */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
                     <div className="space-y-1">
@@ -135,11 +135,10 @@ export const AssignmentPage = () => {
                         <button
                             key={tab.id}
                             onClick={() => { setActiveTab(tab.id); setPage(0); }}
-                            className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-semibold transition-all ${
-                                activeTab === tab.id 
-                                ? 'bg-white text-indigo-600 shadow-sm' 
-                                : 'text-gray-500 hover:text-gray-700 hover:bg-white/50'
-                            }`}
+                            className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-semibold transition-all ${activeTab === tab.id
+                                    ? 'bg-white text-indigo-600 shadow-sm'
+                                    : 'text-gray-500 hover:text-gray-700 hover:bg-white/50'
+                                }`}
                         >
                             {tab.label}
                             {activeTab === tab.id && (
@@ -153,7 +152,7 @@ export const AssignmentPage = () => {
 
                 <div className="space-y-4">
                     {/* Filters & Search */}
-                    <AssignmentFilters 
+                    <AssignmentFilters
                         searchQuery={searchQuery}
                         onSearchChange={handleSearchChange}
                         searchPlaceholder={activeTab === 'submitted' ? 'Search by assignment, student, email or roll number...' : 'Search assignments...'}
@@ -181,7 +180,7 @@ export const AssignmentPage = () => {
                             onPageSizeChange={(value) => { setPageSize(value); setPage(0); }}
                         />
                     ) : (
-                        <AssignmentTable 
+                        <AssignmentTable
                             assignments={assignments}
                             loading={isLoading}
                             onViewClick={(a) => handleEditClick(a)}
@@ -197,10 +196,10 @@ export const AssignmentPage = () => {
                 </div>
 
                 {/* Modal */}
-                <AssignmentModal 
-                    isOpen={isModalOpen} 
-                    onClose={() => setIsModalOpen(false)} 
-                    assignmentToEdit={editingAssignment} 
+                <AssignmentModal
+                    isOpen={isModalOpen}
+                    onClose={() => setIsModalOpen(false)}
+                    assignmentToEdit={editingAssignment}
                 />
 
             </div>
