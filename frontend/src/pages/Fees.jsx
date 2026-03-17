@@ -19,9 +19,10 @@ import SalaryForm from '../components/fees/SalaryForm';
 import {
     FaPlus, FaEdit, FaTrash, FaTrashAlt, FaBolt, FaTimes, FaCheck, FaMoneyBillWave,
     FaChartBar, FaListAlt, FaEye, FaFilter, FaArrowLeft, FaArrowRight, FaReceipt, FaBan, FaHistory,
-    FaWallet, FaCalendarCheck, FaSearch, FaUser, FaFileInvoice, FaCalendarAlt, FaDownload,
+    FaWallet, FaCalendarCheck, FaSearch, FaUser, FaFileInvoice, FaCalendarAlt, FaDownload, FaEllipsisV
 } from 'react-icons/fa';
 import { generateFeeReport, generateSalaryReceipt } from '../utils/pdfGenerator';
+import { generateFeeExcel } from '../utils/excelGenerator';
 
 const MODAL_OVERLAY = 'fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4';
 const currentYear = new Date().getFullYear();
@@ -82,6 +83,9 @@ const Fees = () => {
     const [overviewType, setOverviewType] = useState('');
     const [overviewStatus, setOverviewStatus] = useState('all');
     const [selectedStudent, setSelectedStudent] = useState(null);
+    const [exportMenuOpen, setExportMenuOpen] = useState(false);
+    const [overviewPage, setOverviewPage] = useState(1);
+    const OVERVIEW_PER_PAGE = 15;
     const [paymentModal, setPaymentModal] = useState({ open: false, assignment: null });
     const [updateModal, setUpdateModal] = useState({ open: false, assignment: null });
 
@@ -94,6 +98,17 @@ const Fees = () => {
     const [selectedStaff, setSelectedStaff] = useState(null);
     const [baseSalaryModal, setBaseSalaryModal] = useState({ open: false, staff: null, amount: '' });
     const [payoutConfirmModal, setPayoutConfirmModal] = useState({ open: false, salary: null, remarks: '' });
+    const [staffDashboardPage, setStaffDashboardPage] = useState(1);
+    const STAFF_DASHBOARD_PER_PAGE = 15;
+
+    // Filter logic
+    useEffect(() => {
+        setOverviewPage(1);
+    }, [overviewStatus, overviewType, selectedClass]);
+
+    useEffect(() => {
+        setStaffDashboardPage(1);
+    }, [staffSearch]);
 
     // Queries
     const cleanFilters = useMemo(() => {
@@ -455,13 +470,41 @@ const Fees = () => {
                                 </div>
                             </div>
                             <div className="flex gap-4 text-sm">
-                                <button 
-                                    onClick={() => generateFeeReport(filteredClassStudents, filteredClassSummary, selectedClass, overviewMonth, overviewYear)}
-                                    className="flex items-center gap-2 bg-primary/10 text-primary hover:bg-primary hover:text-white px-4 py-2 rounded-xl font-bold transition-all"
-                                    title="Download PDF Report"
-                                >
-                                    <FaDownload size={14} /> Download PDF
-                                </button>
+                                <div className="relative">
+                                    <button 
+                                        onClick={() => setExportMenuOpen(!exportMenuOpen)}
+                                        className="flex items-center justify-center bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 hover:text-primary w-10 h-10 rounded-xl transition-all shadow-sm"
+                                        title="Download Options"
+                                    >
+                                        <FaDownload size={14} />
+                                    </button>
+                                    
+                                    {exportMenuOpen && (
+                                        <>
+                                            <div className="fixed inset-0 z-10" onClick={() => setExportMenuOpen(false)}></div>
+                                            <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-gray-100 py-1 z-20">
+                                                <button
+                                                    onClick={() => {
+                                                        generateFeeReport(filteredClassStudents, filteredClassSummary, selectedClass, overviewMonth, overviewYear);
+                                                        setExportMenuOpen(false);
+                                                    }}
+                                                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-primary transition-colors flex items-center gap-2"
+                                                >
+                                                    <FaFileInvoice size={12} /> Download PDF
+                                                </button>
+                                                <button
+                                                    onClick={() => {
+                                                        generateFeeExcel(filteredClassStudents, filteredClassSummary, selectedClass, overviewMonth, overviewYear);
+                                                        setExportMenuOpen(false);
+                                                    }}
+                                                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-emerald-600 transition-colors flex items-center gap-2"
+                                                >
+                                                    <FaListAlt size={12} /> Download XLSX
+                                                </button>
+                                            </div>
+                                        </>
+                                    )}
+                                </div>
                                 <div className="text-center px-4 py-2 bg-gray-50 rounded-xl"><p className="text-xs text-gray-500 font-medium">Students</p><p className="text-lg font-bold">{filteredClassSummary.totalStudents || 0}</p></div>
                                 <div className="text-center px-4 py-2 bg-emerald-50 rounded-xl"><p className="text-xs text-gray-500 font-medium">Collected</p><p className="text-lg font-bold text-emerald-600">₹{(filteredClassSummary.totalCollected || 0).toLocaleString()}</p></div>
                                 <div className="text-center px-4 py-2 bg-amber-50 rounded-xl"><p className="text-xs text-gray-500 font-medium">Pending</p><p className="text-lg font-bold text-amber-600">₹{(filteredClassSummary.totalPending || 0).toLocaleString()}</p></div>
@@ -482,7 +525,9 @@ const Fees = () => {
                                     ) : filteredClassStudents.length === 0 ? (
                                         <tr><td colSpan={8}><EmptyState icon={FaEye} title="No students" subtitle="No fee assignments for this class/month" /></td></tr>
                                     ) : (
-                                        filteredClassStudents.flatMap(student =>
+                                        filteredClassStudents
+                                            .slice((overviewPage - 1) * OVERVIEW_PER_PAGE, overviewPage * OVERVIEW_PER_PAGE)
+                                            .flatMap(student =>
                                             student.fees.map((fee, idx) => (
                                                 <tr key={`${student.studentId}-${fee.assignmentId}`} className="hover:bg-gray-50/50 transition-colors">
                                                     <td className="px-4 py-3">
@@ -505,6 +550,12 @@ const Fees = () => {
                                                                         title="Waive Fee" className="p-1.5 text-gray-400 hover:text-orange-500 hover:bg-orange-50 rounded-lg transition-colors"><FaBan size={12} /></button>
                                                                 </>
                                                             )}
+                                                            {isAdmin && (
+                                                                <button onClick={() => setUpdateModal({ open: true, assignment: { _id: fee.assignmentId, amount: fee.amount, dueDate: fee.dueDate, status: fee.status } })}
+                                                                    className="p-1.5 text-amber-500 hover:bg-amber-50 rounded-lg transition-colors" title="Update Details">
+                                                                    <FaEdit size={12} />
+                                                                </button>
+                                                            )}
                                                         </div>
                                                     </td>
                                                 </tr>
@@ -513,6 +564,41 @@ const Fees = () => {
                                     )}
                                 </tbody>
                             </table>
+                            {/* Pagination Controls */}
+                            {filteredClassStudents.length > OVERVIEW_PER_PAGE && (
+                                <div className="px-5 py-4 border-t border-gray-100 flex items-center justify-between bg-gray-50/30 rounded-b-2xl">
+                                    <p className="text-sm text-gray-500">
+                                        Showing <span className="font-medium text-gray-900">{(overviewPage - 1) * OVERVIEW_PER_PAGE + 1}</span> to <span className="font-medium text-gray-900">{Math.min(overviewPage * OVERVIEW_PER_PAGE, filteredClassStudents.length)}</span> of <span className="font-medium text-gray-900">{filteredClassStudents.length}</span> students
+                                    </p>
+                                    <div className="flex items-center gap-2">
+                                        <button 
+                                            onClick={() => setOverviewPage(p => Math.max(1, p - 1))}
+                                            disabled={overviewPage === 1}
+                                            className="p-2 border border-gray-200 rounded-lg text-gray-600 hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                        >
+                                            <FaArrowLeft size={12} />
+                                        </button>
+                                        <div className="flex gap-1">
+                                            {Array.from({ length: Math.ceil(filteredClassStudents.length / OVERVIEW_PER_PAGE) }).map((_, i) => (
+                                                <button
+                                                    key={i}
+                                                    onClick={() => setOverviewPage(i + 1)}
+                                                    className={`w-8 h-8 rounded-lg text-sm font-medium transition-colors ${overviewPage === i + 1 ? 'bg-primary text-white' : 'text-gray-600 hover:bg-white border border-transparent hover:border-gray-200'}`}
+                                                >
+                                                    {i + 1}
+                                                </button>
+                                            ))}
+                                        </div>
+                                        <button 
+                                            onClick={() => setOverviewPage(p => Math.min(Math.ceil(filteredClassStudents.length / OVERVIEW_PER_PAGE), p + 1))}
+                                            disabled={overviewPage === Math.ceil(filteredClassStudents.length / OVERVIEW_PER_PAGE)}
+                                            className="p-2 border border-gray-200 rounded-lg text-gray-600 hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                        >
+                                            <FaArrowRight size={12} />
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -1234,10 +1320,15 @@ const Fees = () => {
                                                 <tbody className="divide-y divide-gray-50">
                                                     {teachersLoading || salariesLoading ? (
                                                         Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} cols={5} />)
-                                                    ) : (teachersData?.data?.users || []).filter(t => t.name.toLowerCase().includes(staffSearch.toLowerCase())).length === 0 ? (
-                                                        <tr><td colSpan={5}><EmptyState icon={FaUser} title="No staff records" subtitle="We couldn't find any staff matching your search." /></td></tr>
-                                                    ) : (
-                                                        (teachersData?.data?.users || []).filter(t => t.name.toLowerCase().includes(staffSearch.toLowerCase())).map(staff => {
+                                                    ) : (() => {
+                                                        const filteredStaffDashboard = (teachersData?.data?.users || []).filter(t => t.name.toLowerCase().includes(staffSearch.toLowerCase()));
+                                                        if (filteredStaffDashboard.length === 0) {
+                                                            return <tr><td colSpan={5}><EmptyState icon={FaUser} title="No staff records" subtitle="We couldn't find any staff matching your search." /></td></tr>;
+                                                        }
+                                                        
+                                                        return filteredStaffDashboard
+                                                            .slice((staffDashboardPage - 1) * STAFF_DASHBOARD_PER_PAGE, staffDashboardPage * STAFF_DASHBOARD_PER_PAGE)
+                                                            .map(staff => {
                                                             const staffSalaries = (salaryData?.data || []).filter(s => String(s.teacherId?._id || s.teacherId) === String(staff._id));
                                                             const latestSalary = staffSalaries.sort((a, b) => b.year !== a.year ? b.year - a.year : b.month - a.month)[0];
                                                             
@@ -1252,7 +1343,7 @@ const Fees = () => {
                                                                         ₹{(staff.profile?.expectedSalary || 0).toLocaleString()}
                                                                         <button 
                                                                             onClick={() => setBaseSalaryModal({ open: true, staff, amount: staff.profile?.expectedSalary || 0 })}
-                                                                            className="p-1.5 text-violet-400 hover:text-violet-600 hover:bg-violet-50 rounded-lg transition-all opacity-0 group-hover/base:opacity-100"
+                                                                            className="p-1.5 text-violet-400 hover:text-violet-600 hover:bg-violet-50 rounded-lg transition-all opacity-100 group-hover/base:opacity-100"
                                                                         ><FaEdit size={12} /></button>
                                                                     </td>
                                                                     <td className="px-6 py-6">
@@ -1272,10 +1363,53 @@ const Fees = () => {
                                                                     </td>
                                                                 </tr>
                                                             );
-                                                        })
-                                                    )}
+                                                        });
+                                                    })()}
                                                 </tbody>
                                             </table>
+                                            
+                                            {/* Pagination Controls */}
+                                            {(() => {
+                                                const filteredStaffDashboardCount = (teachersData?.data?.users || []).filter(t => t.name.toLowerCase().includes(staffSearch.toLowerCase())).length;
+                                                if (filteredStaffDashboardCount > STAFF_DASHBOARD_PER_PAGE) {
+                                                    const totalPages = Math.ceil(filteredStaffDashboardCount / STAFF_DASHBOARD_PER_PAGE);
+                                                    return (
+                                                        <div className="px-5 py-4 border-t border-gray-100 flex items-center justify-between bg-gray-50/30 rounded-b-2xl">
+                                                            <p className="text-sm text-gray-500">
+                                                                Showing <span className="font-medium text-gray-900">{(staffDashboardPage - 1) * STAFF_DASHBOARD_PER_PAGE + 1}</span> to <span className="font-medium text-gray-900">{Math.min(staffDashboardPage * STAFF_DASHBOARD_PER_PAGE, filteredStaffDashboardCount)}</span> of <span className="font-medium text-gray-900">{filteredStaffDashboardCount}</span> staff
+                                                            </p>
+                                                            <div className="flex items-center gap-2">
+                                                                <button 
+                                                                    onClick={() => setStaffDashboardPage(p => Math.max(1, p - 1))}
+                                                                    disabled={staffDashboardPage === 1}
+                                                                    className="p-2 border border-gray-200 rounded-lg text-gray-600 hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                                                >
+                                                                    <FaArrowLeft size={12} />
+                                                                </button>
+                                                                <div className="flex gap-1">
+                                                                    {Array.from({ length: totalPages }).map((_, i) => (
+                                                                        <button
+                                                                            key={i}
+                                                                            onClick={() => setStaffDashboardPage(i + 1)}
+                                                                            className={`w-8 h-8 rounded-lg text-sm font-medium transition-colors ${staffDashboardPage === i + 1 ? 'bg-violet-600 text-white' : 'text-gray-600 hover:bg-white border border-transparent hover:border-gray-200'}`}
+                                                                        >
+                                                                            {i + 1}
+                                                                        </button>
+                                                                    ))}
+                                                                </div>
+                                                                <button 
+                                                                    onClick={() => setStaffDashboardPage(p => Math.min(totalPages, p + 1))}
+                                                                    disabled={staffDashboardPage === totalPages}
+                                                                    className="p-2 border border-gray-200 rounded-lg text-gray-600 hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                                                >
+                                                                    <FaArrowRight size={12} />
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                }
+                                                return null;
+                                            })()}
                                         </div>
                                     </div>
                                 )}
