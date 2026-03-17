@@ -52,10 +52,9 @@ router.get(
     getExamById
 );
 
-// ── Admin + Teacher: Create / Update / Delete (web-only) ─────
+// ── Admin + Teacher: Create / Update / Delete ──────────────────────
 router.post(
     "/",
-    checkWebOnly,
     checkRole([USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN, USER_ROLES.TEACHER]),
     validate(createExamSchema),
     createExam
@@ -63,7 +62,6 @@ router.post(
 
 router.put(
     "/:id",
-    checkWebOnly,
     checkRole([USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN, USER_ROLES.TEACHER]),
     validate(updateExamSchema),
     updateExam
@@ -71,7 +69,6 @@ router.put(
 
 router.delete(
     "/:id",
-    checkWebOnly,
     checkRole([USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN, USER_ROLES.TEACHER]),
     validate(examIdParamsSchema),
     deleteExam
@@ -79,7 +76,6 @@ router.delete(
 
 router.patch(
     "/:id/status",
-    checkWebOnly,
     checkRole([USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN, USER_ROLES.TEACHER]),
     validate(updateStatusSchema),
     updateStatus

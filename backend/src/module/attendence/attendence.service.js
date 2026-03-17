@@ -238,7 +238,7 @@ const getTeacherMobileAttendance = async (teacherUserId, schoolId) => {
 
     // Step 3: Get all students in those classes
     const studentProfiles = await StudentProfile.find({ $or: classConditions })
-        .select("userId rollNumber standard section")
+        .select("userId rollNumber standard section fatherName fatherContact motherName motherContact")
         .populate("userId", "_id name email")
         .lean();
 
@@ -274,6 +274,10 @@ const getTeacherMobileAttendance = async (teacherUserId, schoolId) => {
             rollNumber: sp.rollNumber,
             standard: sp.standard,
             section: sp.section,
+            fatherName: sp.fatherName,
+            fatherContact: sp.fatherContact,
+            motherName: sp.motherName,
+            motherContact: sp.motherContact,
             status: record ? record.status : "Absent",
             checkInTime: record ? record.checkInTime : null
         };

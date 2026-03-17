@@ -12,6 +12,7 @@ import {
     FaCalendarDay,
     FaMoneyBillWave,
     FaGraduationCap,
+    FaBook,
 } from 'react-icons/fa';
 
 const Sidebar = () => {
@@ -100,6 +101,8 @@ const Sidebar = () => {
                 if (hasFeature('examination')) {
                     adminLinks.push({ path: '/admin/examination', label: 'Examination', icon: <FaGraduationCap /> });
                 }
+
+                adminLinks.push({ path: '/admin/assignments', label: 'Assignments', icon: <FaBook /> });
 
                 // Settings always last
                 adminLinks.push({ path: '/admin/settings', label: 'Settings', icon: <FaCog /> });
