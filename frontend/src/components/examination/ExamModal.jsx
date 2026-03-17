@@ -253,7 +253,7 @@ const ExamModal = ({ isOpen, onClose, onSubmit, editData, isLoading, userRole, u
         `w-full px-4 py-2.5 bg-white border rounded-xl text-sm transition-all outline-none ${
             errors[field] 
             ? 'border-red-400 focus:border-red-500 focus:ring-4 focus:ring-red-50' 
-            : 'border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-50 hover:border-slate-300'
+            : 'border-slate-200 focus:border-primary focus:ring-4 focus:ring-primary/10 hover:border-slate-300'
         }`;
 
     const labelClasses = "block text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wider";
@@ -296,7 +296,7 @@ const ExamModal = ({ isOpen, onClose, onSubmit, editData, isLoading, userRole, u
                         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
                             <div className="lg:col-span-12">
                                 <div className="flex items-center gap-2 mb-4">
-                                    <div className="h-6 w-1 rounded-full bg-blue-500"></div>
+                                    <div className="h-6 w-1 rounded-full bg-primary"></div>
                                     <h3 className="font-bold text-slate-800 text-lg">General Information</h3>
                                 </div>
                                 
@@ -438,7 +438,7 @@ const ExamModal = ({ isOpen, onClose, onSubmit, editData, isLoading, userRole, u
                         <div className="space-y-6 mt-2">
                             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                                 <div className="flex items-center gap-2">
-                                    <div className="h-6 w-1 rounded-full bg-indigo-500"></div>
+                                    <div className="h-6 w-1 rounded-full bg-primary"></div>
                                     <div>
                                         <h3 className="font-bold text-slate-800 text-lg leading-tight">Exam Schedule</h3>
                                         <p className="text-[11px] text-slate-500 font-medium">Add subjects and time slots for the examination</p>
@@ -447,7 +447,7 @@ const ExamModal = ({ isOpen, onClose, onSubmit, editData, isLoading, userRole, u
                                 <button
                                     type="button"
                                     onClick={addScheduleItem}
-                                    className="flex items-center justify-center gap-2 px-6 py-2.5 bg-indigo-600 text-white rounded-2xl hover:bg-indigo-700 transition-all font-bold text-sm shadow-md shadow-indigo-200 active:scale-95"
+                                    className="flex items-center justify-center gap-2 px-6 py-2.5 bg-primary text-white rounded-2xl hover:bg-primary-hover transition-all font-bold text-sm shadow-md shadow-primary/20 active:scale-95"
                                 >
                                     <FaPlus size={12} />
                                     <span>Add Subject</span>
@@ -456,8 +456,8 @@ const ExamModal = ({ isOpen, onClose, onSubmit, editData, isLoading, userRole, u
 
                             <div className="grid grid-cols-1 gap-6">
                                 {form.schedule.map((item, index) => (
-                                    <div key={index} className="group relative bg-white border border-slate-200 rounded-[28px] p-1 sm:p-2 shadow-sm ring-1 ring-slate-100 hover:shadow-md transition-all duration-300 overflow-hidden">
-                                        <div className="absolute top-0 left-0 w-1.5 h-full bg-indigo-100 group-hover:bg-indigo-500 transition-colors"></div>
+                                    <div className="group relative bg-white border border-slate-200 rounded-[28px] p-1 sm:p-2 shadow-sm ring-1 ring-slate-100 hover:shadow-md transition-all duration-300 overflow-hidden">
+                                        <div className="absolute top-0 left-0 w-1.5 h-full bg-primary/10 group-hover:bg-primary transition-colors"></div>
                                         
                                         <div className="p-4 sm:p-6">
                                             <div className="flex items-center justify-between mb-6 pb-4 border-b border-slate-50">
@@ -483,7 +483,7 @@ const ExamModal = ({ isOpen, onClose, onSubmit, editData, isLoading, userRole, u
                                                 <div>
                                                     <label className={labelClasses}>Subject Name *</label>
                                                     <div className="relative group/input">
-                                                        <FaBookOpen className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 transition-colors group-focus-within/input:text-indigo-500" size={14} />
+                                                        <FaBookOpen className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 transition-colors group-focus-within/input:text-primary" size={14} />
                                                         <input
                                                             type="text"
                                                             value={item.subject}
@@ -512,7 +512,7 @@ const ExamModal = ({ isOpen, onClose, onSubmit, editData, isLoading, userRole, u
                                                     <label className={labelClasses}>Timing Range</label>
                                                     <div className="flex items-center gap-2">
                                                         <div className="relative flex-1 group/input">
-                                                            <FaClock className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within/input:text-indigo-500" size={12} />
+                                                            <FaClock className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within/input:text-primary" size={12} />
                                                             <input
                                                                 type="time"
                                                                 value={item.startTime}
@@ -522,7 +522,7 @@ const ExamModal = ({ isOpen, onClose, onSubmit, editData, isLoading, userRole, u
                                                         </div>
                                                         <span className="text-slate-400 font-bold">to</span>
                                                         <div className="relative flex-1 group/input">
-                                                            <FaClock className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within/input:text-indigo-500" size={12} />
+                                                            <FaClock className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within/input:text-primary" size={12} />
                                                             <input
                                                                 type="time"
                                                                 value={item.endTime}
