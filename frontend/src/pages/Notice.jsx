@@ -8,7 +8,7 @@ import {
 import { useNoticeHandlers } from '../features/notices/useNoticeHandlers';
 import { ReceiverAckButton, ViewItemModal, SendModal } from '../features/notices/NoticeComponents';
 import { getFileIcon, getRecipientLabel } from '../features/notices/NoticeUtils';
-import { SectionHeader, TabButton, FilterSelect, MemberList } from '../components/ui/NoticeUIComponents';
+import { SectionHeader, TabButton, FilterSelect, SearchableList, MemberList } from '../components/ui/NoticeUIComponents';
 
 const Notice = () => {
     const handlers = useNoticeHandlers();
@@ -17,9 +17,10 @@ const Notice = () => {
     const {
         isAdmin, isTeacher, fileInputRef, activeTab, setActiveTab,
         message, setMessage, requireAck, setRequireAck, attachment, attachmentPreview, messageError,
-        showSendModal, setShowSendModal, sendOption, setSendOption, searchTerm, setSearchTerm,
+        showSendModal, setShowSendModal, sendOption, setSendOption, searchTerm, setSearchTerm, userRoleFilter, setUserRoleFilter,
         selectedClasses, setSelectedClasses, selectedUsers, setSelectedUsers, selectedStudents, setSelectedStudents, selectedGroups, setSelectedGroups,
         newGroupName, setNewGroupName, newGroupStudents, setNewGroupStudents, newGroupTeachers, setNewGroupTeachers,
+        groupStudentSearch, setGroupStudentSearch,
         historySearch, setHistorySearch, historyFilters, setHistoryFilters, viewItem, setViewItem, toast,
         isSending, students, teachers, allUsers, classes, groups, receivedItems, filteredHistory,
         historyPage, setHistoryPage, totalHistoryPages, pagedHistory,
@@ -176,12 +177,29 @@ const Notice = () => {
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-2">Select Students</label>
-                                    <MemberList items={students} selectedArr={newGroupStudents} setSelectedArr={setNewGroupStudents} toggleSelection={toggleSelection} />
+                                    <SearchableList
+                                        items={students}
+                                        selectedArr={newGroupStudents}
+                                        setSelectedArr={setNewGroupStudents}
+                                        searchField={s => s.name || ''}
+                                        placeholder="Search students..."
+                                        searchTerm={groupStudentSearch}
+                                        setSearchTerm={setGroupStudentSearch}
+                                        toggleSelection={toggleSelection}
+                                        hideUntilSearch
+                                        minSearchLength={2}
+                                        emptyLabel="Type at least 2 characters to search students"
+                                    />
                                 </div>
                                 {isAdmin && (
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-2">Select Teachers</label>
-                                        <MemberList items={teachers} selectedArr={newGroupTeachers} setSelectedArr={setNewGroupTeachers} toggleSelection={toggleSelection} />
+                                        <MemberList
+                                            items={teachers}
+                                            selectedArr={newGroupTeachers}
+                                            setSelectedArr={setNewGroupTeachers}
+                                            toggleSelection={toggleSelection}
+                                        />
                                     </div>
                                 )}
                                 <button onClick={handleCreateGroup}
@@ -487,6 +505,7 @@ const Notice = () => {
                 isAdmin={isAdmin} isTeacher={isTeacher}
                 sendOption={sendOption} setSendOption={setSendOption}
                 searchTerm={searchTerm} setSearchTerm={setSearchTerm}
+                userRoleFilter={userRoleFilter} setUserRoleFilter={setUserRoleFilter}
                 classes={classes} selectedClasses={selectedClasses} setSelectedClasses={setSelectedClasses}
                 allUsers={allUsers} selectedUsers={selectedUsers} setSelectedUsers={setSelectedUsers}
                 students={students} selectedStudents={selectedStudents} setSelectedStudents={setSelectedStudents}

@@ -25,7 +25,7 @@ export const ReceiverAckButton = ({ noticeId, currentUserId, acknowledgments = [
 
     const showAckToast = (type, text) => {
         setAckToast({ type, text });
-        setTimeout(() => setAckToast(null), 2500);
+        setTimeout(() => setAckToast(null), 4000);
     };
 
     const canSubmit = responseText.trim().length >= 2 || selectedFiles.length > 0;
@@ -451,6 +451,7 @@ export const SendModal = ({
     isAdmin, isTeacher,
     sendOption, setSendOption,
     searchTerm, setSearchTerm,
+    userRoleFilter, setUserRoleFilter,
     classes, selectedClasses, setSelectedClasses,
     allUsers, selectedUsers, setSelectedUsers,
     students, selectedStudents, setSelectedStudents,
@@ -459,6 +460,9 @@ export const SendModal = ({
     isSending, handleFinalSend
 }) => {
     if (!showSendModal) return null;
+    const filteredUsers = userRoleFilter === 'all'
+        ? allUsers
+        : allUsers.filter(u => u.role === userRoleFilter);
 
     const renderGroupsOption = () => groups.length > 0 && (
         <RadioOption
@@ -501,9 +505,43 @@ export const SendModal = ({
                                 <SearchableList items={classes} selectedArr={selectedClasses} setSelectedArr={setSelectedClasses} searchField={c => c.label} placeholder="Search classes..." searchTerm={searchTerm} setSearchTerm={setSearchTerm} toggleSelection={toggleSelection} />
                             } />
                             <RadioOption value="users" title="Specific Users" subtitle="Select individual users" sendOption={sendOption} setSendOption={setSendOption} setSearchTerm={setSearchTerm} expandedContent={
-                                <SearchableList items={allUsers} selectedArr={selectedUsers} setSelectedArr={setSelectedUsers} searchField={u => `${u.name || ''} ${u.role || ''}`} placeholder="Search users..." searchTerm={searchTerm} setSearchTerm={setSearchTerm} toggleSelection={toggleSelection} renderLabel={user => (
-                                    <><span className="flex-1 truncate text-sm">{user.name}</span><span className={`text-xs px-1.5 py-0.5 rounded shrink-0 ${user.role === 'teacher' ? 'bg-indigo-50 text-indigo-600' : 'bg-green-50 text-green-600'}`}>{user.role}</span></>
-                                )} />
+                                <>
+                                    <div className="flex items-center gap-2 mb-2">
+                                        {['all', 'student', 'teacher'].map(role => (
+                                            <button
+                                                key={role}
+                                                type="button"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setUserRoleFilter(role);
+                                                }}
+                                                className={`px-2.5 py-1 rounded-full text-xs font-semibold border transition-colors ${
+                                                    userRoleFilter === role
+                                                        ? 'bg-primary text-white border-primary'
+                                                        : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+                                                }`}
+                                            >
+                                                {role === 'all' ? 'All' : role === 'student' ? 'Students' : 'Teachers'}
+                                            </button>
+                                        ))}
+                                    </div>
+                                    <SearchableList
+                                        items={filteredUsers}
+                                        selectedArr={selectedUsers}
+                                        setSelectedArr={setSelectedUsers}
+                                        searchField={u => `${u.name || ''} ${u.role || ''}`}
+                                        placeholder="Search users..."
+                                        searchTerm={searchTerm}
+                                        setSearchTerm={setSearchTerm}
+                                        toggleSelection={toggleSelection}
+                                        hideUntilSearch
+                                        minSearchLength={2}
+                                        emptyLabel="Type at least 2 characters to search users"
+                                        renderLabel={user => (
+                                            <><span className="flex-1 truncate text-sm">{user.name}</span><span className={`text-xs px-1.5 py-0.5 rounded shrink-0 ${user.role === 'teacher' ? 'bg-indigo-50 text-indigo-600' : 'bg-green-50 text-green-600'}`}>{user.role}</span></>
+                                        )}
+                                    />
+                                </>
                             } />
                             {renderGroupsOption()}
                         </div>
