@@ -51,12 +51,40 @@ export const noticesApi = {
             const response = await api.get('/timetables');
             const timetables = response.data?.data || [];
             // Transform timetable data into class options
+            const classOptions = timetables.map(t => ({
+                standard: t.standard,
+                section: t.section,
+                value: `${t.standard}-${t.section}`,
+                label: `Class ${t.standard} - Section ${t.section}`
+            }));
+
+            const normalize = (val) => {
+                const num = Number(val);
+                return Number.isNaN(num) ? null : num;
+            };
+
+            classOptions.sort((a, b) => {
+                const aStdNum = normalize(a.standard);
+                const bStdNum = normalize(b.standard);
+                if (aStdNum !== null && bStdNum !== null && aStdNum !== bStdNum) {
+                    return aStdNum - bStdNum;
+                }
+                const stdCompare = String(a.standard ?? '').localeCompare(
+                    String(b.standard ?? ''),
+                    undefined,
+                    { numeric: true, sensitivity: 'base' }
+                );
+                if (stdCompare !== 0) return stdCompare;
+                return String(a.section ?? '').localeCompare(
+                    String(b.section ?? ''),
+                    undefined,
+                    { numeric: true, sensitivity: 'base' }
+                );
+            });
+
             return {
                 success: true,
-                data: timetables.map(t => ({
-                    value: `${t.standard}-${t.section}`,
-                    label: `Class ${t.standard} - Section ${t.section}`
-                }))
+                data: classOptions.map(({ value, label }) => ({ value, label }))
             };
         } catch {
             return { success: true, data: [] };
