@@ -1,12 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
-    FaCheck, FaCircleNotch, FaTimes, FaDownload, FaPaperclip, FaPaperPlane,
+    FaCheck, FaCircleNotch, FaTimes, FaDownload, FaPaperclip, FaPaperPlane, FaTrash, FaUpload,
     FaFilePdf, FaFileWord, FaFilePowerpoint, FaFileExcel, FaFileAlt, FaImage, FaFileVideo
 } from 'react-icons/fa';
 import { getFileIcon, getRecipientLabel } from './NoticeUtils';
 import { useAcknowledgeNotice, useAcknowledgments } from './api/queries';
 import { MODAL_OVERLAY, RECIPIENT_LABELS } from './noticeConstants';
 import { SearchableList, RadioOption } from '../../components/ui/NoticeUIComponents';
+
+const ALLOWED_EXTENSIONS = ['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png', 'ppt', 'pptx', 'xls', 'xlsx', 'mp4', 'mov', 'avi', 'csv', 'txt'];
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+const MAX_FILES = 3;
 
 export const ReceiverAckButton = ({ noticeId, currentUserId, acknowledgments = [] }) => {
     const isAcknowledged = acknowledgments.some(a =>
@@ -15,6 +19,46 @@ export const ReceiverAckButton = ({ noticeId, currentUserId, acknowledgments = [
     const ackMutation = useAcknowledgeNotice(noticeId);
     const [showModal, setShowModal] = useState(false);
     const [responseText, setResponseText] = useState('');
+    const [selectedFiles, setSelectedFiles] = useState([]);
+    const fileInputRef = useRef(null);
+    const [ackToast, setAckToast] = useState(null);
+
+    const showAckToast = (type, text) => {
+        setAckToast({ type, text });
+        setTimeout(() => setAckToast(null), 2500);
+    };
+
+    const canSubmit = responseText.trim().length >= 2 || selectedFiles.length > 0;
+
+    const handleFileChange = (e) => {
+        const files = Array.from(e.target.files || []);
+        if (files.length === 0) return;
+
+        const validFiles = [];
+        for (const file of files) {
+            if (file.size > MAX_FILE_SIZE) {
+                showAckToast('error', `File "${file.name}" exceeds 10MB limit`);
+                continue;
+            }
+            const extension = file.name.split('.').pop()?.toLowerCase();
+            if (!ALLOWED_EXTENSIONS.includes(extension)) {
+                showAckToast('error', `File type ".${extension}" is not allowed`);
+                continue;
+            }
+            validFiles.push(file);
+        }
+
+        const newFiles = [...selectedFiles, ...validFiles].slice(0, MAX_FILES);
+        setSelectedFiles(newFiles);
+
+        if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+        }
+    };
+
+    const removeFile = (index) => {
+        setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+    };
 
     // Already acknowledged — show green pill
     if (isAcknowledged) {
@@ -29,16 +73,33 @@ export const ReceiverAckButton = ({ noticeId, currentUserId, acknowledgments = [
     }
 
     const handleSubmit = () => {
-        ackMutation.mutate(responseText.trim(), {
-            onSuccess: () => {
-                setShowModal(false);
-                setResponseText('');
-            },
-        });
+        ackMutation.mutate(
+            { responseMessage: responseText.trim(), files: selectedFiles },
+            {
+                onSuccess: () => {
+                    setShowModal(false);
+                    setResponseText('');
+                    setSelectedFiles([]);
+                    showAckToast('success', 'Acknowledgment sent successfully');
+                },
+                onError: (error) => {
+                    const msg = error?.response?.data?.message || 'Failed to send acknowledgment';
+                    showAckToast('error', msg);
+                }
+            }
+        );
     };
 
     return (
         <>
+            {ackToast && (
+                <div className={`fixed top-6 right-6 z-[110] px-4 py-2.5 rounded-xl shadow-lg flex items-center gap-2 animate-fadeIn ${ackToast.type === 'success' ? 'bg-emerald-500 text-white' : 'bg-red-500 text-white'}`}>
+                    <div className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center">
+                        {ackToast.type === 'success' ? <FaCheck size={10} /> : <FaTimes size={10} />}
+                    </div>
+                    <span className="text-sm font-medium">{ackToast.text}</span>
+                </div>
+            )}
             <button
                 onClick={() => setShowModal(true)}
                 className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#F0F5FF] hover:bg-[#E5EDFF] border border-blue-200/60 text-[#2563EB] font-medium text-[12px] tracking-wide transition-all duration-200 hover:shadow-[0_2px_4px_rgba(37,99,235,0.08)] group cursor-pointer"
@@ -56,24 +117,97 @@ export const ReceiverAckButton = ({ noticeId, currentUserId, acknowledgments = [
                         className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden animate-fadeIn"
                         onClick={(e) => e.stopPropagation()}
                     >
-                        <div className="px-5 py-4 border-b border-gray-100">
-                            <h3 className="text-base font-semibold text-gray-900">Acknowledge Notice</h3>
-                            <p className="text-xs text-gray-500 mt-0.5">Add a response message before acknowledging.</p>
+                        <div className="px-5 py-4 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-white">
+                            <div className="flex items-start gap-3">
+                                <div className="w-9 h-9 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center">
+                                    <FaCheck size={14} />
+                                </div>
+                                <div>
+                                    <h3 className="text-base font-semibold text-gray-900">Send Acknowledgment</h3>
+                                    <p className="text-xs text-gray-500 mt-0.5">Add a message or attach files to confirm you’ve read this notice.</p>
+                                </div>
+                            </div>
                         </div>
-                        <div className="p-5 space-y-3">
-                            <textarea
-                                value={responseText}
-                                onChange={(e) => setResponseText(e.target.value)}
-                                maxLength={500}
-                                rows={3}
-                                placeholder="Type your response..."
-                                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary resize-none transition-all"
-                            />
-                            <p className="text-xs text-gray-400 text-right">{responseText.length}/500</p>
+                        <div className="p-5 space-y-4">
+                            <div className="space-y-2">
+                                <div className="flex items-center justify-between">
+                                    <label className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Message</label>
+                                    <span className="text-[11px] text-gray-400">{responseText.length}/500</span>
+                                </div>
+                                <textarea
+                                    value={responseText}
+                                    onChange={(e) => setResponseText(e.target.value)}
+                                    maxLength={500}
+                                    rows={3}
+                                    placeholder="Type your response..."
+                                    className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary resize-none transition-all bg-gray-50/60"
+                                />
+                            </div>
+                            <div className="border border-gray-200 rounded-xl p-4 bg-white">
+                                <div className="flex items-center justify-between mb-3">
+                                    <label className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Attachments</label>
+                                    <span className="text-[11px] text-gray-400">{selectedFiles.length}/{MAX_FILES}</span>
+                                </div>
+                                <div className="border-2 border-dashed border-gray-200 rounded-xl p-4">
+                                    <input
+                                        type="file"
+                                        ref={fileInputRef}
+                                        onChange={handleFileChange}
+                                        multiple
+                                        accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.ppt,.pptx,.xls,.xlsx,.mp4,.mov,.avi,.csv,.txt"
+                                        className="hidden"
+                                    />
+                                    <div className="flex flex-col items-center justify-center gap-2">
+                                        {selectedFiles.length > 0 ? (
+                                            <>
+                                                <div className="w-full space-y-2">
+                                                    {selectedFiles.map((file, index) => (
+                                                        <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
+                                                            <div className="flex items-center gap-2 min-w-0 flex-1">
+                                                                {getFileIcon(file.name)}
+                                                                <div className="min-w-0">
+                                                                    <span className="text-xs text-gray-700 truncate block">{file.name}</span>
+                                                                    <span className="text-[10px] text-gray-400">{(file.size / 1024).toFixed(0)} KB</span>
+                                                                </div>
+                                                            </div>
+                                                            <button
+                                                                onClick={() => removeFile(index)}
+                                                                className="text-gray-400 hover:text-red-500 p-1"
+                                                            >
+                                                                <FaTrash size={10} />
+                                                            </button>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                                {selectedFiles.length < MAX_FILES && (
+                                                    <button
+                                                        onClick={() => fileInputRef.current?.click()}
+                                                        className="text-xs text-primary hover:underline"
+                                                    >
+                                                        + Add more files
+                                                    </button>
+                                                )}
+                                            </>
+                                        ) : (
+                                            <button
+                                                onClick={() => fileInputRef.current?.click()}
+                                                className="flex flex-col items-center gap-1 text-gray-500 hover:text-primary transition-colors"
+                                            >
+                                                <FaUpload size={18} />
+                                                <span className="text-xs">Attach files (max {MAX_FILES}, 10MB each)</span>
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                                <p className="text-[11px] text-gray-400 mt-2">Allowed: PDF, DOC/DOCX, JPG/PNG, PPT/PPTX, XLS/XLSX, MP4/MOV/AVI, CSV, TXT</p>
+                            </div>
+                            <div className={`text-xs ${canSubmit ? 'text-emerald-600' : 'text-gray-400'}`}>
+                                {canSubmit ? 'Ready to acknowledge' : 'Add a message (min 2 chars) or at least 1 attachment'}
+                            </div>
                         </div>
                         <div className="px-5 py-3 border-t border-gray-100 flex gap-2">
                             <button
-                                onClick={() => { setShowModal(false); setResponseText(''); }}
+                                onClick={() => { setShowModal(false); setResponseText(''); setSelectedFiles([]); }}
                                 disabled={ackMutation.isPending}
                                 className="flex-1 px-3 py-2 border border-gray-200 text-gray-700 font-medium rounded-xl hover:bg-gray-50 transition-colors text-sm disabled:opacity-50"
                             >
@@ -81,7 +215,7 @@ export const ReceiverAckButton = ({ noticeId, currentUserId, acknowledgments = [
                             </button>
                             <button
                                 onClick={handleSubmit}
-                                disabled={ackMutation.isPending || responseText.trim().length < 2}
+                                disabled={ackMutation.isPending || !canSubmit}
                                 className="flex-1 px-3 py-2 bg-primary hover:bg-primary-hover text-white font-medium rounded-xl transition-colors text-sm flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 {ackMutation.isPending ? (
@@ -98,7 +232,7 @@ export const ReceiverAckButton = ({ noticeId, currentUserId, acknowledgments = [
     );
 };
 
-export const AcknowledgmentPanel = ({ noticeId }) => {
+export const AcknowledgmentPanel = ({ noticeId, handleDownload }) => {
     const { data: ackData, isLoading, isError } = useAcknowledgments(noticeId);
 
     if (isLoading) {
@@ -112,6 +246,9 @@ export const AcknowledgmentPanel = ({ noticeId }) => {
     const { acknowledgedCount, pendingCount, acknowledged, pending, note } = ackData.data;
     const totalCount = pendingCount !== null ? acknowledgedCount + pendingCount : null;
     const progressPercent = totalCount > 0 ? Math.round((acknowledgedCount / totalCount) * 100) : 0;
+    const pendingStudents = pending.filter((u) => u.role === 'student');
+    const pendingTeachers = pending.filter((u) => u.role === 'teacher');
+    const pendingOthers = pending.filter((u) => u.role !== 'student' && u.role !== 'teacher');
 
     return (
         <div className="bg-white border border-gray-200 rounded-xl overflow-hidden mt-4">
@@ -151,6 +288,34 @@ export const AcknowledgmentPanel = ({ noticeId }) => {
                                     {u.responseMessage && (
                                         <p className="text-xs text-gray-500 italic mt-0.5 ml-0.5 line-clamp-2">"{u.responseMessage}"</p>
                                     )}
+                                    {u.attachments && u.attachments.length > 0 && (
+                                        <div className="mt-2 space-y-1">
+                                            {u.attachments.map((att, attIndex) => {
+                                                const fileName = att.originalName || att.filename || 'attachment';
+                                                const fileExt = fileName.split('.').pop()?.toUpperCase() || 'FILE';
+                                                return (
+                                                    <button
+                                                        key={attIndex}
+                                                        onClick={() => handleDownload?.(att.secure_url || att.path, fileName)}
+                                                        className="flex items-center justify-between w-full p-2 bg-gray-50 hover:bg-gray-100 rounded-lg border border-gray-200 transition-colors group"
+                                                    >
+                                                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                                                            <div className="shrink-0">
+                                                                {getFileIcon(fileName)}
+                                                            </div>
+                                                            <div className="min-w-0 flex-1">
+                                                                <p className="text-xs font-medium text-gray-700 truncate">{fileName}</p>
+                                                                <p className="text-[10px] text-gray-400 uppercase tracking-wide">{fileExt}</p>
+                                                            </div>
+                                                        </div>
+                                                        <div className="p-1.5 text-gray-400 group-hover:text-primary group-hover:bg-primary/5 rounded-lg transition-colors shrink-0">
+                                                            <FaDownload size={12} />
+                                                        </div>
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
                                 </li>
                             ))}
                         </ul>
@@ -158,17 +323,52 @@ export const AcknowledgmentPanel = ({ noticeId }) => {
                 </div>
 
                 {pendingCount !== null && pendingCount > 0 && (
-                    <div className="pt-4 border-t border-gray-100">
-                        <h6 className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-2">
+                    <div className="pt-4 border-t border-gray-100 space-y-3">
+                        <h6 className="text-xs font-medium text-gray-500 uppercase tracking-wider flex items-center gap-2">
                             Pending <span className="bg-amber-100 text-amber-700 font-bold px-1.5 py-0.5 rounded text-[10px]">{pendingCount}</span>
                         </h6>
-                        <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto custom-scrollbar">
-                            {pending.map((u, i) => (
-                                <span key={i} className="inline-flex items-center px-2 py-1 rounded-md bg-gray-50 text-gray-600 text-xs border border-gray-200">
-                                    {u.name} <span className="text-gray-400 ml-1">({u.role})</span>
-                                </span>
-                            ))}
-                        </div>
+                        {pendingStudents.length > 0 && (
+                            <div>
+                                <div className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                                    Students <span className="ml-1 text-amber-600">({pendingStudents.length})</span>
+                                </div>
+                                <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto custom-scrollbar">
+                                    {pendingStudents.map((u, i) => (
+                                        <span key={i} className="inline-flex items-center px-2 py-1 rounded-md bg-gray-50 text-gray-600 text-xs border border-gray-200">
+                                            {u.name}
+                                        </span>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                        {pendingTeachers.length > 0 && (
+                            <div>
+                                <div className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                                    Teachers <span className="ml-1 text-amber-600">({pendingTeachers.length})</span>
+                                </div>
+                                <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto custom-scrollbar">
+                                    {pendingTeachers.map((u, i) => (
+                                        <span key={i} className="inline-flex items-center px-2 py-1 rounded-md bg-gray-50 text-gray-600 text-xs border border-gray-200">
+                                            {u.name}
+                                        </span>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                        {pendingOthers.length > 0 && (
+                            <div>
+                                <div className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                                    Others <span className="ml-1 text-amber-600">({pendingOthers.length})</span>
+                                </div>
+                                <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto custom-scrollbar">
+                                    {pendingOthers.map((u, i) => (
+                                        <span key={i} className="inline-flex items-center px-2 py-1 rounded-md bg-gray-50 text-gray-600 text-xs border border-gray-200">
+                                            {u.name}
+                                        </span>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                     </div>
                 )}
             </div>
@@ -234,7 +434,7 @@ export const ViewItemModal = ({ viewItem, setViewItem, handleDownload }) => {
 
                     {/* Acknowledgment Status Panel — sender view */}
                     {viewItem.requiresAcknowledgment === true && (
-                        <AcknowledgmentPanel noticeId={viewItem._id} />
+                        <AcknowledgmentPanel noticeId={viewItem._id} handleDownload={handleDownload} />
                     )}
 
                     <div className="pt-2">
