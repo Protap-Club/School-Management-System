@@ -13,6 +13,7 @@ import {
     FaMoneyBillWave,
     FaGraduationCap,
     FaBook,
+    FaClipboardCheck,
 } from 'react-icons/fa';
 
 const Sidebar = () => {
@@ -105,6 +106,7 @@ const Sidebar = () => {
                 // 8. Examination
                 if (hasFeature('examination')) {
                     adminLinks.push({ path: '/admin/examination', label: 'Examination', icon: <FaGraduationCap /> });
+                    adminLinks.push({ path: '/admin/result', label: 'Results', icon: <FaClipboardCheck /> });
                 }
 
                 if (hasFeature('assignment')) {
@@ -151,6 +153,7 @@ const Sidebar = () => {
                 // 8. Examination
                 if (hasFeature('examination')) {
                     teacherLinks.push({ path: '/teacher/examination', label: 'Examination', icon: <FaGraduationCap /> });
+                    teacherLinks.push({ path: '/teacher/result', label: 'Results', icon: <FaClipboardCheck /> });
                 }
 
                 // Assignments
@@ -190,7 +193,7 @@ const Sidebar = () => {
                                 }`;
                         }}
                     >
-                        <span className={`flex-shrink-0 text-lg transition-colors duration-200 ${isCollapsed ? '' : ''}`}>
+                        <span className={`shrink-0 text-lg transition-colors duration-200 ${isCollapsed ? '' : ''}`}>
                             {link.icon}
                         </span>
                         <span className={`transition-all duration-300 overflow-hidden whitespace-nowrap ${isCollapsed ? 'w-0 opacity-0 hidden md:block md:w-0 md:opacity-0' : 'w-auto opacity-100'

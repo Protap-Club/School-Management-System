@@ -17,6 +17,7 @@ const Notifications = lazy(() => import('../pages/Notifications'));
 const Fees = lazy(() => import('../pages/Fees'));
 const Examination = lazy(() => import('../pages/Examination'));
 const Assignments = lazy(() => import('../features/assignment/AssignmentPage'));
+const Result = lazy(() => import('../pages/Result'));
 
 // Loading fallback component
 const PageLoader = () => (
@@ -62,6 +63,7 @@ export const routes = {
         calendar: '/admin/calendar',
         fees: '/admin/fees',
         examination: '/admin/examination',
+        result: '/admin/result',
         notifications: '/notifications',
         assignments: '/admin/assignments',
     },
@@ -76,6 +78,7 @@ export const routes = {
         fees: '/teacher/fees',
         examination: '/teacher/examination',
         assignments: '/teacher/assignments',
+        result: '/teacher/result',
     },
 };
 
@@ -93,6 +96,7 @@ export const pages = {
     Fees,
     Examination,
     Assignments,
+    Result,
 };
 
 // Export utilities
