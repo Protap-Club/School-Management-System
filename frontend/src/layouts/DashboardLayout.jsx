@@ -6,6 +6,24 @@ import api from '../api/axios';
 const DashboardLayout = ({ children, onSearch, searchValue }) => {
     const { isCollapsed } = useSidebar();
 
+    useEffect(() => {
+        const previousOverflow = document.body.style.overflow;
+
+        const updateScrollLock = () => {
+            const hasModal = document.querySelector('.modal-overlay');
+            document.body.style.overflow = hasModal ? 'hidden' : previousOverflow || '';
+        };
+
+        updateScrollLock();
+        const observer = new MutationObserver(updateScrollLock);
+        observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
+
+        return () => {
+            observer.disconnect();
+            document.body.style.overflow = previousOverflow || '';
+        };
+    }, []);
+
     // Theme is now managed globally via useTheme hook and early bootstrapping in main.jsx
     // This removes the flickering and ensures persistence across refreshes.
 

@@ -22,6 +22,7 @@ const FEATURE_META = {
     transport: { label: 'Transport', description: 'Bus routes and tracking', color: 'from-rose-100 to-pink-100', iconColor: 'text-rose-500' },
     calendar: { label: 'Calendar', description: 'Academic calendar and holidays', color: 'from-pink-100 to-rose-100', iconColor: 'text-rose-500' },
     examination: { label: 'Examination', description: 'Manage term exams and class tests', color: 'from-purple-100 to-indigo-100', iconColor: 'text-purple-500' },
+    assignment: { label: 'Assignment', description: 'Student assignments and submissions', color: 'from-blue-100 to-indigo-100', iconColor: 'text-blue-600' },
 };
 
 const Settings = () => {

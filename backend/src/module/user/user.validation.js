@@ -82,6 +82,9 @@ export const getUsersSchema = z.object({
         pageSize: z.union([z.string(), z.number()]).optional().default('25')
             .transform(val => Number(val)),
         name: z.string().optional(),
+        // Server-side search (e.g., admin user search in notice flows)
+        // keeps large user lists off the client while still allowing lookup.
+        search: z.string().optional(),
     }),
 });
 

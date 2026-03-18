@@ -51,12 +51,40 @@ export const noticesApi = {
             const response = await api.get('/timetables');
             const timetables = response.data?.data || [];
             // Transform timetable data into class options
+            const classOptions = timetables.map(t => ({
+                standard: t.standard,
+                section: t.section,
+                value: `${t.standard}-${t.section}`,
+                label: `Class ${t.standard} - Section ${t.section}`
+            }));
+
+            const normalize = (val) => {
+                const num = Number(val);
+                return Number.isNaN(num) ? null : num;
+            };
+
+            classOptions.sort((a, b) => {
+                const aStdNum = normalize(a.standard);
+                const bStdNum = normalize(b.standard);
+                if (aStdNum !== null && bStdNum !== null && aStdNum !== bStdNum) {
+                    return aStdNum - bStdNum;
+                }
+                const stdCompare = String(a.standard ?? '').localeCompare(
+                    String(b.standard ?? ''),
+                    undefined,
+                    { numeric: true, sensitivity: 'base' }
+                );
+                if (stdCompare !== 0) return stdCompare;
+                return String(a.section ?? '').localeCompare(
+                    String(b.section ?? ''),
+                    undefined,
+                    { numeric: true, sensitivity: 'base' }
+                );
+            });
+
             return {
                 success: true,
-                data: timetables.map(t => ({
-                    value: `${t.standard}-${t.section}`,
-                    label: `Class ${t.standard} - Section ${t.section}`
-                }))
+                data: classOptions.map(({ value, label }) => ({ value, label }))
             };
         } catch {
             return { success: true, data: [] };
@@ -74,13 +102,19 @@ export const noticesApi = {
 
     // Get teachers list
     getTeachers: async () => {
-        const response = await api.get('/users?role=teacher&pageSize=100');
+        const response = await api.get('/users?role=teacher&pageSize=5000');
         return response.data;
     },
 
     // Get all users (students + teachers)
-    getAllUsers: async () => {
-        const response = await api.get('/users?pageSize=100');
+    getAllUsers: async (filters = {}) => {
+        const params = new URLSearchParams();
+        // Server-side search avoids loading thousands of users just to filter on the client.
+        if (filters.search) params.append('search', filters.search);
+        if (filters.role && filters.role !== 'all') params.append('role', filters.role);
+        params.append('pageSize', filters.pageSize || '5000');
+        const query = params.toString();
+        const response = await api.get(`/users${query ? `?${query}` : ''}`);
         return response.data;
     },
 
@@ -103,8 +137,15 @@ export const noticesApi = {
     },
 
     // Acknowledge a notice (receivers only)
-    acknowledgeNotice: async (id, responseMessage = '') => {
-        const response = await api.post(`/notices/${id}/acknowledge`, { responseMessage });
+    acknowledgeNotice: async (id, { responseMessage = '', files = [] } = {}) => {
+        const formData = new FormData();
+        if (responseMessage) {
+            formData.append('responseMessage', responseMessage);
+        }
+        if (files && files.length > 0) {
+            files.forEach((file) => formData.append('ackAttachments', file));
+        }
+        const response = await api.post(`/notices/${id}/acknowledge`, formData);
         return response.data;
     },
 

@@ -14,6 +14,7 @@ export const useNoticeHandlers = () => {
     const isAdmin = ['admin', 'super_admin'].includes(currentUser?.role);
     const isTeacher = currentUser?.role === 'teacher';
     const fileInputRef = useRef(null);
+    const PAGE_SIZE = 12;
 
     // Compose state
     const [activeTab, setActiveTab] = useState('compose');
@@ -37,6 +38,7 @@ export const useNoticeHandlers = () => {
     const [showSendModal, setShowSendModal] = useState(false);
     const [sendOption, setSendOption] = useState('');
     const [searchTerm, setSearchTerm] = useState('');
+    const [userRoleFilter, setUserRoleFilter] = useState('all');
     const [selectedClasses, setSelectedClasses] = useState([]);
     const [selectedUsers, setSelectedUsers] = useState([]);
     const [selectedStudents, setSelectedStudents] = useState([]);
@@ -46,14 +48,37 @@ export const useNoticeHandlers = () => {
     const [newGroupName, setNewGroupName] = useState('');
     const [newGroupStudents, setNewGroupStudents] = useState([]);
     const [newGroupTeachers, setNewGroupTeachers] = useState([]);
+    const [groupStudentSearch, setGroupStudentSearch] = useState('');
 
     // History state
     const [historySearch, setHistorySearch] = useState('');
     const [historyFilters, setHistoryFilters] = useState({ type: 'all', sentTo: 'all', date: 'all' });
     const [viewItem, setViewItem] = useState(null);
     const [toast, setToast] = useState({ type: '', text: '' });
+    const [historyPage, setHistoryPage] = useState(1);
+    const [receivedPage, setReceivedPage] = useState(1);
 
     const selectionState = useMemo(() => ({ selectedClasses, selectedUsers, selectedStudents, selectedGroups }), [selectedClasses, selectedUsers, selectedStudents, selectedGroups]);
+
+    // Server-side user search for admins to avoid loading thousands of users into the client.
+    const isAdminUserSearchActive = isAdmin && sendOption === 'users';
+    const adminUserSearch = isAdminUserSearchActive ? searchTerm.trim() : '';
+    const adminUserRole = isAdminUserSearchActive && userRoleFilter !== 'all' ? userRoleFilter : undefined;
+    const shouldSearchAllUsers = isAdminUserSearchActive && adminUserSearch.length >= 2;
+    const adminUserQuery = useMemo(() => ({
+        search: adminUserSearch,
+        role: adminUserRole,
+        pageSize: '5000'
+    }), [adminUserSearch, adminUserRole]);
+
+    const isAdminGroupSearchActive = isAdmin && activeTab === 'groups';
+    const adminGroupStudentSearch = isAdminGroupSearchActive ? groupStudentSearch.trim() : '';
+    const shouldSearchGroupStudents = isAdminGroupSearchActive && adminGroupStudentSearch.length >= 2;
+    const adminGroupStudentQuery = useMemo(() => ({
+        search: adminGroupStudentSearch,
+        role: 'student',
+        pageSize: '5000'
+    }), [adminGroupStudentSearch]);
 
     // Data hooks
     const { data: noticesData } = useNotices(historyFilters);
@@ -61,7 +86,8 @@ export const useNoticeHandlers = () => {
     const { data: classesData } = useClasses(isAdmin); // Admins need all classes
     const { data: studentsData } = useStudents(isTeacher); // Teachers need their students
     const { data: teachersData } = useTeachers(isAdmin); // Admins might need teachers list
-    const { data: allUsersData } = useAllUsers(isAdmin); // Admins need all users
+    const { data: allUsersData } = useAllUsers(adminUserQuery, shouldSearchAllUsers);
+    const { data: adminGroupStudentsData } = useAllUsers(adminGroupStudentQuery, shouldSearchGroupStudents);
     const { data: groupsData } = useGroups();
     const createNoticeMutation = useCreateNotice();
     const isSending = createNoticeMutation.isPending;
@@ -69,9 +95,13 @@ export const useNoticeHandlers = () => {
     const createGroupMutation = useCreateGroup();
     const deleteGroupMutation = useDeleteGroup();
 
-    const students = studentsData?.data?.users || studentsData?.data || [];
+    const rawStudents = studentsData?.data?.users || studentsData?.data || [];
     const teachers = teachersData?.data?.users || teachersData?.data || [];
-    const allUsers = allUsersData?.data?.users || allUsersData?.data || [];
+    const allUsers = shouldSearchAllUsers ? (allUsersData?.data?.users || allUsersData?.data || []) : [];
+    const adminGroupStudents = shouldSearchGroupStudents
+        ? (adminGroupStudentsData?.data?.users || adminGroupStudentsData?.data || [])
+        : [];
+    const students = isTeacher ? rawStudents : adminGroupStudents;
     const classes = classesData?.data || [];
     const groups = groupsData?.data || [];
     const historyItems = noticesData?.data || [];
@@ -146,6 +176,7 @@ export const useNoticeHandlers = () => {
         try {
             await createGroupMutation.mutateAsync({ name: newGroupName, students: [...newGroupStudents, ...newGroupTeachers] });
             setNewGroupName(''); setNewGroupStudents([]); setNewGroupTeachers([]);
+            setGroupStudentSearch('');
             showToast('success', 'Group created successfully!');
         } catch (error) { showToast('error', error?.response?.data?.message || 'Failed to create group'); }
     }, [newGroupName, newGroupStudents, newGroupTeachers, createGroupMutation, showToast]);
@@ -199,15 +230,41 @@ export const useNoticeHandlers = () => {
         );
     }, [historyItems, historySearch]);
 
+    useEffect(() => {
+        setHistoryPage(1);
+    }, [historySearch, historyFilters, historyItems.length]);
+
+    useEffect(() => {
+        setReceivedPage(1);
+    }, [receivedItems.length]);
+
+    const totalHistoryPages = Math.max(1, Math.ceil(filteredHistory.length / PAGE_SIZE));
+    const totalReceivedPages = Math.max(1, Math.ceil(receivedItems.length / PAGE_SIZE));
+
+    useEffect(() => {
+        if (historyPage > totalHistoryPages) setHistoryPage(totalHistoryPages);
+    }, [historyPage, totalHistoryPages]);
+
+    useEffect(() => {
+        if (receivedPage > totalReceivedPages) setReceivedPage(totalReceivedPages);
+    }, [receivedPage, totalReceivedPages]);
+
+    const pagedHistory = filteredHistory.slice((historyPage - 1) * PAGE_SIZE, historyPage * PAGE_SIZE);
+    const pagedReceivedItems = receivedItems.slice((receivedPage - 1) * PAGE_SIZE, receivedPage * PAGE_SIZE);
+
     return {
         currentUser, isAdmin, isTeacher, fileInputRef,
         activeTab, setActiveTab,
         message, setMessage, requireAck, setRequireAck, attachment, setAttachment, attachmentPreview, setAttachmentPreview, messageError, setMessageError,
         showSendModal, setShowSendModal, sendOption, setSendOption, searchTerm, setSearchTerm,
         selectedClasses, setSelectedClasses, selectedUsers, setSelectedUsers, selectedStudents, setSelectedStudents, selectedGroups, setSelectedGroups,
+        userRoleFilter, setUserRoleFilter,
         newGroupName, setNewGroupName, newGroupStudents, setNewGroupStudents, newGroupTeachers, setNewGroupTeachers,
+        groupStudentSearch, setGroupStudentSearch,
         historySearch, setHistorySearch, historyFilters, setHistoryFilters, viewItem, setViewItem, toast, showToast,
         isSending, students, teachers, allUsers, classes, groups, historyItems, receivedItems, filteredHistory,
+        historyPage, setHistoryPage, totalHistoryPages, pagedHistory,
+        receivedPage, setReceivedPage, totalReceivedPages, pagedReceivedItems,
         toggleSelection, handleFileUpload, removeAttachment, handleSendClick, resetComposeState, handleFinalSend, handleDeleteHistory, handleCreateGroup, handleDeleteGroup, handleDownload
     };
 };

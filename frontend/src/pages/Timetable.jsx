@@ -191,7 +191,7 @@ const TimetablePage = () => {
           initialData={modalState.cell?.entry} slotInfo={modalState.cell ? { day: modalState.cell.day, slot: modalState.cell.slot } : null}
           teachers={teachers} subjects={availableClasses.subjects} rooms={availableClasses.rooms} loading={modalState.saving} />
         {createState.open && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="modal-overlay fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
             <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
               <div className="bg-primary/5 px-6 py-4 border-b border-gray-100">
                 <h3 className="text-lg font-semibold text-gray-800">Create New Timetable</h3>

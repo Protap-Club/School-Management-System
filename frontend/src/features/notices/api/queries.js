@@ -11,7 +11,7 @@ export const noticeKeys = {
     classes: () => [...noticeKeys.all, 'classes'],
     students: () => [...noticeKeys.all, 'students'],
     teachers: () => [...noticeKeys.all, 'teachers'],
-    allUsers: () => [...noticeKeys.all, 'allUsers'],
+    allUsers: (filters = {}) => [...noticeKeys.all, 'allUsers', filters],
     received: () => [...noticeKeys.all, 'received'],
     acknowledgments: (id) => [...noticeKeys.all, 'acknowledgments', id],
 };
@@ -91,10 +91,10 @@ export const useTeachers = (enabled = true) => {
 };
 
 // Get all users (Admin only)
-export const useAllUsers = (enabled = true) => {
+export const useAllUsers = (filters = {}, enabled = true) => {
     return useQuery({
-        queryKey: noticeKeys.allUsers(),
-        queryFn: noticesApi.getAllUsers,
+        queryKey: noticeKeys.allUsers(filters),
+        queryFn: () => noticesApi.getAllUsers(filters),
         enabled,
     });
 };
@@ -133,10 +133,11 @@ export const useDeleteGroup = () => {
 export const useAcknowledgeNotice = (id) => {
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: (responseMessage) => noticesApi.acknowledgeNotice(id, responseMessage),
+        mutationFn: ({ responseMessage, files }) => noticesApi.acknowledgeNotice(id, { responseMessage, files }),
         onSuccess: () => {
             // Refresh received notices so the acknowledged state updates immediately
             queryClient.invalidateQueries({ queryKey: noticeKeys.received() });
+            queryClient.invalidateQueries({ queryKey: noticeKeys.acknowledgments(id) });
         },
     });
 };
