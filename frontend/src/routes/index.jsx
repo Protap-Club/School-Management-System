@@ -50,6 +50,8 @@ export const routes = {
         timetable: '/superadmin/timetable',
         calendar: '/superadmin/calendar',
         fees: '/superadmin/fees',
+        examination: '/superadmin/examination',
+        result: '/superadmin/result',
         assignments: '/superadmin/assignments',
     },
 

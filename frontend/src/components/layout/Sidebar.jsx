@@ -11,7 +11,6 @@ import {
     FaCalendarAlt,
     FaCalendarDay,
     FaMoneyCheckAlt,
-    FaMoneyBillWave,
     FaGraduationCap,
     FaBook,
     FaClipboardCheck,
@@ -54,12 +53,13 @@ const Sidebar = () => {
 
                 // Fees
                 if (hasFeature('fees')) {
-                    superAdminLinks.push({ path: '/superadmin/fees', label: 'Fees', icon: <FaMoneyBillWave /> });
+                    superAdminLinks.push({ path: '/superadmin/fees', label: 'Payment', icon: <FaMoneyCheckAlt /> });
                 }
 
                 // Examination
                 if (hasFeature('examination')) {
                     superAdminLinks.push({ path: '/superadmin/examination', label: 'Examination', icon: <FaGraduationCap /> });
+                    superAdminLinks.push({ path: '/superadmin/result', label: 'Results', icon: <FaClipboardCheck /> });
                 }
 
                 // Assignments

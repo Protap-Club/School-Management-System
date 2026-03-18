@@ -25,7 +25,7 @@ router.use(requireFeature("examination"));
 
 router.get(
     "/exams/completed",
-    checkRole([USER_ROLES.ADMIN, USER_ROLES.TEACHER]),
+    checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN, USER_ROLES.TEACHER]),
     getCompletedExams
 );
 
@@ -38,28 +38,28 @@ router.get(
 
 router.get(
     "/:examId/students",
-    checkRole([USER_ROLES.ADMIN, USER_ROLES.TEACHER]),
+    checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN, USER_ROLES.TEACHER]),
     validate(examIdParamsSchema),
     getExamStudents
 );
 
 router.post(
     "/:examId/publish",
-    checkRole([USER_ROLES.ADMIN, USER_ROLES.TEACHER]),
+    checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN, USER_ROLES.TEACHER]),
     validate(examIdParamsSchema),
     publishExamResults
 );
 
 router.get(
     "/:examId",
-    checkRole([USER_ROLES.ADMIN, USER_ROLES.TEACHER]),
+    checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN, USER_ROLES.TEACHER]),
     validate(examIdParamsSchema),
     getExamResults
 );
 
 router.post(
     "/",
-    checkRole([USER_ROLES.ADMIN, USER_ROLES.TEACHER]),
+    checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN, USER_ROLES.TEACHER]),
     validate(saveResultSchema),
     saveResult
 );
