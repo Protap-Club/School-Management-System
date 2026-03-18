@@ -51,7 +51,6 @@ import {
 } from "./salary.validation.js";
 
 const router = express.Router();
-console.error("[CRITICAL_DEBUG] fees.route.js evaluation");
 
 // Global middleware for all fee routes
 router.use(extractSchoolId);
