@@ -1,5 +1,6 @@
 import Exam from "./Exam.model.js";
 import { CalendarEvent } from "../calendar/calendar.model.js";
+import Result from "../result/result.model.js";
 import TeacherProfile from "../user/model/TeacherProfile.model.js";
 import StudentProfile from "../user/model/StudentProfile.model.js";
 import { USER_ROLES } from "../../constants/userRoles.js";
@@ -196,7 +197,7 @@ export const updateExam = async (schoolId, examId, data, user) => {
 };
 
 // ═══════════════════════════════════════════════════════════════
-// DELETE EXAM — DRAFT status only
+// DELETE EXAM — Soft delete by default, hard delete for completed exams
 // ═══════════════════════════════════════════════════════════════
 
 export const deleteExam = async (schoolId, examId, user) => {
@@ -210,8 +211,6 @@ export const deleteExam = async (schoolId, examId, user) => {
         }
     }
 
-    exam.isActive = false;
-    await exam.save();
     const classKey = `${exam.standard}-${exam.section}`;
     const deleted = await CalendarEvent.deleteMany({ sourceType: "exam", sourceId: exam._id });
     if ((deleted?.deletedCount ?? 0) === 0) {
@@ -221,6 +220,16 @@ export const deleteExam = async (schoolId, examId, user) => {
             targetClasses: [classKey]
         });
     }
+
+    if (exam.status === "COMPLETED") {
+        await Result.deleteMany({ schoolId, examId: exam._id });
+        await Exam.deleteOne({ _id: exam._id });
+        logger.info(`Exam deleted (hard): ${examId}`);
+        return;
+    }
+
+    exam.isActive = false;
+    await exam.save();
     logger.info(`Exam deleted (soft): ${examId}`);
 };
 
