@@ -227,6 +227,10 @@ export const recordPayment = async (schoolId, assignmentId, paymentData, recorde
         throw new ConflictError("This fee has been waived");
     }
 
+    const session = await mongoose.startSession();
+    session.startTransaction();
+
+    try {
         // Create payment record
         const [payment] = await FeePayment.create([{
             schoolId,

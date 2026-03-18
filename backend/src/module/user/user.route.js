@@ -71,12 +71,12 @@ router.patch(
 
 // ─── Hard Delete (commented out — not in scope yet) ─────────────────
 // Uncomment when permanent deletion is approved and tested.
-router.delete(
-    "/delete",
-    checkWebOnly,
-    checkRole([USER_ROLES.ADMIN]),
-    validate(userIdsBodySchema),
-    batchDeleteUsers
-);
+// router.delete(
+//     "/delete",
+//     checkWebOnly,
+//     checkRole([USER_ROLES.ADMIN]),
+//     validate(userIdsBodySchema),
+//     batchDeleteUsers
+// );
 
 export default router;
