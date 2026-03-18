@@ -100,7 +100,7 @@ export const AssignmentTable = ({
                             <TableHead className="px-4 py-3 text-[11px] font-bold uppercase tracking-[0.2em] text-slate-500">Class</TableHead>
                             <TableHead className="px-4 py-3 text-[11px] font-bold uppercase tracking-[0.2em] text-slate-500">Due</TableHead>
                             <TableHead className="px-4 py-3 text-[11px] font-bold uppercase tracking-[0.2em] text-slate-500">Status</TableHead>
-                            <TableHead className="w-28 px-4 py-3 text-right text-[11px] font-bold uppercase tracking-[0.2em] text-slate-500">Actions</TableHead>
+                            <TableHead className="w-28 px-4 py-3 text-center text-[11px] font-bold uppercase tracking-[0.2em] text-slate-500">Actions</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -167,8 +167,8 @@ export const AssignmentTable = ({
                                             {assignment.status}
                                         </Badge>
                                     </TableCell>
-                                    <TableCell className="px-4 py-3.5 text-right">
-                                        <div className="flex items-center justify-end gap-1">
+                                    <TableCell className="px-4 py-3.5 text-center">
+                                        <div className="flex items-center justify-center gap-1">
                                             {onViewClick && (
                                                 <button
                                                     onClick={(event) => { event.stopPropagation(); onViewClick(assignment); }}

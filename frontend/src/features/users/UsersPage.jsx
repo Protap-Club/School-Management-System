@@ -144,7 +144,7 @@ const UsersPage = () => {
             <div className="space-y-5">
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                     <div>
-                        <h1 className="text-2xl font-semibold text-gray-900 tracking-tight">{showArchived ? 'Archived Users' : 'Users'}</h1>
+                        <h1 className="page-title">{showArchived ? 'Archived Users' : 'Users'}</h1>
                         <p className="text-gray-500 text-sm mt-0.5">
                             {showArchived ? 'Manage archived users - restore or permanently delete' : `Manage ${allowedRoles.length > 1 ? 'all users' : allowedRoles[0] + 's'} in your organization`}
                         </p>

@@ -246,8 +246,8 @@ const Settings = () => {
             )}
             <div className="space-y-8">
                 <div>
-                    <h1 className="text-3xl font-bold text-gray-900">Settings</h1>
-                    <p className="text-gray-500 mt-1">{isSuperAdmin ? 'Manage portal appearance and school features' : 'Customize your portal appearance and branding'}</p>
+                    <h1 className="page-title">Settings</h1>
+                    <p className="page-subtitle mt-1">{isSuperAdmin ? 'Manage portal appearance and school features' : 'Customize your portal appearance and branding'}</p>
                 </div>
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                     <div className="space-y-6">

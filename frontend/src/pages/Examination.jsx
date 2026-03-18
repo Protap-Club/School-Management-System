@@ -222,14 +222,14 @@ const Examination = () => {
           {/* Header Section */}
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
             <div>
-              <h1 className="text-4xl font-black text-slate-900 tracking-tight mb-2">Examination Schedules</h1>
-              <p className="text-slate-500 font-medium">Manage and monitor {stats.total} scheduled examination sessions.</p>
+              <h1 className="page-title mb-2">Examination Schedules</h1>
+              <p className="page-subtitle">Manage and monitor {stats.total} scheduled examination sessions.</p>
             </div>
             {(isAdmin || isTeacher) && (
               <div className="flex items-center gap-3">
                 <button 
                   onClick={() => setShowModal({ type: 'create', open: true, data: null })}
-                  className="px-6 py-3.5 bg-[#f06124] text-white rounded-2xl font-bold hover:bg-[#d95620] transition-all shadow-lg shadow-orange-100 flex items-center gap-2 active:scale-95"
+                  className="btn-primary px-6 rounded-2xl shadow-lg shadow-primary/20 active:scale-95"
                 >
                   <FaPlus size={16} />
                   <span>Create New Exam</span>

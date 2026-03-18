@@ -6,6 +6,9 @@ export default {
     ],
     theme: {
         extend: {
+            fontFamily: {
+                sans: ['"Noto Sans"', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+            },
             colors: {
                 primary: {
                     DEFAULT: 'rgb(var(--primary-rgb) / <alpha-value>)',

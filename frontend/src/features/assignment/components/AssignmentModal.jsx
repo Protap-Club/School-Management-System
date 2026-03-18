@@ -57,7 +57,7 @@ const SelectField = ({ label, name, value, onChange, options, placeholder, requi
             </SelectTrigger>
             <SelectContent className="rounded-xl border-gray-100 shadow-xl z-[150] overflow-hidden">
                 {options.map((opt, idx) => (
-                    <SelectItem key={idx} value={opt.value.toString()} className="text-sm py-2.5 px-4 cursor-pointer focus:bg-indigo-50 focus:text-indigo-700 rounded-lg mx-1 my-0.5 transition-colors">
+                    <SelectItem key={idx} value={opt.value.toString()} className="text-sm py-2.5 px-4 cursor-pointer focus:bg-primary/10 focus:text-primary rounded-lg mx-1 my-0.5 transition-colors">
                         {opt.label}
                     </SelectItem>
                 ))}
@@ -454,7 +454,7 @@ export const AssignmentModal = ({ isOpen, onClose, assignmentToEdit = null }) =>
                         form="assignment-form"
                         type="submit" 
                         disabled={loading}
-                        className="px-8 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-lg shadow-indigo-200 transition-all font-medium text-sm flex items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+                        className="px-8 py-2.5 bg-primary hover:bg-primary-hover text-white rounded-lg shadow-lg shadow-primary/20 transition-all font-medium text-sm flex items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
                     >
                         {loading ? (
                             <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>Saving...</>

@@ -19,7 +19,7 @@ const InputField = ({ label, name, value, onChange, type = "text", required = fa
                     onChange(e);
                 }
             }}
-            className="w-full px-4 py-2 border border-blue-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all placeholder:text-gray-400"
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all placeholder:text-gray-400"
             required={required} {...props} />
     </div>
 );
@@ -306,7 +306,7 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
                         <div className="pt-4 flex justify-end gap-3 border-t border-gray-100">
                             <button type="button" onClick={onClose} className="px-5 py-2.5 text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg transition-all font-medium text-sm">Cancel</button>
                             <button type="submit" disabled={loading}
-                                className="px-6 py-2.5 bg-gray-900 hover:bg-black text-white rounded-lg shadow-lg shadow-gray-200 transition-all font-medium text-sm flex items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed">
+                                className="btn-primary px-6 rounded-lg shadow-lg shadow-primary/20 disabled:opacity-70 disabled:cursor-not-allowed">
                                 {loading ? (<><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>Creating...</>) : (<><FaUserPlus />Create {roleLabel}</>)}
                             </button>
                         </div>

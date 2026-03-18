@@ -370,7 +370,7 @@ const renderFormField = (label, children) => (
       <div className="space-y-4 max-w-7xl mx-auto">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4 rounded-xl shadow-sm border border-gray-100">
           <div>
-            <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2.5"><FaCalendarAlt className="text-indigo-600" /> Academic Calendar</h1>
+            <h1 className="page-title flex items-center gap-2.5"><FaCalendarAlt className="text-primary" /> Academic Calendar</h1>
             <p className="text-gray-500 text-xs mt-1">{canEdit ? 'Click any day to view or add events. Hover for quick details.' : 'Click on a day to see scheduled events.'}</p>
           </div>
           <div className="flex items-center gap-3 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0">
@@ -482,7 +482,7 @@ const renderFormField = (label, children) => (
                      {saving ? <FaSpinner className="animate-spin"/> : 'Clear All'}
                    </button>
                  ) : <div></div>}
-                 <button onClick={() => openCreateEventModal(selectedDateStr)} className="flex-1 px-4 py-2.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors shadow-sm flex items-center justify-center gap-2">
+                 <button onClick={() => openCreateEventModal(selectedDateStr)} className="flex-1 px-4 py-2.5 text-xs font-bold text-white bg-primary hover:bg-primary-hover rounded-lg transition-colors shadow-sm flex items-center justify-center gap-2">
                     <FaPlus size={10} /> Add New Event
                  </button>
               </div>
@@ -580,13 +580,13 @@ const renderFormField = (label, children) => (
                     <button
                       onClick={() => !isTeacher && setFormData(prev => ({ ...prev, targetAudience: 'all', targetClasses: [] }))}
                       disabled={isTeacher}
-                      className={`flex-1 py-2.5 text-sm font-semibold rounded-xl transition-all ${formData.targetAudience === 'all' ? 'bg-indigo-600 text-white shadow-md' : 'text-gray-600 hover:text-gray-900'} ${isTeacher ? 'opacity-40 cursor-not-allowed' : ''}`}
+                      className={`flex-1 py-2.5 text-sm font-semibold rounded-xl transition-all ${formData.targetAudience === 'all' ? 'bg-primary text-white shadow-md' : 'text-gray-600 hover:text-gray-900'} ${isTeacher ? 'opacity-40 cursor-not-allowed' : ''}`}
                     >
                       Entire School
                     </button>
                     <button
                       onClick={() => updateFormField('targetAudience', 'classes')}
-                      className={`flex-1 py-2.5 text-sm font-semibold rounded-xl transition-all ${formData.targetAudience === 'classes' ? 'bg-indigo-600 text-white shadow-md' : 'text-gray-600 hover:text-gray-900'}`}
+                      className={`flex-1 py-2.5 text-sm font-semibold rounded-xl transition-all ${formData.targetAudience === 'classes' ? 'bg-primary text-white shadow-md' : 'text-gray-600 hover:text-gray-900'}`}
                     >
                       Specific Classes
                     </button>
@@ -659,7 +659,7 @@ const renderFormField = (label, children) => (
                   Cancel
                 </button>
                 <button onClick={handleSaveEvent} disabled={!formData.title.trim() || saving || isClassSelectionInvalid}
-                  className="px-6 py-3 bg-indigo-600 text-white rounded-2xl font-bold hover:bg-indigo-700 hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm shadow-md">
+                  className="px-6 py-3 bg-primary text-white rounded-2xl font-bold hover:bg-primary-hover hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm shadow-md">
                   {saving && <FaSpinner className="animate-spin" />}
                   {isClassSelectionInvalid
                     ? (isAdmin ? 'Enter Valid Class & Section' : 'Select a Class to Continue')

@@ -32,7 +32,7 @@ export const AssignmentPaginationControls = ({
                 onClick={() => onPageChange(pageNum)}
                 className={`min-w-[30px] h-8 px-2.5 rounded-lg text-xs font-semibold transition-colors ${
                     currentPage === pageNum
-                        ? 'bg-indigo-600 text-white shadow-sm'
+                        ? 'bg-primary text-white shadow-sm'
                         : 'text-slate-600 hover:bg-slate-100'
                 }`}
             >
@@ -53,7 +53,7 @@ export const AssignmentPaginationControls = ({
                         <select
                             value={pageSize}
                             onChange={(event) => onPageSizeChange(Number(event.target.value))}
-                            className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 outline-none transition-colors hover:border-slate-300 focus:border-indigo-500"
+                            className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 outline-none transition-colors hover:border-slate-300 focus:border-primary"
                         >
                             {PAGE_SIZE_OPTIONS.map((option) => (
                                 <option key={option} value={option}>{option}</option>

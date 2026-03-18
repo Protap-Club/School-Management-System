@@ -615,7 +615,7 @@ const ExamModal = ({ isOpen, onClose, onSubmit, editData, isLoading, userRole, u
                                 onClick={() => handleFormSubmit(editData.status === 'DRAFT' ? 'PUBLISHED' : editData.status)}
                                 disabled={isLoading}
                                 className={`px-8 py-3 text-white rounded-xl transition-all font-bold text-sm shadow-lg disabled:opacity-50 disabled:grayscale ${
-                                    editData.status === 'DRAFT' ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-200' : 'bg-primary hover:bg-primary-hover shadow-primary/20'
+                                    'bg-primary hover:bg-primary-hover shadow-primary/20'
                                 }`}
                             >
                                 {isLoading ? (

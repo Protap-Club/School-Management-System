@@ -110,18 +110,18 @@ export const AssignmentPage = () => {
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
                     <div className="space-y-1">
                         <div className="flex items-center gap-3">
-                            <div className="p-2.5 bg-indigo-600 text-white rounded-xl shadow-lg shadow-indigo-100">
+                            <div className="p-2.5 bg-primary text-white rounded-xl shadow-lg shadow-primary/10">
                                 <FaBook size={20} />
                             </div>
-                            <h1 className="text-2xl font-bold tracking-tight text-gray-900">Assignments</h1>
+                            <h1 className="page-title">Assignments</h1>
                         </div>
-                        <p className="text-sm text-gray-500 font-medium ml-12">Manage and track academic work across classes</p>
+                        <p className="page-subtitle ml-12">Manage and track academic work across classes</p>
                     </div>
 
                     {canCreate && (
                         <button
                             onClick={handleAddClick}
-                            className="inline-flex items-center justify-center gap-2 bg-indigo-600 text-white px-6 py-2.5 rounded-xl hover:bg-indigo-700 transition-all text-sm font-semibold shadow-md hover:shadow-lg active:scale-95"
+                            className="btn-primary px-6 rounded-xl shadow-md hover:shadow-lg active:scale-95"
                         >
                             <FaPlus className="text-xs" />
                             <span>Create Assignment</span>
