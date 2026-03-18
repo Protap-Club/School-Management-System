@@ -8,13 +8,17 @@ import { AppError } from "../utils/customError.js";
 const handleMongoError = (err) => {
     // Duplicate Key Error
     if (err.code === 11000) {
-        const field = Object.keys(err.keyValue)[0];
-        const value = err.keyValue[field];
+        const fields = Object.keys(err.keyValue);
+        const value = fields.length === 1 ? err.keyValue[fields[0]] : JSON.stringify(err.keyValue);
+        const message = fields.length === 1
+            ? `Duplicate value '${value}' for field '${fields[0]}'. Please use another value.`
+            : `Duplicate combination found for fields: ${fields.join(', ')}. Details: ${JSON.stringify(err.keyValue)}`;
+
         return new AppError(
-            `Duplicate value '${value}' for field '${field}'. Please use another value.`,
+            message,
             409,
             'DUPLICATE_KEY',
-            { field, value }
+            { fields, keyValue: err.keyValue }
         );
     }
 

@@ -15,6 +15,9 @@ const TimetablePage = lazy(() => import('../features/timetable/TimetablePage'));
 const Calendar = lazy(() => import('../pages/Calendar'));
 const Notifications = lazy(() => import('../pages/Notifications'));
 const Fees = lazy(() => import('../pages/Fees'));
+const Examination = lazy(() => import('../pages/Examination'));
+const Assignments = lazy(() => import('../features/assignment/AssignmentPage'));
+const Result = lazy(() => import('../pages/Result'));
 
 // Loading fallback component
 const PageLoader = () => (
@@ -42,6 +45,12 @@ export const routes = {
     superadmin: {
         users: '/superadmin/users',
         settings: '/superadmin/settings',
+        attendance: '/superadmin/attendance',
+        notice: '/superadmin/notice',
+        timetable: '/superadmin/timetable',
+        calendar: '/superadmin/calendar',
+        fees: '/superadmin/fees',
+        assignments: '/superadmin/assignments',
     },
 
     // Admin
@@ -53,7 +62,10 @@ export const routes = {
         timetable: '/admin/timetable',
         calendar: '/admin/calendar',
         fees: '/admin/fees',
+        examination: '/admin/examination',
+        result: '/admin/result',
         notifications: '/notifications',
+        assignments: '/admin/assignments',
     },
 
     // Teacher
@@ -64,6 +76,9 @@ export const routes = {
         timetable: '/teacher/timetable',
         calendar: '/teacher/calendar',
         fees: '/teacher/fees',
+        examination: '/teacher/examination',
+        assignments: '/teacher/assignments',
+        result: '/teacher/result',
     },
 };
 
@@ -79,6 +94,9 @@ export const pages = {
     Calendar,
     Notifications,
     Fees,
+    Examination,
+    Assignments,
+    Result,
 };
 
 // Export utilities

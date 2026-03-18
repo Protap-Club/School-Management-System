@@ -14,12 +14,9 @@ export const AttendanceStatCards = ({ stats, statCardsConfig, isLoading }) => {
                     <CardContent className="p-6 sm:p-8 flex items-center justify-between">
                         <div className="space-y-1">
                             <p className="text-[11px] font-bold text-slate-400 uppercase tracking-[0.15em]">{label}</p>
-                            <p className={`text-4xl sm:text-5xl font-black tracking-tight ${color}`}>
+                            <div className={`text-4xl sm:text-5xl font-black tracking-tight ${color}`}>
                                 {isLoading ? <Skeleton className="h-10 w-16" /> : stats[key]}
-                            </p>
-                        </div>
-                        <div className={`w-14 h-14 sm:w-16 sm:h-16 rounded-[1.25rem] ${bg} flex items-center justify-center transform`}>
-                            <Icon className={color} size={24} />
+                            </div>
                         </div>
                     </CardContent>
                 </Card>

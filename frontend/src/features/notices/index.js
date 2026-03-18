@@ -15,21 +15,18 @@ export {
     useGroups,
     useCreateGroup,
     useDeleteGroup,
+    useAcknowledgeNotice,
+    useAcknowledgments,
 } from './api/queries';
 
 // Constants
+export * from './noticeConstants';
+
 export const NOTICE_TYPES = {
     NOTICE: 'notice',
     FILE: 'file',
 };
 
-export const RECIPIENT_TYPES = {
-    ALL: 'all',
-    CLASSES: 'classes',
-    USERS: 'users',
-    STUDENTS: 'students',
-    GROUPS: 'groups',
-};
-
-export const ALLOWED_EXTENSIONS = ['pdf', 'doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx', 'png', 'jpg', 'jpeg'];
-export const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg'];
+export * from './useNoticeHandlers';
+export * from './NoticeUtils';
+export * from './NoticeComponents';

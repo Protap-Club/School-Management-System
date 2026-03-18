@@ -24,7 +24,7 @@ import {
 import { generateFeeReport, generateSalaryReceipt } from '../utils/pdfGenerator';
 import { generateFeeExcel } from '../utils/excelGenerator';
 
-const MODAL_OVERLAY = 'fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4';
+const MODAL_OVERLAY = 'modal-overlay fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4';
 const currentYear = new Date().getFullYear();
 const currentMonth = new Date().getMonth() + 1;
 
@@ -58,7 +58,7 @@ const EmptyState = ({ icon: Icon, title, subtitle }) => (
 const Fees = () => {
     const queryClient = useQueryClient();
     const { user } = useAuth();
-    const isAdmin = user?.role === 'admin';
+    const isAdmin = ['admin', 'super_admin'].includes(user?.role);
     const isTeacher = user?.role === 'teacher';
     const isStudent = user?.role === 'student';
 

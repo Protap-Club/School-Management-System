@@ -84,7 +84,7 @@ const AvatarUploadModal = ({ user, isOpen, onClose, onUploadSuccess }) => {
     const displayImage = preview || user?.avatarUrl;
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fadeIn p-4">
+        <div className="modal-overlay fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fadeIn p-4">
             <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden animate-slideUp">
                 {/* Header */}
                 <div className="flex justify-between items-center px-6 py-4 border-b border-gray-100">

@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import { FeeStructure, FeeAssignment, FeePayment } from "./Fee.model.js";
 import { FeeType } from "./FeeType.model.js";
 import StudentProfile from "../user/model/StudentProfile.model.js";
@@ -90,38 +91,61 @@ export const deleteFeeStructure = async (schoolId, id, user) => {
 // ═══════════════════════════════════════════════════════════════
 
 export const generateAssignments = async (schoolId, feeStructureId, month, year, userId, user) => {
-    const query = { _id: feeStructureId, schoolId, isActive: true };
+    const session = await mongoose.startSession();
+    session.startTransaction();
+
+    try {
+        const query = { _id: feeStructureId, schoolId, isActive: true };
+
+        // Teacher check
+        if (user && user.role === USER_ROLES.TEACHER) {
+            const profile = await TeacherProfile.findOne({ userId: user._id, schoolId }).lean().session(session);
+            if (!profile) throw new ForbiddenError("Teacher profile not found");
+            const classFilters = profile.assignedClasses.map(c => ({ standard: c.standard, section: c.section }));
+            if (classFilters.length === 0) throw new ForbiddenError("No classes assigned to you");
+            query.$or = classFilters;
+        }
 
     const structure = await FeeStructure.findOne(query);
     if (!structure) throw new NotFoundError("Active fee structure not found");
 
-    // Validate the month is applicable for this fee
-    if (structure.applicableMonths.length > 0 && !structure.applicableMonths.includes(month)) {
-        throw new BadRequestError(`Fee "${structure.name}" is not applicable for month ${month}`);
-    }
+        // Find all students in this class
+        const students = await StudentProfile.find({
+            schoolId,
+            standard: structure.standard,
+            section: structure.section,
+        })
+            .select("userId")
+            .lean()
+            .session(session);
 
-    // Find all students in this class
-    const students = await StudentProfile.find({
-        schoolId,
-        standard: structure.standard,
-        section: structure.section,
-    })
-        .select("userId")
-        .lean();
+        if (students.length === 0) {
+            await session.commitTransaction();
+            return { total: 0, created: 0, skipped: 0, message: "No students found in this class" };
+        }
 
-    if (students.length === 0) {
-        return { total: 0, created: 0, skipped: 0, message: "No students found in this class" };
-    }
+        // Calculate due date
+        const dueDate = new Date(year, month - 1, structure.dueDay || 10);
 
-    // Calculate due date
-    const dueDate = new Date(year, month - 1, structure.dueDay || 10);
+        let created = 0;
+        let skipped = 0;
 
-    let created = 0;
-    let skipped = 0;
+        for (const student of students) {
+            // Check if assignment already exists to avoid breaking transaction on duplicate key error
+            const exists = await FeeAssignment.exists({
+                schoolId,
+                studentId: student.userId,
+                feeStructureId: structure._id,
+                academicYear: year,
+                month,
+            }).session(session);
 
-    for (const student of students) {
-        try {
-            await FeeAssignment.create({
+            if (exists) {
+                skipped++;
+                continue;
+            }
+
+            await FeeAssignment.create([{
                 schoolId,
                 studentId: student.userId,
                 feeStructureId: structure._id,
@@ -134,20 +158,19 @@ export const generateAssignments = async (schoolId, feeStructureId, month, year,
                 status: "PENDING",
                 dueDate,
                 createdBy: userId,
-            });
+            }], { session });
             created++;
-        } catch (error) {
-            // Duplicate key means assignment already exists — skip
-            if (error.code === 11000) {
-                skipped++;
-            } else {
-                throw error;
-            }
         }
-    }
 
-    logger.info(`Assignments generated for FeeStructure ${feeStructureId}: ${created} created, ${skipped} skipped`);
-    return { created, skipped, total: students.length };
+        await session.commitTransaction();
+        logger.info(`Assignments generated for FeeStructure ${feeStructureId}: ${created} created, ${skipped} skipped`);
+        return { created, skipped, total: students.length };
+    } catch (error) {
+        await session.abortTransaction();
+        throw error;
+    } finally {
+        session.endSession();
+    }
 };
 
 // ═══════════════════════════════════════════════════════════════
@@ -204,32 +227,34 @@ export const recordPayment = async (schoolId, assignmentId, paymentData, recorde
         throw new ConflictError("This fee has been waived");
     }
 
-    const remaining = assignment.netAmount - assignment.paidAmount;
-    if (paymentData.amount > remaining) {
-        throw new BadRequestError(`Payment amount(${paymentData.amount}) exceeds remaining balance(${remaining})`);
+        // Create payment record
+        const [payment] = await FeePayment.create([{
+            schoolId,
+            feeAssignmentId: assignmentId,
+            studentId: assignment.studentId,
+            amount: paymentData.amount,
+            paymentDate: paymentData.paymentDate || new Date(),
+            paymentMode: paymentData.paymentMode,
+            transactionRef: paymentData.transactionRef,
+            receiptNumber: generateReceiptNumber(schoolId),
+            remarks: paymentData.remarks,
+            recordedBy,
+        }], { session });
+
+        // Update assignment
+        assignment.paidAmount += paymentData.amount;
+        assignment.status = assignment.paidAmount >= assignment.netAmount ? "PAID" : "PARTIAL";
+        await assignment.save({ session });
+
+        await session.commitTransaction();
+        logger.info(`Payment recorded: ${payment.receiptNumber} — ₹${payment.amount} for assignment ${assignmentId}`);
+        return { payment, updatedAssignment: assignment };
+    } catch (error) {
+        await session.abortTransaction();
+        throw error;
+    } finally {
+        session.endSession();
     }
-
-    // Create payment record
-    const payment = await FeePayment.create({
-        schoolId,
-        feeAssignmentId: assignmentId,
-        studentId: assignment.studentId,
-        amount: paymentData.amount,
-        paymentDate: paymentData.paymentDate || new Date(),
-        paymentMode: paymentData.paymentMode,
-        transactionRef: paymentData.transactionRef,
-        receiptNumber: generateReceiptNumber(schoolId),
-        remarks: paymentData.remarks,
-        recordedBy,
-    });
-
-    // Update assignment
-    assignment.paidAmount += paymentData.amount;
-    assignment.status = assignment.paidAmount >= assignment.netAmount ? "PAID" : "PARTIAL";
-    await assignment.save();
-
-    logger.info(`Payment recorded: ${payment.receiptNumber} — ₹${payment.amount} for assignment ${assignmentId}`);
-    return { payment, updatedAssignment: assignment };
 };
 
 // ═══════════════════════════════════════════════════════════════

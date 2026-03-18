@@ -11,8 +11,9 @@ export const noticeKeys = {
     classes: () => [...noticeKeys.all, 'classes'],
     students: () => [...noticeKeys.all, 'students'],
     teachers: () => [...noticeKeys.all, 'teachers'],
-    allUsers: () => [...noticeKeys.all, 'allUsers'],
+    allUsers: (filters = {}) => [...noticeKeys.all, 'allUsers', filters],
     received: () => [...noticeKeys.all, 'received'],
+    acknowledgments: (id) => [...noticeKeys.all, 'acknowledgments', id],
 };
 
 // Get notices with filters
@@ -63,34 +64,38 @@ export const useDeleteNotice = () => {
 };
 
 // Get classes
-export const useClasses = () => {
+export const useClasses = (enabled = true) => {
     return useQuery({
         queryKey: noticeKeys.classes(),
         queryFn: noticesApi.getClasses,
+        enabled,
     });
 };
 
 // Get students
-export const useStudents = () => {
+export const useStudents = (enabled = true) => {
     return useQuery({
         queryKey: noticeKeys.students(),
         queryFn: noticesApi.getStudents,
+        enabled,
     });
 };
 
 // Get teachers
-export const useTeachers = () => {
+export const useTeachers = (enabled = true) => {
     return useQuery({
         queryKey: noticeKeys.teachers(),
         queryFn: noticesApi.getTeachers,
+        enabled,
     });
 };
 
-// Get all users
-export const useAllUsers = () => {
+// Get all users (Admin only)
+export const useAllUsers = (filters = {}, enabled = true) => {
     return useQuery({
-        queryKey: noticeKeys.allUsers(),
-        queryFn: noticesApi.getAllUsers,
+        queryKey: noticeKeys.allUsers(filters),
+        queryFn: () => noticesApi.getAllUsers(filters),
+        enabled,
     });
 };
 
@@ -124,3 +129,25 @@ export const useDeleteGroup = () => {
     });
 };
 
+// Acknowledge a notice (receivers: teacher/student)
+export const useAcknowledgeNotice = (id) => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: ({ responseMessage, files }) => noticesApi.acknowledgeNotice(id, { responseMessage, files }),
+        onSuccess: () => {
+            // Refresh received notices so the acknowledged state updates immediately
+            queryClient.invalidateQueries({ queryKey: noticeKeys.received() });
+            queryClient.invalidateQueries({ queryKey: noticeKeys.acknowledgments(id) });
+        },
+    });
+};
+
+// Get acknowledgment status for a notice (sender view)
+export const useAcknowledgments = (id) => {
+    return useQuery({
+        queryKey: noticeKeys.acknowledgments(id),
+        queryFn: () => noticesApi.getAcknowledgments(id),
+        enabled: !!id,
+        staleTime: 30 * 1000, // 30 seconds — sender status can refresh quickly
+    });
+};

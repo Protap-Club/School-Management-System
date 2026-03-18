@@ -71,13 +71,43 @@ export const markAttendanceByNfc = async (nfcUid, schoolId) => {
     const existing = await Attendance.findOne({
         studentId: student._id,
         date: { $gte: startOfDay } // Matches anything from today onwards
-    }).lean();
+    });
 
     if (existing) {
-        throw new ConflictError("Attendance already marked", "ATTENDANCE_EXISTS", {
-            studentName: student.name,
-            time: existing.checkInTime
-        });
+        if (existing.status === "Present") {
+            throw new ConflictError("Attendance already marked", "ATTENDANCE_EXISTS", {
+                studentName: student.name,
+                time: existing.checkInTime
+            });
+        } else {
+            // The student was marked 'Absent' manually, but just tapped their card. 
+            // We should update the record to 'Present'.
+            existing.status = "Present";
+            existing.checkInTime = new Date();
+            existing.markedBy = "NFC";
+            await existing.save();
+
+            // Emit update & Return
+            try {
+                const io = getIO();
+                io.to(`school-${student.schoolId}`).emit("attendance-marked", {
+                    studentId: student._id,
+                    name: student.name,
+                    status: "Present",
+                    checkInTime: existing.checkInTime
+                });
+            } catch (err) {
+                logger.warn(`Socket emit failed: ${err.message}`);
+            }
+
+            return {
+                attendance: {
+                    student: student.name,
+                    status: "Present",
+                    checkInTime: existing.checkInTime
+                }
+            };
+        }
     }
 
     // Step 4: Create Record
@@ -208,8 +238,8 @@ const getTeacherMobileAttendance = async (teacherUserId, schoolId) => {
 
     // Step 3: Get all students in those classes
     const studentProfiles = await StudentProfile.find({ $or: classConditions })
-        .select("userId rollNumber standard section")
-        .populate("userId", "_id name")
+        .select("userId rollNumber standard section fatherName fatherContact motherName motherContact")
+        .populate("userId", "_id name email")
         .lean();
 
     if (!studentProfiles.length) {
@@ -240,9 +270,14 @@ const getTeacherMobileAttendance = async (teacherUserId, schoolId) => {
         return {
             _id: sp.userId._id,
             name: sp.userId.name,
+            email: sp.userId.email,
             rollNumber: sp.rollNumber,
             standard: sp.standard,
             section: sp.section,
+            fatherName: sp.fatherName,
+            fatherContact: sp.fatherContact,
+            motherName: sp.motherName,
+            motherContact: sp.motherContact,
             status: record ? record.status : "Absent",
             checkInTime: record ? record.checkInTime : null
         };

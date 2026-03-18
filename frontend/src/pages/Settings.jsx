@@ -3,7 +3,7 @@ import DashboardLayout from '../layouts/DashboardLayout';
 import { useAuth } from '../features/auth';
 import { useTheme, useFeatures } from '../state';
 import api from '../api/axios';
-import { FaPalette, FaImage, FaCheck, FaUpload, FaToggleOn, FaBuilding } from 'react-icons/fa';
+import { FaPalette, FaImage, FaCheck, FaUpload, FaToggleOn, FaBuilding, FaGraduationCap, FaPlus, FaTrash } from 'react-icons/fa';
 
 const THEME_COLORS = [
     { name: 'Royal Blue', value: '#2563eb', textColor: '#ffffff' },
@@ -25,6 +25,8 @@ const FEATURE_META = {
     library: { label: 'Library', description: 'Book inventory and borrowing', color: 'from-amber-100 to-orange-100', iconColor: 'text-amber-500' },
     transport: { label: 'Transport', description: 'Bus routes and tracking', color: 'from-rose-100 to-pink-100', iconColor: 'text-rose-500' },
     calendar: { label: 'Calendar', description: 'Academic calendar and holidays', color: 'from-pink-100 to-rose-100', iconColor: 'text-rose-500' },
+    examination: { label: 'Examination', description: 'Manage term exams and class tests', color: 'from-purple-100 to-indigo-100', iconColor: 'text-purple-500' },
+    assignment: { label: 'Assignment', description: 'Student assignments and submissions', color: 'from-blue-100 to-indigo-100', iconColor: 'text-blue-600' },
 };
 
 const Settings = () => {
@@ -46,6 +48,11 @@ const Settings = () => {
     const [features, setFeatures] = useState({});
     const [featuresLoading, setFeaturesLoading] = useState(false);
     const [togglingFeature, setTogglingFeature] = useState(null);
+    
+    // Academic state (Standards & Sections)
+    const [customClasses, setCustomClasses] = useState({ standards: [], sections: [] });
+    const [newStandard, setNewStandard] = useState('');
+    const [newSection, setNewSection] = useState('');
 
     const showMessage = useCallback((type, text, duration = 2000) => {
         setMessage({ type, text });
@@ -53,6 +60,15 @@ const Settings = () => {
     }, []);
 
     useEffect(() => {
+        const saved = localStorage.getItem('school_custom_classes');
+        if (saved) {
+            try {
+                setCustomClasses(JSON.parse(saved));
+            } catch (e) {
+                console.error("Failed to parse custom classes", e);
+            }
+        }
+
         const fetchSchoolData = async () => {
             try {
                 const response = await api.get('/school/');
@@ -67,6 +83,35 @@ const Settings = () => {
         if (isSuperAdmin) setFeaturesLoading(true);
         fetchSchoolData();
     }, [currentSchoolId, isSuperAdmin]);
+
+    const saveCustomClasses = (data) => {
+        setCustomClasses(data);
+        localStorage.setItem('school_custom_classes', JSON.stringify(data));
+        window.dispatchEvent(new Event('customClassesUpdated'));
+    };
+
+    const handleAddClass = (type) => {
+        const val = type === 'standard' ? newStandard.trim() : newSection.trim();
+        if (!val) return;
+        
+        const key = type === 'standard' ? 'standards' : 'sections';
+        if (customClasses[key].includes(val)) {
+            showMessage('error', `${val} already exists`);
+            return;
+        }
+
+        const updated = { ...customClasses, [key]: [...customClasses[key], val].sort() };
+        saveCustomClasses(updated);
+        type === 'standard' ? setNewStandard('') : setNewSection('');
+        showMessage('success', `${val} added!`);
+    };
+
+    const handleRemoveClass = (type, val) => {
+        const key = type === 'standard' ? 'standards' : 'sections';
+        const updated = { ...customClasses, [key]: customClasses[key].filter(i => i !== val) };
+        saveCustomClasses(updated);
+        showMessage('success', `${val} removed`);
+    };
 
 
     const handleToggleFeature = useCallback(async (featureKey) => {
@@ -239,6 +284,93 @@ const Settings = () => {
                                 </button>
                             </div>
                         </div>
+                        
+                        {/* Academic Management for Super Admin and Admin */}
+                        {(isSuperAdmin || currentUser?.role === 'admin') && (
+                            <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+                                <div className="px-6 py-5 border-b border-gray-100 flex items-center gap-4">
+                                    <div className="w-11 h-11 rounded-xl flex items-center justify-center" style={{ backgroundColor: `${accentColor}15` }}>
+                                        <FaGraduationCap style={{ color: accentColor }} size={18} />
+                                    </div>
+                                    <div>
+                                        <h2 className="text-lg font-semibold text-gray-900">Academic Management</h2>
+                                        <p className="text-sm text-gray-500">Create new classes and sections</p>
+                                    </div>
+                                </div>
+                                <div className="p-6 space-y-8">
+                                    {/* Standards */}
+                                    <div className="space-y-4">
+                                        <label className="text-sm font-bold text-gray-700 uppercase tracking-wider">Classes (Standards)</label>
+                                        <div className="flex gap-2">
+                                            <input 
+                                                type="text" 
+                                                value={newStandard} 
+                                                onChange={(e) => setNewStandard(e.target.value)}
+                                                placeholder="e.g. Grade 11, Class X"
+                                                className="flex-1 px-4 py-2 border border-gray-200 rounded-xl outline-none transition-all"
+                                                style={{ focusRing: accentColor }}
+                                                onKeyPress={(e) => e.key === 'Enter' && handleAddClass('standard')}
+                                            />
+                                            <button 
+                                                type="button"
+                                                onClick={() => handleAddClass('standard')}
+                                                className="px-4 py-2 text-white rounded-xl transition-opacity hover:opacity-90 flex items-center gap-2"
+                                                style={{ backgroundColor: accentColor }}
+                                            >
+                                                <FaPlus size={12} /> Add
+                                            </button>
+                                        </div>
+                                        <div className="flex flex-wrap gap-2">
+                                            {customClasses.standards.length === 0 && <p className="text-xs text-gray-400 italic">No custom classes added yet.</p>}
+                                            {customClasses.standards.map(std => (
+                                                <span key={std} className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium border"
+                                                    style={{ backgroundColor: `${accentColor}10`, color: accentColor, borderColor: `${accentColor}20` }}>
+                                                    {std}
+                                                    <button type="button" onClick={() => handleRemoveClass('standard', std)} className="hover:opacity-70 transition-opacity">
+                                                        <FaTrash size={10} />
+                                                    </button>
+                                                </span>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {/* Sections */}
+                                    <div className="space-y-4">
+                                        <label className="text-sm font-bold text-gray-700 uppercase tracking-wider">Sections</label>
+                                        <div className="flex gap-2">
+                                            <input 
+                                                type="text" 
+                                                value={newSection} 
+                                                onChange={(e) => setNewSection(e.target.value)}
+                                                placeholder="e.g. Section C, Blue House"
+                                                className="flex-1 px-4 py-2 border border-gray-200 rounded-xl outline-none transition-all"
+                                                onKeyPress={(e) => e.key === 'Enter' && handleAddClass('section')}
+                                            />
+                                            <button 
+                                                type="button"
+                                                onClick={() => handleAddClass('section')}
+                                                className="px-4 py-2 text-white rounded-xl transition-opacity hover:opacity-90 flex items-center gap-2"
+                                                style={{ backgroundColor: accentColor }}
+                                            >
+                                                <FaPlus size={12} /> Add
+                                            </button>
+                                        </div>
+                                        <div className="flex flex-wrap gap-2">
+                                            {customClasses.sections.length === 0 && <p className="text-xs text-gray-400 italic">No custom sections added yet.</p>}
+                                            {customClasses.sections.map(sec => (
+                                                <span key={sec} className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium border"
+                                                    style={{ backgroundColor: `${accentColor}10`, color: accentColor, borderColor: `${accentColor}20` }}>
+                                                    {sec}
+                                                    <button type="button" onClick={() => handleRemoveClass('section', sec)} className="hover:opacity-70 transition-opacity">
+                                                        <FaTrash size={10} />
+                                                    </button>
+                                                </span>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                     </div>
                     <div className="space-y-6">
                         {isSuperAdmin && (

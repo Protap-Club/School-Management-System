@@ -1,4 +1,4 @@
-import * as nfcService from "./attendence.service.js";
+import * as nfcService from "./attendance.service.js";
 import asyncHandler from "../../utils/asyncHandler.js";
 import logger from "../../config/logger.js";
 import { BadRequestError, ValidationError } from "../../utils/customError.js";
@@ -24,7 +24,7 @@ export const linkTag = asyncHandler(async (req, res) => {
 
 // Mark attendance via NFC
 export const markAttendance = asyncHandler(async (req, res) => {
-    const nfcUid = req.body.nfcUid || req.query.nfcUid;
+    const { nfcUid } = req.body;
     if (!nfcUid) {
         throw new BadRequestError("NFCID is Required");
     }

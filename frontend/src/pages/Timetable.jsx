@@ -164,7 +164,7 @@ const TimetablePage = () => {
                     <select value={selectedTimetable?._id || ''} onChange={(e) => selectTimetable(e.target.value)}
                       className="bg-gray-50 border border-gray-200 text-gray-800 text-sm rounded-lg focus:ring-primary focus:border-primary block p-2 min-w-[180px]">
                       {timetables.length === 0 && <option value="">No timetables</option>}
-                      {timetables.map(tt => <option key={tt._id} value={tt._id}>{tt.standard}-{tt.section} ({tt.academicYear})</option>)}
+                      {timetables.map(tt => <option key={tt._id} value={tt._id}>{tt.standard}{tt.section} ({tt.academicYear})</option>)}
                     </select>
                     <button onClick={() => setCreateState(prev => ({ ...prev, open: true }))} className="p-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors" title="Create Timetable">
                       <FaPlus className="text-sm" />
@@ -191,7 +191,7 @@ const TimetablePage = () => {
           initialData={modalState.cell?.entry} slotInfo={modalState.cell ? { day: modalState.cell.day, slot: modalState.cell.slot } : null}
           teachers={teachers} subjects={availableClasses.subjects} rooms={availableClasses.rooms} loading={modalState.saving} />
         {createState.open && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="modal-overlay fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
             <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
               <div className="bg-primary/5 px-6 py-4 border-b border-gray-100">
                 <h3 className="text-lg font-semibold text-gray-800">Create New Timetable</h3>

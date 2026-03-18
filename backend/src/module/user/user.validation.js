@@ -43,6 +43,32 @@ export const createUserSchema = z.object({
         // Admin profile fields
         department: z.string().optional(),
         permissions: z.array(z.string()).optional(),
+    }).superRefine((data, ctx) => {
+        const { role } = data;
+
+        if (role === USER_ROLES.STUDENT) {
+            const required = ['rollNumber', 'standard', 'section'];
+            required.forEach(field => {
+                if (!data[field]) {
+                    ctx.addIssue({
+                        code: z.ZodIssueCode.custom,
+                        message: `${field.charAt(0).toUpperCase() + field.slice(1).replace(/([A-Z])/g, ' $1')} is required for students`,
+                        path: [field]
+                    });
+                }
+            });
+        } else if (role === USER_ROLES.TEACHER) {
+            // employeeId, qualification, joiningDate are optional at creation —
+            // they can be updated later via the profile edit form.
+        } else if (role === USER_ROLES.ADMIN) {
+            if (!data.department) {
+                ctx.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    message: 'Department is required for admins',
+                    path: ['department']
+                });
+            }
+        }
     }),
 });
 
@@ -57,6 +83,9 @@ export const getUsersSchema = z.object({
         pageSize: z.union([z.string(), z.number()]).optional().default('25')
             .transform(val => Number(val)),
         name: z.string().optional(),
+        // Server-side search (e.g., admin user search in notice flows)
+        // keeps large user lists off the client while still allowing lookup.
+        search: z.string().optional(),
     }),
 });
 

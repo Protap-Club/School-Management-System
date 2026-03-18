@@ -24,10 +24,20 @@ router.get("/me/profile", getMyProfile);
 // ─── Web Only: User Management ──────────────────────────────────────
 
 // List all users (scoped by role & school)
-router.get("/", checkWebOnly, validate(getUsersSchema), getUsers);
+router.get(
+    "/",
+    checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN, USER_ROLES.TEACHER]),
+    validate(getUsersSchema),
+    getUsers
+);
 
 // Get a single user by ID
-router.get("/:id", checkWebOnly, validate(userIdParamsSchema), getUserById);
+router.get(
+    "/:id",
+    checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN, USER_ROLES.TEACHER]),
+    validate(userIdParamsSchema),
+    getUserById
+);
 
 // Create a new user (admin/super_admin: any lower role, teacher: student only)
 router.post(
@@ -61,12 +71,12 @@ router.patch(
 
 // ─── Hard Delete (commented out — not in scope yet) ─────────────────
 // Uncomment when permanent deletion is approved and tested.
-// router.delete(
-//     "/",
-//     checkWebOnly,
-//     checkRole([USER_ROLES.ADMIN]),
-//     validate(userIdsBodySchema),
-//     batchDeleteUsers
-// );
+router.delete(
+    "/delete",
+    checkWebOnly,
+    checkRole([USER_ROLES.ADMIN]),
+    validate(userIdsBodySchema),
+    batchDeleteUsers
+);
 
 export default router;

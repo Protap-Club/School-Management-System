@@ -86,12 +86,10 @@ export const uploadAvatar = asyncHandler(async (req, res) => {
 });
 
 export const userProfile = asyncHandler(async (req, res) => {
-    const { _id: userId, role, schoolId } = req.user;
-    const platform = req.platform;
+    const { _id: userId } = req.user;
+    const result = await userService.getMyProfile(userId);
 
-    const result = await userService.getMyProfile(userId, role, schoolId, platform);
-
-    logger.info(`User profile fetched successfully | userId: ${userId} | role: ${role} | platform: ${platform}`);
+    logger.info({ userId }, "User profile fetched successfully");
 
     res.status(200).json({
         success: true,

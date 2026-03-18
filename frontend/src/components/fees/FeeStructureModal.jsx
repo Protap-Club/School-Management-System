@@ -152,7 +152,7 @@ const FeeStructureModal = ({ isOpen, onClose, onSubmit, editData, isLoading, isA
         `w-full px-3 py-2.5 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all ${errors[field] ? 'border-red-300 bg-red-50' : 'border-gray-200'}`;
 
     return (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div className="modal-overlay fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-fadeIn flex flex-col max-h-[90vh]">
                 <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between flex-shrink-0">
                     <div className="flex items-center gap-3">

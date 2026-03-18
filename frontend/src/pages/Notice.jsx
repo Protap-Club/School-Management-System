@@ -1,341 +1,33 @@
-import React, { useState, useRef, useMemo, useCallback, useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
+import React from 'react';
 import DashboardLayout from '../layouts/DashboardLayout';
-import { useAuth } from '../features/auth';
 import {
-    useNotices, useCreateNotice, useDeleteNotice, useGroups,
-    useCreateGroup, useDeleteGroup, useClasses, useStudents, useTeachers, useAllUsers,
-    useReceivedNotices,
-} from '../features/notices';
-import {
-    FaPaperPlane, FaUsers, FaPaperclip, FaTimes, FaCheck, FaFilePdf, FaFileWord,
-    FaFilePowerpoint, FaFileExcel, FaFileAlt, FaImage, FaTrash, FaPlus, FaUserFriends,
-    FaSearch, FaHistory, FaEye, FaDownload, FaFileVideo, FaFileCode, FaFileCsv, FaBell
+    FaPaperPlane, FaUsers, FaPaperclip, FaTimes, FaCheck, FaTrash, FaPlus, FaUserFriends,
+    FaHistory, FaEye, FaDownload, FaBell, FaSearch
 } from 'react-icons/fa';
 
-
-
-// Allowed file extensions
-const ALLOWED_EXTENSIONS = ['pdf', 'doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx', 'txt', 'csv', // Documents
-                            'png', 'jpg', 'jpeg', // Images
-                            'mp4', 'mov', 'avi'   // Videos
-];
-const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg'];
-const VIDEO_EXTENSIONS = ['mp4', 'mov', 'avi'];
-
-const FILE_ICON_MAP = [
-    { match: ext => IMAGE_EXTENSIONS.includes(ext), icon: <FaImage className="text-purple-500" size={24} /> },
-    { match: ext => VIDEO_EXTENSIONS.includes(ext), icon: <FaFileVideo className="text-rose-500" size={24} /> },
-    { match: ext => ext === 'pdf', icon: <FaFilePdf className="text-red-500" size={24} /> },
-    { match: ext => ['doc', 'docx'].includes(ext), icon: <FaFileWord className="text-blue-500" size={24} /> },
-    { match: ext => ['ppt', 'pptx'].includes(ext), icon: <FaFilePowerpoint className="text-orange-500" size={24} /> },
-    { match: ext => ['xls', 'xlsx', 'csv'].includes(ext), icon: <FaFileExcel className="text-green-600" size={24} /> },
-    { match: ext => ['txt', 'iti'].includes(ext), icon: <FaFileAlt className="text-gray-500" size={24} /> },
-];
-
-const getFileIcon = (filename) => {
-    const ext = filename.split('.').pop().toLowerCase();
-    return FILE_ICON_MAP.find(m => m.match(ext))?.icon || <FaFileAlt className="text-gray-400" size={24} />;
-};
-
-const RECIPIENT_LABELS = { all: 'Entire School', students: 'Students', users: 'Selected Users', groups: 'Groups' };
-const SELECTION_VALIDATORS = {
-    classes: { list: 'selectedClasses', msg: 'Please select at least one class' },
-    users: { list: 'selectedUsers', msg: 'Please select at least one user' },
-    students: { list: 'selectedStudents', msg: 'Please select at least one student' },
-    groups: { list: 'selectedGroups', msg: 'Please select at least one group' },
-};
-const RECIPIENT_MAP = {
-    school: { type: 'all', key: null }, allStudents: { type: 'students', key: null },
-    classes: { type: 'classes', key: 'selectedClasses' }, users: { type: 'users', key: 'selectedUsers' },
-    students: { type: 'students', key: 'selectedStudents' }, groups: { type: 'groups', key: 'selectedGroups' },
-};
-
-const getRecipientLabel = (item) => {
-    if (item.recipientType === 'classes') return item.recipients?.join(', ') || 'Classes';
-    return RECIPIENT_LABELS[item.recipientType] || item.recipientType || 'Unknown';
-};
-
-const MODAL_OVERLAY = 'fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4';
+import { useNoticeHandlers } from '../features/notices/useNoticeHandlers';
+import { ReceiverAckButton, ViewItemModal, SendModal } from '../features/notices/NoticeComponents';
+import { getFileIcon, getRecipientLabel } from '../features/notices/NoticeUtils';
+import { SectionHeader, TabButton, FilterSelect, SearchableList, MemberList } from '../components/ui/NoticeUIComponents';
 
 const Notice = () => {
-    const { user: currentUser } = useAuth();
-    const isAdmin = currentUser?.role === 'admin';
-    const isTeacher = currentUser?.role === 'teacher';
-    const fileInputRef = useRef(null);
-
-    // Compose state
-    const [activeTab, setActiveTab] = useState('compose');
-    const location = useLocation();
-
-    // Auto-switch to received tab if navigated from Notifications page
-    useEffect(() => {
-        if (location.state?.tab) {
-            setActiveTab(location.state.tab);
-            // Clear state so browser back doesn't re-trigger
-            window.history.replaceState({}, document.title);
-        }
-    }, [location.state]);
-    const [message, setMessage] = useState('');
-    const [attachment, setAttachment] = useState(null);
-    const [attachmentPreview, setAttachmentPreview] = useState(null);
-    const [messageError, setMessageError] = useState('');
-
-    // Send modal state
-    const [showSendModal, setShowSendModal] = useState(false);
-    const [sendOption, setSendOption] = useState('');
-    const [searchTerm, setSearchTerm] = useState('');
-    const [selectedClasses, setSelectedClasses] = useState([]);
-    const [selectedUsers, setSelectedUsers] = useState([]);
-    const [selectedStudents, setSelectedStudents] = useState([]);
-    const [selectedGroups, setSelectedGroups] = useState([]);
-
-    // Group creation state
-    const [newGroupName, setNewGroupName] = useState('');
-    const [newGroupStudents, setNewGroupStudents] = useState([]);
-    const [newGroupTeachers, setNewGroupTeachers] = useState([]);
-
-    // History state
-    const [historySearch, setHistorySearch] = useState('');
-    const [historyFilters, setHistoryFilters] = useState({ type: 'all', sentTo: 'all', date: 'all' });
-    const [viewItem, setViewItem] = useState(null);
-    const [toast, setToast] = useState({ type: '', text: '' });
-
-    const selectionState = { selectedClasses, selectedUsers, selectedStudents, selectedGroups };
-
-    // Data hooks
-    const { data: noticesData } = useNotices(historyFilters);
-    const { data: receivedData } = useReceivedNotices();
-    const { data: classesData } = useClasses();
-    const { data: studentsData } = useStudents();
-    const { data: teachersData } = useTeachers();
-    const { data: allUsersData } = useAllUsers();
-    const { data: groupsData } = useGroups();
-    const createNoticeMutation = useCreateNotice();
-    const isSending = createNoticeMutation.isPending;
-    const deleteNoticeMutation = useDeleteNotice();
-    const createGroupMutation = useCreateGroup();
-    const deleteGroupMutation = useDeleteGroup();
-
-    const students = studentsData?.data?.users || studentsData?.data || [];
-    const teachers = teachersData?.data?.users || teachersData?.data || [];
-    const allUsers = allUsersData?.data?.users || allUsersData?.data || [];
-    const classes = classesData?.data || [];
-    const groups = groupsData?.data || [];
-    const historyItems = noticesData?.data || [];
-    // For received notices - backend returns { received, history } for teachers on mobile,
-    // but on web it always returns a flat array via /notices/received
-    const receivedItems = Array.isArray(receivedData?.data)
-        ? receivedData.data
-        : (receivedData?.data?.received || []);
-
-    const showToast = useCallback((type, text) => { setToast({ type, text }); setTimeout(() => setToast({ type: '', text: '' }), 3000); }, []);
-    const toggleSelection = (array, setArray, value) => { setArray(array.includes(value) ? array.filter(v => v !== value) : [...array, value]); };
-
-    const handleFileUpload = useCallback((e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-        const ext = file.name.split('.').pop().toLowerCase();
-        if (!ALLOWED_EXTENSIONS.includes(ext)) {
-            setToast({ type: 'error', text: 'Invalid file type. Check allowed formats.' });
-            setTimeout(() => setToast({ type: '', text: '' }), 3000);
-            return;
-        }
-
-        if (file.size > 10 * 1024 * 1024) { // 10MB Limit
-            setToast({ type: 'error', text: 'File is too large. Max size is 10MB.' });
-            setTimeout(() => setToast({ type: '', text: '' }), 3000);
-            return;
-        }
-
-        setAttachment(file);
-        if (IMAGE_EXTENSIONS.includes(ext)) {
-            const reader = new FileReader();
-            reader.onload = (ev) => setAttachmentPreview(ev.target.result);
-            reader.readAsDataURL(file);
-        } else { setAttachmentPreview(null); }
-    }, [showToast]);
-
-    const removeAttachment = useCallback(() => { setAttachment(null); setAttachmentPreview(null); if (fileInputRef.current) fileInputRef.current.value = ''; }, []);
-
-    const handleSendClick = useCallback(() => {
-        if (!message.trim()) { setMessageError('Message is required'); return; }
-        setMessageError(''); setShowSendModal(true);
-    }, [message]);
-
-    const resetComposeState = useCallback(() => {
-        setMessage(''); setAttachment(null); setAttachmentPreview(null);
-        setShowSendModal(false); setSendOption('');
-        setSelectedClasses([]); setSelectedUsers([]); setSelectedStudents([]); setSelectedGroups([]);
-        if (fileInputRef.current) fileInputRef.current.value = '';
-    }, []);
-
-    const handleFinalSend = useCallback(async () => {
-        if (!sendOption) { showToast('error', 'Please select recipients'); return; }
-        const validator = SELECTION_VALIDATORS[sendOption];
-        if (validator && selectionState[validator.list].length === 0) { showToast('error', validator.msg); return; }
-        const mapping = RECIPIENT_MAP[sendOption] || { type: sendOption, key: null };
-        const recipients = mapping.key ? selectionState[mapping.key] : [];
-        try {
-            await createNoticeMutation.mutateAsync({ message, title: message.substring(0, 50), recipientType: mapping.type, recipients, attachment: attachment || undefined });
-            showToast('success', 'Notice sent successfully!');
-            resetComposeState();
-        } catch (error) { showToast('error', error?.response?.data?.message || 'Failed to send notice'); }
-    }, [sendOption, selectionState, message, attachment, createNoticeMutation, showToast, resetComposeState]);
-
-    const handleDeleteHistory = useCallback(async (itemId) => {
-        try { await deleteNoticeMutation.mutateAsync(itemId); showToast('success', 'Notice deleted'); }
-        catch (error) { showToast('error', error?.response?.data?.message || 'Failed to delete'); }
-    }, [deleteNoticeMutation, showToast]);
-
-    const handleCreateGroup = useCallback(async () => {
-        if (!newGroupName.trim()) { showToast('error', 'Group name is required'); return; }
-        if (newGroupStudents.length === 0 && newGroupTeachers.length === 0) { showToast('error', 'Select at least one student or teacher'); return; }
-        try {
-            await createGroupMutation.mutateAsync({ name: newGroupName, students: [...newGroupStudents, ...newGroupTeachers] });
-            setNewGroupName(''); setNewGroupStudents([]); setNewGroupTeachers([]);
-            showToast('success', 'Group created successfully!');
-        } catch (error) { showToast('error', error?.response?.data?.message || 'Failed to create group'); }
-    }, [newGroupName, newGroupStudents, newGroupTeachers, createGroupMutation, showToast]);
-
-    const handleDeleteGroup = useCallback(async (groupId) => {
-        try { await deleteGroupMutation.mutateAsync(groupId); showToast('success', 'Group deleted'); }
-        catch (error) { showToast('error', error?.response?.data?.message || 'Failed to delete group'); }
-    }, [deleteGroupMutation, showToast]);
-
-    /**
-     * Downloads a file from a cross-origin URL (Cloudinary) with the correct filename.
-     *
-     * WHY fetch → Blob instead of <a download href="...">?
-     * Browsers IGNORE the `download` attribute on <a> when the href is cross-origin
-     * (e.g. res.cloudinary.com). The browser just navigates to the URL and renders
-     * the raw binary, which is why users see "%PDF-1.7..." text.
-     *
-     * This function:
-     *  1. fetch() the file cross-origin (Cloudinary allows this via CORS headers)
-     *  2. Converts the response to a Blob
-     *  3. Creates a same-origin blob: URL → browser DOES honour `download` on same-origin
-     *  4. Clicks a temporary <a> to trigger the Save dialog with the correct filename
-     *  5. Revokes the blob URL to free memory
-     */
-    const handleDownload = useCallback(async (url, filename) => {
-        if (!url) { showToast('error', 'No file available to download'); return; }
-        try {
-            showToast('success', 'Download starting...');
-            const response = await fetch(url);
-            if (!response.ok) throw new Error(`Failed to fetch file: ${response.status}`);
-            const blob = await response.blob();
-            const blobUrl = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = blobUrl;
-            a.download = filename || 'download'; // browser WILL honour download on blob: URLs
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(blobUrl); // free memory
-        } catch (err) {
-            console.error('Download failed:', err);
-            showToast('error', 'Download failed. Try again.');
-        }
-    }, [showToast]);
-
-    const filteredHistory = useMemo(() => {
-        if (!historySearch) return historyItems;
-        const s = historySearch.toLowerCase();
-        return historyItems.filter(item =>
-            (item.title || '').toLowerCase().includes(s) || (item.message || '').toLowerCase().includes(s) || getRecipientLabel(item).toLowerCase().includes(s)
-        );
-    }, [historyItems, historySearch]);
-
-    // --- Render helpers ---
-
-    const renderSectionHeader = (icon, iconBg, iconColor, title, subtitle) => (
-        <div className="px-6 py-5 border-b border-gray-100 flex items-center gap-4">
-            <div className={`w-11 h-11 rounded-xl bg-gradient-to-br ${iconBg} flex items-center justify-center`}>
-                {React.cloneElement(icon, { className: iconColor, size: 18 })}
-            </div>
-            <div>
-                <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
-                <p className="text-sm text-gray-500">{subtitle}</p>
-            </div>
-        </div>
-    );
-
-    const renderSearchableList = (items, selectedArr, setSelectedArr, searchField, placeholder, renderLabel) => (
-        <div className="mt-3 space-y-3">
-            <div className="relative">
-                <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
-                <input type="text" placeholder={placeholder} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                    onClick={(e) => e.stopPropagation()} />
-            </div>
-            <div className="border border-gray-200 rounded-lg max-h-48 overflow-y-auto">
-                {items.filter(item => searchField(item).toLowerCase().includes(searchTerm.toLowerCase())).map(item => (
-                    <label key={item._id || item.value} className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 cursor-pointer text-sm border-b border-gray-50 last:border-b-0">
-                        <input type="checkbox" checked={selectedArr.includes(item._id || item.value)}
-                            onChange={() => toggleSelection(selectedArr, setSelectedArr, item._id || item.value)}
-                            className="w-3.5 h-3.5 text-primary border-gray-300 rounded focus:ring-primary" />
-                        {renderLabel ? renderLabel(item) : <span>{item.name || item.label}</span>}
-                    </label>
-                ))}
-                {items.filter(item => searchField(item).toLowerCase().includes(searchTerm.toLowerCase())).length === 0 && (
-                    <div className="px-3 py-4 text-center text-xs text-gray-400">No results found</div>
-                )}
-            </div>
-        </div>
-    );
-
-    const renderRadioOption = (value, title, subtitle, expandedContent) => (
-        <label className={`flex items-${expandedContent ? 'start' : 'center'} gap-3 p-3 border border-gray-200 rounded-xl cursor-pointer hover:bg-gray-50 transition-colors`}>
-            <input type="radio" name="sendOption" value={value} checked={sendOption === value}
-                onChange={(e) => { setSendOption(e.target.value); setSearchTerm(''); }}
-                className={`w-4 h-4 text-primary border-gray-300 focus:ring-primary${expandedContent ? ' mt-0.5' : ''}`} />
-            <div className="flex-1">
-                <p className="text-sm font-medium text-gray-900">{title}</p>
-                <p className="text-xs text-gray-400 mb-2">{subtitle}</p>
-                {sendOption === value && expandedContent}
-            </div>
-        </label>
-    );
-
-    const renderGroupsOption = () => groups.length > 0 && renderRadioOption(
-        'groups', 'Custom Groups', 'Your created groups',
-        renderSearchableList(groups, selectedGroups, setSelectedGroups, g => g.name, 'Search groups...', (group) => (
-            <><span>{group.name}</span><span className="text-xs text-gray-400">({(group.members || []).length})</span></>
-        ))
-    );
-
-    const renderTabButton = (tab, icon, label) => (
-        <button onClick={() => setActiveTab(tab)}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === tab ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
-            {React.cloneElement(icon, { className: "inline mr-2", size: 12 })}{label}
-        </button>
-    );
-
-    const renderFilterSelect = (label, filterKey, options) => (
-        <div className="flex items-center gap-2">
-            <span className="text-xs font-medium text-gray-500 uppercase">{label}:</span>
-            <select value={historyFilters[filterKey]} onChange={(e) => setHistoryFilters({ ...historyFilters, [filterKey]: e.target.value })}
-                className="text-sm border-gray-200 rounded-lg focus:ring-primary focus:border-primary px-2 py-1 bg-white">
-                {options.map(([val, label]) => <option key={val} value={val}>{label}</option>)}
-            </select>
-        </div>
-    );
-
-    const renderMemberList = (items, selectedArr, setSelectedArr) => (
-        <div className="border border-gray-200 rounded-xl max-h-48 overflow-y-auto">
-            {items.map(item => (
-                <label key={item._id} className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-b-0">
-                    <input type="checkbox" checked={selectedArr.includes(item._id)}
-                        onChange={() => toggleSelection(selectedArr, setSelectedArr, item._id)}
-                        className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary" />
-                    <span className="text-sm text-gray-700">{item.name}</span>
-                </label>
-            ))}
-        </div>
-    );
-
-
+    const handlers = useNoticeHandlers();
+    
+    // Destructure everything needed for rendering
+    const {
+        isAdmin, isTeacher, fileInputRef, activeTab, setActiveTab,
+        message, setMessage, requireAck, setRequireAck, attachment, attachmentPreview, messageError,
+        showSendModal, setShowSendModal, sendOption, setSendOption, searchTerm, setSearchTerm, userRoleFilter, setUserRoleFilter,
+        selectedClasses, setSelectedClasses, selectedUsers, setSelectedUsers, selectedStudents, setSelectedStudents, selectedGroups, setSelectedGroups,
+        newGroupName, setNewGroupName, newGroupStudents, setNewGroupStudents, newGroupTeachers, setNewGroupTeachers,
+        groupStudentSearch, setGroupStudentSearch,
+        historySearch, setHistorySearch, historyFilters, setHistoryFilters, viewItem, setViewItem, toast,
+        isSending, students, teachers, allUsers, classes, groups, receivedItems, filteredHistory,
+        historyPage, setHistoryPage, totalHistoryPages, pagedHistory,
+        receivedPage, setReceivedPage, totalReceivedPages, pagedReceivedItems,
+        toggleSelection, handleFileUpload, removeAttachment, handleSendClick, handleFinalSend, handleDeleteHistory, handleCreateGroup, handleDeleteGroup, handleDownload,
+        currentUser
+    } = handlers;
 
     return (
         <DashboardLayout>
@@ -353,19 +45,19 @@ const Notice = () => {
                     <p className="text-gray-500 mt-1">{isAdmin ? 'Send notices to the entire school, classes, or specific users' : 'Send notices to your students or groups'}</p>
                 </div>
                 <div className="flex gap-1 bg-gray-100 p-1 rounded-xl w-fit">
-                    {(isAdmin || isTeacher) && renderTabButton('compose', <FaPaperPlane />, 'Compose')}
-                    {(isTeacher || isAdmin) && renderTabButton('groups', <FaUserFriends />, 'Groups')}
-                    {(isAdmin || isTeacher) && renderTabButton('history', <FaHistory />, 'History')}
-                    {renderTabButton('received', <FaPaperclip />, 'Received')}
+                    {(isAdmin || isTeacher) && <TabButton tab="compose" activeTab={activeTab} icon={<FaPaperPlane />} label="Compose" setActiveTab={setActiveTab} />}
+                    {(isTeacher || isAdmin) && <TabButton tab="groups" activeTab={activeTab} icon={<FaUserFriends />} label="Groups" setActiveTab={setActiveTab} />}
+                    {(isAdmin || isTeacher) && <TabButton tab="history" activeTab={activeTab} icon={<FaHistory />} label="History" setActiveTab={setActiveTab} />}
+                    <TabButton tab="received" activeTab={activeTab} icon={<FaPaperclip />} label="Received" setActiveTab={setActiveTab} />
                 </div>
 
                 {activeTab === 'compose' && (
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                         <div className="lg:col-span-2 space-y-6">
                             <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
-                                {renderSectionHeader(<FaPaperPlane />, 'from-blue-100 to-indigo-100', 'text-indigo-500', 'Compose Notice', 'Write your message below')}
+                                <SectionHeader icon={<FaPaperPlane />} iconBg="from-blue-100 to-indigo-100" iconColor="text-indigo-500" title="Compose Notice" subtitle="Write your message below" />
                                 <div className="p-6">
-                                    <textarea value={message} onChange={(e) => { setMessage(e.target.value); if (e.target.value.trim()) setMessageError(''); }}
+                                    <textarea value={message} onChange={(e) => { setMessage(e.target.value); }}
                                         placeholder="Write your notice here..." rows={8}
                                         className={`w-full px-4 py-3 border rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all ${messageError ? 'border-red-300 bg-red-50' : 'border-gray-200'}`} />
                                     {messageError && <p className="mt-2 text-sm text-red-500 flex items-center gap-1"><FaTimes size={10} /> {messageError}</p>}
@@ -426,9 +118,28 @@ const Notice = () => {
                                     </span>
                                     Ready to Send?
                                 </h3>
-                                <p className="text-sm text-gray-500 mb-6">
+                                <p className="text-sm text-gray-500 mb-4">
                                     Click send to choose your recipients and deliver this notice immediately.
                                 </p>
+
+                                {/* Require Acknowledgment Toggle */}
+                                <label className="flex items-start gap-3 p-3 mb-5 border border-gray-200 rounded-xl cursor-pointer hover:bg-gray-50 transition-colors select-none">
+                                    <div className="relative flex-shrink-0 mt-0.5">
+                                        <input
+                                            type="checkbox"
+                                            className="sr-only"
+                                            checked={requireAck}
+                                            onChange={(e) => setRequireAck(e.target.checked)}
+                                        />
+                                        <div className={`w-10 h-6 rounded-full transition-colors duration-200 ${requireAck ? 'bg-primary' : 'bg-gray-200'}`}></div>
+                                        <div className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${requireAck ? 'translate-x-4' : 'translate-x-0'}`}></div>
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-medium text-gray-900">Require Acknowledgment</p>
+                                        <p className="text-xs text-gray-400 mt-0.5">Recipients must confirm they've read this notice</p>
+                                    </div>
+                                </label>
+
                                 <button
                                     onClick={handleSendClick}
                                     disabled={!message.trim()}
@@ -442,10 +153,10 @@ const Notice = () => {
                             <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl border border-gray-200 p-6">
                                 <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-4">Notice Preview</h3>
                                 <div className="space-y-3">
-                                    {[['Characters', message.length], ['Words', message.trim() ? message.trim().split(/\s+/).length : 0], ['Attachment', attachment ? '1 file' : 'None']].map(([label, value]) => (
+                                    {[['Characters', message.length], ['Words', message.trim() ? message.trim().split(/\s+/).length : 0], ['Attachment', attachment ? '1 file' : 'None'], ['Acknowledgment', requireAck ? 'Required' : 'Not required']].map(([label, value]) => (
                                         <div key={label} className="flex justify-between text-sm">
                                             <span className="text-gray-500">{label}</span>
-                                            <span className="font-medium text-gray-900">{value}</span>
+                                            <span className={`font-medium ${label === 'Acknowledgment' && requireAck ? 'text-primary' : 'text-gray-900'}`}>{value}</span>
                                         </div>
                                     ))}
                                 </div>
@@ -457,7 +168,7 @@ const Notice = () => {
                 {(isTeacher || isAdmin) && activeTab === 'groups' && (
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                         <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
-                            {renderSectionHeader(<FaPlus />, 'from-emerald-100 to-green-100', 'text-emerald-500', 'Create New Group', 'Group students for quick messaging')}
+                            <SectionHeader icon={<FaPlus />} iconBg="from-emerald-100 to-green-100" iconColor="text-emerald-500" title="Create New Group" subtitle="Group students for quick messaging" />
                             <div className="p-6 space-y-4">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-2">Group Name</label>
@@ -466,12 +177,29 @@ const Notice = () => {
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-2">Select Students</label>
-                                    {renderMemberList(students, newGroupStudents, setNewGroupStudents)}
+                                    <SearchableList
+                                        items={students}
+                                        selectedArr={newGroupStudents}
+                                        setSelectedArr={setNewGroupStudents}
+                                        searchField={s => s.name || ''}
+                                        placeholder="Search students..."
+                                        searchTerm={groupStudentSearch}
+                                        setSearchTerm={setGroupStudentSearch}
+                                        toggleSelection={toggleSelection}
+                                        hideUntilSearch
+                                        minSearchLength={2}
+                                        emptyLabel="Type at least 2 characters to search students"
+                                    />
                                 </div>
                                 {isAdmin && (
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-2">Select Teachers</label>
-                                        {renderMemberList(teachers, newGroupTeachers, setNewGroupTeachers)}
+                                        <MemberList
+                                            items={teachers}
+                                            selectedArr={newGroupTeachers}
+                                            setSelectedArr={setNewGroupTeachers}
+                                            toggleSelection={toggleSelection}
+                                        />
                                     </div>
                                 )}
                                 <button onClick={handleCreateGroup}
@@ -481,7 +209,7 @@ const Notice = () => {
                             </div>
                         </div>
                         <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
-                            {renderSectionHeader(<FaUserFriends />, 'from-violet-100 to-purple-100', 'text-violet-500', 'Your Groups', `${groups.length} group${groups.length !== 1 ? 's' : ''} created`)}
+                            <SectionHeader icon={<FaUserFriends />} iconBg="from-violet-100 to-purple-100" iconColor="text-violet-500" title="Your Groups" subtitle={`${groups.length} group${groups.length !== 1 ? 's' : ''} created`} />
                             <div className="p-6">
                                 {groups.length === 0 ? (
                                     <div className="text-center py-8">
@@ -524,11 +252,11 @@ const Notice = () => {
                                 </div>
                             </div>
                             <div className="flex flex-wrap gap-3 p-4 bg-gray-50 rounded-xl border border-gray-100">
-                                {renderFilterSelect('Type', 'type', [['all', 'All'], ['notice', 'Notice'], ['file', 'File']])}
+                                <FilterSelect label="Type" filterKey="type" options={[['all', 'All'], ['notice', 'Notice'], ['file', 'File']]} historyFilters={historyFilters} setHistoryFilters={setHistoryFilters} />
                                 <div className="w-px h-6 bg-gray-200 hidden sm:block"></div>
-                                {renderFilterSelect('Sent To', 'sentTo', [['all', 'All'], ['group', 'Group / Class'], ['individual', 'Individual']])}
+                                <FilterSelect label="Sent To" filterKey="sentTo" options={[['all', 'All'], ['group', 'Group / Class'], ['individual', 'Individual']]} historyFilters={historyFilters} setHistoryFilters={setHistoryFilters} />
                                 <div className="w-px h-6 bg-gray-200 hidden sm:block"></div>
-                                {renderFilterSelect('Date', 'date', [['all', 'Any Time'], ['today', 'Today'], ['last7', 'Last 7 Days'], ['last30', 'Last 30 Days']])}
+                                <FilterSelect label="Date" filterKey="date" options={[['all', 'Any Time'], ['today', 'Today'], ['last7', 'Last 7 Days'], ['last30', 'Last 30 Days']]} historyFilters={historyFilters} setHistoryFilters={setHistoryFilters} />
                             </div>
                         </div>
                         <div className="space-y-4">
@@ -539,7 +267,7 @@ const Notice = () => {
                                     <p className="text-gray-500 text-sm mt-1">Try adjusting your filters or search terms</p>
                                 </div>
                             ) : (
-                                filteredHistory.map(item => (
+                                pagedHistory.map(item => (
                                     <div key={item.id} className="bg-white rounded-2xl border border-gray-200 p-5 hover:shadow-md transition-shadow group">
                                         <div className="flex flex-col md:flex-row gap-4 items-start md:items-center">
                                             {/* Icon */}
@@ -609,6 +337,27 @@ const Notice = () => {
                                     </div>
                                 ))
                             )}
+                            {filteredHistory.length > 0 && totalHistoryPages > 1 && (
+                                <div className="flex items-center justify-between pt-2">
+                                    <span className="text-xs text-gray-500">Page {historyPage} of {totalHistoryPages}</span>
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            onClick={() => setHistoryPage(p => Math.max(1, p - 1))}
+                                            disabled={historyPage === 1}
+                                            className="px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                            Prev
+                                        </button>
+                                        <button
+                                            onClick={() => setHistoryPage(p => Math.min(totalHistoryPages, p + 1))}
+                                            disabled={historyPage === totalHistoryPages}
+                                            className="px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                            Next
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
                 )}
@@ -616,7 +365,7 @@ const Notice = () => {
                 {activeTab === 'received' && (
                     <div className="space-y-4">
                         <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
-                            {renderSectionHeader(<FaPaperclip />, 'from-violet-100 to-purple-100', 'text-violet-500', 'Received Notices', 'Notices sent to you by admin or teachers')}
+                            <SectionHeader icon={<FaPaperclip />} iconBg="from-violet-100 to-purple-100" iconColor="text-violet-500" title="Received Notices" subtitle="Notices sent to you by admin or teachers" />
                         </div>
 
                         {receivedItems.length === 0 ? (
@@ -628,194 +377,142 @@ const Notice = () => {
                                 <p className="text-gray-500 text-sm mt-1">Notices sent to you will appear here</p>
                             </div>
                         ) : (
-                            receivedItems.map(item => (
-                                <div key={item._id} className="bg-white rounded-2xl border border-gray-200 p-5 hover:shadow-md transition-shadow">
-                                    <div className="flex flex-col md:flex-row gap-4 items-start">
-                                        {/* Type icon */}
-                                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${item.type === 'file' ? 'bg-amber-100 text-amber-600' : 'bg-blue-100 text-blue-600'}`}>
-                                            {item.type === 'file' ? <FaPaperclip size={16} /> : <FaPaperPlane size={16} />}
-                                        </div>
-
-                                        <div className="flex-1 min-w-0">
-                                            {/* Header row */}
-                                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
-                                                <div className="flex items-center gap-2 flex-wrap">
-                                                    <h3 className="text-base font-semibold text-gray-900 truncate">{item.title || 'Notice'}</h3>
-                                                    {item.attachment?.filename && (
-                                                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">
-                                                            <FaPaperclip className="mr-1" size={10} />1
-                                                        </span>
-                                                    )}
-                                                </div>
-                                                <div className="text-xs text-gray-400 flex-shrink-0">
-                                                    {new Date(item.createdAt).toLocaleDateString()} • {new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                                </div>
-                                            </div>
-
-                                            {/* Sender */}
-                                            {item.createdBy && (
-                                                <div className="flex items-center gap-2 mb-3">
-                                                    <div className="w-6 h-6 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 text-xs font-bold flex-shrink-0">
-                                                        {(item.createdBy.name || 'U').charAt(0).toUpperCase()}
-                                                    </div>
-                                                    <span className="text-sm text-gray-600">{item.createdBy.name}</span>
-                                                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                                                        item.createdBy.role === 'admin' ? 'bg-red-50 text-red-600' : 'bg-indigo-50 text-indigo-600'
-                                                    }`}>{item.createdBy.role}</span>
+                            pagedReceivedItems.map(item => (
+                                <div key={item._id} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 hover:shadow-md transition-shadow max-w-4xl">
+                                    {/* Top Row */}
+                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 py-1 mb-4 border-b border-gray-50/50 pb-3">
+                                        {/* Sender Info */}
+                                        <div className="flex items-center gap-3">
+                                            {item.createdBy?.avatar ? (
+                                                <img src={item.createdBy.avatar} alt={item.createdBy.name} className="w-9 h-9 rounded-full object-cover shadow-sm" />
+                                            ) : (
+                                                <div className="w-9 h-9 rounded-full bg-linear-to-br flex items-center justify-center font-bold text-sm shadow-sm from-amber-100 to-amber-200 text-amber-700">
+                                                    {(item.createdBy?.name || 'U').charAt(0).toUpperCase()}
                                                 </div>
                                             )}
-
-                                            {/* Message body */}
-                                            <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap mb-3">{item.message}</p>
-
-                                            {/* Attachment */}
-                                            {item.attachment?.filename && (
-                                                <button
-                                                    onClick={() => handleDownload(
-                                                        item.attachment.secure_url || item.attachment.path,
-                                                        item.attachment.originalName || item.attachment.filename
-                                                    )}
-                                                    className="inline-flex items-center gap-2 px-3 py-2 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-xl text-sm text-gray-700 transition-colors group"
-                                                >
-                                                    <div className="w-7 h-7 bg-white border border-gray-100 rounded-lg flex items-center justify-center">
-                                                        {getFileIcon(item.attachment.originalName || item.attachment.filename)}
-                                                    </div>
-                                                    <span className="font-medium group-hover:text-primary transition-colors truncate max-w-[200px]">
-                                                        {item.attachment.originalName || item.attachment.filename}
+                                            <div>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="font-semibold text-gray-800 text-[15px]">
+                                                        {item.createdBy?.name || 'System User'}
                                                     </span>
-                                                    <FaDownload className="text-gray-400 group-hover:text-primary transition-colors flex-shrink-0" size={12} />
-                                                </button>
+                                                    <span className="bg-[#EBF1FF] text-[#3B82F6] text-[10px] font-extrabold px-2 py-0.5 rounded-md uppercase tracking-wide">
+                                                        {item.createdBy?.role || 'User'}
+                                                    </span>
+                                                </div>
+                                                {isAdmin && (
+                                                    <div className="mt-0.5 flex flex-wrap items-center gap-2 text-[11px] text-gray-500">
+                                                        <span className="px-2 py-0.5 rounded-md bg-gray-100 text-gray-600">
+                                                            {getRecipientLabel(item)}
+                                                        </span>
+                                                        {item.requiresAcknowledgment === true && (
+                                                            <span className="px-2 py-0.5 rounded-md bg-amber-50 text-amber-700">
+                                                                Acks {item.acknowledgments?.length || 0}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        {/* Ack Status & Date */}
+                                        <div className="flex items-center gap-3">
+                                            {item.requiresAcknowledgment === true && !isAdmin && (
+                                                <>
+                                                    <ReceiverAckButton noticeId={item._id} currentUserId={currentUser?._id} acknowledgments={item.acknowledgments} />
+                                                    <div className="w-px h-3.5 bg-gray-200 hidden sm:block"></div>
+                                                </>
+                                            )}
+                                            <span className="text-[#9CA3AF] font-medium text-[13px] whitespace-nowrap">
+                                                {new Date(item.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })} • {new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    {/* Notice Content */}
+                                    <div className="flex gap-4 ml-1">
+                                        <div className="mt-1">
+                                            <FaPaperclip className="text-[#3B82F6]" size={18} />
+                                        </div>
+                                        <div className="flex-1 w-full min-w-0 pr-2">
+                                            <h3 className="text-[18px] font-extrabold text-[#111827] mb-1.5 leading-tight tracking-tight">
+                                                {item.title || 'Notice'}
+                                            </h3>
+                                            <p className="text-[15px] text-[#4B5563] leading-relaxed whitespace-pre-wrap mb-5">
+                                                {item.message}
+                                            </p>
+
+                                            {/* Attachment Box */}
+                                            {item.attachment?.filename && (
+                                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-2xl border border-gray-100 bg-white shadow-[0_2px_8px_-2px_rgba(0,0,0,0.03)] cursor-pointer hover:border-gray-200 transition-colors"
+                                                     onClick={() => handleDownload(
+                                                         item.attachment.secure_url || item.attachment.path,
+                                                         item.attachment.originalName || item.attachment.filename
+                                                     )}>
+                                                     <div className="flex items-center gap-4 min-w-0 flex-1">
+                                                        <div className="w-12 h-12 bg-[#FEF2F2] text-[#EF4444] rounded-[10px] flex items-center justify-center shrink-0">
+                                                            {getFileIcon(item.attachment.originalName || item.attachment.filename, 22)}
+                                                        </div>
+                                                        <div className="min-w-0">
+                                                            <h4 className="text-[15px] font-semibold text-[#1F2937] truncate tracking-tight">
+                                                                {item.attachment.originalName || item.attachment.filename}
+                                                            </h4>
+                                                            <p className="text-[13px] text-gray-400 mt-0.5 font-medium tracking-wide">
+                                                                {item.attachment.size ? `${(item.attachment.size / (1024 * 1024)).toFixed(1)} MB` : 'Attachment'}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                    
+                                                    <div className="flex items-center justify-center gap-2 font-bold text-[#2563EB] shrink-0 w-full sm:w-auto mt-2 sm:mt-0 text-[14px] px-2">
+                                                        <FaDownload size={13} />
+                                                        <span>Download</span>
+                                                    </div>
+                                                </div>
                                             )}
                                         </div>
                                     </div>
                                 </div>
                             ))
                         )}
+                        {receivedItems.length > 0 && totalReceivedPages > 1 && (
+                            <div className="flex items-center justify-between pt-2 max-w-4xl">
+                                <span className="text-xs text-gray-500">Page {receivedPage} of {totalReceivedPages}</span>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={() => setReceivedPage(p => Math.max(1, p - 1))}
+                                        disabled={receivedPage === 1}
+                                        className="px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        Prev
+                                    </button>
+                                    <button
+                                        onClick={() => setReceivedPage(p => Math.min(totalReceivedPages, p + 1))}
+                                        disabled={receivedPage === totalReceivedPages}
+                                        className="px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        Next
+                                    </button>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 )}
 
-                {viewItem && (
-                    <div className={MODAL_OVERLAY}>
-                        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-fadeIn">
-                            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-                                <h3 className="text-lg font-semibold text-gray-900">Notice Details</h3>
-                                <button onClick={() => setViewItem(null)} className="p-2 hover:bg-gray-100 rounded-lg transition-colors"><FaTimes className="text-gray-400" size={16} /></button>
-                            </div>
-                            <div className="p-6 space-y-6">
-                                <div className="flex items-start gap-4">
-                                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${viewItem.type === 'notice' ? 'bg-blue-100 text-blue-600' : 'bg-amber-100 text-amber-600'}`}>
-                                        {viewItem.type === 'notice' ? <FaPaperPlane size={20} /> : <FaPaperclip size={20} />}
-                                    </div>
-                                    <div>
-                                        <h4 className="text-lg font-bold text-gray-900">{viewItem.title}</h4>
-                                        <div className="flex items-center gap-2 mt-1 text-sm text-gray-500">
-                                            <span>{new Date(viewItem.createdAt).toLocaleDateString()}</span><span>•</span><span>{getRecipientLabel(viewItem)}</span>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="bg-gray-50 rounded-xl p-4 text-gray-700 text-sm leading-relaxed whitespace-pre-wrap">{viewItem.message}</div>
-                                {viewItem.attachment && viewItem.attachment.filename && (
-                                    <div>
-                                        <h5 className="text-sm font-medium text-gray-900 mb-3">Attachment</h5>
-                                        <div className="space-y-2">
-                                            <button
-                                                onClick={() => handleDownload(
-                                                    viewItem.attachment.secure_url || viewItem.attachment.path,
-                                                    viewItem.attachment.originalName || viewItem.attachment.filename
-                                                )}
-                                                className="w-full flex items-center justify-between p-3 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors cursor-pointer group text-left"
-                                            >
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-10 h-10 bg-white border border-gray-100 rounded-lg flex items-center justify-center">
-                                                        {getFileIcon(viewItem.attachment.originalName || viewItem.attachment.filename)}
-                                                    </div>
-                                                    <div>
-                                                        <p className="text-sm font-medium text-gray-900 group-hover:text-primary transition-colors">{viewItem.attachment.originalName || viewItem.attachment.filename}</p>
-                                                        <p className="text-xs text-gray-500">{((viewItem.attachment.size || 0) / 1024).toFixed(1)} KB</p>
-                                                    </div>
-                                                </div>
-                                                <div className="p-2 text-gray-400 group-hover:text-primary group-hover:bg-primary/5 rounded-lg transition-colors">
-                                                    <FaDownload size={14} />
-                                                </div>
-                                            </button>
-                                        </div>
-                                    </div>
-                                )}
-                                <div className="pt-2">
-                                    <button onClick={() => setViewItem(null)} className="w-full py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-xl transition-colors">Close</button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                )}
+                <ViewItemModal viewItem={viewItem} setViewItem={setViewItem} handleDownload={handleDownload} />
             </div>
 
-            {showSendModal && (
-                <div className={MODAL_OVERLAY}>
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-fadeIn flex flex-col max-h-[90vh]">
-                        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between flex-shrink-0">
-                            <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center"><FaPaperPlane className="text-primary" size={16} /></div>
-                                <h3 className="text-lg font-semibold text-gray-900">Send Notice</h3>
-                            </div>
-                            <button onClick={() => setShowSendModal(false)} className="p-2 hover:bg-gray-100 rounded-lg transition-colors"><FaTimes className="text-gray-400" size={16} /></button>
-                        </div>
-                        <div className="p-6 space-y-4 overflow-y-auto custom-scrollbar">
-                            <p className="text-sm text-gray-500 mb-4">Choose who should receive this notice:</p>
-                            {isAdmin && (
-                                <div className="space-y-3">
-                                    {renderRadioOption('school', 'Entire School', 'All teachers and students', null)}
-                                    {renderRadioOption('classes', 'Specific Classes', 'Select one or more classes',
-                                        renderSearchableList(classes, selectedClasses, setSelectedClasses, cls => cls.label, 'Search classes...', null)
-                                    )}
-                                    {renderRadioOption('users', 'Specific Users', 'Select individual users',
-                                        renderSearchableList(allUsers, selectedUsers, setSelectedUsers,
-                                            u => `${u.name || ''} ${u.role || ''}`, 'Search users...',
-                                            (user) => (<><span className="flex-1 truncate">{user.name}</span><span className={`text-xs px-1.5 py-0.5 rounded flex-shrink-0 ${user.role === 'teacher' ? 'bg-indigo-50 text-indigo-600' : 'bg-green-50 text-green-600'}`}>{user.role}</span></>)
-                                        )
-                                    )}
-                                    {renderGroupsOption()}
-                                </div>
-                            )}
-                            {isTeacher && (
-                                <div className="space-y-3">
-                                    {renderRadioOption('allStudents', 'All Students', 'Your assigned class students', null)}
-                                    {renderRadioOption('students', 'Specific Students', 'Select individual students',
-                                        renderSearchableList(students, selectedStudents, setSelectedStudents, s => s.name, 'Search students...', null)
-                                    )}
-                                    {renderGroupsOption()}
-                                </div>
-                            )}
-                        </div>
-                        <div className="px-6 py-4 border-t border-gray-100 flex gap-3">
-                            <button
-                                onClick={() => setShowSendModal(false)}
-                                disabled={isSending}
-                                className="flex-1 px-4 py-2.5 border border-gray-200 text-gray-700 font-medium rounded-xl hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                onClick={handleFinalSend}
-                                disabled={isSending}
-                                className="flex-1 px-4 py-2.5 bg-primary hover:bg-primary-hover text-white font-medium rounded-xl transition-colors flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
-                            >
-                                {isSending ? (
-                                    <>
-                                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                                        Sending...
-                                    </>
-                                ) : (
-                                    <>
-                                        <FaPaperPlane size={12} />
-                                        Send Now
-                                    </>
-                                )}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
+            <SendModal
+                showSendModal={showSendModal} setShowSendModal={setShowSendModal}
+                isAdmin={isAdmin} isTeacher={isTeacher}
+                sendOption={sendOption} setSendOption={setSendOption}
+                searchTerm={searchTerm} setSearchTerm={setSearchTerm}
+                userRoleFilter={userRoleFilter} setUserRoleFilter={setUserRoleFilter}
+                classes={classes} selectedClasses={selectedClasses} setSelectedClasses={setSelectedClasses}
+                allUsers={allUsers} selectedUsers={selectedUsers} setSelectedUsers={setSelectedUsers}
+                students={students} selectedStudents={selectedStudents} setSelectedStudents={setSelectedStudents}
+                groups={groups} selectedGroups={selectedGroups} setSelectedGroups={setSelectedGroups}
+                toggleSelection={toggleSelection}
+                isSending={isSending} handleFinalSend={handleFinalSend}
+            />
         </DashboardLayout>
     );
 };

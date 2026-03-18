@@ -5,8 +5,9 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api/
 
 const api = axios.create({
     baseURL: API_BASE_URL,
-    withCredentials: true, // Send cookies (refresh token) with every request
-    timeout: 10000,
+    withCredentials: true,
+    timeout: 30000,
+    validateStatus: (status) => status < 500,
 });
 
 // Request interceptor: attach access token 
@@ -25,8 +26,6 @@ api.interceptors.request.use(
 let isRefreshing = false;
 let failedQueue = [];
 
-// Queue failed requests while a refresh is in progress.
-// Once the refresh completes, replay them with the new token.
 const processQueue = (error, token = null) => {
     failedQueue.forEach(({ resolve, reject }) => {
         if (error) {
@@ -39,71 +38,83 @@ const processQueue = (error, token = null) => {
 };
 
 api.interceptors.response.use(
-    (response) => response,
-    async (error) => {
-        const originalRequest = error.config;
+    async (response) => {
+        const originalRequest = response.config;
 
-        // Only attempt refresh on 401, and not if the failing request is itself the refresh call
-        if (
-            error.response?.status === 401 &&
-            !originalRequest._retry &&
-            !originalRequest.url?.includes('/auth/refresh')
-        ) {
-            console.log('[Auth] Access token expired, attempting refresh...');
-
-            // If a refresh is already in flight, queue this request
-            if (isRefreshing) {
-                console.log('[Auth] Refresh already in progress, queuing request:', originalRequest.url);
-                return new Promise((resolve, reject) => {
-                    failedQueue.push({ resolve, reject });
-                })
-                    .then((token) => {
-                        originalRequest.headers.Authorization = `Bearer ${token}`;
-                        return api(originalRequest);
-                    })
-                    .catch((err) => Promise.reject(err));
+        // Handle 401 Unauthorized
+        if (response.status === 401) {
+            // 1. If it's the login request, just return and let the component handle it
+            if (originalRequest.url?.includes('/auth/login')) {
+                console.log('Invalid credentials');
+                return response;
             }
 
-            originalRequest._retry = true;
-            isRefreshing = true;
-
-            try {
-                // Call refresh endpoint — HttpOnly cookie is sent automatically by the browser
-                // We use a clean axios post to avoid interceptor side effects if any
-                const { data } = await api.post('/auth/refresh', {}, { _retry: true });
-
-                const newToken = data.token;
-                if (!newToken) {
-                    throw new Error('No access token returned from refresh');
-                }
-
-                console.log('[Auth] Refresh successful, replaying queued requests');
-                localStorage.setItem('token', newToken);
-
-                // Update the failed request and replay the queue
-                originalRequest.headers.Authorization = `Bearer ${newToken}`;
-                processQueue(null, newToken);
-
-                return api(originalRequest);
-            } catch (refreshError) {
-                console.error('[Auth] Refresh failed:', refreshError.response?.data?.message || refreshError.message);
-                
-                // Refresh failed — session is truly expired
-                processQueue(refreshError, null);
+            // 2. If it's a refresh request that failed, we're done
+            if (originalRequest.url?.includes('/auth/refresh')) {
                 localStorage.removeItem('token');
-
-                // Redirect to login if not already there
                 if (window.location.pathname !== '/login') {
-                    console.warn('[Auth] Redirecting to login...');
                     window.location.href = '/login?expired=true';
                 }
+                return response;
+            }
 
-                return Promise.reject(refreshError);
-            } finally {
-                isRefreshing = false;
+            // 3. Otherwise, if not already retrying, attempt silent refresh
+            if (!originalRequest._retry) {
+                if (isRefreshing) {
+                    return new Promise((resolve, reject) => {
+                        failedQueue.push({ resolve, reject });
+                    })
+                        .then((token) => {
+                            originalRequest.headers.Authorization = `Bearer ${token}`;
+                            return api(originalRequest);
+                        })
+                        .catch((err) => Promise.reject(err));
+                }
+
+                originalRequest._retry = true;
+                isRefreshing = true;
+
+                try {
+                    const refreshRes = await api.post('/auth/refresh', {}, { _retry: true });
+
+                    if (refreshRes.status === 401) {
+                        throw new Error('Refresh failed');
+                    }
+
+                    const newToken = refreshRes.data.token;
+                    localStorage.setItem('token', newToken);
+                    originalRequest.headers.Authorization = `Bearer ${newToken}`;
+                    processQueue(null, newToken);
+                    return api(originalRequest);
+                } catch (refreshError) {
+                    processQueue(refreshError, null);
+                    localStorage.removeItem('token');
+                    if (window.location.pathname !== '/login') {
+                        window.location.href = '/login?expired=true';
+                    }
+                    return response; // Return the original 401
+                } finally {
+                    isRefreshing = false;
+                }
             }
         }
 
+        // Handle 403 Forbidden
+        if (response.status === 403) {
+            // For 403, we don't logout, but return it for the component to handle
+            return response;
+        }
+
+        return response;
+    },
+    async (error) => {
+        // 5xx and Network Errors still go here
+        if (!error.response) {
+            return Promise.reject({
+                ...error,
+                message: 'Server unreachable. Please check your connection or try again later.'
+            });
+        }
         return Promise.reject(error);
     }
 );

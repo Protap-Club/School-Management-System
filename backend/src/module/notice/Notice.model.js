@@ -57,6 +57,47 @@ const noticeSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    requiresAcknowledgment: {
+      type: Boolean,
+      default: false,
+    },
+    acknowledgments: [
+      {
+        userId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "User",
+          required: true,
+        },
+        role: {
+          type: String,
+          required: true,
+        },
+        timestamp: {
+          type: Date,
+          default: Date.now,
+        },
+        responseMessage: {
+          type: String,
+          trim: true,
+          default: '',
+          maxlength: 500,
+        },
+        attachments: {
+          type: [
+            {
+              filename: { type: String },
+              originalName: { type: String },
+              path: { type: String },
+              size: { type: Number },
+              mimetype: { type: String },
+              secure_url: { type: String },
+              public_id: { type: String },
+            },
+          ],
+          default: [],
+        },
+      },
+    ],
   },
   { timestamps: true }
 );

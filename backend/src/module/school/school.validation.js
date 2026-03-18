@@ -61,6 +61,8 @@ export const updateFeaturesSchema = z.object({
             transport: z.boolean().optional(),
             notice: z.boolean().optional(),
             calendar: z.boolean().optional(),
+            examination: z.boolean().optional(),
+            assignment: z.boolean().optional(),
         }),
     }),
 });
