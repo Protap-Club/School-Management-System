@@ -63,7 +63,8 @@ const INITIAL_FORM = {
     department: '', standard: '', section: '', rollNumber: '',
     contactNo: '', schoolId: '',
     fatherName: '', fatherContact: '', motherName: '', motherContact: '',
-    guardianName: '', guardianContact: '', address: ''
+    guardianName: '', guardianContact: '', address: '',
+    expectedSalary: ''
 };
 
 const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
@@ -131,6 +132,8 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
             } else if (roleToAdd === 'teacher') {
                 if (formData.standard) payload.standard = formData.standard;
                 if (formData.section) payload.section = formData.section;
+                if (formData.expectedSalary) payload.expectedSalary = Number(formData.expectedSalary);
+                // Note: assignedClasses will be constructed on backend from standard/section if provided
             } else if (roleToAdd === 'student') {
                 const studentFields = [
                     'rollNumber', 'standard', 'section',
@@ -246,6 +249,11 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
                                         options={sections}
                                         loading={classesLoading}
                                     />
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <InputField label="Expected / Desired Salary" name="expectedSalary" type="number"
+                                        value={formData.expectedSalary} onChange={handleChange}
+                                        placeholder="e.g. 45000" min="0" />
                                 </div>
                             </div>
                         )}

@@ -26,6 +26,13 @@ const saveOverride = (user) => {
     localStorage.setItem(OVERRIDES_KEY, JSON.stringify(overrides));
 };
 
+export const removeOverride = (userId) => {
+    if (!userId) return;
+    const overrides = getOverrides();
+    delete overrides[String(userId)];
+    localStorage.setItem(OVERRIDES_KEY, JSON.stringify(overrides));
+};
+
 const mergeOverrides = (users) => {
     const overrides = getOverrides();
     return users.map(u => {

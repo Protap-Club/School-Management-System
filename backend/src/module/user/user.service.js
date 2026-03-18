@@ -239,19 +239,16 @@ export const getMyProfile = async (userId) => {
         throw new NotFoundError("User not found");
     }
 
-    // 3. CHECK ACCOUNT STATUS
-    // Optional: Block archived users from accessing their profile
-    if (user.isArchived) {
-        throw new ForbiddenError("Your account has been archived. Please contact support.");
-    }
-
-    // Optional: Block inactive users
-    if (!user.isActive) {
-        throw new ForbiddenError("Your account is inactive. Please contact support.");
-    }
-
-    // 4. RETURN COMPLETE PROFILE DATA
-    return formatUserResponse(user);
+    return {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        contactNo: user.contactNo,
+        schoolId: user.schoolId,
+        isActive: user.isActive,
+        profile: user.studentProfile || user.teacherProfile || user.adminProfile || null
+    };
 };
 
 // TOGGLE ARCHIVE STATUS (soft delete / restore)
@@ -402,6 +399,29 @@ export const hardDeleteUsers = async (creator, userIds) => {
         requestedCount: ids.length,
         notFoundCount: ids.length - usersToDelete.length
     };
+};
+
+// UPDATE TEACHER PROFILE (e.g. expectedSalary)
+export const updateTeacherProfile = async (creator, userId, data) => {
+    // Only admins can update profiles in this way
+    if (![USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN].includes(creator.role)) {
+        throw new ForbiddenError("Only admins can update teacher profiles");
+    }
+
+    const user = await User.findOne({ _id: userId, schoolId: creator.schoolId });
+    if (!user) throw new NotFoundError("User not found");
+    if (user.role !== USER_ROLES.TEACHER) throw new BadRequestError("User is not a teacher");
+
+    const updatedProfile = await TeacherProfile.findOneAndUpdate(
+        { userId, schoolId: creator.schoolId },
+        { $set: data },
+        { new: true, runValidators: true, upsert: true }
+    );
+
+    if (!updatedProfile) throw new NotFoundError("Teacher profile not found");
+
+    logger.info(`Teacher profile updated for user ${userId} by ${creator._id}`);
+    return updatedProfile;
 };
 
 // UPDATE AVATAR

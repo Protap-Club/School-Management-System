@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-const objectIdSchema = z.string().regex(/^[0-9a-fA-F]{24}$/, "Invalid ObjectId");
+const objectIdSchema = z.string();
 
 // ═══════════════════════════════════════════════════════════════
 // Fee Structure Schemas
@@ -11,9 +11,7 @@ export const createFeeStructureSchema = z.object({
         academicYear: z.number({ required_error: "Academic year is required" }).int().min(2000).max(2100),
         standard: z.string({ required_error: "Standard is required" }).nonempty(),
         section: z.string({ required_error: "Section is required" }).nonempty(),
-        feeType: z.enum(["TUITION", "EXAM", "LAB", "LIBRARY", "TRANSPORT", "SPORTS", "OTHER"], {
-            required_error: "Fee type is required",
-        }),
+        feeType: z.string({ required_error: "Fee type is required" }).nonempty(),
         name: z.string({ required_error: "Fee name is required" }).nonempty().max(100),
         amount: z.number({ required_error: "Amount is required" }).min(0),
         frequency: z.enum(["MONTHLY", "QUARTERLY", "YEARLY", "ONE_TIME"], {
@@ -49,7 +47,7 @@ export const getFeeStructuresQuerySchema = z.object({
         academicYear: z.union([z.string(), z.number()]).optional().transform((val) => (val ? Number(val) : undefined)),
         standard: z.string().optional(),
         section: z.string().optional(),
-        feeType: z.enum(["TUITION", "EXAM", "LAB", "LIBRARY", "TRANSPORT", "SPORTS", "OTHER"]).optional(),
+        feeType: z.string().optional(),
         isActive: z.string().optional(),
     }).optional(),
 });
@@ -152,4 +150,25 @@ export const myFeesSchema = z.object({
         month: z.union([z.string(), z.number()]).optional().transform((val) => (val ? Number(val) : undefined)),
         detailed: z.string().optional(),
     }).optional(),
+});
+
+// ═══════════════════════════════════════════════════════════════
+// Fee Type Schemas
+// ═══════════════════════════════════════════════════════════════
+
+export const createFeeTypeSchema = z.object({
+    body: z.object({
+        name: z.string({ required_error: "Name is required" }).nonempty().uppercase(),
+        label: z.string({ required_error: "Label is required" }).nonempty(),
+    }),
+});
+
+export const updateFeeTypeSchema = z.object({
+    params: z.object({
+        id: objectIdSchema,
+    }),
+    body: z.object({
+        label: z.string().nonempty().optional(),
+        isActive: z.boolean().optional(),
+    }),
 });

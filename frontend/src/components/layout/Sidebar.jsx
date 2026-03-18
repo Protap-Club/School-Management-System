@@ -10,6 +10,7 @@ import {
     FaBullhorn,
     FaCalendarAlt,
     FaCalendarDay,
+    FaMoneyCheckAlt,
     FaMoneyBillWave,
     FaGraduationCap,
     FaBook,
@@ -100,7 +101,7 @@ const Sidebar = () => {
 
                 // 7. Fees
                 if (hasFeature('fees')) {
-                    adminLinks.push({ path: '/admin/fees', label: 'Fees', icon: <FaMoneyBillWave /> });
+                    adminLinks.push({ path: '/admin/fees', label: 'Payment', icon: <FaMoneyCheckAlt />, feature: 'fees' });
                 }
 
                 // 8. Examination
@@ -147,7 +148,7 @@ const Sidebar = () => {
 
                 // 7. Fees
                 if (hasFeature('fees')) {
-                    teacherLinks.push({ path: '/teacher/fees', label: 'Fees', icon: <FaMoneyBillWave /> });
+                    teacherLinks.push({ path: '/teacher/fees', label: 'Payment', icon: <FaMoneyCheckAlt />, feature: 'fees' });
                 }
 
                 // 8. Examination

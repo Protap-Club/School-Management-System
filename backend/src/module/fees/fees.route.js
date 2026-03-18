@@ -11,9 +11,16 @@ import {
     getAllClassesFeeOverview,
     getYearlyFeeSummary,
     getStudentFeeHistory,
-    getMyClassFees,
     getMyFees,
+    getFeeTypes,
+    createFeeType,
 } from "./fees.controller.js";
+import {
+    createSalaryEntry,
+    getSalaryEntries,
+    getTeacherSalary,
+    updateSalaryStatus,
+} from "./salary.controller.js";
 import { checkRole } from "../../middlewares/role.middleware.js";
 import { USER_ROLES } from "../../constants/userRoles.js";
 import extractSchoolId from "../../middlewares/school.middleware.js";
@@ -34,7 +41,14 @@ import {
     studentFeeHistorySchema,
     myClassFeesSchema,
     myFeesSchema,
+    createFeeTypeSchema,
 } from "./fees.validation.js";
+import {
+    createSalarySchema,
+    getSalaryEntriesSchema,
+    getTeacherSalarySchema,
+    updateSalaryStatusSchema,
+} from "./salary.validation.js";
 
 const router = express.Router();
 console.error("[CRITICAL_DEBUG] fees.route.js evaluation");
@@ -51,15 +65,7 @@ router.get(
     getMyFees
 );
 
-// ── Teacher Routes (read-only, mobile + web) ─────────────────
-router.get(
-    "/my-classes",
-    checkRole([USER_ROLES.TEACHER]),
-    validate(myClassFeesSchema),
-    getMyClassFees
-);
-
-// ── Shared: Student Fee History (Admin + Teacher, mobile + web)
+// ── Shared: Student Fee History (Admin Only, mobile + web)
 router.get(
     "/student/:studentId/history",
     checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN, USER_ROLES.TEACHER]),
@@ -148,6 +154,54 @@ router.get(
     checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN]),
     validate(yearlySummarySchema),
     getYearlyFeeSummary
+);
+
+// ── Salary Routes ────────────────────────────────────────────
+router.post(
+    "/salaries",
+    checkWebOnly,
+    checkRole([USER_ROLES.ADMIN]),
+    validate(createSalarySchema),
+    createSalaryEntry
+);
+
+router.get(
+    "/salaries",
+    checkWebOnly,
+    checkRole([USER_ROLES.ADMIN]),
+    validate(getSalaryEntriesSchema),
+    getSalaryEntries
+);
+
+router.get(
+    "/salaries/my",
+    checkRole([USER_ROLES.TEACHER]),
+    validate(getTeacherSalarySchema),
+    getTeacherSalary
+);
+
+router.patch(
+    "/salaries/:id",
+    checkWebOnly,
+    checkRole([USER_ROLES.ADMIN]),
+    validate(updateSalaryStatusSchema),
+    updateSalaryStatus
+);
+
+
+// ── Admin: Fee Type Management ────────────────────────────────
+router.get(
+    "/types",
+    checkRole([USER_ROLES.ADMIN]),
+    getFeeTypes
+);
+
+router.post(
+    "/types",
+    checkWebOnly,
+    checkRole([USER_ROLES.ADMIN]),
+    validate(createFeeTypeSchema),
+    createFeeType
 );
 
 export default router;

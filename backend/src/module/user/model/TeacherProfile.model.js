@@ -52,6 +52,13 @@ const teacherProfileSchema = new mongoose.Schema(
         ],
       },
     ],
+
+    // Salary
+    expectedSalary: {
+      type: Number,
+      min: 0,
+      default: 15000,
+    },
   },
   {
     timestamps: true,
