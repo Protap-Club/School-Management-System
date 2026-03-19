@@ -42,7 +42,7 @@ export const UserFilters = ({
                     placeholder="Search by name or email..."
                     value={searchQuery}
                     onChange={(e) => onSearchChange(e.target.value)}
-                    className="w-full h-10 pl-10 pr-4 text-sm text-gray-700 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+                    className="w-full h-10 pl-10 pr-4 text-sm text-gray-700 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
                 />
             </div>
 
@@ -61,7 +61,7 @@ export const UserFilters = ({
 
                 {!showArchived && (
                     <div className="relative group">
-                        <button className="flex items-center justify-center gap-2 bg-gray-900 text-white px-5 h-10 rounded-lg hover:bg-gray-800 transition-all text-sm font-medium whitespace-nowrap shadow-sm hover:shadow-md">
+                        <button className="btn-primary px-5 rounded-lg shadow-sm hover:shadow-md">
                             <FaUserPlus size={14} /><span className="hidden sm:inline">Add User</span><span className="sm:hidden">Add</span>
                         </button>
                         <div className="absolute right-0 top-full mt-1.5 w-48 bg-white rounded-xl shadow-xl border border-gray-100 opacity-0 invisible group-hover:opacity-100 group-hover:visible transform translate-y-1 group-hover:translate-y-0 transition-all duration-200 z-20 py-1.5 overflow-hidden">

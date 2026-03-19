@@ -995,7 +995,7 @@ const Fees = () => {
                                             setMgmtView('staff');
                                             setStaffSubTab('dashboard');
                                         }}
-                                        className="w-full mt-2 py-4 bg-violet-50 hover:bg-violet-600 hover:text-white text-violet-700 font-black rounded-2xl text-[10px] uppercase tracking-widest transition-all border border-violet-100 flex items-center justify-center gap-2 shadow-sm"
+                                        className="w-full mt-2 py-4 bg-primary/10 hover:bg-primary hover:text-white text-primary font-black rounded-2xl text-[10px] uppercase tracking-widest transition-all border border-primary/20 flex items-center justify-center gap-2 shadow-sm"
                                     >
                                         Manage Salary History <FaArrowRight size={10} />
                                     </button>
@@ -1021,9 +1021,14 @@ const Fees = () => {
 
             <div className="space-y-6">
                 {/* Header */}
-                <div>
-                    <h1 className="text-3xl font-bold text-gray-900">Fee Hub</h1>
-                    <p className="text-gray-500 mt-1">Configure structures, track collections, and manage staff payouts</p>
+                <div className="flex items-center gap-6 mb-8">
+                    <div className="w-16 h-16 bg-white rounded-2xl shadow-lg flex items-center justify-center text-primary transform hover:rotate-6 transition-transform">
+                        <FaMoneyBillWave size={32} />
+                    </div>
+                    <div className="space-y-1">
+                        <h1 className="page-title">Fee Hub</h1>
+                        <p className="page-subtitle">Configure structures, track collections, and manage staff payouts</p>
+                    </div>
                 </div>
 
                 {/* Tabs */}
@@ -1223,7 +1228,7 @@ const Fees = () => {
                             </div>
                             {staffSubTab === 'dashboard' && !selectedStaff && (
                                 <button onClick={() => setMgmtView('salary_form')}
-                                    className="flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white font-bold py-2.5 px-6 rounded-xl transition-all shadow-lg shadow-violet-200 text-sm">
+                                    className="flex items-center gap-2 bg-primary hover:bg-primary-hover text-white font-bold py-2.5 px-6 rounded-xl transition-all shadow-lg shadow-primary/20 text-sm">
                                     <FaPlus size={12} /> Add Salary Entry
                                 </button>
                             )}
@@ -1421,7 +1426,7 @@ const Fees = () => {
                                                                     </td>
                                                                     <td className="px-6 py-6">
                                                                         <button onClick={() => setSelectedStaff(staff)}
-                                                                            className="px-6 py-2 bg-white text-violet-600 border-2 border-violet-100 hover:bg-violet-600 hover:text-white hover:border-violet-600 rounded-xl text-[10px] font-black transition-all shadow-sm uppercase tracking-widest">View Ledger</button>
+                                                                            className="px-6 py-2 bg-white text-primary border-2 border-primary/20 hover:bg-primary hover:text-white hover:border-primary rounded-xl text-[10px] font-black transition-all shadow-sm uppercase tracking-widest">View Ledger</button>
                                                                     </td>
                                                                 </tr>
                                                             );
@@ -1453,7 +1458,7 @@ const Fees = () => {
                                                                         <button
                                                                             key={i}
                                                                             onClick={() => setStaffDashboardPage(i + 1)}
-                                                                            className={`w-8 h-8 rounded-lg text-sm font-medium transition-colors ${staffDashboardPage === i + 1 ? 'bg-violet-600 text-white' : 'text-gray-600 hover:bg-white border border-transparent hover:border-gray-200'}`}
+                                                                            className={`w-8 h-8 rounded-lg text-sm font-medium transition-colors ${staffDashboardPage === i + 1 ? 'bg-primary text-white' : 'text-gray-600 hover:bg-white border border-transparent hover:border-gray-200'}`}
                                                                         >
                                                                             {i + 1}
                                                                         </button>
@@ -1788,7 +1793,7 @@ const Fees = () => {
                                     <button type="button" onClick={() => setBaseSalaryModal({ open: false, staff: null, amount: '' })}
                                         className="flex-1 px-6 py-4 border-2 border-gray-100 text-gray-600 font-black rounded-2xl hover:bg-gray-50 transition-all uppercase tracking-widest text-xs">Cancel</button>
                                     <button type="submit" disabled={updateTeacherProfileMut.isPending}
-                                        className="flex-1 px-6 py-4 bg-violet-600 text-white font-black rounded-2xl hover:bg-violet-700 shadow-xl shadow-violet-200 transition-all uppercase tracking-widest text-xs disabled:opacity-50">
+                                        className="flex-1 px-6 py-4 bg-primary text-white font-black rounded-2xl hover:bg-primary-hover shadow-xl shadow-primary/20 transition-all uppercase tracking-widest text-xs disabled:opacity-50">
                                         {updateTeacherProfileMut.isPending ? 'Updating...' : 'Save Change'}
                                     </button>
                                 </div>

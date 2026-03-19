@@ -3,7 +3,7 @@ import DashboardLayout from '../layouts/DashboardLayout';
 import { useAuth } from '../features/auth';
 import { useTheme, useFeatures } from '../state';
 import api from '../api/axios';
-import { FaPalette, FaImage, FaCheck, FaUpload, FaToggleOn, FaBuilding, FaGraduationCap, FaPlus, FaTrash } from 'react-icons/fa';
+import { FaPalette, FaImage, FaCheck, FaUpload, FaToggleOn, FaBuilding, FaGraduationCap, FaPlus, FaTrash, FaCog } from 'react-icons/fa';
 
 const THEME_COLORS = [
     { name: 'Royal Blue', value: '#2563eb', textColor: '#ffffff' },
@@ -27,6 +27,7 @@ const FEATURE_META = {
     calendar: { label: 'Calendar', description: 'Academic calendar and holidays', color: 'from-pink-100 to-rose-100', iconColor: 'text-rose-500' },
     examination: { label: 'Examination', description: 'Manage term exams and class tests', color: 'from-purple-100 to-indigo-100', iconColor: 'text-purple-500' },
     assignment: { label: 'Assignment', description: 'Student assignments and submissions', color: 'from-blue-100 to-indigo-100', iconColor: 'text-blue-600' },
+    result: { label: 'Result', description: 'Manage and publish student exam results', color: 'from-emerald-100 to-teal-100', iconColor: 'text-emerald-600' },
 };
 
 const Settings = () => {
@@ -245,9 +246,14 @@ const Settings = () => {
                 </div>
             )}
             <div className="space-y-8">
-                <div>
-                    <h1 className="text-3xl font-bold text-gray-900">Settings</h1>
-                    <p className="text-gray-500 mt-1">{isSuperAdmin ? 'Manage portal appearance and school features' : 'Customize your portal appearance and branding'}</p>
+                <div className="flex items-center gap-6 mb-8">
+                    <div className="w-16 h-16 bg-white rounded-2xl shadow-lg flex items-center justify-center text-primary transform hover:rotate-6 transition-transform">
+                        <FaCog size={32} />
+                    </div>
+                    <div className="space-y-1">
+                        <h1 className="page-title">Settings</h1>
+                        <p className="page-subtitle">{isSuperAdmin ? 'Manage portal appearance and school features' : 'Customize your portal appearance and branding'}</p>
+                    </div>
                 </div>
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                     <div className="space-y-6">

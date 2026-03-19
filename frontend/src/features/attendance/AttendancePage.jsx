@@ -269,14 +269,14 @@ const AttendancePage = () => {
                         <div className="flex items-center gap-3">
                             <button
                                 onClick={() => navigate(`/${currentUser?.role === 'super_admin' ? 'superadmin' : 'admin'}/attendance`)}
-                                className="text-4xl font-black tracking-tight text-slate-900 hover:text-primary transition-colors text-left"
+                                className="page-title hover:text-primary transition-colors text-left"
                             >
                                 Attendance
                             </button>
                             {classId && (
                                 <>
-                                    <span className="text-3xl font-light text-slate-300">/</span>
-                                    <span className="text-3xl font-bold bg-primary/10 text-primary px-4 py-1 rounded-2xl">Class {decodeURIComponent(classId)}</span>
+                                    <span className="text-2xl font-light text-slate-300">/</span>
+                                    <span className="text-xl font-semibold bg-primary/10 text-primary px-4 py-1 rounded-2xl">Class {decodeURIComponent(classId)}</span>
                                 </>
                             )}
                             <Badge variant={socketConnected ? "default" : "secondary"} className={`rounded-full px-3 py-1 animate-in fade-in ${socketConnected ? 'bg-emerald-500 hover:bg-emerald-600' : ''}`}>

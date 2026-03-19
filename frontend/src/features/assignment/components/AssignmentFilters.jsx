@@ -23,7 +23,7 @@ const FilterSelect = ({
             onValueChange={(val) => onChange({ target: { value: val } })}
             disabled={disabled}
         >
-            <SelectTrigger className="h-13 w-full rounded-xl border-slate-200 bg-white px-4 shadow-sm transition-all hover:border-indigo-300 focus:ring-4 focus:ring-indigo-50/50 focus:border-indigo-600 text-sm font-semibold text-slate-700">
+            <SelectTrigger className="w-full rounded-xl border-slate-200 bg-white px-4 shadow-sm transition-all hover:border-primary/30 focus:ring-4 focus:ring-primary/10 focus:border-primary text-sm font-medium text-slate-700">
                 <div className="flex items-center gap-2.5">
                     {icon && <span className="text-slate-400">{icon}</span>}
                     <SelectValue placeholder={placeholder} />
@@ -31,7 +31,7 @@ const FilterSelect = ({
             </SelectTrigger>
             <SelectContent className="rounded-xl border-slate-100 shadow-xl z-[150] overflow-hidden">
                 {options.map((option) => (
-                    <SelectItem key={option.value} value={option.value.toString()} className="text-sm py-2.5 px-4 cursor-pointer focus:bg-indigo-50 focus:text-indigo-700 rounded-lg mx-1 my-0.5 transition-colors">
+                    <SelectItem key={option.value} value={option.value.toString()} className="text-sm py-2.5 px-4 cursor-pointer focus:bg-primary/10 focus:text-primary rounded-lg mx-1 my-0.5 transition-colors">
                         {option.label}
                     </SelectItem>
                 ))}
@@ -109,7 +109,7 @@ export const AssignmentFilters = ({
                     placeholder={searchPlaceholder}
                     value={searchQuery}
                     onChange={(e) => onSearchChange(e.target.value)}
-                    className="h-13 w-full rounded-xl border border-slate-200 bg-white pl-11 pr-4 text-sm text-slate-700 shadow-sm transition-all placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-4 focus:ring-indigo-50/50 sm:text-base font-medium"
+                    className="search-input rounded-xl border-slate-200 bg-white shadow-sm transition-all focus:border-primary focus:ring-primary/10 font-medium"
                 />
             </div>
 
@@ -118,7 +118,7 @@ export const AssignmentFilters = ({
                 {canCreate && (
                     <button
                         onClick={onAddAssignment}
-                        className="flex items-center justify-center gap-2 bg-indigo-600 text-white px-5 h-10 rounded-lg hover:bg-indigo-700 transition-all text-sm font-medium whitespace-nowrap shadow-sm hover:shadow-md"
+                        className="btn-primary px-5 rounded-lg shadow-sm hover:shadow-md whitespace-nowrap"
                     >
                         <FaPlus size={14} />
                         <span>Add Assignment</span>

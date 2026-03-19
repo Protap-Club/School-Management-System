@@ -4,7 +4,7 @@ import { AssignmentFilters } from './components/AssignmentFilters';
 import { AssignmentTable } from './components/AssignmentTable';
 import { AssignmentSubmissionTable } from './components/AssignmentSubmissionTable';
 import { AssignmentModal } from './components/AssignmentModal';
-import { FaBook, FaPlus } from 'react-icons/fa';
+import { FaBook, FaPlus, FaEye, FaCalendarAlt, FaClock, FaCheckCircle, FaInfoCircle, FaPaperclip, FaDownload, FaEdit } from 'react-icons/fa';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import { useAuth } from '../auth';
 import useDebounce from '../../hooks/useDebounce';
@@ -33,6 +33,7 @@ export const AssignmentPage = () => {
     // Modals
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingAssignment, setEditingAssignment] = useState(null);
+    const [selectedAssignment, setSelectedAssignment] = useState(null);
 
     const assignmentQueryParams = {
         standard: standardFilter === 'all' ? undefined : standardFilter,
@@ -97,6 +98,32 @@ export const AssignmentPage = () => {
         }
     };
 
+    const handleViewClick = (item) => {
+        const assignment = item.assignment || item;
+        setSelectedAssignment(assignment);
+    };
+
+    const handleDownload = async (url, filename) => {
+        if (!url) return;
+        try {
+            const response = await fetch(url);
+            if (!response.ok) throw new Error(`Failed to fetch file: ${response.status}`);
+            const blob = await response.blob();
+            const blobUrl = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = blobUrl;
+            a.download = filename || 'download';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(blobUrl);
+        } catch (err) {
+            console.error('Download failed:', err);
+            // Fallback to direct link if fetch fails (e.g. CORS)
+            window.open(url, '_blank');
+        }
+    };
+
     const handleSearchChange = (value) => {
         setSearchQuery(value);
         setPage(0);
@@ -105,23 +132,21 @@ export const AssignmentPage = () => {
     return (
         <DashboardLayout>
             <div className="max-w-7xl mx-auto space-y-6 px-4 sm:px-6 lg:px-8 py-8">
-
-                {/* Header */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
-                    <div className="space-y-1">
-                        <div className="flex items-center gap-3">
-                            <div className="p-2.5 bg-indigo-600 text-white rounded-xl shadow-lg shadow-indigo-100">
-                                <FaBook size={20} />
-                            </div>
-                            <h1 className="text-2xl font-bold tracking-tight text-gray-900">Assignments</h1>
+                {/* Header Section */}
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
+                    <div className="flex items-center gap-6">
+                        <div className="w-16 h-16 bg-white rounded-2xl shadow-lg flex items-center justify-center text-primary transform hover:rotate-6 transition-transform">
+                            <FaBook size={32} />
                         </div>
-                        <p className="text-sm text-gray-500 font-medium ml-12">Manage and track academic work across classes</p>
+                        <div className="space-y-1">
+                            <h1 className="page-title">Assignments</h1>
+                            <p className="page-subtitle">Manage and track academic work across classes</p>
+                        </div>
                     </div>
-
                     {canCreate && (
                         <button
                             onClick={handleAddClick}
-                            className="inline-flex items-center justify-center gap-2 bg-indigo-600 text-white px-6 py-2.5 rounded-xl hover:bg-indigo-700 transition-all text-sm font-semibold shadow-md hover:shadow-lg active:scale-95"
+                            className="btn-primary px-6 rounded-xl shadow-md hover:shadow-lg active:scale-95 flex items-center gap-2"
                         >
                             <FaPlus className="text-xs" />
                             <span>Create Assignment</span>
@@ -178,18 +203,20 @@ export const AssignmentPage = () => {
                             pageSize={pageSize}
                             onPageChange={setPage}
                             onPageSizeChange={(value) => { setPageSize(value); setPage(0); }}
+                            onViewClick={handleViewClick}
                         />
                     ) : (
                         <AssignmentTable
                             assignments={assignments}
                             loading={isLoading}
-                            onViewClick={(a) => handleEditClick(a)}
+                            onViewClick={handleViewClick}
                             onEditClick={canEdit ? handleEditClick : null}
                             onDeleteClick={canDelete ? handleDeleteClick : null}
                             currentPage={page}
                             totalItems={totalItems}
                             pageSize={pageSize}
                             onPageChange={setPage}
+                            onSortClick={() => {}} // Placeholder or implement if needed
                             onPageSizeChange={(value) => { setPageSize(value); setPage(0); }}
                         />
                     )}
@@ -201,6 +228,110 @@ export const AssignmentPage = () => {
                     onClose={() => setIsModalOpen(false)}
                     assignmentToEdit={editingAssignment}
                 />
+
+                {/* Assignment Detail View Modal */}
+                {selectedAssignment && (
+                    <div className="modal-overlay fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[150] p-4 overflow-y-auto animate-in fade-in duration-300">
+                        <div className="bg-white rounded-[32px] w-full max-w-4xl shadow-2xl my-auto relative animate-in zoom-in-95 duration-300">
+                            <div className="max-h-[90vh] overflow-y-auto custom-scrollbar no-scrollbar">
+                                {/* Header */}
+                                <div className="p-8 md:p-10 bg-white border-b border-slate-100 flex items-center justify-between rounded-t-[32px] sticky top-0 z-10">
+                                    <div className="flex items-center gap-5">
+                                        <div className="w-16 h-16 rounded-[22px] flex items-center justify-center border border-slate-100 shadow-sm bg-indigo-50">
+                                            <FaBook className="text-indigo-600" size={28} />
+                                        </div>
+                                        <div>
+                                            <h2 className="text-3xl font-bold text-slate-900 tracking-tight">{selectedAssignment.title}</h2>
+                                            <div className="flex items-center gap-2 mt-1.5 font-medium">
+                                                <span className="px-3 py-1 bg-indigo-50 text-indigo-700 rounded-full text-xs font-bold uppercase tracking-wider border border-indigo-100">
+                                                    Class {selectedAssignment.standard}-{selectedAssignment.section}
+                                                </span>
+                                                <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider border ${
+                                                    selectedAssignment.status === 'active' 
+                                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-100' 
+                                                    : 'bg-slate-100 text-slate-500 border-slate-200'
+                                                }`}>
+                                                    {selectedAssignment.status}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                        <button
+                                            onClick={() => setSelectedAssignment(null)}
+                                            className="w-12 h-12 flex items-center justify-center rounded-2xl bg-slate-50 text-slate-400 hover:bg-rose-50 hover:text-rose-500 transition-all border border-slate-100 shadow-sm"
+                                        >
+                                            <FaPlus className="rotate-45" size={24} />
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div className="p-6 md:p-8">
+                                    {/* Info Cards */}
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                                        <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
+                                            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Target Audience</div>
+                                            <div className="text-slate-900 font-bold">Class {selectedAssignment.standard} • Section {selectedAssignment.section}</div>
+                                        </div>
+                                        <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
+                                            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Academic Details</div>
+                                            <div className="text-slate-900 font-bold">{selectedAssignment.subject} • {selectedAssignment.teacher?.name || 'Staff'}</div>
+                                        </div>
+                                        <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
+                                            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Deadline</div>
+                                            <div className="text-slate-900 font-bold">
+                                                {new Date(selectedAssignment.dueDate).toLocaleDateString()} • {selectedAssignment.requiresSubmission ? 'Submission Required' : 'No Submission'}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Description */}
+                                    <div className="mb-10">
+                                        <h4 className="flex items-center gap-2 text-sm font-bold text-slate-900 mb-3 px-1">
+                                            <FaInfoCircle className="text-indigo-600" size={14} />
+                                            Instructions & Overview
+                                        </h4>
+                                        <div className="p-5 rounded-2xl bg-indigo-50/10 border border-indigo-100 text-slate-700 leading-relaxed italic whitespace-pre-wrap shadow-inner">
+                                            {selectedAssignment.description || "No instructions provided."}
+                                        </div>
+                                    </div>
+
+                                    {/* Attachments */}
+                                    {selectedAssignment.attachments?.length > 0 && (
+                                        <div>
+                                            <h4 className="flex items-center gap-2 text-sm font-bold text-slate-900 mb-4 px-1">
+                                                <FaPaperclip className="text-indigo-600" size={14} />
+                                                Learning Materials
+                                            </h4>
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                                {selectedAssignment.attachments.map((file, idx) => (
+                                                    <div key={idx} className="group relative p-5 bg-white border border-slate-200 rounded-2xl hover:border-indigo-300 hover:shadow-lg transition-all flex items-center justify-between">
+                                                        <div className="flex items-center gap-4">
+                                                            <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-all shadow-sm">
+                                                                <FaBook size={18} />
+                                                            </div>
+                                                            <div className="min-w-0">
+                                                                <div className="text-sm font-bold text-slate-900 truncate max-w-[150px]">{file.originalName || file.name}</div>
+                                                                <div className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">{file.fileType || 'file'}</div>
+                                                            </div>
+                                                        </div>
+                                                        <button 
+                                                            onClick={() => handleDownload(file.url, file.originalName || file.name)}
+                                                            className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all border border-transparent hover:border-indigo-100 shadow-sm hover:shadow"
+                                                            title="Download File"
+                                                        >
+                                                            <FaDownload size={16} />
+                                                        </button>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
             </div>
         </DashboardLayout>

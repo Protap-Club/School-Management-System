@@ -139,8 +139,8 @@ const TimetablePage = () => {
         )}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
           <div>
-            <h1 className="text-xl font-bold text-gray-800 flex items-center gap-2"><FaCalendarAlt className="text-primary" /> Timetable</h1>
-            <p className="text-gray-500 text-sm mt-0.5">{isTeacher ? 'View your schedule and class timetables.' : 'Manage class schedules and periods.'}</p>
+            <h1 className="page-title flex items-center gap-2"><FaCalendarAlt className="text-primary" /> Timetable</h1>
+            <p className="page-subtitle mt-0.5">{isTeacher ? 'View your schedule and class timetables.' : 'Manage class schedules and periods.'}</p>
           </div>
           <div className="flex flex-col md:flex-row gap-4 justify-between items-start md:items-center">
             {isTeacher ? (
@@ -166,7 +166,7 @@ const TimetablePage = () => {
                       {timetables.length === 0 && <option value="">No timetables</option>}
                       {timetables.map(tt => <option key={tt._id} value={tt._id}>{tt.standard}{tt.section} ({tt.academicYear})</option>)}
                     </select>
-                    <button onClick={() => setCreateState(prev => ({ ...prev, open: true }))} className="p-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors" title="Create Timetable">
+                    <button onClick={() => setCreateState(prev => ({ ...prev, open: true }))} className="p-2 bg-primary text-white rounded-lg hover:bg-primary-hover transition-colors" title="Create Timetable">
                       <FaPlus className="text-sm" />
                     </button>
                   </div>
@@ -260,7 +260,7 @@ const TimetablePage = () => {
                   <button type="button" onClick={() => setCreateState(prev => ({ ...prev, open: false }))} disabled={createState.loading}
                     className="flex-1 py-2.5 px-4 rounded-xl border border-gray-200 text-gray-600 font-medium hover:bg-gray-50">Cancel</button>
                   <button type="submit" disabled={createState.loading}
-                    className="flex-1 py-2.5 px-4 rounded-xl bg-primary text-white font-medium hover:bg-primary-dark flex items-center justify-center gap-2">
+                    className="flex-1 py-2.5 px-4 rounded-xl bg-primary text-white font-medium hover:bg-primary-hover flex items-center justify-center gap-2">
                     {createState.loading && <FaSpinner className="animate-spin" />} Create
                   </button>
                 </div>
