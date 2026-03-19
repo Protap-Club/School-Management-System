@@ -132,8 +132,18 @@ export const AssignmentModal = ({ isOpen, onClose, assignmentToEdit = null }) =>
 
     if (!isOpen) return null;
 
+    const todayStr = new Date().toISOString().split('T')[0];
+
     const handleChange = (e) => {
         const { name, value, type, checked } = e.target;
+        // Reject Sundays for dueDate
+        if (name === 'dueDate' && value) {
+            const selectedDay = new Date(value + 'T00:00:00').getDay();
+            if (selectedDay === 0) {
+                alert('Sundays are not allowed. Please select another date.');
+                return;
+            }
+        }
         setFormData(prev => {
             const next = { ...prev, [name]: type === 'checkbox' ? checked : value };
             // Clear downstream selections if standard/section change
@@ -366,7 +376,7 @@ export const AssignmentModal = ({ isOpen, onClose, assignmentToEdit = null }) =>
                                 Deadline & Status
                             </h4>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <InputField label="Due Date" type="date" name="dueDate" value={formData.dueDate} onChange={handleChange} required />
+                                <InputField label="Due Date" type="date" name="dueDate" value={formData.dueDate} onChange={handleChange} required min={todayStr} />
                                 {isEditing && (
                                     <SelectField
                                         label="Status" name="status" value={formData.status}
