@@ -18,7 +18,7 @@ import {
 import { checkRole } from "../../middlewares/role.middleware.js";
 import { requireFeature } from "../../middlewares/feature.middleware.js";
 import { USER_ROLES } from "../../constants/userRoles.js";
-import extractSchoolId from "../../middlewares/school.middleware.js";
+
 import { validate } from "../../middlewares/validation.middleware.js";
 import {
     createNoticeSchema,
@@ -102,7 +102,7 @@ const ackUpload = multer({
 
 const router = express.Router();
 
-router.use(extractSchoolId);
+
 router.use(requireFeature("notice"));
 
 // Groups (before /:id to avoid conflict)

@@ -112,7 +112,6 @@ export const createNotice = async (schoolId, userId, data, file) => {
         const fileUrl = file.path || file.secure_url || file.url;
         const filePublicId = file.filename || file.public_id;
 
-        console.log(`[DEBUG] Notice attachment extracted - URL: ${fileUrl}, PublicID: ${filePublicId}`);
 
         attachment = {
             filename: filePublicId,
@@ -202,6 +201,7 @@ export const getNotices = async (user, platform, filters = {}) => {
     const results = await Notice.find(query)
         .populate("createdBy", "name email role")
         .sort({ createdAt: -1 })
+        .limit(50)
         .lean();
 
     return enrichWithSignedUrls(results);
