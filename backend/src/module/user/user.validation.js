@@ -33,7 +33,7 @@ export const createUserSchema = z.object({
         employeeId: z.string().optional(),
         qualification: z.string().optional(),
         joiningDate: z.string().optional(),
-        expectedSalary: z.coerce.number().min(0).optional(),
+        expectedSalary: z.coerce.number().gt(100, 'Expected salary must be more than 100').optional(),
         assignedClasses: z.array(z.object({
             standard: z.string(),
             section: z.string(),
@@ -116,6 +116,6 @@ export const getProfileSchema = z.object({
 export const updateTeacherProfileSchema = z.object({
     params: userIdParamsSchema.shape.params,
     body: z.object({
-        expectedSalary: z.coerce.number().min(0).optional(),
+        expectedSalary: z.coerce.number().gt(100, 'Expected salary must be more than 100').optional(),
     }).strict()
 });

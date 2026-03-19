@@ -56,7 +56,7 @@ const teacherProfileSchema = new mongoose.Schema(
     // Salary
     expectedSalary: {
       type: Number,
-      min: 0,
+      min: [101, "Expected salary must be more than 100"],
       default: 15000,
     },
   },

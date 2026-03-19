@@ -132,7 +132,15 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
             } else if (roleToAdd === 'teacher') {
                 if (formData.standard) payload.standard = formData.standard;
                 if (formData.section) payload.section = formData.section;
-                if (formData.expectedSalary) payload.expectedSalary = Number(formData.expectedSalary);
+                if (formData.expectedSalary !== '') {
+                    const expectedSalary = Number(formData.expectedSalary);
+                    if (!Number.isFinite(expectedSalary) || expectedSalary <= 100) {
+                        setError('Expected / Desired Salary must be more than 100');
+                        setLoading(false);
+                        return;
+                    }
+                    payload.expectedSalary = expectedSalary;
+                }
                 // Note: assignedClasses will be constructed on backend from standard/section if provided
             } else if (roleToAdd === 'student') {
                 const studentFields = [
