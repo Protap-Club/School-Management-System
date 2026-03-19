@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import { FeeStructure, FeeAssignment, FeePayment } from "./Fee.model.js";
 import { FeeType } from "./FeeType.model.js";
 import StudentProfile from "../user/model/StudentProfile.model.js";
+import TeacherProfile from "../user/model/TeacherProfile.model.js";
 import { USER_ROLES } from "../../constants/userRoles.js";
 import { NotFoundError, ConflictError, BadRequestError, ForbiddenError } from "../../utils/customError.js";
 import logger from "../../config/logger.js";

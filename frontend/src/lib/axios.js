@@ -2,20 +2,29 @@
 import axios from 'axios';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1';
+let accessToken = null;
+
+export const setAccessToken = (token) => {
+    accessToken = token || null;
+};
+
+export const getAccessToken = () => accessToken;
+
+export const clearAccessToken = () => {
+    accessToken = null;
+};
 
 const api = axios.create({
     baseURL: API_BASE_URL,
     withCredentials: true,
     timeout: 30000,
-    validateStatus: (status) => status < 500,
 });
 
-// Request interceptor: attach access token 
+// Request interceptor: attach in-memory access token
 api.interceptors.request.use(
     (config) => {
-        const token = localStorage.getItem('token');
-        if (token) {
-            config.headers.Authorization = `Bearer ${token}`;
+        if (accessToken) {
+            config.headers.Authorization = `Bearer ${accessToken}`;
         }
         return config;
     },
@@ -38,27 +47,23 @@ const processQueue = (error, token = null) => {
 };
 
 api.interceptors.response.use(
-    async (response) => {
-        const originalRequest = response.config;
+    (response) => response,
+    async (error) => {
+        const originalRequest = error.config;
 
-        // Handle 401 Unauthorized
-        if (response.status === 401) {
-            // 1. If it's the login request, just return and let the component handle it
+        if (error.response?.status === 401 && originalRequest) {
             if (originalRequest.url?.includes('/auth/login')) {
-                console.log('Invalid credentials');
-                return response;
+                return Promise.reject(error);
             }
 
-            // 2. If it's a refresh request that failed, we're done
             if (originalRequest.url?.includes('/auth/refresh')) {
-                localStorage.removeItem('token');
+                clearAccessToken();
                 if (window.location.pathname !== '/login') {
                     window.location.href = '/login?expired=true';
                 }
-                return response;
+                return Promise.reject(error);
             }
 
-            // 3. Otherwise, if not already retrying, attempt silent refresh
             if (!originalRequest._retry) {
                 if (isRefreshing) {
                     return new Promise((resolve, reject) => {
@@ -68,7 +73,7 @@ api.interceptors.response.use(
                             originalRequest.headers.Authorization = `Bearer ${token}`;
                             return api(originalRequest);
                         })
-                        .catch((err) => Promise.reject(err));
+                        .catch((queueError) => Promise.reject(queueError));
                 }
 
                 originalRequest._retry = true;
@@ -76,39 +81,24 @@ api.interceptors.response.use(
 
                 try {
                     const refreshRes = await api.post('/auth/refresh', {}, { _retry: true });
-
-                    if (refreshRes.status === 401) {
-                        throw new Error('Refresh failed');
-                    }
-
                     const newToken = refreshRes.data.token;
-                    localStorage.setItem('token', newToken);
+                    setAccessToken(newToken);
                     originalRequest.headers.Authorization = `Bearer ${newToken}`;
                     processQueue(null, newToken);
                     return api(originalRequest);
                 } catch (refreshError) {
                     processQueue(refreshError, null);
-                    localStorage.removeItem('token');
+                    clearAccessToken();
                     if (window.location.pathname !== '/login') {
                         window.location.href = '/login?expired=true';
                     }
-                    return response; // Return the original 401
+                    return Promise.reject(refreshError);
                 } finally {
                     isRefreshing = false;
                 }
             }
         }
 
-        // Handle 403 Forbidden
-        if (response.status === 403) {
-            // For 403, we don't logout, but return it for the component to handle
-            return response;
-        }
-
-        return response;
-    },
-    async (error) => {
-        // 5xx and Network Errors still go here
         if (!error.response) {
             return Promise.reject({
                 ...error,

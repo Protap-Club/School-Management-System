@@ -192,8 +192,8 @@ export const fetchCalendarEvents = async (queryData, user) => {
 };
 
 // Get a single calendar event by ID
-export const getCalendarEventById = async (id) => {
-    const event = await CalendarEvent.findById(id)
+export const getCalendarEventById = async (id, schoolId) => {
+    const event = await CalendarEvent.findOne({ _id: id, schoolId })
         .populate('createdBy', 'name email')
         .lean();
 

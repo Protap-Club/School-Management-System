@@ -84,7 +84,7 @@ export const getEvents = asyncHandler(async (req, res) => {
 export const getEventById = asyncHandler(async (req, res) => {
     const { id } = req.params;
 
-    const result = await getCalendarEventById(id);
+    const result = await getCalendarEventById(id, req.user.schoolId);
 
     // Mobile: return streamlined response
     if (req.platform === "mobile") {

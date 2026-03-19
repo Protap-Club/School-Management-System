@@ -5,9 +5,11 @@ export { useAuth } from './useAuth';
 // Redux Slice & Selectors
 export {
     setUser,
+    setAccessToken,
     clearUser,
     setLoading,
     selectUser,
+    selectAccessToken,
     selectIsAuthenticated,
     selectIsLoading
 } from './authSlice';
