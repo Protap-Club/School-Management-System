@@ -11,7 +11,16 @@ const timeSchema = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Invalid time f
 
 const scheduleItemSchema = z.object({
     subject: z.string({ required_error: "Subject is required" }).nonempty().max(100),
-    examDate: z.string({ required_error: "Exam date is required" }).datetime({ offset: true }).or(z.string().date()),
+    examDate: z.string({ required_error: "Exam date is required" })
+        .datetime({ offset: true })
+        .or(z.string().date())
+        .refine(
+            (val) => {
+                const date = new Date(val.includes('T') ? val : val + 'T00:00:00');
+                return date.getDay() !== 0;
+            },
+            { message: "Sundays are not allowed." }
+        ),
     startTime: timeSchema,
     endTime: timeSchema,
     totalMarks: z.number({ required_error: "Total marks is required" }).int().min(1),
