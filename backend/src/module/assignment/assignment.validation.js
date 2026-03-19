@@ -4,6 +4,12 @@ const objectIdSchema = z.string().regex(/^[0-9a-fA-F]{24}$/, "Invalid ObjectId")
 const dueDateSchema = z.string().refine(
     (value) => /^\d{4}-\d{2}-\d{2}$/.test(value) || !Number.isNaN(Date.parse(value)),
     { message: "dueDate must be a valid date or ISO datetime" }
+).refine(
+    (value) => {
+        const d = new Date(value.includes('T') ? value : value + 'T00:00:00');
+        return d.getDay() !== 0;
+    },
+    { message: "Sundays are not allowed." }
 );
 const booleanishSchema = z.union([z.boolean(), z.enum(["true", "false"])])
     .transform((value) => value === true || value === "true");
