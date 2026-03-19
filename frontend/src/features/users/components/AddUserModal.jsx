@@ -228,6 +228,11 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
                                         loading={classesLoading}
                                     />
                                 </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <InputField label="Expected / Desired Salary" name="expectedSalary" type="text"
+                                        value={formData.expectedSalary} onChange={handleChange}
+                                        placeholder="e.g. 45000" isNumeric />
+                                </div>
                             </div>
                         )}
 
@@ -249,11 +254,6 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
                                         options={sections}
                                         loading={classesLoading}
                                     />
-                                </div>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <InputField label="Expected / Desired Salary" name="expectedSalary" type="number"
-                                        value={formData.expectedSalary} onChange={handleChange}
-                                        placeholder="e.g. 45000" min="0" />
                                 </div>
                             </div>
                         )}

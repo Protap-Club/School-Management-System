@@ -159,7 +159,7 @@ router.get(
 router.post(
     "/salaries",
     checkWebOnly,
-    checkRole([USER_ROLES.ADMIN]),
+    checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN]),
     validate(createSalarySchema),
     createSalaryEntry
 );
@@ -167,7 +167,7 @@ router.post(
 router.get(
     "/salaries",
     checkWebOnly,
-    checkRole([USER_ROLES.ADMIN]),
+    checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN]),
     validate(getSalaryEntriesSchema),
     getSalaryEntries
 );
@@ -182,7 +182,7 @@ router.get(
 router.patch(
     "/salaries/:id",
     checkWebOnly,
-    checkRole([USER_ROLES.ADMIN]),
+    checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN]),
     validate(updateSalaryStatusSchema),
     updateSalaryStatus
 );
@@ -191,14 +191,14 @@ router.patch(
 // ── Admin: Fee Type Management ────────────────────────────────
 router.get(
     "/types",
-    checkRole([USER_ROLES.ADMIN]),
+    checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN]),
     getFeeTypes
 );
 
 router.post(
     "/types",
     checkWebOnly,
-    checkRole([USER_ROLES.ADMIN]),
+    checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN]),
     validate(createFeeTypeSchema),
     createFeeType
 );
