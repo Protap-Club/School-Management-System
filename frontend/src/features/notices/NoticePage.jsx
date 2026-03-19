@@ -272,7 +272,7 @@ const NoticePage = () => {
                                 </div>
                             ) : (
                                 pagedHistory.map(item => (
-                                    <div key={item.id} className="bg-white rounded-2xl border border-gray-200 p-5 hover:shadow-md transition-shadow group">
+                                    <div key={item._id} className="bg-white rounded-2xl border border-gray-200 p-5 hover:shadow-md transition-shadow group">
                                         <div className="flex flex-col md:flex-row gap-4 items-start md:items-center">
                                             {/* Icon */}
                                             <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${item.type === 'notice' ? 'bg-blue-100 text-blue-600' : 'bg-amber-100 text-amber-600'

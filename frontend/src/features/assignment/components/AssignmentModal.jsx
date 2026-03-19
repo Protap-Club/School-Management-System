@@ -18,15 +18,18 @@ const getApiErrorMessage = (err) =>
     err.message ||
     'Failed to save assignment';
 
-const InputField = ({ label, name, value, onChange, type = "text", required = false, ...props }) => (
+const InputField = ({ label, name, value, onChange, type = "text", required = false, error, ...props }) => (
     <div className="space-y-1">
         <label className="text-sm font-medium text-gray-700 flex items-center gap-1">
             {label} {required && <span className="text-red-500">*</span>}
         </label>
-        <input type={type} name={name} value={value}
-            onChange={onChange}
-            className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-600 outline-none transition-all placeholder:text-gray-400 text-sm shadow-sm"
-            required={required} {...props} />
+        <div className="relative">
+            <input type={type} name={name} value={value}
+                onChange={onChange}
+                className={`w-full px-4 py-2 border ${error ? 'border-red-400 focus:ring-red-500/10 focus:border-red-600' : 'border-gray-200 focus:ring-indigo-500/10 focus:border-indigo-600'} rounded-lg outline-none transition-all placeholder:text-gray-400 text-sm shadow-sm`}
+                required={required} {...props} />
+        </div>
+        {error && <p className="text-red-500 text-[11px] font-medium mt-1 ml-1 leading-none">{error}</p>}
     </div>
 );
 
@@ -90,6 +93,7 @@ export const AssignmentModal = ({ isOpen, onClose, assignmentToEdit = null }) =>
     const [currentAttachments, setCurrentAttachments] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const [fieldErrors, setFieldErrors] = useState({});
     const { data: detailResponse, isLoading: detailLoading } = useAssignmentById(assignmentToEdit?._id, isOpen && Boolean(assignmentToEdit));
 
     const { 
@@ -132,8 +136,21 @@ export const AssignmentModal = ({ isOpen, onClose, assignmentToEdit = null }) =>
 
     if (!isOpen) return null;
 
+    const todayStr = new Date().toISOString().split('T')[0];
+
     const handleChange = (e) => {
         const { name, value, type, checked } = e.target;
+        // Reject Sundays for dueDate
+        if (name === 'dueDate' && value) {
+            const selectedDay = new Date(value + 'T00:00:00').getDay();
+            if (selectedDay === 0) {
+                setFieldErrors(prev => ({ ...prev, [name]: 'Sundays are not allowed.' }));
+                setFormData(prev => ({ ...prev, [name]: '' }));
+                return;
+            } else {
+                setFieldErrors(prev => ({ ...prev, [name]: '' }));
+            }
+        }
         setFormData(prev => {
             const next = { ...prev, [name]: type === 'checkbox' ? checked : value };
             // Clear downstream selections if standard/section change
@@ -366,7 +383,7 @@ export const AssignmentModal = ({ isOpen, onClose, assignmentToEdit = null }) =>
                                 Deadline & Status
                             </h4>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <InputField label="Due Date" type="date" name="dueDate" value={formData.dueDate} onChange={handleChange} required />
+                                <InputField label="Due Date" type="date" name="dueDate" value={formData.dueDate} onChange={handleChange} required min={todayStr} error={fieldErrors.dueDate} />
                                 {isEditing && (
                                     <SelectField
                                         label="Status" name="status" value={formData.status}

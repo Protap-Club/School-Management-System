@@ -161,14 +161,26 @@ const ExamModal = ({ isOpen, onClose, onSubmit, editData, isLoading, userRole, u
     }, []);
 
     const handleScheduleChange = useCallback((index, field, value) => {
+        let finalValue = value;
+        let errorMessage = '';
+
+        if (field === 'examDate' && value) {
+            const selectedDay = new Date(value + 'T00:00:00').getDay();
+            if (selectedDay === 0) {
+                errorMessage = 'Sundays are not allowed.';
+                finalValue = ''; // Block Sunday selection
+            }
+        }
+
         setForm(prev => ({
             ...prev,
             schedule: prev.schedule.map((item, i) => 
-                i === index ? { ...item, [field]: value } : item
+                i === index ? { ...item, [field]: finalValue } : item
             )
         }));
+        
         const errorKey = `schedule_${index}_${field}`;
-        setErrors(prev => ({ ...prev, [errorKey]: '' }));
+        setErrors(prev => ({ ...prev, [errorKey]: errorMessage }));
     }, []);
 
     const addScheduleItem = useCallback(() => {
@@ -211,7 +223,12 @@ const ExamModal = ({ isOpen, onClose, onSubmit, editData, isLoading, userRole, u
         
         form.schedule.forEach((item, index) => {
             if (!item.subject.trim()) e[`schedule_${index}_subject`] = 'Subject name required';
-            if (!item.examDate) e[`schedule_${index}_examDate`] = 'Date is required';
+            if (!item.examDate) {
+                e[`schedule_${index}_examDate`] = 'Date is required';
+            } else {
+                const selectedDay = new Date(item.examDate + 'T00:00:00').getDay();
+                if (selectedDay === 0) e[`schedule_${index}_examDate`] = 'Sundays are not allowed.';
+            }
             
             const total = Number(item.totalMarks);
             const pass = Number(item.passingMarks);
@@ -468,7 +485,7 @@ const ExamModal = ({ isOpen, onClose, onSubmit, editData, isLoading, userRole, u
 
                             <div className="grid grid-cols-1 gap-6">
                                 {form.schedule.map((item, index) => (
-                                    <div className="group relative bg-white border border-slate-200 rounded-[28px] p-1 sm:p-2 shadow-sm ring-1 ring-slate-100 hover:shadow-md transition-all duration-300 overflow-hidden">
+                                    <div key={index} className="group relative bg-white border border-slate-200 rounded-[28px] p-1 sm:p-2 shadow-sm ring-1 ring-slate-100 hover:shadow-md transition-all duration-300 overflow-hidden">
                                         <div className="absolute top-0 left-0 w-1.5 h-full bg-primary/10 group-hover:bg-primary transition-colors"></div>
                                         
                                         <div className="p-4 sm:p-6">
