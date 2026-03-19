@@ -20,7 +20,8 @@ export const useSidebar = () => {
 };
 
 // ==== Theme Hook ====
-import { selectBranding, selectAccentColor, setBranding, setAccentColor, applyThemeToDOM } from './themeSlice';
+import { selectBranding, setBranding, setAccentColor, applyThemeToDOM } from './themeSlice';
+import { selectIsAuthenticated } from '../features/auth';
 import api from '../lib/axios';
 
 // Theme query keys
@@ -31,8 +32,7 @@ const themeKeys = {
 export const useTheme = () => {
     const dispatch = useDispatch();
     const branding = useSelector(selectBranding);
-    const accentColor = useSelector(selectAccentColor);
-    const hasToken = !!localStorage.getItem('token');
+    const isAuthenticated = useSelector(selectIsAuthenticated);
 
     // Fetch branding using TanStack Query
     const { data: brandingData, isLoading: loading, refetch: fetchBranding } = useQuery({
@@ -41,7 +41,7 @@ export const useTheme = () => {
             const response = await api.get('/school');
             return response.data;
         },
-        enabled: hasToken,
+        enabled: isAuthenticated,
         staleTime: 5 * 60 * 1000,
     });
 
@@ -67,13 +67,13 @@ export const useTheme = () => {
     // Listen for settings updates
     useEffect(() => {
         const handleSettingsUpdate = () => {
-            if (hasToken) {
+            if (isAuthenticated) {
                 fetchBranding();
             }
         };
         window.addEventListener('settingsUpdated', handleSettingsUpdate);
         return () => window.removeEventListener('settingsUpdated', handleSettingsUpdate);
-    }, [hasToken, fetchBranding]);
+    }, [isAuthenticated, fetchBranding]);
 
     // Update theme (for immediate UI feedback)
     const updateTheme = (color) => {
@@ -93,7 +93,7 @@ const featuresKeys = {
 
 export const useFeatures = () => {
     const queryClient = useQueryClient();
-    const hasToken = !!localStorage.getItem('token');
+    const isAuthenticated = useSelector(selectIsAuthenticated);
 
     const { data, isLoading: loading } = useQuery({
         queryKey: featuresKeys.school(),
@@ -101,7 +101,7 @@ export const useFeatures = () => {
             const response = await api.get('/school');
             return response.data;
         },
-        enabled: hasToken,
+        enabled: isAuthenticated,
         staleTime: 5 * 60 * 1000,
     });
 
