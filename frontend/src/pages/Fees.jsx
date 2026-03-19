@@ -127,7 +127,7 @@ const Fees = () => {
         isAdmin
     );
     const { data: overviewData, isLoading: overviewLoading } = useAllClassesOverview(overviewYear, overviewMonth, isAdmin);
-    const { data: teachersData, isLoading: teachersLoading } = useUsers({ role: 'teacher', pageSize: 100 });
+    const { data: teachersData, isLoading: teachersLoading } = useUsers({ role: 'teacher', pageSize: 100, enabled: isAdmin });
 
     const { data: classData, isLoading: classLoading } = useClassOverview(
         selectedClass?.standard, selectedClass?.section, overviewYear, overviewMonth

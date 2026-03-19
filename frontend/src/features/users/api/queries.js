@@ -41,7 +41,7 @@ const mergeOverrides = (users) => {
     });
 };
 
-export const useUsers = ({ role = "all", page = 0, pageSize = 25, name } = {}) => {
+export const useUsers = ({ role = "all", page = 0, pageSize = 25, name, enabled = true } = {}) => {
     return useQuery({
         queryKey: userKeys.list({ role, page, pageSize, name, isArchived: false }),
         queryFn: async () => {
@@ -51,10 +51,11 @@ export const useUsers = ({ role = "all", page = 0, pageSize = 25, name } = {}) =
             }
             return response;
         },
+        enabled
     });
 };
 
-export const useArchivedUsers = ({ role = "all", page = 0, pageSize = 25, name } = {}) => {
+export const useArchivedUsers = ({ role = "all", page = 0, pageSize = 25, name, enabled = true } = {}) => {
     return useQuery({
         queryKey: userKeys.list({ role, page, pageSize, name, isArchived: true }),
         queryFn: async () => {
@@ -64,6 +65,7 @@ export const useArchivedUsers = ({ role = "all", page = 0, pageSize = 25, name }
             }
             return response;
         },
+        enabled
     });
 };
 
