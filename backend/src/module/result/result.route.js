@@ -1,6 +1,6 @@
 import express from "express";
 import { checkRole } from "../../middlewares/role.middleware.js";
-import extractSchoolId from "../../middlewares/school.middleware.js";
+
 import { requireFeature } from "../../middlewares/feature.middleware.js";
 import { validate } from "../../middlewares/validation.middleware.js";
 import { USER_ROLES } from "../../constants/userRoles.js";
@@ -20,7 +20,7 @@ import {
 
 const router = express.Router();
 
-router.use(extractSchoolId);
+
 router.use(requireFeature("examination"));
 
 router.get(

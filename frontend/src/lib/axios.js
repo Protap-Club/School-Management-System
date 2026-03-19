@@ -7,7 +7,6 @@ const api = axios.create({
     baseURL: API_BASE_URL,
     withCredentials: true,
     timeout: 30000,
-    validateStatus: (status) => status < 500,
 });
 
 // Request interceptor: attach access token 
@@ -38,27 +37,36 @@ const processQueue = (error, token = null) => {
 };
 
 api.interceptors.response.use(
-    async (response) => {
-        const originalRequest = response.config;
+    (response) => response,
+    async (error) => {
+        // Network errors (no response from server)
+        if (!error.response) {
+            return Promise.reject({
+                ...error,
+                message: 'Server unreachable. Please check your connection or try again later.'
+            });
+        }
 
-        // Handle 401 Unauthorized
-        if (response.status === 401) {
-            // 1. If it's the login request, just return and let the component handle it
+        const originalRequest = error.config;
+        const status = error.response.status;
+
+        // Handle 401 Unauthorized — attempt silent token refresh
+        if (status === 401) {
+            // If it's the login request, just reject and let the component handle it
             if (originalRequest.url?.includes('/auth/login')) {
-                console.log('Invalid credentials');
-                return response;
+                return Promise.reject(error);
             }
 
-            // 2. If it's a refresh request that failed, we're done
+            // If it's a refresh request that failed, we're done — force logout
             if (originalRequest.url?.includes('/auth/refresh')) {
                 localStorage.removeItem('token');
                 if (window.location.pathname !== '/login') {
                     window.location.href = '/login?expired=true';
                 }
-                return response;
+                return Promise.reject(error);
             }
 
-            // 3. Otherwise, if not already retrying, attempt silent refresh
+            // Otherwise, if not already retrying, attempt silent refresh
             if (!originalRequest._retry) {
                 if (isRefreshing) {
                     return new Promise((resolve, reject) => {
@@ -76,11 +84,6 @@ api.interceptors.response.use(
 
                 try {
                     const refreshRes = await api.post('/auth/refresh', {}, { _retry: true });
-
-                    if (refreshRes.status === 401) {
-                        throw new Error('Refresh failed');
-                    }
-
                     const newToken = refreshRes.data.token;
                     localStorage.setItem('token', newToken);
                     originalRequest.headers.Authorization = `Bearer ${newToken}`;
@@ -92,29 +95,14 @@ api.interceptors.response.use(
                     if (window.location.pathname !== '/login') {
                         window.location.href = '/login?expired=true';
                     }
-                    return response; // Return the original 401
+                    return Promise.reject(refreshError);
                 } finally {
                     isRefreshing = false;
                 }
             }
         }
 
-        // Handle 403 Forbidden
-        if (response.status === 403) {
-            // For 403, we don't logout, but return it for the component to handle
-            return response;
-        }
-
-        return response;
-    },
-    async (error) => {
-        // 5xx and Network Errors still go here
-        if (!error.response) {
-            return Promise.reject({
-                ...error,
-                message: 'Server unreachable. Please check your connection or try again later.'
-            });
-        }
+        // All other errors (400, 403, 404, 409, 422, 5xx) — reject normally
         return Promise.reject(error);
     }
 );

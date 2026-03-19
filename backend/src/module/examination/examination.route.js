@@ -10,7 +10,7 @@ import {
 } from "./examination.controller.js";
 import { checkRole } from "../../middlewares/role.middleware.js";
 import { USER_ROLES } from "../../constants/userRoles.js";
-import extractSchoolId from "../../middlewares/school.middleware.js";
+
 import { requireFeature } from "../../middlewares/feature.middleware.js";
 import checkWebOnly from "../../middlewares/checkWebOnly.js";
 import { validate } from "../../middlewares/validation.middleware.js";
@@ -26,7 +26,6 @@ import {
 const router = express.Router();
 
 // Global middleware for all examination routes
-router.use(extractSchoolId);
 router.use(requireFeature("examination"));
 
 // ── Student Route (mobile + web) ─────────────────────────────

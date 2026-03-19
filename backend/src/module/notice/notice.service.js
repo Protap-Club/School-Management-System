@@ -201,6 +201,7 @@ export const getNotices = async (user, platform, filters = {}) => {
     const results = await Notice.find(query)
         .populate("createdBy", "name email role")
         .sort({ createdAt: -1 })
+        .limit(50)
         .lean();
 
     return enrichWithSignedUrls(results);
