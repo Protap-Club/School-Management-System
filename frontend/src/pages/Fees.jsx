@@ -571,12 +571,6 @@ const Fees = () => {
                                                                         title="Waive Fee" className="p-1.5 text-gray-400 hover:text-orange-500 hover:bg-orange-50 rounded-lg transition-colors"><FaBan size={12} /></button>
                                                                 </>
                                                             )}
-                                                            {isAdmin && (
-                                                                <button onClick={() => setUpdateModal({ open: true, assignment: { _id: fee.assignmentId, amount: fee.amount, dueDate: fee.dueDate, status: fee.status } })}
-                                                                    className="p-1.5 text-amber-500 hover:bg-amber-50 rounded-lg transition-colors" title="Update Details">
-                                                                    <FaEdit size={12} />
-                                                                </button>
-                                                            )}
                                                         </div>
                                                     </td>
                                                 </tr>
@@ -1022,13 +1016,13 @@ const Fees = () => {
             <div className="space-y-6">
                 {/* Header */}
                 <div>
-                    <h1 className="text-3xl font-bold text-gray-900">Fee Hub</h1>
+                    <h1 className="text-3xl font-bold text-gray-900">Fee Management</h1>
                     <p className="text-gray-500 mt-1">Configure structures, track collections, and manage staff payouts</p>
                 </div>
 
                 {/* Tabs */}
                 <div className="flex gap-1 bg-gray-100 p-1 rounded-xl w-fit">
-                    {isAdmin && renderTabBtn('management', <FaListAlt size={12} />, 'Fee Hub')}
+                    {isAdmin && renderTabBtn('management', <FaListAlt size={12} />, 'Fee Structure')}
                     {(!isAdmin && !isTeacher) && renderTabBtn('structures', <FaListAlt size={12} />, 'Assigned Fees')}
                     {isTeacher && renderTabBtn('salary', <FaWallet size={12} />, 'My Salary')}
                 </div>
@@ -1134,7 +1128,7 @@ const Fees = () => {
                                         <table className="w-full text-sm">
                                             <thead>
                                                 <tr className="border-b border-gray-100 uppercase">
-                                                    {['Fee Type', 'Name', 'Class', 'Amount', 'Frequency', 'Due Day'].map(h => (
+                                                    {['Fee Type', 'Name', 'Class', 'Amount', 'Frequency', 'Due Date'].map(h => (
                                                         <th key={h} className="px-4 py-4 text-left text-[10px] font-black text-gray-400 tracking-widest">{h}</th>
                                                     ))}
                                                     <th className="px-4 py-4 text-center text-[10px] font-black text-gray-400 tracking-widest">Status</th>
