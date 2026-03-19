@@ -53,22 +53,6 @@ export const toggleArchive = asyncHandler(async (req, res) => {
     });
 });
 
-// Permanently delete a single user (must be archived first)
-// NOTE: Hard delete routes are commented out for now. Keep this handler for future use.
-export const hardDeleteUser = asyncHandler(async (req, res) => {
-    await userService.hardDeleteUsers(req.user, [req.params.id]);
-    logger.info(`User permanently deleted: ${req.params.id}`);
-    res.status(204).end();
-});
-
-// Permanently delete users in bulk (must be archived first)
-// NOTE: Hard delete routes are commented out for now. Keep this handler for future use.
-export const batchDeleteUsers = asyncHandler(async (req, res) => {
-    const result = await userService.hardDeleteUsers(req.user, req.body.userIds);
-    logger.info(`Users permanently deleted: ${result.deletedCount}`);
-    res.status(204).end();
-});
-
 // Upload user avatar
 export const uploadAvatar = asyncHandler(async (req, res) => {
     if (!req.file) throw new BadRequestError("No file uploaded");
@@ -81,19 +65,6 @@ export const uploadAvatar = asyncHandler(async (req, res) => {
     res.status(200).json({
         success: true,
         message: "Avatar uploaded successfully",
-        data: result
-    });
-});
-
-export const userProfile = asyncHandler(async (req, res) => {
-    const { _id: userId } = req.user;
-    const result = await userService.getMyProfile(userId);
-
-    logger.info({ userId }, "User profile fetched successfully");
-
-    res.status(200).json({
-        success: true,
-        message: "User Profile Fetched Successfully",
         data: result
     });
 });

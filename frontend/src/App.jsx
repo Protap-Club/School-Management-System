@@ -10,6 +10,41 @@ function App() {
     // Destructure lazy-loaded page components
     const { Login, Dashboard, UsersPage, Settings, Attendance, Notice, TimetablePage, Calendar, Notifications, Fees, Examination, Assignments, Result } = pages;
 
+    const rolePathMap = {
+        super_admin: 'superadmin',
+        admin: 'admin',
+        teacher: 'teacher',
+    };
+
+    const buildRouteElement = (component, role, feature) => {
+        const content = feature ? (
+            <RequireFeature feature={feature}>
+                {component}
+            </RequireFeature>
+        ) : component;
+
+        return (
+            <ProtectedRoute allowedRoles={[role]}>
+                {content}
+            </ProtectedRoute>
+        );
+    };
+
+    const roleRoutes = [
+        { suffix: 'users', roles: ['super_admin', 'admin', 'teacher'], component: <UsersPage /> },
+        { suffix: 'settings', roles: ['super_admin', 'admin'], component: <Settings /> },
+        { suffix: 'attendance', roles: ['super_admin', 'admin', 'teacher'], component: <Attendance />, feature: 'attendance' },
+        { suffix: 'attendance/:classId', roles: ['super_admin', 'admin'], component: <Attendance />, feature: 'attendance' },
+        { suffix: 'notice', roles: ['super_admin', 'admin', 'teacher'], component: <Notice />, feature: 'notice' },
+        { suffix: 'timetable', roles: ['super_admin', 'admin', 'teacher'], component: <TimetablePage />, feature: 'timetable' },
+        { suffix: 'calendar', roles: ['super_admin', 'admin', 'teacher'], component: <Calendar />, feature: 'calendar' },
+        { suffix: 'fees', roles: ['super_admin', 'admin', 'teacher'], component: <Fees />, feature: 'fees' },
+        { suffix: 'examination', roles: ['super_admin', 'admin', 'teacher'], component: <Examination />, feature: 'examination' },
+        { suffix: 'result', roles: ['super_admin', 'admin', 'teacher'], component: <Result />, feature: 'result' },
+        { suffix: 'assignments', roles: ['super_admin'], component: <Assignments />, feature: 'assignment' },
+        { suffix: 'assignments', roles: ['admin', 'teacher'], component: <Assignments /> },
+    ];
+
     return (
         <Router>
             <Suspense fallback={<PageLoader />}>
@@ -27,307 +62,15 @@ function App() {
                         }
                     />
 
-                    {/* SuperAdmin Routes */}
-                    <Route
-                        path="/superadmin/users"
-                        element={
-                            <ProtectedRoute allowedRoles={['super_admin']}>
-                                <UsersPage />
-                            </ProtectedRoute>
-                        }
-                    />
-                    <Route
-                        path="/superadmin/settings"
-                        element={
-                            <ProtectedRoute allowedRoles={['super_admin']}>
-                                <Settings />
-                            </ProtectedRoute>
-                        }
-                    />
-                    <Route
-                        path="/superadmin/attendance"
-                        element={
-                            <ProtectedRoute allowedRoles={['super_admin']}>
-                                <RequireFeature feature="attendance">
-                                    <Attendance />
-                                </RequireFeature>
-                            </ProtectedRoute>
-                        }
-                    />
-                    <Route
-                        path="/superadmin/attendance/:classId"
-                        element={
-                            <ProtectedRoute allowedRoles={['super_admin']}>
-                                <RequireFeature feature="attendance">
-                                    <Attendance />
-                                </RequireFeature>
-                            </ProtectedRoute>
-                        }
-                    />
-                    <Route
-                        path="/superadmin/notice"
-                        element={
-                            <ProtectedRoute allowedRoles={['super_admin']}>
-                                <RequireFeature feature="notice">
-                                    <Notice />
-                                </RequireFeature>
-                            </ProtectedRoute>
-                        }
-                    />
-                    <Route
-                        path="/superadmin/timetable"
-                        element={
-                            <ProtectedRoute allowedRoles={['super_admin']}>
-                                <RequireFeature feature="timetable">
-                                    <TimetablePage />
-                                </RequireFeature>
-                            </ProtectedRoute>
-                        }
-                    />
-                    <Route
-                        path="/superadmin/calendar"
-                        element={
-                            <ProtectedRoute allowedRoles={['super_admin']}>
-                                <RequireFeature feature="calendar">
-                                    <Calendar />
-                                </RequireFeature>
-                            </ProtectedRoute>
-                        }
-                    />
-                    <Route
-                        path="/superadmin/fees"
-                        element={
-                            <ProtectedRoute allowedRoles={['super_admin']}>
-                                <RequireFeature feature="fees">
-                                    <Fees />
-                                </RequireFeature>
-                            </ProtectedRoute>
-                        }
-                    />
-                    <Route
-                        path="/superadmin/assignments"
-                        element={
-                            <ProtectedRoute allowedRoles={['super_admin']}>
-                               <RequireFeature feature="assignment">
-                                  <Assignments />
-                               </RequireFeature>
-                             </ProtectedRoute>
-                        }
-                    />
-                    <Route
-                        path="/superadmin/examination"
-                        element={
-                            <ProtectedRoute allowedRoles={['super_admin']}>
-                                <RequireFeature feature="examination">
-                                    <Examination />
-                                </RequireFeature>
-                            </ProtectedRoute>
-                        }
-                    />
-                    <Route
-                        path="/superadmin/result"
-                        element={
-                            <ProtectedRoute allowedRoles={['super_admin']}>
-                                <RequireFeature feature="result">
-                                    <Result />
-                                </RequireFeature>
-                            </ProtectedRoute>
-                        }
-                    />
-
-                    {/* Admin Routes */}
-                    <Route
-                        path="/admin/users"
-                        element={
-                            <ProtectedRoute allowedRoles={['admin']}>
-                                <UsersPage />
-                            </ProtectedRoute>
-                        }
-                    />
-                    <Route
-                        path="/admin/settings"
-                        element={
-                            <ProtectedRoute allowedRoles={['admin']}>
-                                <Settings />
-                            </ProtectedRoute>
-                        }
-                    />
-                    <Route
-                        path="/admin/attendance"
-                        element={
-                            <ProtectedRoute allowedRoles={['admin']}>
-                                <RequireFeature feature="attendance">
-                                    <Attendance />
-                                </RequireFeature>
-                            </ProtectedRoute>
-                        }
-                    />
-                    <Route
-                        path="/admin/attendance/:classId"
-                        element={
-                            <ProtectedRoute allowedRoles={['admin']}>
-                                <RequireFeature feature="attendance">
-                                    <Attendance />
-                                </RequireFeature>
-                            </ProtectedRoute>
-                        }
-                    />
-                    <Route
-                        path="/admin/notice"
-                        element={
-                            <ProtectedRoute allowedRoles={['admin']}>
-                                <RequireFeature feature="notice">
-                                    <Notice />
-                                </RequireFeature>
-                            </ProtectedRoute>
-                        }
-                    />
-                    <Route
-                        path="/admin/timetable"
-                        element={
-                            <ProtectedRoute allowedRoles={['admin']}>
-                                <RequireFeature feature="timetable">
-                                    <TimetablePage />
-                                </RequireFeature>
-                            </ProtectedRoute>
-                        }
-                    />
-                    <Route
-                        path="/admin/calendar"
-                        element={
-                            <ProtectedRoute allowedRoles={['admin']}>
-                                <RequireFeature feature="calendar">
-                                    <Calendar />
-                                </RequireFeature>
-                            </ProtectedRoute>
-                        }
-                    />
-                    <Route
-                        path="/admin/fees"
-                        element={
-                            <ProtectedRoute allowedRoles={['admin']}>
-                                <RequireFeature feature="fees">
-                                    <Fees />
-                                </RequireFeature>
-                            </ProtectedRoute>
-                        }
-                    />
-                    <Route
-                        path="/admin/examination"
-                        element={
-                            <ProtectedRoute allowedRoles={['admin']}>
-                                <RequireFeature feature="examination">
-                                    <Examination />
-                                </RequireFeature>
-                            </ProtectedRoute>
-                        }
-                    />
-                    <Route
-                        path="/admin/assignments"
-                        element={
-                            <ProtectedRoute allowedRoles={['admin']}>
-                                <Assignments />
-                            </ProtectedRoute>
-                        }
-                    />
-                    <Route
-                        path="/admin/result"
-                        element={
-                            <ProtectedRoute allowedRoles={['admin']}>
-                                <RequireFeature feature="result">
-                                    <Result />
-                                </RequireFeature>
-                            </ProtectedRoute>
-                        }
-                    />
-
-                    {/* Teacher Routes */}
-                    <Route
-                        path="/teacher/users"
-                        element={
-                            <ProtectedRoute allowedRoles={['teacher']}>
-                                <UsersPage />
-                            </ProtectedRoute>
-                        }
-                    />
-                    <Route
-                        path="/teacher/attendance"
-                        element={
-                            <ProtectedRoute allowedRoles={['teacher']}>
-                                <RequireFeature feature="attendance">
-                                    <Attendance />
-                                </RequireFeature>
-                            </ProtectedRoute>
-                        }
-                    />
-                    <Route
-                        path="/teacher/notice"
-                        element={
-                            <ProtectedRoute allowedRoles={['teacher']}>
-                                <RequireFeature feature="notice">
-                                    <Notice />
-                                </RequireFeature>
-                            </ProtectedRoute>
-                        }
-                    />
-                    <Route
-                        path="/teacher/timetable"
-                        element={
-                            <ProtectedRoute allowedRoles={['teacher']}>
-                                <RequireFeature feature="timetable">
-                                    <TimetablePage />
-                                </RequireFeature>
-                            </ProtectedRoute>
-                        }
-                    />
-                    <Route
-                        path="/teacher/calendar"
-                        element={
-                            <ProtectedRoute allowedRoles={['teacher']}>
-                                <RequireFeature feature="calendar">
-                                    <Calendar />
-                                </RequireFeature>
-                            </ProtectedRoute>
-                        }
-                    />
-                    <Route
-                        path="/teacher/fees"
-                        element={
-                            <ProtectedRoute allowedRoles={['teacher']}>
-                                <RequireFeature feature="fees">
-                                    <Fees />
-                                </RequireFeature>
-                            </ProtectedRoute>
-                        }
-                    />
-                    <Route
-                        path="/teacher/examination"
-                        element={
-                            <ProtectedRoute allowedRoles={['teacher']}>
-                                <RequireFeature feature="examination">
-                                    <Examination />
-                                </RequireFeature>
-                            </ProtectedRoute>
-                        }
-                    />
-                    <Route
-                        path="/teacher/assignments"
-                        element={
-                            <ProtectedRoute allowedRoles={['teacher']}>
-                                <Assignments />
-                            </ProtectedRoute>
-                        }
-                    />
-                    <Route
-                        path="/teacher/result"
-                        element={
-                            <ProtectedRoute allowedRoles={['teacher']}>
-                                <RequireFeature feature="result">
-                                    <Result />
-                                </RequireFeature>
-                            </ProtectedRoute>
-                        }
-                    />
+                    {roleRoutes.flatMap(({ suffix, roles, component, feature }) =>
+                        roles.map((role) => (
+                            <Route
+                                key={`${role}-${suffix}`}
+                                path={`/${rolePathMap[role]}/${suffix}`}
+                                element={buildRouteElement(component, role, feature)}
+                            />
+                        ))
+                    )}
 
                     <Route
                         path="/notifications"
