@@ -1,5 +1,4 @@
 import logger from "../config/logger.js";
-import fs from 'fs';
 import { z } from "zod";
 import { AppError } from "../utils/customError.js";
 
@@ -186,18 +185,6 @@ const reportError = (err, req) => {
 //  Catches all errors and sends appropriate response
 
 const errorHandler = (err, req, res, next) => {
-    try {
-        fs.writeFileSync('C:/Users/Jay/School-Management-System/global_error.json', JSON.stringify({
-            message: err.message,
-            stack: err.stack,
-            name: err.name,
-            statusCode: err.statusCode,
-            data: err.data,
-            body: req.body,
-            params: req.params,
-            url: req.url
-        }, null, 2));
-    } catch (e) {}
 
     let error = err;
 
@@ -277,15 +264,6 @@ export const notFoundHandler = (req, res, next) => {
         }
     );
     next(error);
-};
-
-//   Async Handler Wrapper
-//   Wraps async route handlers to catch errors automatically
-
-export const asyncHandler = (fn) => {
-    return (req, res, next) => {
-        Promise.resolve(fn(req, res, next)).catch(next);
-    };
 };
 
 export default errorHandler;

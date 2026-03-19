@@ -112,7 +112,6 @@ export const createNotice = async (schoolId, userId, data, file) => {
         const fileUrl = file.path || file.secure_url || file.url;
         const filePublicId = file.filename || file.public_id;
 
-        console.log(`[DEBUG] Notice attachment extracted - URL: ${fileUrl}, PublicID: ${filePublicId}`);
 
         attachment = {
             filename: filePublicId,
@@ -187,8 +186,9 @@ export const getNotices = async (user, platform, filters = {}) => {
     // Date filter
     if (filters.date && filters.date !== 'all') {
         const now = new Date();
+        const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
         const dateMap = {
-            today: new Date(now.setHours(0, 0, 0, 0)),
+            today: todayStart,
             last7: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000),
             last30: new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000),
         };
