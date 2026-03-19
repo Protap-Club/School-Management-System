@@ -63,6 +63,7 @@ export const updateFeaturesSchema = z.object({
             calendar: z.boolean().optional(),
             examination: z.boolean().optional(),
             assignment: z.boolean().optional(),
+            result: z.boolean().optional(),
         }),
     }),
 });

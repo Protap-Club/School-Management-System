@@ -47,6 +47,11 @@ export const SCHOOL_FEATURES = Object.freeze({
     label: "Assignment Management",
     description: "Create, distribute, and collect assignments",
   },
+  RESULT: {
+    key: "result",
+    label: "Result Management",
+    description: "Manage and publish student exam results",
+  },
 });
 
 // Pre-computed array of feature keys for validation and schema mapping.

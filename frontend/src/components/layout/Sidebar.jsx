@@ -59,6 +59,9 @@ const Sidebar = () => {
                 // Examination
                 if (hasFeature('examination')) {
                     superAdminLinks.push({ path: '/superadmin/examination', label: 'Examination', icon: <FaGraduationCap /> });
+                }
+
+                if (hasFeature('result')) {
                     superAdminLinks.push({ path: '/superadmin/result', label: 'Results', icon: <FaClipboardCheck /> });
                 }
 
@@ -107,6 +110,9 @@ const Sidebar = () => {
                 // 8. Examination
                 if (hasFeature('examination')) {
                     adminLinks.push({ path: '/admin/examination', label: 'Examination', icon: <FaGraduationCap /> });
+                }
+
+                if (hasFeature('result')) {
                     adminLinks.push({ path: '/admin/result', label: 'Results', icon: <FaClipboardCheck /> });
                 }
 
@@ -154,6 +160,9 @@ const Sidebar = () => {
                 // 8. Examination
                 if (hasFeature('examination')) {
                     teacherLinks.push({ path: '/teacher/examination', label: 'Examination', icon: <FaGraduationCap /> });
+                }
+
+                if (hasFeature('result')) {
                     teacherLinks.push({ path: '/teacher/result', label: 'Results', icon: <FaClipboardCheck /> });
                 }
 
