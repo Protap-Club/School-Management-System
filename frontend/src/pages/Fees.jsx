@@ -1021,9 +1021,14 @@ const Fees = () => {
 
             <div className="space-y-6">
                 {/* Header */}
-                <div>
-                    <h1 className="page-title">Fee Hub</h1>
-                    <p className="page-subtitle mt-1">Configure structures, track collections, and manage staff payouts</p>
+                <div className="flex items-center gap-6 mb-8">
+                    <div className="w-16 h-16 bg-white rounded-2xl shadow-lg flex items-center justify-center text-primary transform hover:rotate-6 transition-transform">
+                        <FaMoneyBillWave size={32} />
+                    </div>
+                    <div className="space-y-1">
+                        <h1 className="page-title">Fee Hub</h1>
+                        <p className="page-subtitle">Configure structures, track collections, and manage staff payouts</p>
+                    </div>
                 </div>
 
                 {/* Tabs */}

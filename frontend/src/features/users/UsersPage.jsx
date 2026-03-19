@@ -142,12 +142,17 @@ const UsersPage = () => {
             )}
 
             <div className="space-y-5">
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                    <div>
-                        <h1 className="page-title">{showArchived ? 'Archived Users' : 'Users'}</h1>
-                        <p className="text-gray-500 text-sm mt-0.5">
-                            {showArchived ? 'Manage archived users - restore or permanently delete' : `Manage ${allowedRoles.length > 1 ? 'all users' : allowedRoles[0] + 's'} in your organization`}
-                        </p>
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
+                    <div className="flex items-center gap-6">
+                        <div className="w-16 h-16 bg-white rounded-2xl shadow-lg flex items-center justify-center text-primary transform hover:rotate-6 transition-transform">
+                            <FaUserShield size={32} />
+                        </div>
+                        <div className="space-y-1">
+                            <h1 className="page-title">{showArchived ? 'Archived Users' : 'Users'}</h1>
+                            <p className="page-subtitle">
+                                {showArchived ? 'Manage archived users - restore or permanently delete' : `Manage ${allowedRoles.length > 1 ? 'all users' : allowedRoles[0] + 's'} in your organization`}
+                            </p>
+                        </div>
                     </div>
                 </div>
 

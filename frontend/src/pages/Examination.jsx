@@ -8,7 +8,7 @@ import { useProfile, useStudents } from '../features/attendance';
 import { useSchoolClasses } from '../hooks/useSchoolClasses';
 import ExamModal from '../components/examination/ExamModal';
 import { FaPlus, FaEdit, FaTrash, FaEye, FaCalendarAlt, FaClock,
-  FaChalkboardTeacher, FaCheckCircle, FaExclamationTriangle, FaBan, FaFilter, FaSearch, FaTimes, FaInfoCircle, FaUserGraduate, FaLayerGroup, FaBolt } from 'react-icons/fa';
+  FaChalkboardTeacher, FaCheckCircle, FaExclamationTriangle, FaBan, FaFilter, FaSearch, FaTimes, FaInfoCircle, FaUserGraduate, FaLayerGroup, FaBolt, FaCalendarCheck } from 'react-icons/fa';
 import { TabButton } from '../components/ui/NoticeUIComponents';
 
 // Constants
@@ -221,9 +221,14 @@ const Examination = () => {
         <div className={selectedExam ? "no-print" : ""}>
           {/* Header Section */}
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
-            <div>
-              <h1 className="page-title mb-2">Examination Schedules</h1>
-              <p className="page-subtitle">Manage and monitor {stats.total} scheduled examination sessions.</p>
+            <div className="flex items-center gap-6">
+              <div className="w-16 h-16 bg-white rounded-2xl shadow-lg flex items-center justify-center text-primary transform hover:rotate-6 transition-transform">
+                <FaCalendarCheck size={32} />
+              </div>
+              <div className="space-y-1">
+                <h1 className="page-title">Examination Schedules</h1>
+                <p className="page-subtitle">Manage and monitor {stats.total} scheduled examination sessions.</p>
+              </div>
             </div>
             {(isAdmin || isTeacher) && (
               <div className="flex items-center gap-3">

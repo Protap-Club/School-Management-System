@@ -336,12 +336,17 @@ const Result = () => {
         {!selectedExam ? (
           <>
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div>
+            <div className="flex items-center gap-6 mb-8">
+              <div className="w-16 h-16 bg-white rounded-2xl shadow-lg flex items-center justify-center text-primary transform hover:rotate-6 transition-transform">
+                <FaGraduationCap size={32} />
+              </div>
+              <div className="space-y-1">
                 <h1 className="page-title">Result Management</h1>
-                <p className="page-subtitle mt-1">
+                <p className="page-subtitle">
                   Manage marks entry, result generation, and publishing for all completed exams
                 </p>
               </div>
+            </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">

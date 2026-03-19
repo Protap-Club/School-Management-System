@@ -105,23 +105,21 @@ export const AssignmentPage = () => {
     return (
         <DashboardLayout>
             <div className="max-w-7xl mx-auto space-y-6 px-4 sm:px-6 lg:px-8 py-8">
-
-                {/* Header */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
-                    <div className="space-y-1">
-                        <div className="flex items-center gap-3">
-                            <div className="p-2.5 bg-primary text-white rounded-xl shadow-lg shadow-primary/10">
-                                <FaBook size={20} />
-                            </div>
-                            <h1 className="page-title">Assignments</h1>
+                {/* Header Section */}
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
+                    <div className="flex items-center gap-6">
+                        <div className="w-16 h-16 bg-white rounded-2xl shadow-lg flex items-center justify-center text-primary transform hover:rotate-6 transition-transform">
+                            <FaBook size={32} />
                         </div>
-                        <p className="page-subtitle ml-12">Manage and track academic work across classes</p>
+                        <div className="space-y-1">
+                            <h1 className="page-title">Assignments</h1>
+                            <p className="page-subtitle">Manage and track academic work across classes</p>
+                        </div>
                     </div>
-
                     {canCreate && (
                         <button
                             onClick={handleAddClick}
-                            className="btn-primary px-6 rounded-xl shadow-md hover:shadow-lg active:scale-95"
+                            className="btn-primary px-6 rounded-xl shadow-md hover:shadow-lg active:scale-95 flex items-center gap-2"
                         >
                             <FaPlus className="text-xs" />
                             <span>Create Assignment</span>

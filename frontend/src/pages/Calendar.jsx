@@ -311,7 +311,7 @@ const Calendar = () => {
       const isToday = dateStr === formatDate(new Date());
       cells.push(
         <div key={day} onClick={() => handleDayClick(dateStr)}
-          className={`h-28 border-b border-r border-gray-200 p-1.5 transition-all group relative overflow-hidden cursor-pointer hover:bg-gray-50 ${isToday ? 'bg-indigo-50/30' : 'bg-white'}`}>
+          className={`h-28 border-b border-r border-gray-200 p-1.5 transition-all group relative overflow-hidden cursor-pointer hover:bg-gray-50 ${isToday ? 'bg-indigo-50/30' : 'bg-transparent'}`}>
           <div className="flex items-center justify-between mb-1">
             <span className={`text-[11px] font-semibold w-6 h-6 flex items-center justify-center rounded-full ${isToday ? 'bg-indigo-600 text-white shadow-sm' : 'text-gray-700'}`}>{day}</span>
             {canEdit && <FaPlus className="text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity text-[10px]" onClick={(e) => { e.stopPropagation(); openCreateEventModal(dateStr); }} />}
@@ -368,11 +368,16 @@ const renderFormField = (label, children) => (
         </div>
       )}
       <div className="space-y-4 max-w-7xl mx-auto">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4 rounded-xl shadow-sm border border-gray-100">
-          <div>
-            <h1 className="page-title flex items-center gap-2.5"><FaCalendarAlt className="text-primary" /> Academic Calendar</h1>
-            <p className="text-gray-500 text-xs mt-1">{canEdit ? 'Click any day to view or add events. Hover for quick details.' : 'Click on a day to see scheduled events.'}</p>
-          </div>
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
+            <div className="space-y-1">
+                <div className="flex items-center gap-3">
+                    <div className="p-2.5 bg-primary text-white rounded-xl shadow-lg shadow-primary/10">
+                        <FaCalendarAlt size={20} />
+                    </div>
+                    <h1 className="page-title">Academic Calendar</h1>
+                </div>
+                <p className="page-subtitle ml-12">{canEdit ? 'Click any day to view or add events. Hover for quick details.' : 'Click on a day to see scheduled events.'}</p>
+            </div>
           <div className="flex items-center gap-3 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0">
             <div className="flex items-center gap-2 bg-gradient-to-r from-emerald-50 to-green-50 px-3 py-1.5 rounded-lg border border-emerald-100 whitespace-nowrap">
               <FaUmbrellaBeach className="text-emerald-500 text-sm" />
@@ -401,11 +406,11 @@ const renderFormField = (label, children) => (
         {loading ? (
           <div className="flex items-center justify-center h-96 bg-white rounded-xl shadow-sm border border-gray-200"><FaSpinner className="animate-spin text-3xl text-indigo-600/50" /></div>
         ) : (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden ring-1 ring-black/5">
+          <div className="rounded-xl shadow-sm border border-gray-200 overflow-hidden ring-1 ring-black/5">
             <div className="grid grid-cols-7 bg-gray-50/80 border-b border-gray-200">
               {WEEKDAYS.map(day => <div key={day} className="py-3 text-center text-[11px] font-bold text-gray-500 uppercase tracking-widest">{day}</div>)}
             </div>
-            <div className="grid grid-cols-7 bg-white">{calendarDays}</div>
+            <div className="grid grid-cols-7 bg-transparent">{calendarDays}</div>
           </div>
         )}
       </div>

@@ -40,9 +40,14 @@ const Notice = () => {
                 </div>
             )}
             <div className="space-y-6">
-                <div>
-                    <h1 className="page-title">Notice Board</h1>
-                    <p className="page-subtitle mt-1">{isAdmin ? 'Send notices to the entire school, classes, or specific users' : 'Send notices to your students or groups'}</p>
+                <div className="flex items-center gap-6 mb-8">
+                    <div className="w-16 h-16 bg-white rounded-2xl shadow-lg flex items-center justify-center text-primary transform hover:rotate-6 transition-transform">
+                        <FaBell size={32} />
+                    </div>
+                    <div className="space-y-1">
+                        <h1 className="page-title">Notice Board</h1>
+                        <p className="page-subtitle">{isAdmin ? 'Send notices to the entire school, classes, or specific users' : 'Send notices to your students or groups'}</p>
+                    </div>
                 </div>
                 <div className="flex gap-1 bg-gray-100 p-1 rounded-xl w-fit">
                     {(isAdmin || isTeacher) && <TabButton tab="compose" activeTab={activeTab} icon={<FaPaperPlane />} label="Compose" setActiveTab={setActiveTab} />}
