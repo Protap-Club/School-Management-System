@@ -6,6 +6,20 @@ import { ConflictError, NotFoundError, BadRequestError } from "../../utils/custo
 import logger from "../../config/logger.js";
 import { deleteFromCloudinary } from "../../middlewares/upload.middleware.js";
 
+const normalizeClassSection = ({ standard, section }) => ({
+    standard: String(standard || "").trim(),
+    section: String(section || "").trim().toUpperCase(),
+});
+
+const sortClassSections = (items = []) =>
+    [...items].sort((a, b) => {
+        const numA = Number.parseInt(a.standard, 10);
+        const numB = Number.parseInt(b.standard, 10);
+        if (!Number.isNaN(numA) && !Number.isNaN(numB) && numA !== numB) return numA - numB;
+        const stdCompare = a.standard.localeCompare(b.standard, undefined, { numeric: true, sensitivity: "base" });
+        if (stdCompare !== 0) return stdCompare;
+        return a.section.localeCompare(b.section, undefined, { sensitivity: "base" });
+    });
 
 // Creates a school. 
 export const createSchool = async (creatorId, schoolData) => {
@@ -148,9 +162,68 @@ export const hasFeature = async (schoolId, featureKey) => {
     return value;
 };
 
+export const addSchoolClassSection = async (schoolId, data) => {
+    const school = await School.findById(schoolId).select("academic.classSections");
+    if (!school) throw new NotFoundError("School not found");
+
+    const normalized = normalizeClassSection(data);
+    if (!normalized.standard || !normalized.section) {
+        throw new BadRequestError("Class and section are required");
+    }
+
+    const existing = school.academic?.classSections || [];
+    const alreadyExists = existing.some(
+        (item) =>
+            String(item.standard).trim().toLowerCase() === normalized.standard.toLowerCase() &&
+            String(item.section).trim().toUpperCase() === normalized.section
+    );
+
+    if (alreadyExists) {
+        throw new ConflictError(`Class ${normalized.standard} - ${normalized.section} already exists`);
+    }
+
+    school.academic = school.academic || { classSections: [] };
+    school.academic.classSections.push(normalized);
+    school.markModified("academic.classSections");
+    await school.save();
+
+    return sortClassSections(school.academic.classSections.map((item) => normalizeClassSection(item)));
+};
+
+export const removeSchoolClassSection = async (schoolId, data) => {
+    const school = await School.findById(schoolId).select("academic.classSections");
+    if (!school) throw new NotFoundError("School not found");
+
+    const normalized = normalizeClassSection(data);
+    if (!normalized.standard || !normalized.section) {
+        throw new BadRequestError("Class and section are required");
+    }
+
+    const existing = school.academic?.classSections || [];
+    const next = existing.filter(
+        (item) =>
+            !(
+                String(item.standard).trim().toLowerCase() === normalized.standard.toLowerCase() &&
+                String(item.section).trim().toUpperCase() === normalized.section
+            )
+    );
+
+    if (next.length === existing.length) {
+        throw new NotFoundError(`Class ${normalized.standard} - ${normalized.section} not found`);
+    }
+
+    school.academic = school.academic || {};
+    school.academic.classSections = next;
+    school.markModified("academic.classSections");
+    await school.save();
+
+    return sortClassSections(next.map((item) => normalizeClassSection(item)));
+};
+
 // Gets unique standards, sections, subjects and rooms for a school
 export const getSchoolClasses = async (schoolId) => {
-    const [standards, sections, subjects, rooms, classPairs] = await Promise.all([
+    const [school, standards, sections, subjects, rooms, classPairs] = await Promise.all([
+        School.findById(schoolId).select("academic.classSections").lean(),
         StudentProfile.distinct("standard", { schoolId }),
         StudentProfile.distinct("section", { schoolId }),
         TimetableEntry.distinct("subject", { schoolId }),
@@ -160,18 +233,33 @@ export const getSchoolClasses = async (schoolId) => {
 
     const classKeySet = new Set();
     const classSections = [];
-    for (const pair of classPairs) {
-        const key = `${pair.standard}-${pair.section}`;
+    const configuredPairs = school?.academic?.classSections || [];
+    const allPairs = [...configuredPairs, ...classPairs];
+    for (const pair of allPairs) {
+        if (!pair?.standard || !pair?.section) continue;
+        const normalized = normalizeClassSection(pair);
+        const key = `${normalized.standard}-${normalized.section}`;
         if (!classKeySet.has(key)) {
             classKeySet.add(key);
-            classSections.push({ standard: pair.standard, section: pair.section });
+            classSections.push(normalized);
         }
     }
 
+    const standardsSet = new Set(
+        [...standards, ...classSections.map((pair) => pair.standard)]
+            .filter(Boolean)
+            .map((value) => String(value).trim())
+    );
+    const sectionsSet = new Set(
+        [...sections, ...classSections.map((pair) => pair.section)]
+            .filter(Boolean)
+            .map((value) => String(value).trim().toUpperCase())
+    );
+
     return {
-        standards: standards.sort(),
-        sections: sections.sort(),
-        classSections,
+        standards: [...standardsSet].sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" })),
+        sections: [...sectionsSet].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" })),
+        classSections: sortClassSections(classSections),
         subjects: subjects.filter(Boolean).sort(),
         rooms: rooms.filter(Boolean).sort()
     };

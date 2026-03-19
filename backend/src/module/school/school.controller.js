@@ -94,3 +94,21 @@ export const getSchoolClasses = asyncHandler(async (req, res) => {
         data: result
     });
 });
+
+export const addSchoolClassSection = asyncHandler(async (req, res) => {
+    const classSections = await schoolService.addSchoolClassSection(req.schoolId, req.body);
+    res.status(201).json({
+        success: true,
+        message: "Class-section added successfully",
+        data: { classSections }
+    });
+});
+
+export const removeSchoolClassSection = asyncHandler(async (req, res) => {
+    const classSections = await schoolService.removeSchoolClassSection(req.schoolId, req.body);
+    res.status(200).json({
+        success: true,
+        message: "Class-section removed successfully",
+        data: { classSections }
+    });
+});

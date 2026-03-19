@@ -1,5 +1,22 @@
 import mongoose from "mongoose";
 
+const classSectionSchema = new mongoose.Schema(
+  {
+    standard: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    section: {
+      type: String,
+      required: true,
+      trim: true,
+      uppercase: true,
+    },
+  },
+  { _id: false }
+);
+
 const schoolSchema = new mongoose.Schema(
   {
     name: {
@@ -48,6 +65,12 @@ const schoolSchema = new mongoose.Schema(
       accentColor: {
         type: String,
         default: "#2563eb",
+      },
+    },
+    academic: {
+      classSections: {
+        type: [classSectionSchema],
+        default: [],
       },
     },
 

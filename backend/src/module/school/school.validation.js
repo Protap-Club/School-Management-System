@@ -77,3 +77,17 @@ export const toggleFeatureSchema = z.object({
         enabled: z.boolean(),
     }),
 });
+
+export const upsertClassSectionSchema = z.object({
+    body: z.object({
+        standard: z.string().trim().min(1, 'Class is required'),
+        section: z.string().trim().min(1, 'Section is required'),
+    }),
+});
+
+export const removeClassSectionSchema = z.object({
+    body: z.object({
+        standard: z.string().trim().min(1, 'Class is required'),
+        section: z.string().trim().min(1, 'Section is required'),
+    }),
+});

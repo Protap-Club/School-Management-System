@@ -31,12 +31,28 @@ export const useSchoolClasses = () => {
         return [...secs].sort((a, b) => a.localeCompare(b));
     }, [dataPayload.sections]);
 
-    // Since the backend 'distinct' query provides global sections and not a map,
-    // we return all configured sections across the school.
+    const classSectionsMap = useMemo(() => {
+        const map = new Map();
+        const pairs = Array.isArray(dataPayload.classSections) ? dataPayload.classSections : [];
+        for (const pair of pairs) {
+            const standard = String(pair?.standard || '').trim();
+            const section = String(pair?.section || '').trim();
+            if (!standard || !section) continue;
+            if (!map.has(standard)) map.set(standard, new Set());
+            map.get(standard).add(section);
+        }
+        return map;
+    }, [dataPayload.classSections]);
+
+    // Prefer exact sections configured for a standard. Fallback to global sections.
     const getSectionsForStandard = useCallback((standard) => {
-        const secs = dataPayload.sections || [];
-        return [...secs].sort((a, b) => a.localeCompare(b));
-    }, [dataPayload.sections]);
+        if (!standard) return allUniqueSections;
+        const byStandard = classSectionsMap.get(String(standard).trim());
+        if (byStandard && byStandard.size > 0) {
+            return [...byStandard].sort((a, b) => a.localeCompare(b));
+        }
+        return allUniqueSections;
+    }, [allUniqueSections, classSectionsMap]);
 
     return {
         classesData,
