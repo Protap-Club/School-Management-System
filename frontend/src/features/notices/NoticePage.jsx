@@ -382,9 +382,9 @@ const NoticePage = () => {
                             </div>
                         ) : (
                             pagedReceivedItems.map(item => (
-                                <div key={item._id} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 hover:shadow-md transition-shadow max-w-4xl">
+                                <div key={item._id} className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 hover:shadow-md transition-shadow">
                                     {/* Top Row */}
-                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 py-1 mb-4 border-b border-gray-50/50 pb-3">
+                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 py-1 mb-4 border-b border-gray-100 pb-3">
                                         {/* Sender Info */}
                                         <div className="flex items-center gap-3">
                                             {item.createdBy?.avatar ? (
@@ -396,10 +396,10 @@ const NoticePage = () => {
                                             )}
                                             <div>
                                                 <div className="flex items-center gap-2">
-                                                    <span className="font-semibold text-gray-800 text-[15px]">
+                                                    <span className="font-semibold text-gray-900 text-[15px]">
                                                         {item.createdBy?.name || 'System User'}
                                                     </span>
-                                                    <span className="bg-[#EBF1FF] text-[#3B82F6] text-[10px] font-extrabold px-2 py-0.5 rounded-md uppercase tracking-wide">
+                                                    <span className="bg-blue-50 text-blue-600 text-[10px] font-extrabold px-2 py-0.5 rounded-md uppercase tracking-wide">
                                                         {item.createdBy?.role || 'User'}
                                                     </span>
                                                 </div>
@@ -426,7 +426,7 @@ const NoticePage = () => {
                                                     <div className="w-px h-3.5 bg-gray-200 hidden sm:block"></div>
                                                 </>
                                             )}
-                                            <span className="text-[#9CA3AF] font-medium text-[13px] whitespace-nowrap">
+                                            <span className="text-gray-400 font-medium text-[13px] whitespace-nowrap">
                                                 {new Date(item.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })} • {new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                             </span>
                                         </div>
@@ -435,29 +435,29 @@ const NoticePage = () => {
                                     {/* Notice Content */}
                                     <div className="flex gap-4 ml-1">
                                         <div className="mt-1">
-                                            <FaPaperclip className="text-[#3B82F6]" size={18} />
+                                            <FaPaperclip className="text-blue-500" size={18} />
                                         </div>
                                         <div className="flex-1 w-full min-w-0 pr-2">
-                                            <h3 className="text-[18px] font-extrabold text-[#111827] mb-1.5 leading-tight tracking-tight">
+                                            <h3 className="text-[18px] font-extrabold text-gray-900 mb-1.5 leading-tight tracking-tight">
                                                 {item.title || 'Notice'}
                                             </h3>
-                                            <p className="text-[15px] text-[#4B5563] leading-relaxed whitespace-pre-wrap mb-5">
+                                            <p className="text-[15px] text-gray-600 leading-relaxed whitespace-pre-wrap mb-5">
                                                 {item.message}
                                             </p>
 
                                             {/* Attachment Box */}
                                             {item.attachment?.filename && (
-                                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-2xl border border-gray-100 bg-white shadow-[0_2px_8px_-2px_rgba(0,0,0,0.03)] cursor-pointer hover:border-gray-200 transition-colors"
+                                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-2xl border border-gray-200 bg-white shadow-sm cursor-pointer hover:border-gray-300 transition-colors"
                                                      onClick={() => handleDownload(
                                                          item.attachment.secure_url || item.attachment.path,
                                                          item.attachment.originalName || item.attachment.filename
                                                      )}>
                                                      <div className="flex items-center gap-4 min-w-0 flex-1">
-                                                        <div className="w-12 h-12 bg-[#FEF2F2] text-[#EF4444] rounded-[10px] flex items-center justify-center shrink-0">
+                                                        <div className="w-12 h-12 bg-red-50 text-red-500 rounded-[10px] flex items-center justify-center shrink-0">
                                                             {getFileIcon(item.attachment.originalName || item.attachment.filename, 22)}
                                                         </div>
                                                         <div className="min-w-0">
-                                                            <h4 className="text-[15px] font-semibold text-[#1F2937] truncate tracking-tight">
+                                                            <h4 className="text-[15px] font-semibold text-gray-800 truncate tracking-tight">
                                                                 {item.attachment.originalName || item.attachment.filename}
                                                             </h4>
                                                             <p className="text-[13px] text-gray-400 mt-0.5 font-medium tracking-wide">
@@ -466,7 +466,7 @@ const NoticePage = () => {
                                                         </div>
                                                     </div>
                                                     
-                                                    <div className="flex items-center justify-center gap-2 font-bold text-[#2563EB] shrink-0 w-full sm:w-auto mt-2 sm:mt-0 text-[14px] px-2">
+                                                    <div className="flex items-center justify-center gap-2 font-bold text-blue-600 shrink-0 w-full sm:w-auto mt-2 sm:mt-0 text-[14px] px-2">
                                                         <FaDownload size={13} />
                                                         <span>Download</span>
                                                     </div>
@@ -478,7 +478,7 @@ const NoticePage = () => {
                             ))
                         )}
                         {receivedItems.length > 0 && totalReceivedPages > 1 && (
-                            <div className="flex items-center justify-between pt-2 max-w-4xl">
+                            <div className="flex items-center justify-between pt-2">
                                 <span className="text-xs text-gray-500">Page {receivedPage} of {totalReceivedPages}</span>
                                 <div className="flex items-center gap-2">
                                     <button
