@@ -161,15 +161,17 @@ const TimetablePage = () => {
                     </div>
                 )}
 
-                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                    <div>
-                        <h1 className="flex items-center gap-2 text-xl font-bold text-gray-800">
-                            <FaCalendarAlt className="text-primary" />
-                            Timetable
-                        </h1>
-                        <p className="mt-0.5 text-sm text-gray-500">
-                            {isTeacher ? "View your weekly schedule." : "Manage class and teacher schedules."}
-                        </p>
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
+                    <div className="flex items-center gap-6">
+                        <div className="w-16 h-16 bg-white rounded-2xl shadow-lg flex items-center justify-center text-primary transform hover:rotate-6 transition-transform">
+                            <FaCalendarAlt size={32} />
+                        </div>
+                        <div className="space-y-1">
+                            <h1 className="page-title">Timetable</h1>
+                            <p className="page-subtitle">
+                                {isTeacher ? "View your weekly schedule." : "Manage class and teacher schedules."}
+                            </p>
+                        </div>
                     </div>
 
                     {isAdmin ? (

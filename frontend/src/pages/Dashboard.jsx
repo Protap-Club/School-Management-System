@@ -300,14 +300,8 @@ const Dashboard = () => {
 
   return (
     <DashboardLayout>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;700;900&display=swap');
-        .dashboard-container {
-          font-family: 'Noto Sans', sans-serif !important;
-        }
-      `}</style>
       <motion.div
-        className="max-w-[1600px] mx-auto space-y-8 p-4 md:p-6 lg:p-8 dashboard-container"
+        className="max-w-[1600px] mx-auto space-y-8 p-4 md:p-6 lg:p-8"
         initial="hidden"
         animate="visible"
         variants={containerVariants}

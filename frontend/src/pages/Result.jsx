@@ -336,14 +336,17 @@ const Result = () => {
         {!selectedExam ? (
           <>
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div>
-                <h1 className="text-3xl font-bold text-gray-900">
-                  Result Management
-                </h1>
-                <p className="text-gray-500 mt-1">
+            <div className="flex items-center gap-6 mb-8">
+              <div className="w-16 h-16 bg-white rounded-2xl shadow-lg flex items-center justify-center text-primary transform hover:rotate-6 transition-transform">
+                <FaGraduationCap size={32} />
+              </div>
+              <div className="space-y-1">
+                <h1 className="page-title">Result Management</h1>
+                <p className="page-subtitle">
                   Manage marks entry, result generation, and publishing for all completed exams
                 </p>
               </div>
+            </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
@@ -407,7 +410,7 @@ const Result = () => {
                       <th className="px-5 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Class</th>
                       <th className="px-5 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Subjects</th>
                       <th className="px-5 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Counts</th>
-                      <th className="px-5 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider text-right">Actions</th>
+                      <th className="px-5 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider text-center">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -458,7 +461,7 @@ const Result = () => {
                               </span>
                             </div>
                           </td>
-                          <td className="px-5 py-5 text-right">
+                          <td className="px-5 py-5 text-center">
                             <button
                               onClick={() => handleOpenExam(exam)}
                               className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary text-white font-semibold hover:bg-primary-hover transition-all shadow-lg shadow-primary/20"
@@ -561,7 +564,7 @@ const Result = () => {
                       <tr className="border-b border-slate-100 bg-slate-50/40">
                         <th className="px-5 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Student</th>
                         <th className="px-5 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Roll</th>
-                        <th className="px-5 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider text-right">Actions</th>
+                        <th className="px-5 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider text-center">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
@@ -590,8 +593,8 @@ const Result = () => {
                                 </div>
                               </td>
                               <td className="px-5 py-4 text-slate-700 font-medium">{student.rollNumber || '-'}</td>
-                              <td className="px-5 py-4">
-                                <div className="flex items-center justify-end gap-2">
+                              <td className="px-5 py-4 text-center">
+                                <div className="flex items-center justify-center gap-2">
                                   <button
                                     onClick={() => handleOpenEntry(student)}
                                     className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary text-white font-semibold hover:bg-primary-hover transition-all shadow-lg shadow-primary/20 disabled:opacity-60 disabled:cursor-not-allowed"
@@ -643,7 +646,7 @@ const Result = () => {
                         <th className="px-5 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Percentage</th>
                         <th className="px-5 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Grade</th>
                         <th className="px-5 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Outcome</th>
-                        <th className="px-5 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider text-right">Actions</th>
+                        <th className="px-5 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider text-center">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
@@ -676,8 +679,8 @@ const Result = () => {
                             <td className="px-5 py-4">
                               <OutcomeBadge outcome={item.summary?.resultStatus} />
                             </td>
-                            <td className="px-5 py-4">
-                              <div className="flex items-center justify-end gap-2">
+                            <td className="px-5 py-4 text-center">
+                              <div className="flex items-center justify-center gap-2">
                                 <button
                                   onClick={() => setDetailModal({ open: true, result: item })}
                                   className="p-2.5 text-slate-500 hover:text-primary hover:bg-slate-100 rounded-xl transition-all"

@@ -40,9 +40,14 @@ const Notice = () => {
                 </div>
             )}
             <div className="space-y-6">
-                <div>
-                    <h1 className="text-3xl font-bold text-gray-900">Notice Board</h1>
-                    <p className="text-gray-500 mt-1">{isAdmin ? 'Send notices to the entire school, classes, or specific users' : 'Send notices to your students or groups'}</p>
+                <div className="flex items-center gap-6 mb-8">
+                    <div className="w-16 h-16 bg-white rounded-2xl shadow-lg flex items-center justify-center text-primary transform hover:rotate-6 transition-transform">
+                        <FaBell size={32} />
+                    </div>
+                    <div className="space-y-1">
+                        <h1 className="page-title">Notice Board</h1>
+                        <p className="page-subtitle">{isAdmin ? 'Send notices to the entire school, classes, or specific users' : 'Send notices to your students or groups'}</p>
+                    </div>
                 </div>
                 <div className="flex gap-1 bg-gray-100 p-1 rounded-xl w-fit">
                     {(isAdmin || isTeacher) && <TabButton tab="compose" activeTab={activeTab} icon={<FaPaperPlane />} label="Compose" setActiveTab={setActiveTab} />}
@@ -143,11 +148,10 @@ const Notice = () => {
                                 <button
                                     onClick={handleSendClick}
                                     disabled={!message.trim()}
-                                    className="relative w-full overflow-hidden group flex items-center justify-center gap-2 bg-linear-to-r from-primary to-indigo-600 hover:from-primary-hover hover:to-indigo-700 text-white font-medium py-3.5 px-4 rounded-xl shadow-lg shadow-primary/30 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none hover:-translate-y-0.5"
+                                    className="w-full flex items-center justify-center gap-2 bg-primary hover:bg-primary-hover text-white font-medium py-3.5 px-4 rounded-xl shadow-lg shadow-primary/20 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none hover:-translate-y-0.5"
                                 >
-                                    <div className="absolute inset-0 w-full h-full bg-white/20 scale-x-0 group-hover:scale-x-100 origin-left transition-transform duration-300 ease-out"></div>
-                                    <FaPaperPlane className="relative z-10 group-hover:rotate-12 transition-transform duration-300" size={14} />
-                                    <span className="relative z-10">Send Notice</span>
+                                    <FaPaperPlane className="group-hover:rotate-12 transition-transform duration-300" size={14} />
+                                    <span>Send Notice</span>
                                 </button>
                             </div>
                             <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl border border-gray-200 p-6">
@@ -203,7 +207,7 @@ const Notice = () => {
                                     </div>
                                 )}
                                 <button onClick={handleCreateGroup}
-                                    className="w-full flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2.5 px-4 rounded-xl transition-colors">
+                                    className="w-full flex items-center justify-center gap-2 bg-primary hover:bg-primary-hover text-white font-medium py-2.5 px-4 rounded-xl transition-colors">
                                     <FaPlus size={12} /> Create Group
                                 </button>
                             </div>

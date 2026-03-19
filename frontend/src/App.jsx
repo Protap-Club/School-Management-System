@@ -128,7 +128,7 @@ function App() {
                         path="/superadmin/result"
                         element={
                             <ProtectedRoute allowedRoles={['super_admin']}>
-                                <RequireFeature feature="examination">
+                                <RequireFeature feature="result">
                                     <Result />
                                 </RequireFeature>
                             </ProtectedRoute>
@@ -234,7 +234,7 @@ function App() {
                         path="/admin/result"
                         element={
                             <ProtectedRoute allowedRoles={['admin']}>
-                                <RequireFeature feature="examination">
+                                <RequireFeature feature="result">
                                     <Result />
                                 </RequireFeature>
                             </ProtectedRoute>
@@ -322,7 +322,7 @@ function App() {
                         path="/teacher/result"
                         element={
                             <ProtectedRoute allowedRoles={['teacher']}>
-                                <RequireFeature feature="examination">
+                                <RequireFeature feature="result">
                                     <Result />
                                 </RequireFeature>
                             </ProtectedRoute>

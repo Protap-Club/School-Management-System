@@ -8,7 +8,7 @@ import { useProfile, useStudents } from '../features/attendance';
 import { useSchoolClasses } from '../hooks/useSchoolClasses';
 import ExamModal from '../components/examination/ExamModal';
 import { FaPlus, FaEdit, FaTrash, FaEye, FaCalendarAlt, FaClock,
-  FaChalkboardTeacher, FaCheckCircle, FaExclamationTriangle, FaBan, FaFilter, FaSearch, FaTimes, FaInfoCircle, FaUserGraduate, FaLayerGroup, FaBolt } from 'react-icons/fa';
+  FaChalkboardTeacher, FaCheckCircle, FaExclamationTriangle, FaBan, FaFilter, FaSearch, FaTimes, FaInfoCircle, FaUserGraduate, FaLayerGroup, FaBolt, FaCalendarCheck } from 'react-icons/fa';
 import { TabButton } from '../components/ui/NoticeUIComponents';
 
 // Constants
@@ -221,15 +221,20 @@ const Examination = () => {
         <div className={selectedExam ? "no-print" : ""}>
           {/* Header Section */}
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
-            <div>
-              <h1 className="text-4xl font-black text-slate-900 tracking-tight mb-2">Examination Schedules</h1>
-              <p className="text-slate-500 font-medium">Manage and monitor {stats.total} scheduled examination sessions.</p>
+            <div className="flex items-center gap-6">
+              <div className="w-16 h-16 bg-white rounded-2xl shadow-lg flex items-center justify-center text-primary transform hover:rotate-6 transition-transform">
+                <FaCalendarCheck size={32} />
+              </div>
+              <div className="space-y-1">
+                <h1 className="page-title">Examination Schedules</h1>
+                <p className="page-subtitle">Manage and monitor {stats.total} scheduled examination sessions.</p>
+              </div>
             </div>
             {(isAdmin || isTeacher) && (
               <div className="flex items-center gap-3">
                 <button 
                   onClick={() => setShowModal({ type: 'create', open: true, data: null })}
-                  className="px-6 py-3.5 bg-[#f06124] text-white rounded-2xl font-bold hover:bg-[#d95620] transition-all shadow-lg shadow-orange-100 flex items-center gap-2 active:scale-95"
+                  className="btn-primary px-6 rounded-2xl shadow-lg shadow-primary/20 active:scale-95"
                 >
                   <FaPlus size={16} />
                   <span>Create New Exam</span>
