@@ -105,6 +105,10 @@ export const updateLogo = async (schoolId, logoUrl, logoPublicId) => {
 // FEATURE MANAGEMENT 
 export const getAvailableFeatures = () => Object.values(SCHOOL_FEATURES);
 
+// In-memory cache for feature flags (60-second TTL)
+const featureCache = new Map();
+const FEATURE_CACHE_TTL_MS = 60_000;
+
 // The Super Admin calls this to turn on/off features for THEIR school.
 export const updateSchoolFeatures = async (schoolId, featureUpdates) => {
     const school = await School.findById(schoolId);
@@ -118,13 +122,30 @@ export const updateSchoolFeatures = async (schoolId, featureUpdates) => {
 
     school.markModified('features');
     await school.save();
+
+    // Invalidate all cached features for this school
+    for (const cacheKey of featureCache.keys()) {
+        if (cacheKey.startsWith(`${schoolId}:`)) {
+            featureCache.delete(cacheKey);
+        }
+    }
+
     return { features: school.features };
 };
 
 export const hasFeature = async (schoolId, featureKey) => {
     if (!schoolId) return false;
+
+    const cacheKey = `${schoolId}:${featureKey}`;
+    const cached = featureCache.get(cacheKey);
+    if (cached && Date.now() - cached.ts < FEATURE_CACHE_TTL_MS) {
+        return cached.value;
+    }
+
     const school = await School.findById(schoolId).select(`features.${featureKey}`).lean();
-    return school?.features?.[featureKey] === true;
+    const value = school?.features?.[featureKey] === true;
+    featureCache.set(cacheKey, { value, ts: Date.now() });
+    return value;
 };
 
 // Gets unique standards, sections, subjects and rooms for a school
