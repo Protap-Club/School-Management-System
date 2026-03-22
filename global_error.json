@@ -1,9 +1,0 @@
-{
-  "message": "Access denied",
-  "stack": "ForbiddenError: Access denied\n    at file:///C:/Users/Jay/School-Management-System/backend/src/middlewares/role.middleware.js:19:19\n    at Layer.handleRequest (C:\\Users\\Jay\\School-Management-System\\backend\\node_modules\\router\\lib\\layer.js:152:17)\n    at next (C:\\Users\\Jay\\School-Management-System\\backend\\node_modules\\router\\lib\\route.js:157:13)\n    at checkWebOnly (file:///C:/Users/Jay/School-Management-System/backend/src/middlewares/checkWebOnly.js:10:5)\n    at Layer.handleRequest (C:\\Users\\Jay\\School-Management-System\\backend\\node_modules\\router\\lib\\layer.js:152:17)\n    at next (C:\\Users\\Jay\\School-Management-System\\backend\\node_modules\\router\\lib\\route.js:157:13)\n    at Route.dispatch (C:\\Users\\Jay\\School-Management-System\\backend\\node_modules\\router\\lib\\route.js:117:3)\n    at handle (C:\\Users\\Jay\\School-Management-System\\backend\\node_modules\\router\\index.js:435:11)\n    at Layer.handleRequest (C:\\Users\\Jay\\School-Management-System\\backend\\node_modules\\router\\lib\\layer.js:152:17)\n    at C:\\Users\\Jay\\School-Management-System\\backend\\node_modules\\router\\index.js:295:15",
-  "name": "ForbiddenError",
-  "statusCode": 403,
-  "data": null,
-  "params": {},
-  "url": "/api/v1/fees/salaries?year=2026"
-}

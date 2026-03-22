@@ -1,5 +1,6 @@
 import { Server } from 'socket.io';
 import jwt from 'jsonwebtoken';
+import { conf } from './config/index.js';
 import logger from './config/logger.js';
 
 let io;
@@ -14,7 +15,7 @@ export const initSocket = (server, corsOptions) => {
             return next(new Error('Authentication required'));
         }
         try {
-            const decoded = jwt.verify(token, process.env.JWT_SECRET);
+            const decoded = jwt.verify(token, conf.JWT_SECRET || conf.JWT_ACCESS_SECRET);
             socket.userId = decoded.id;
             socket.schoolId = decoded.schoolId;
             next();

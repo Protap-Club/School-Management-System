@@ -7,6 +7,7 @@ import logger from "../config/logger.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const TEMPLATE_CACHE = new Map(); // Cache templates to avoid constant Disk I/O
+const TEMPLATE_DIR = path.join(__dirname, '../view');
 
 let transporter = nodemailer.createTransport({
     host: conf.SMTP_HOST || 'smtp.gmail.com',
@@ -19,7 +20,7 @@ let transporter = nodemailer.createTransport({
 const getTemplate = async (templateName) => {
     if (TEMPLATE_CACHE.has(templateName)) return TEMPLATE_CACHE.get(templateName);
     
-    const templatePath = path.join(__dirname, '../templates', templateName);
+    const templatePath = path.join(TEMPLATE_DIR, templateName);
     const content = await fs.readFile(templatePath, 'utf-8');
     TEMPLATE_CACHE.set(templateName, content);
     return content;
@@ -33,27 +34,28 @@ const parseTemplate = (html, data) => {
 // Sends credentials email with School Branding
 export const sendCredentialsEmail = async ({ to, name, role, password, schoolName }) => {
     try {
-
-        if(conf.NODE_ENV !== 'production'){
-            logger.info(`Email skipped (non -prod) :${to}`);
-            return { success : true, skipped : true};
-        }
-
-        if (!conf.SMTP_USER) {
+        if (!conf.SMTP_USER || !conf.SMTP_PASS) {
             logger.warn("SMTP not configured. Email skipped.");
             return { success: false };
         }
 
-        const roleDisplay = role.replace('_', ' ').toUpperCase();
+        const roleDisplay = role.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
         const displaySchool = schoolName || "Our School"; // Default fallback
+        const recipientLabelMap = {
+            student: "Student Name",
+            teacher: "Teacher Name",
+            admin: "Admin Name",
+            super_admin: "Administrator Name",
+        };
+        const recipientLabel = recipientLabelMap[role] || "User Name";
 
         const rawHtml = await getTemplate('credentials.template.html');
         const htmlContent = parseTemplate(rawHtml, {
             name,
-            role: roleDisplay,
-            email: to,
+            to,
             password,
-            schoolName: displaySchool
+            schoolName: displaySchool,
+            recipientLabel
         });
 
         const mailOptions = {

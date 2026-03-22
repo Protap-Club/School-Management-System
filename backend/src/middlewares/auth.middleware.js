@@ -5,6 +5,8 @@ import logger from "../config/logger.js";
 import { NotFoundError, UnauthorizedError, ForbiddenError } from "../utils/customError.js";
 import { USER_ROLES } from "../constants/userRoles.js";
 
+const ACCESS_TOKEN_SECRET = conf.JWT_ACCESS_SECRET || conf.JWT_SECRET;
+
 const checkAuth = async (req, res, next) => {
     try {
         // Extract token safely (optional chaining handles missing headers)
@@ -14,7 +16,7 @@ const checkAuth = async (req, res, next) => {
             throw new UnauthorizedError("Token Not Found!")
         }
 
-        const decoded = jwt.verify(token, conf.JWT_SECRET);
+        const decoded = jwt.verify(token, ACCESS_TOKEN_SECRET);
         if (!decoded) {
             throw new UnauthorizedError("Invalid Token");
         }

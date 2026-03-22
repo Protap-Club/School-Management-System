@@ -9,10 +9,6 @@ import logger from "../../config/logger.js";
 //  Create a new notice (multipart/form-data with optional attachment)
 
 export const createNotice = asyncHandler(async (req, res) => {
-    if (req.file) {
-        console.log("[DEBUG] Notice upload req.file:", JSON.stringify(req.file, null, 2));
-    }
-
     const result = await noticeService.createNotice(
         req.schoolId,
         req.user._id,

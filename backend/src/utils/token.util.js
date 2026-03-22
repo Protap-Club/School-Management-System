@@ -5,12 +5,13 @@ import RefreshToken from "../module/auth/RefreshToken.model.js";
 
 const ACCESS_TOKEN_EXPIRY = "15m";
 const REFRESH_TOKEN_EXPIRY_DAYS = 7;
+const ACCESS_TOKEN_SECRET = conf.JWT_ACCESS_SECRET || conf.JWT_SECRET;
 
 // Create a short-lived access token (15 min).
 export const generateAccessToken = (user) => {
     return jwt.sign(
         { id: user._id, role: user.role, schoolId: user.schoolId?._id || user.schoolId },
-        conf.JWT_SECRET,
+        ACCESS_TOKEN_SECRET,
         { expiresIn: ACCESS_TOKEN_EXPIRY }
     );
 };

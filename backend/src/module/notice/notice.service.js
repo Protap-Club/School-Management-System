@@ -111,8 +111,6 @@ export const createNotice = async (schoolId, userId, data, file) => {
     if (file) {
         const fileUrl = file.path || file.secure_url || file.url;
         const filePublicId = file.filename || file.public_id;
-
-
         attachment = {
             filename: filePublicId,
             originalName: file.originalname,

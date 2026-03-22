@@ -10,3 +10,12 @@ architech/
 # Architecture files
 architecture/
 assignment.md
+
+# Environment files
+.env
+.env.*
+backend/.env
+frontend/.env
+!.env.example
+!backend/.env.example
+!frontend/.env.example

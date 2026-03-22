@@ -3,6 +3,7 @@ import express from 'express';
 import mongoose from 'mongoose';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
+import helmet from 'helmet';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { createServer } from 'http';
@@ -19,7 +20,19 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-const PORT = conf.PORT || 5000;
+const PORT = conf.PORT;
+const missingEnv = [
+    !conf.PORT && 'PORT',
+    !conf.MONGO_URI && 'MONGO_URI',
+    !conf.DB_NAME && 'DB_NAME',
+    !(conf.JWT_SECRET || conf.JWT_ACCESS_SECRET) && 'JWT_SECRET',
+    !conf.JWT_REFRESH_SECRET && 'JWT_REFRESH_SECRET',
+    conf.CORS_ORIGINS.length === 0 && 'CORS_ORIGINS',
+].filter(Boolean);
+
+if (missingEnv.length) {
+    throw new Error(`Missing required environment variables: ${missingEnv.join(', ')}`);
+}
 
 // Use the native http server to hook Socket.io, then pass the app to it.
 const server = createServer(app);
@@ -27,7 +40,7 @@ const server = createServer(app);
 // CORS Configuration 
 // Only allowing our frontend to connect.
 const corsOptions = {
-    origin: ['http://localhost:5173', 'http://localhost:8081'], // Add frontend URL here
+    origin: conf.CORS_ORIGINS,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'x-platform', 'x-device-key']
@@ -42,10 +55,11 @@ app.set('io', io);
 
 
 // Core Middleware 
+app.use(helmet());
 app.use(cors(corsOptions)); // Enable Cross-Origin Resource Sharing
 app.use(cookieParser());     // Parse cookies (needed for refresh tokens)
-app.use(express.json()); // Parses incoming JSON payloads
-app.use(express.text({ type: 'text/plain' })); // Let's receive plain text for certain NFC readers
+app.use(express.json({ limit: conf.JSON_BODY_LIMIT })); // Parses incoming JSON payloads
+app.use(express.text({ type: 'text/plain', limit: conf.TEXT_BODY_LIMIT })); // Let's receive plain text for certain NFC readers
 
 // Static File Serving 
 // 'resource' directory for static brand assets (protap.png)
@@ -90,7 +104,7 @@ app.use(errorHandler);
 // Database & Server Initialization 
 // We connect to MongoDB first, and only if successful, we start the server.
 logger.info("Connecting to MongoDB...");
-mongoose.connect(conf.MONGO_URI, { dbName: "Protap" })
+mongoose.connect(conf.MONGO_URI, { dbName: conf.DB_NAME })
     .then(() => {
         logger.info("MongoDB connected successfully.");
 

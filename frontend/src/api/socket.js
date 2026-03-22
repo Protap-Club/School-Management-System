@@ -1,6 +1,9 @@
 import { io } from 'socket.io-client';
+import { SOCKET_URL } from '../config';
 
-const SOCKET_URL = 'http://localhost:5000';
+if (!SOCKET_URL) {
+    throw new Error('Missing VITE_SOCKET_URL environment variable');
+}
 
 let socket = null;
 let currentSchoolId = null;

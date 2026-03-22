@@ -1,6 +1,7 @@
 import User from "./model/User.model.js";
 import StudentProfile from "./model/StudentProfile.model.js";
 import TeacherProfile from "./model/TeacherProfile.model.js";
+import School from "../school/School.model.js";
 import { PROFILE_CONFIG } from "../../config/profiles.js";
 import { sendCredentialsEmail } from "../../utils/email.util.js";
 import { USER_ROLES, canManageRole, VIEWABLE_ROLES } from "../../constants/userRoles.js";
@@ -31,6 +32,7 @@ export const createUser = async (creator, userData) => {
     // Generate secure password
     const plainPassword = userData.password || generatePassword(12);
     const config = PROFILE_CONFIG[role];
+    const school = await School.findById(targetSchoolId).select("name").lean();
 
     // Step 1: Create User
     const newUser = await User.create({
@@ -61,7 +63,8 @@ export const createUser = async (creator, userData) => {
             to: email,
             name,
             role,
-            password: plainPassword
+            password: plainPassword,
+            schoolName: school?.name
         }).catch(err => logger.error({ err, email }, "Failed to send credentials email"));
     }
 

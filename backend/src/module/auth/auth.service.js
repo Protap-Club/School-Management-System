@@ -86,23 +86,34 @@ export const refreshAccessToken = async (oldRefreshToken, metadata = {}) => {
 
     const oldHash = hashToken(oldRefreshToken);
 
-    // 1. Find the token. We allow tokens that were replaced VERY recently (grace period)
-    const tokenDoc = await RefreshToken.findOne({ 
+    const tokenDoc = await RefreshToken.findOne({
         tokenHash: oldHash,
-        isRevoked: false,
-        expiresAt: { $gt: new Date() }
     }).populate({
         path: "userId",
         populate: { path: "schoolId", select: "name code" }
     });
 
     if (!tokenDoc) {
-        // Reuse detection: If this token was already replaced by another, check if it was recent
-        const replacedToken = await RefreshToken.findOne({ replacedByTokenHash: oldHash });
-        if (replacedToken) {
-            logger.warn("Refresh token reuse attempted", { oldHash: oldHash.substring(0, 8) });
-        }
         throw new UnauthorizedError("Invalid or expired refresh token");
+    }
+
+    if (tokenDoc.expiresAt <= new Date()) {
+        throw new UnauthorizedError("Invalid or expired refresh token");
+    }
+
+    if (tokenDoc.isRevoked) {
+        logger.warn("Refresh token reuse attempted", {
+            userId: tokenDoc.userId?._id || tokenDoc.userId,
+            tokenHashPrefix: oldHash.substring(0, 8),
+            platform: tokenDoc.metadata?.platform,
+        });
+
+        await RefreshToken.updateMany(
+            { userId: tokenDoc.userId?._id || tokenDoc.userId, isRevoked: false },
+            { $set: { isRevoked: true, expiresAt: new Date() } }
+        );
+
+        throw new UnauthorizedError("Refresh token has been revoked");
     }
 
     const user = tokenDoc.userId;
@@ -110,28 +121,20 @@ export const refreshAccessToken = async (oldRefreshToken, metadata = {}) => {
         throw new UnauthorizedError("User is no longer active");
     }
 
-    // 2. Token Rotation with Grace Period
-    // If this token was already replaced, but within the last 60 seconds, reuse the replacement or just allow one more refresh.
-    // To handle concurrent requests, we check if it's already "being replaced".
-    
     const newAccessToken = generateAccessToken(user);
     const newRefreshToken = generateRefreshToken();
     const newHash = hashToken(newRefreshToken);
 
-    // Update old token to indicate it was rotated
-    // We don't delete it immediately to allow concurrent requests still using it for a few seconds.
     await RefreshToken.updateOne(
         { _id: tokenDoc._id },
         { 
             $set: { 
                 replacedByTokenHash: newHash,
-                isRevoked: true ,
-                expiresAt: new Date(Date.now() + 60 * 1000) // Keep for 60s for race conditions
+                isRevoked: true
             } 
         }
     );
 
-    // Create the new token
     await saveRefreshToken(user._id, newRefreshToken, { ...tokenDoc.metadata, ...metadata });
 
     return { accessToken: newAccessToken, refreshToken: newRefreshToken };

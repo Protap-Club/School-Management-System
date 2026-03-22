@@ -39,7 +39,7 @@ export const login = asyncHandler(async (req, res) => {
         success: true,
         token: result.accessToken,
         user: result.user,
-        refreshToken: result.refreshToken,
+        ...(platform === "mobile" && { refreshToken: result.refreshToken }),
     });
 });
 
@@ -47,6 +47,7 @@ export const login = asyncHandler(async (req, res) => {
 export const refresh = asyncHandler(async (req, res) => {
     // Mobile sends token in body (no cookie jar); web sends it as HttpOnly cookie
     const oldRefreshToken = req.cookies?.refreshToken || req.body?.refreshToken;
+    const platform = req.headers["x-platform"] === "mobile" ? "mobile" : "web";
 
     if (!oldRefreshToken) {
         throw new UnauthorizedError("Refresh token is missing");
@@ -65,7 +66,7 @@ export const refresh = asyncHandler(async (req, res) => {
     res.status(200).json({
         success: true,
         token: result.accessToken,
-        refreshToken: result.refreshToken,
+        ...(platform === "mobile" && { refreshToken: result.refreshToken }),
     });
 });
 
