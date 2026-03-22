@@ -4,7 +4,7 @@ import { AssignmentFilters } from './components/AssignmentFilters';
 import { AssignmentTable } from './components/AssignmentTable';
 import { AssignmentSubmissionTable } from './components/AssignmentSubmissionTable';
 import { AssignmentModal } from './components/AssignmentModal';
-import { FaBook, FaPlus, FaEye, FaCalendarAlt, FaClock, FaCheckCircle, FaInfoCircle, FaPaperclip, FaDownload, FaEdit } from 'react-icons/fa';
+import { FaBook, FaPlus, FaInfoCircle, FaPaperclip, FaDownload, FaTrash } from 'react-icons/fa';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import { useAuth } from '../auth';
 import useDebounce from '../../hooks/useDebounce';
@@ -34,6 +34,7 @@ export const AssignmentPage = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingAssignment, setEditingAssignment] = useState(null);
     const [selectedAssignment, setSelectedAssignment] = useState(null);
+    const [deleteConfirmAssignment, setDeleteConfirmAssignment] = useState(null);
 
     const assignmentQueryParams = {
         standard: standardFilter === 'all' ? undefined : standardFilter,
@@ -89,12 +90,17 @@ export const AssignmentPage = () => {
 
     const handleDeleteClick = async (assignment) => {
         if (!canDelete) return;
-        if (window.confirm(`Are you sure you want to delete "${assignment.title}"?`)) {
-            try {
-                await deleteMutation.mutateAsync(assignment._id);
-            } catch (error) {
-                console.error('Failed to delete assignment:', error);
-            }
+        setDeleteConfirmAssignment(assignment);
+    };
+
+    const handleConfirmDelete = async () => {
+        if (!deleteConfirmAssignment?._id) return;
+
+        try {
+            await deleteMutation.mutateAsync(deleteConfirmAssignment._id);
+            setDeleteConfirmAssignment(null);
+        } catch (error) {
+            console.error('Failed to delete assignment:', error);
         }
     };
 
@@ -328,6 +334,46 @@ export const AssignmentPage = () => {
                                         </div>
                                     )}
                                 </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Delete Confirmation Modal */}
+                {deleteConfirmAssignment && (
+                    <div className="modal-overlay fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[160] p-4 animate-in fade-in duration-300">
+                        <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl p-8 animate-in zoom-in-95 duration-300">
+                            <div className="w-16 h-16 bg-rose-50 rounded-2xl flex items-center justify-center text-rose-500 mb-6 mx-auto border border-rose-100">
+                                <FaTrash size={24} />
+                            </div>
+                            <h3 className="text-xl font-bold text-slate-900 text-center mb-2">Delete Assignment?</h3>
+                            <p className="text-slate-500 text-center mb-2">
+                                You&apos;re about to permanently remove
+                                <span className="font-semibold text-slate-700"> {deleteConfirmAssignment.title}</span>.
+                            </p>
+                            <p className="text-sm text-slate-400 text-center mb-8">
+                                This action cannot be undone.
+                            </p>
+                            <div className="flex gap-3">
+                                <button
+                                    onClick={() => setDeleteConfirmAssignment(null)}
+                                    disabled={deleteMutation.isPending}
+                                    className="flex-1 px-6 py-3 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handleConfirmDelete}
+                                    disabled={deleteMutation.isPending}
+                                    className="flex-1 px-6 py-3 bg-rose-500 text-white rounded-xl font-bold hover:bg-rose-600 transition-all shadow-lg shadow-rose-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                                >
+                                    {deleteMutation.isPending ? (
+                                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                    ) : (
+                                        <FaTrash size={14} />
+                                    )}
+                                    <span>Delete</span>
+                                </button>
                             </div>
                         </div>
                     </div>
