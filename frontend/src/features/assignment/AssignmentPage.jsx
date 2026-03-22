@@ -106,7 +106,13 @@ export const AssignmentPage = () => {
 
     const handleViewClick = (item) => {
         const assignment = item.assignment || item;
-        setSelectedAssignment(assignment);
+        setSelectedAssignment({
+            ...assignment,
+            submissionFiles: item.assignment ? (item.files || []) : [],
+            submittedAt: item.assignment ? item.submittedAt : null,
+            isLate: item.assignment ? item.isLate : false,
+            student: item.assignment ? (item.student || null) : null,
+        });
     };
 
     const handleDownload = async (url, filename) => {
@@ -281,7 +287,7 @@ export const AssignmentPage = () => {
                                         </div>
                                         <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
                                             <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Academic Details</div>
-                                            <div className="text-slate-900 font-bold">{selectedAssignment.subject} • {selectedAssignment.teacher?.name || 'Staff'}</div>
+                                            <div className="text-slate-900 font-bold">{selectedAssignment.subject} • {selectedAssignment.createdBy?.name || selectedAssignment.teacher?.name || 'Staff'}</div>
                                         </div>
                                         <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
                                             <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Deadline</div>
@@ -290,6 +296,63 @@ export const AssignmentPage = () => {
                                             </div>
                                         </div>
                                     </div>
+
+                                    {selectedAssignment.student && (
+                                        <div className="mb-10">
+                                            <h4 className="flex items-center gap-2 text-sm font-bold text-slate-900 mb-4 px-1">
+                                                <FaPaperclip className="text-indigo-600" size={14} />
+                                                Student Submission
+                                            </h4>
+                                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-5">
+                                                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
+                                                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Submitted By</div>
+                                                    <div className="text-slate-900 font-bold">{selectedAssignment.student.name || 'Student'}</div>
+                                                    <div className="text-xs text-slate-500 mt-1">{selectedAssignment.student.email || 'No email available'}</div>
+                                                </div>
+                                                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
+                                                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Submitted On</div>
+                                                    <div className="text-slate-900 font-bold">
+                                                        {selectedAssignment.submittedAt ? new Date(selectedAssignment.submittedAt).toLocaleString() : 'Not available'}
+                                                    </div>
+                                                </div>
+                                                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
+                                                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Submission Status</div>
+                                                    <div className={`font-bold ${selectedAssignment.isLate ? 'text-rose-600' : 'text-emerald-600'}`}>
+                                                        {selectedAssignment.isLate ? 'Late Submission' : 'On Time'}
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {selectedAssignment.submissionFiles?.length > 0 ? (
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                                    {selectedAssignment.submissionFiles.map((file, idx) => (
+                                                        <div key={`${file.publicId || file.url || idx}-${idx}`} className="group relative p-5 bg-white border border-slate-200 rounded-2xl hover:border-emerald-300 hover:shadow-lg transition-all flex items-center justify-between">
+                                                            <div className="flex items-center gap-4">
+                                                                <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600 shadow-sm">
+                                                                    <FaBook size={18} />
+                                                                </div>
+                                                                <div className="min-w-0">
+                                                                    <div className="text-sm font-bold text-slate-900 truncate max-w-[150px]">{file.originalName || file.name}</div>
+                                                                    <div className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">{file.fileType || 'file'}</div>
+                                                                </div>
+                                                            </div>
+                                                            <button
+                                                                onClick={() => handleDownload(file.url, file.originalName || file.name)}
+                                                                className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all border border-transparent hover:border-emerald-100 shadow-sm hover:shadow"
+                                                                title="Download Submitted File"
+                                                            >
+                                                                <FaDownload size={16} />
+                                                            </button>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                <div className="p-5 rounded-2xl bg-slate-50 border border-dashed border-slate-200 text-sm text-slate-500">
+                                                    No student file is attached to this submission.
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
 
                                     {/* Description */}
                                     <div className="mb-10">
