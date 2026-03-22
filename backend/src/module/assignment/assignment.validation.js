@@ -34,9 +34,6 @@ export const updateAssignmentSchema = z.object({
     body: z.object({
         title: z.string().min(1).max(200).optional(),
         description: z.string().max(2000).optional(),
-        subject: z.string().min(1).max(100).optional(),
-        standard: z.string().min(1).optional(),
-        section: z.string().min(1).optional(),
         dueDate: dueDateSchema.optional(),
         requiresSubmission: booleanishSchema.optional(),
         status: z.enum(["active", "closed"]).optional(),

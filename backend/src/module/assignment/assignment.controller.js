@@ -22,7 +22,6 @@ export const createAssignment = asyncHandler(async (req, res) => {
     const result = await assignmentService.createAssignment(
         req.schoolId,
         req.user._id,
-        req.user.role,
         req.body,
         normalizeUploadedFiles(req.files)
     );
@@ -39,11 +38,7 @@ export const createAssignment = asyncHandler(async (req, res) => {
 // GET /assignments/meta/metadata
 // Get dynamic dropdown options for assignments (role-scoped)
 export const getAssignmentMetadata = asyncHandler(async (req, res) => {
-    const result = await assignmentService.getAssignmentMetadata(
-        req.schoolId,
-        req.user.role,
-        req.user._id
-    );
+    const result = await assignmentService.getAssignmentMetadata(req.schoolId);
 
     res.status(200).json({
         success: true,
@@ -58,7 +53,6 @@ export const listAssignments = asyncHandler(async (req, res) => {
         req.schoolId,
         req.user._id,
         req.user.role,
-        req.platform,
         req.query
     );
 
@@ -127,7 +121,6 @@ export const deleteAssignment = asyncHandler(async (req, res) => {
     await assignmentService.deleteAssignment(
         req.schoolId,
         req.params.id,
-        req.user._id,
         req.user.role
     );
 
@@ -141,7 +134,6 @@ export const removeAttachment = asyncHandler(async (req, res) => {
     const result = await assignmentService.removeAttachment(
         req.schoolId,
         req.params.id,
-        req.user._id,
         req.user.role,
         req.params.publicId
     );
@@ -195,7 +187,6 @@ export const listSubmissions = asyncHandler(async (req, res) => {
     const result = await assignmentService.listSubmissions(
         req.schoolId,
         req.params.id,
-        req.user._id,
         req.user.role
     );
 

@@ -2,7 +2,6 @@ import mongoose from "mongoose";
 import { Assignment } from "./Assignment.model.js";
 import { Submission } from "./Submission.model.js";
 import StudentProfile from "../user/model/StudentProfile.model.js";
-import TeacherProfile from "../user/model/TeacherProfile.model.js";
 import { BadRequestError, NotFoundError, ForbiddenError } from "../../utils/customError.js";
 import { deleteFromCloudinary } from "../../middlewares/upload.middleware.js";
 import { USER_ROLES } from "../../constants/userRoles.js";
@@ -111,101 +110,52 @@ const normalizeBoolean = (value, defaultValue = false) => {
 
 const escapeRegExp = (value = "") => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-const getTeacherAssignmentScope = async (schoolId, userId) => {
-    const profile = await TeacherProfile.findOne({ schoolId, userId })
-        .select("assignedClasses")
-        .lean();
-
-    const profileClasses = profile?.assignedClasses || [];
-
-    const { TimetableEntry } = await import("../timetable/Timetable.model.js");
-    const entries = await TimetableEntry.find({ schoolId, teacherId: userId })
-        .populate({ path: "timetableId", select: "standard section" })
-        .lean();
-
-    const classes = [];
-    const subjectMap = new Map();
-    const seen = new Set();
-
-    const registerClass = (standard, section) => {
-        if (!standard || !section) return;
-
-        const key = `${standard}-${section}`;
-        if (!seen.has(key)) {
-            seen.add(key);
-            classes.push({ standard, section });
-        }
-
-        if (!subjectMap.has(key)) {
-            subjectMap.set(key, new Set());
-        }
-    };
-
-    profileClasses.forEach(({ standard, section, subjects = [] }) => {
-        registerClass(standard, section);
-        const key = `${standard}-${section}`;
-
-        subjects.forEach((subject) => {
-            if (!subject) return;
-            subjectMap.get(key)?.add(subject);
-        });
-    });
-
-    entries.forEach((entry) => {
-        const standard = entry.timetableId?.standard;
-        const section = entry.timetableId?.section;
-        const subject = entry.subject;
-
-        registerClass(standard, section);
-
-        if (subject) {
-            subjectMap.get(`${standard}-${section}`)?.add(subject);
-        }
-    });
-
-    if (classes.length === 0) {
-        throw new BadRequestError("No classes assigned to this teacher");
+const assertCanManageAssignment = (role) => {
+    if (![USER_ROLES.TEACHER, USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN].includes(role)) {
+        throw new ForbiddenError("You do not have permission to manage assignments");
     }
-
-    return {
-        classes,
-        subjectMap,
-        profileClasses,
-        entries,
-    };
 };
 
-const getTeacherClasses = async (schoolId, userId) => {
-    const scope = await getTeacherAssignmentScope(schoolId, userId);
-    return scope.classes;
+const isPastDue = (dueDate, referenceDate = new Date()) => {
+    const parsedDate = new Date(dueDate);
+    return !Number.isNaN(parsedDate.getTime()) && parsedDate.getTime() < referenceDate.getTime();
 };
 
-const assertTeacherAssignmentAccess = (scope, standard, section, subject) => {
-    const classKey = `${standard}-${section}`;
-    const hasClassAccess = scope.classes.some(
-        (entry) => entry.standard === standard && entry.section === section
+const closeExpiredAssignments = async (schoolId) => {
+    await Assignment.updateMany(
+        {
+            schoolId,
+            status: "active",
+            dueDate: { $lt: new Date() },
+        },
+        {
+            $set: { status: "closed" },
+        }
     );
-
-    if (!hasClassAccess) {
-        throw new ForbiddenError(`You do not have permission to access Class ${standard}-${section}`);
-    }
-
-    if (!subject) return;
-
-    const allowedSubjects = scope.subjectMap.get(classKey);
-    if (allowedSubjects?.size && !allowedSubjects.has(subject)) {
-        throw new ForbiddenError(`You do not have permission to use subject "${subject}" for Class ${standard}-${section}`);
-    }
 };
 
-const checkOwnership = (assignment, userId, role) => {
-    // Note: We are now allowing teachers to manage assignments they didn't create if needed (same as admin)
-    // But ownership check might still be useful for some logic. 
-    // For now, let's keep it strictly same as admin.
-    if (role === USER_ROLES.TEACHER && assignment.createdBy.toString() !== userId.toString()) {
-        // If the teacher has 'admin-like' permissions now, we should skip this or modify it.
-        // The user said "same as admin", so they can manage all assignments.
-        return; 
+const closeExpiredAssignmentById = async (schoolId, assignmentId) => {
+    await Assignment.updateOne(
+        {
+            _id: assignmentId,
+            schoolId,
+            status: "active",
+            dueDate: { $lt: new Date() },
+        },
+        {
+            $set: { status: "closed" },
+        }
+    );
+};
+
+const applyResolvedStatus = (assignment, requestedStatus) => {
+    if (isPastDue(assignment.dueDate)) {
+        assignment.status = "closed";
+        return;
+    }
+
+    if (requestedStatus !== undefined) {
+        assignment.status = requestedStatus;
     }
 };
 
@@ -237,7 +187,7 @@ const buildAssignmentSummaryMap = async (assignmentIds = []) => {
     return new Map(submissionCounts.map((entry) => [entry._id.toString(), entry.count]));
 };
 
-export const createAssignment = async (schoolId, userId, role, body, files) => {
+export const createAssignment = async (schoolId, userId, body, files) => {
     let { standard, section, subject } = body;
     const dueDate = assertFutureDueDate(body.dueDate);
 
@@ -266,7 +216,9 @@ export const createAssignment = async (schoolId, userId, role, body, files) => {
     return formatAssignment(assignment.toObject());
 };
 
-export const listAssignments = async (schoolId, userId, role, platform, query = {}) => {
+export const listAssignments = async (schoolId, userId, role, query = {}) => {
+    await closeExpiredAssignments(schoolId);
+
     const filter = { schoolId };
 
     if (role === USER_ROLES.TEACHER || isAdminRole(role)) {
@@ -363,6 +315,8 @@ export const listSubmittedAssignments = async (schoolId, userId, role, query = {
     if (![USER_ROLES.TEACHER, USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN].includes(role)) {
         throw new ForbiddenError("You are not allowed to view submitted assignments");
     }
+
+    await closeExpiredAssignments(schoolId);
 
     const assignmentFilter = { schoolId };
 
@@ -537,6 +491,8 @@ export const getAssignment = async (schoolId, assignmentId, userId, role) => {
         throw new BadRequestError("Invalid assignment ID");
     }
 
+    await closeExpiredAssignmentById(schoolId, assignmentId);
+
     const assignment = await Assignment.findOne({ _id: assignmentId, schoolId })
         .populate("createdBy", "name email")
         .lean();
@@ -576,20 +532,10 @@ export const updateAssignment = async (schoolId, assignmentId, userId, role, bod
         throw new BadRequestError("Invalid assignment ID");
     }
 
+    assertCanManageAssignment(role);
+
     const assignment = await Assignment.findOne({ _id: assignmentId, schoolId });
     if (!assignment) throw new NotFoundError("Assignment not found");
-
-    checkOwnership(assignment, userId, role);
-
-    const nextStandard = body.standard ?? assignment.standard;
-    const nextSection = body.section ?? assignment.section;
-    const nextSubject = body.subject ?? assignment.subject;
-
-    if (isAdminRole(role) || role === USER_ROLES.TEACHER) {
-        assignment.standard = nextStandard;
-        assignment.section = nextSection;
-        assignment.subject = nextSubject;
-    }
 
     if (body.dueDate !== undefined) {
         assignment.dueDate = assertFutureDueDate(body.dueDate);
@@ -600,7 +546,7 @@ export const updateAssignment = async (schoolId, assignmentId, userId, role, bod
     if (body.requiresSubmission !== undefined) {
         assignment.requiresSubmission = normalizeBoolean(body.requiresSubmission, assignment.requiresSubmission);
     }
-    if (body.status !== undefined) assignment.status = body.status;
+    applyResolvedStatus(assignment, body.status);
 
     if (files?.length) {
         assignment.attachments.push(...mapFiles(files));
@@ -611,13 +557,13 @@ export const updateAssignment = async (schoolId, assignmentId, userId, role, bod
     return formatAssignment(assignment.toObject());
 };
 
-export const deleteAssignment = async (schoolId, assignmentId, userId, role) => {
+export const deleteAssignment = async (schoolId, assignmentId, role) => {
     if (!mongoose.Types.ObjectId.isValid(assignmentId)) {
         throw new BadRequestError("Invalid assignment ID");
     }
 
-    if (!isAdminRole(role) && role !== USER_ROLES.TEACHER) {
-        throw new ForbiddenError("Only admins and teachers can delete assignments");
+    if (!isAdminRole(role)) {
+        throw new ForbiddenError("Only admins can delete assignments");
     }
 
     const assignment = await Assignment.findOne({ _id: assignmentId, schoolId });
@@ -640,7 +586,7 @@ export const deleteAssignment = async (schoolId, assignmentId, userId, role) => 
     logger.info(`Assignment deleted with cascade: ${assignmentId}`);
 };
 
-export const removeAttachment = async (schoolId, assignmentId, userId, role, publicId) => {
+export const removeAttachment = async (schoolId, assignmentId, role, publicId) => {
     if (!mongoose.Types.ObjectId.isValid(assignmentId)) {
         throw new BadRequestError("Invalid assignment ID");
     }
@@ -652,7 +598,7 @@ export const removeAttachment = async (schoolId, assignmentId, userId, role, pub
     const assignment = await Assignment.findOne({ _id: assignmentId, schoolId });
     if (!assignment) throw new NotFoundError("Assignment not found");
 
-    checkOwnership(assignment, userId, role);
+    assertCanManageAssignment(role);
 
     const attachmentIndex = assignment.attachments.findIndex((entry) => entry.publicId === publicId);
     if (attachmentIndex === -1) throw new NotFoundError("Attachment not found");
@@ -662,6 +608,7 @@ export const removeAttachment = async (schoolId, assignmentId, userId, role, pub
         await deleteFromCloudinary(attachment.url);
     }
 
+    applyResolvedStatus(assignment);
     await assignment.save();
 
     logger.info(`Attachment removed from assignment ${assignmentId}: ${publicId}`);
@@ -680,6 +627,8 @@ export const submitAssignment = async (schoolId, assignmentId, studentId, files)
     if (files.length > 1) {
         throw new BadRequestError("Only one submission file is allowed");
     }
+
+    await closeExpiredAssignmentById(schoolId, assignmentId);
 
     const assignment = await Assignment.findOne({ _id: assignmentId, schoolId }).lean();
     if (!assignment) throw new NotFoundError("Assignment not found");
@@ -735,6 +684,8 @@ export const getMySubmission = async (schoolId, assignmentId, studentId) => {
         throw new BadRequestError("Invalid assignment ID");
     }
 
+    await closeExpiredAssignmentById(schoolId, assignmentId);
+
     const assignment = await Assignment.findOne({ _id: assignmentId, schoolId }).lean();
     if (!assignment) {
         throw new NotFoundError("Assignment not found");
@@ -746,19 +697,17 @@ export const getMySubmission = async (schoolId, assignmentId, studentId) => {
     return formatSubmission(submission);
 };
 
-export const listSubmissions = async (schoolId, assignmentId, userId, role) => {
+export const listSubmissions = async (schoolId, assignmentId, role) => {
     if (!mongoose.Types.ObjectId.isValid(assignmentId)) {
         throw new BadRequestError("Invalid assignment ID");
     }
+
+    await closeExpiredAssignmentById(schoolId, assignmentId);
 
     const assignment = await Assignment.findOne({ _id: assignmentId, schoolId })
         .select("title subject standard section dueDate status createdBy requiresSubmission attachments")
         .lean();
     if (!assignment) throw new NotFoundError("Assignment not found");
-
-    if (role === USER_ROLES.TEACHER) {
-        // Teachers can view submissions for any assignment now
-    }
 
     const studentProfiles = await StudentProfile.find({
         schoolId,
@@ -811,9 +760,7 @@ export const listSubmissions = async (schoolId, assignmentId, userId, role) => {
     };
 };
 
-export const getAssignmentMetadata = async (schoolId, userRole, userId) => {
-    const isTeacher = userRole === USER_ROLES.TEACHER;
-
+export const getAssignmentMetadata = async (schoolId) => {
     let entries = [];
     let allTimetablesForAdmin = [];
     let profileClasses = [];

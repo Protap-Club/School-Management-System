@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { FaBook, FaChevronDown, FaPaperclip, FaSave, FaTimes, FaTrash } from 'react-icons/fa';
+import { FaBook, FaPaperclip, FaSave, FaTimes, FaTrash } from 'react-icons/fa';
 import { useAssignmentOptions } from '../hooks/useAssignmentOptions';
 import { useAssignmentById, useCreateAssignment, useRemoveAssignmentAttachment, useUpdateAssignment } from '../api/queries';
-import { useAuth } from '../../auth';
 import {
     Select,
     SelectContent,
@@ -81,8 +80,6 @@ const INITIAL_FORM = {
 };
 
 export const AssignmentModal = ({ isOpen, onClose, assignmentToEdit = null }) => {
-    const { user } = useAuth();
-    const isAdmin = ['admin', 'super_admin'].includes(user?.role);
     const createMutation = useCreateAssignment();
     const updateMutation = useUpdateAssignment();
     const removeAttachmentMutation = useRemoveAssignmentAttachment();
@@ -192,7 +189,11 @@ export const AssignmentModal = ({ isOpen, onClose, assignmentToEdit = null }) =>
 
         try {
             const data = new FormData();
-            Object.keys(formData).forEach(key => {
+            const editableFields = assignmentToEdit
+                ? ['title', 'description', 'dueDate', 'requiresSubmission', 'status']
+                : ['title', 'description', 'subject', 'standard', 'section', 'dueDate', 'requiresSubmission'];
+
+            editableFields.forEach((key) => {
                 data.append(key, formData[key]);
             });
             
@@ -214,8 +215,7 @@ export const AssignmentModal = ({ isOpen, onClose, assignmentToEdit = null }) =>
     };
 
     const isEditing = !!assignmentToEdit;
-    const isTeacher = user?.role === 'teacher';
-    const canEditClassification = !isEditing || isAdmin || isTeacher;
+    const canEditClassification = !isEditing;
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
@@ -287,6 +287,11 @@ export const AssignmentModal = ({ isOpen, onClose, assignmentToEdit = null }) =>
                                     disabled={!formData.section || !canEditClassification}
                                 />
                             </div>
+                            {isEditing && (
+                                <p className="text-xs text-slate-500">
+                                    Class, section, and subject stay locked after creation. You can still update the title, instructions, due date, submission setting, attachments, and status.
+                                </p>
+                            )}
                         </div>
 
                         <div className="rounded-xl border border-indigo-100 bg-indigo-50/50 px-4 py-3">
@@ -383,7 +388,7 @@ export const AssignmentModal = ({ isOpen, onClose, assignmentToEdit = null }) =>
                                 Deadline & Status
                             </h4>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <InputField label="Due Date" type="date" name="dueDate" value={formData.dueDate} onChange={handleChange} required min={todayStr} error={fieldErrors.dueDate} />
+                                <InputField label="Due Date" type="date" name="dueDate" value={formData.dueDate} onChange={handleChange} required min={isEditing ? undefined : todayStr} error={fieldErrors.dueDate} />
                                 {isEditing && (
                                     <SelectField
                                         label="Status" name="status" value={formData.status}
