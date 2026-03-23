@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { FaChevronDown, FaUserTie, FaSearch, FaArrowLeft } from 'react-icons/fa';
 import { Switch } from "@/components/ui/switch";
 import { useAuth } from '../../auth';
-import PaginationControls from './PaginationControls';
+import { PaginationControls } from '../../../components/ui/PaginationControls';
 
 const AdminClassList = ({
     groupedClasses,

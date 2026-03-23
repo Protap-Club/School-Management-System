@@ -301,7 +301,7 @@ const Settings = () => {
 
     return (
         <DashboardLayout>
-            {message.text && (
+            {message?.text && (
                 <div className={`fixed top-6 right-6 z-[100] px-5 py-3.5 rounded-xl shadow-lg flex items-center gap-3 animate-fadeIn backdrop-blur-sm ${message.type === 'success' ? 'bg-emerald-500/90 text-white' : 'bg-red-500/90 text-white'}`}>
                     <div className="w-6 h-6 rounded-full flex items-center justify-center bg-white/20">
                         {message.type === 'success' ? <FaCheck size={12} /> : <FaTimes size={12} />}

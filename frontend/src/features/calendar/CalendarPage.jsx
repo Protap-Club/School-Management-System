@@ -406,7 +406,7 @@ const renderFormField = (label, children) => (
         </div>
 
         {loading ? (
-          <div className="flex items-center justify-center h-96 bg-white rounded-xl shadow-sm border border-gray-200"><FaSpinner className="animate-spin text-3xl text-indigo-600/50" /></div>
+          <div className="flex items-center justify-center h-96 bg-white rounded-xl shadow-sm border border-gray-200"><ButtonSpinner className="w-8 h-8 border-2 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" /></div>
         ) : (
           <div className="rounded-xl shadow-sm border border-gray-200 overflow-hidden ring-1 ring-black/5">
             <div className="grid grid-cols-7 bg-gray-50/80 border-b border-gray-200">
@@ -486,7 +486,7 @@ const renderFormField = (label, children) => (
               <div className="p-4 border-t border-gray-100 bg-white flex justify-between gap-3">
                  {getEventsForDate[selectedDateStr]?.length > 0 ? (
                    <button onClick={() => handleClearDayEvents(selectedDateStr)} disabled={saving} className="px-4 py-2.5 text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors flex items-center justify-center min-w-[120px]">
-                     {saving ? <FaSpinner className="animate-spin"/> : 'Clear All'}
+                     {saving ? <ButtonSpinner className="w-4 h-4 border-2 border-red-300 border-t-red-600 rounded-full animate-spin" /> : 'Clear All'}
                    </button>
                  ) : <div></div>}
                  <button onClick={() => openCreateEventModal(selectedDateStr)} className="flex-1 px-4 py-2.5 text-xs font-bold text-white bg-primary hover:bg-primary-hover rounded-lg transition-colors shadow-sm flex items-center justify-center gap-2">

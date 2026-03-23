@@ -1,5 +1,5 @@
 // Auth API Functions
-import api, { clearAccessToken, setAccessToken } from '../../../lib/axios';
+import api, { clearAccessToken, setAccessToken, getAccessToken } from '../../../lib/axios';
 
 export const authKeys = {
     all: ['auth'],
@@ -16,8 +16,25 @@ export const authApi = {
 
     // Check if current token is valid
     checkAuth: async () => {
-        const response = await api.get('/auth/me');
-        return response.data;
+        if (!getAccessToken()) {
+            try {
+                const refreshRes = await api.post('/auth/refresh');
+                if (refreshRes.data?.success) {
+                    setAccessToken(refreshRes.data.token);
+                } else {
+                    return { success: false, message: "Not authenticated" };
+                }
+            } catch (error) {
+                return { success: false, message: "Not authenticated" };
+            }
+        }
+        
+        try {
+            const response = await api.get('/auth/me');
+            return response.data;
+        } catch (error) {
+            return { success: false, message: error.response?.data?.message || "Not authenticated" };
+        }
     },
 
     // Refresh access token (cookie sent automatically)

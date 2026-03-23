@@ -86,6 +86,9 @@ api.interceptors.response.use(
 
                 try {
                     const refreshRes = await api.post('/auth/refresh', {}, { _retry: true });
+                    if (!refreshRes.data.success) {
+                        throw new Error(refreshRes.data.message || 'Refresh failed');
+                    }
                     const newToken = refreshRes.data.token;
                     setAccessToken(newToken);
                     originalRequest.headers.Authorization = `Bearer ${newToken}`;

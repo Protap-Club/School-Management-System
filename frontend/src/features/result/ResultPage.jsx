@@ -37,6 +37,21 @@ import {
 // StatusBadge and OutcomeBadge moved to components/ResultStatusBadge.jsx
 // EmptyState moved to shared components/ui/EmptyState.jsx
 
+const RESULT_SKELETON_CELL = 'px-5 py-4';
+const RESULT_SKELETON_BAR = 'h-4 bg-slate-100 rounded-lg animate-pulse';
+
+const SummaryCard = ({ icon: Icon, title, value, accent = 'text-slate-700', bg = 'bg-white' }) => (
+  <div className={`${bg} rounded-2xl border border-slate-200 shadow-sm p-5 flex items-center gap-4`}>
+    <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-500">
+      <Icon size={18} />
+    </div>
+    <div>
+      <p className="text-xs text-slate-500 font-semibold uppercase tracking-wide">{title}</p>
+      <p className={`text-2xl font-bold mt-0.5 ${accent}`}>{value}</p>
+    </div>
+  </div>
+);
+
 const ResultPage = () => {
   const [selectedExam, setSelectedExam] = useState(null);
   const [examTab, setExamTab] = useState('students');

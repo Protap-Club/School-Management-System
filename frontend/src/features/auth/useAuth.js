@@ -22,13 +22,19 @@ export const useAuth = () => {
     });
 
     useEffect(() => {
-        if (authQuery.isSuccess && authQuery.data?.success) {
-            dispatch(storeAccessToken(getAxiosAccessToken()));
-            dispatch(setUser(authQuery.data.user));
+        if (authQuery.isSuccess) {
+            if (authQuery.data?.success) {
+                dispatch(storeAccessToken(getAxiosAccessToken()));
+                dispatch(setUser(authQuery.data.user));
+            } else {
+                clearAxiosAccessToken();
+                dispatch(clearUser());
+            }
             dispatch(setLoading(false));
         } else if (authQuery.isError) {
             clearAxiosAccessToken();
             dispatch(clearUser());
+            dispatch(setLoading(false));
         }
     }, [authQuery.isSuccess, authQuery.isError, authQuery.data, dispatch]);
 

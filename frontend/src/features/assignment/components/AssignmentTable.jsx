@@ -9,7 +9,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import PaginationControls from '../../../components/ui/PaginationControls';
+import { PaginationControls } from '../../../components/ui/PaginationControls';
 
 export const AssignmentTable = ({
     assignments,
