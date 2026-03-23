@@ -1,4 +1,4 @@
-import api from '../../../api/axios';
+import api from '../../../lib/axios';
 
 const RESULT_BASE_URL = '/results';
 

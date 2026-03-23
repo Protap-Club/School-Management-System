@@ -2,16 +2,10 @@ import React from 'react';
 import { FaWallet, FaCheck, FaCalendarCheck, FaFileInvoice, FaReceipt } from 'react-icons/fa';
 import { SkeletonRows } from '../../../components/ui/SkeletonRows';
 import { EmptyState } from '../../../components/ui/EmptyState';
-import { FEE_TYPE_LABELS, MONTH_LABELS, STATUS_COLORS } from '../index';
+import { FEE_TYPE_LABELS, MONTH_LABELS } from '../index';
+import FeeStatusBadge from './FeeStatusBadge';
 
-const StatusBadge = ({ status }) => {
-    const c = STATUS_COLORS[status] || STATUS_COLORS.PENDING;
-    return (
-        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${c.bg} ${c.text}`}>
-            <span className={`w-1.5 h-1.5 rounded-full ${c.dot}`}></span>{status}
-        </span>
-    );
-};
+
 
 const currentYear = new Date().getFullYear();
 
@@ -83,7 +77,7 @@ const StudentFeesTab = ({
                                     </td>
                                     <td className="px-6 py-5 font-black text-gray-900">₹{f.amount.toLocaleString()}</td>
                                     <td className="px-6 py-5">
-                                        <StatusBadge status={f.status} />
+                                        <FeeStatusBadge status={f.status} />
                                     </td>
                                     <td className="px-6 py-5">
                                         {f.payments?.length > 0 ? (

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../features/auth';
 import { useSidebar } from '../../state';
-import api from '../../api/axios';
+import api from '../../lib/axios';
 import { useNavigate } from 'react-router-dom';
 import { headerContent } from '../../config/headerContent.js';
 import { FaBars, FaUserCircle, FaSignOutAlt, FaBuilding, FaChevronDown, FaSearch, FaBell } from 'react-icons/fa';

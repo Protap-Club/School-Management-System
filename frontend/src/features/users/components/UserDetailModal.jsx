@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   FaTimes, FaIdCard, FaBuilding, FaLayerGroup, FaEnvelope, FaPhone, FaSave, FaUser, FaTrash, FaChalkboardTeacher
 } from 'react-icons/fa';
-import api from '../../../api/axios';
+import api from '../../../lib/axios';
 import { useUpdateUser } from '../api/queries';
 
 const naturalSort = (arr) => {

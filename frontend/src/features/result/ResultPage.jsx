@@ -12,8 +12,10 @@ import ResultEntryModal from './components/ResultEntryModal';
 import ResultDetailModal from './components/ResultDetailModal';
 import { readError } from '../../utils';
 import { SkeletonRows } from '../../components/ui/SkeletonRows';
+import { EmptyState } from '../../components/ui/EmptyState';
 import { useToastMessage } from '../../hooks/useToastMessage';
 import { ButtonSpinner } from '../../components/ui/Spinner';
+import { StatusBadge, OutcomeBadge } from './components/ResultStatusBadge';
 import {
   FaArrowLeft,
   FaBookOpen,
@@ -31,81 +33,9 @@ import {
   FaUserGraduate,
 } from 'react-icons/fa';
 
-const RESULT_STATUS_STYLES = {
-  draft: {
-    label: 'Draft',
-    className: 'bg-slate-50 text-slate-700 border-slate-200',
-  },
-  published: {
-    label: 'Published',
-    className: 'bg-blue-50 text-blue-700 border-blue-200',
-  },
-  locked: {
-    label: 'Locked',
-    className: 'bg-rose-50 text-rose-700 border-rose-200',
-  },
-};
-
-const PASS_FAIL_STYLES = {
-  pass: {
-    label: 'Pass',
-    className: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-  },
-  fail: {
-    label: 'Fail',
-    className: 'bg-rose-50 text-rose-700 border-rose-200',
-  },
-};
-
-// readError moved to shared utils
-
-const StatusBadge = ({ status }) => {
-  const style = RESULT_STATUS_STYLES[status] || RESULT_STATUS_STYLES.draft;
-  return (
-    <span className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-semibold ${style.className}`}>
-      <span className="w-1.5 h-1.5 rounded-full bg-current opacity-70"></span>
-      {style.label}
-    </span>
-  );
-};
-
-const OutcomeBadge = ({ outcome }) => {
-  const style = PASS_FAIL_STYLES[outcome] || PASS_FAIL_STYLES.pass;
-  return (
-    <span className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-semibold uppercase ${style.className}`}>
-      {style.label}
-    </span>
-  );
-};
-
-const SummaryCard = ({ icon: Icon, title, value, accent = 'text-slate-900', bg = 'bg-white' }) => (
-  <div className={`rounded-2xl border border-slate-200 ${bg} p-5`}>
-    <div className="flex items-center justify-between gap-3">
-      <div>
-        <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400">{title}</p>
-        <p className={`text-2xl font-bold mt-2 ${accent}`}>{value}</p>
-      </div>
-      <div className="w-11 h-11 rounded-2xl bg-slate-100 text-slate-500 flex items-center justify-center">
-        {React.createElement(Icon, { size: 18 })}
-      </div>
-    </div>
-  </div>
-);
-
-const EmptyState = ({ icon: Icon, title, subtitle, action }) => (
-  <div className="bg-white rounded-3xl border border-dashed border-slate-300 p-12 text-center">
-    <div className="w-16 h-16 rounded-2xl bg-slate-50 text-slate-300 border border-slate-100 flex items-center justify-center mx-auto mb-4">
-      {React.createElement(Icon, { size: 24 })}
-    </div>
-    <h3 className="text-lg font-bold text-slate-900">{title}</h3>
-    <p className="text-sm text-slate-500 mt-2 max-w-md mx-auto">{subtitle}</p>
-    {action ? <div className="mt-6">{action}</div> : null}
-  </div>
-);
-
 // SkeletonRows moved to shared components/ui/SkeletonRows.jsx
-const RESULT_SKELETON_CELL = 'px-5 py-4';
-const RESULT_SKELETON_BAR = 'h-4 bg-slate-100 rounded-lg w-3/4';
+// StatusBadge and OutcomeBadge moved to components/ResultStatusBadge.jsx
+// EmptyState moved to shared components/ui/EmptyState.jsx
 
 const ResultPage = () => {
   const [selectedExam, setSelectedExam] = useState(null);

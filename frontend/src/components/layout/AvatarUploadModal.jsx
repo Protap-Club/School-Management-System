@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
-import { FaTimes, FaCamera, FaSpinner } from 'react-icons/fa';
-import api from '../../api/axios';
+import { FaTimes, FaCamera } from 'react-icons/fa';
+import { ButtonSpinner } from '../ui/Spinner';
+import api from '../../lib/axios';
 
 const AvatarUploadModal = ({ user, isOpen, onClose, onUploadSuccess }) => {
     const [file, setFile] = useState(null);
@@ -164,7 +165,7 @@ const AvatarUploadModal = ({ user, isOpen, onClose, onUploadSuccess }) => {
                     >
                         {uploading ? (
                             <>
-                                <FaSpinner className="animate-spin" /> Uploading...
+                                <ButtonSpinner className="w-4 h-4 border-2 border-gray-400/30 border-t-gray-600 rounded-full animate-spin" /> Uploading...
                             </>
                         ) : file ? (
                             'Save New Avatar'

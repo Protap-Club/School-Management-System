@@ -1,4 +1,4 @@
-import api from '../../../api/axios';
+import api from '../../../lib/axios';
 
 // Base URL for examination endpoints
 const EXAM_BASE_URL = '/examinations';

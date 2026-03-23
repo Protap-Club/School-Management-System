@@ -36,6 +36,10 @@ const Dashboard = () => {
   const isTeacher = user?.role === 'teacher';
   const isAdmin = user?.role === 'admin';
   const isSuperAdmin = user?.role === 'super_admin';
+  const rolePrefix = useMemo(
+    () => isSuperAdmin ? 'superadmin' : (isAdmin ? 'admin' : (user?.role || 'student')),
+    [isSuperAdmin, isAdmin, user?.role]
+  );
 
   // Persistence Key
   const CACHE_KEY = `dashboard_cache_${user?._id}`;
@@ -384,11 +388,9 @@ const Dashboard = () => {
               className={`bg-white rounded-[2rem] p-6 border border-gray-50 shadow-[0_10px_40px_-15px_rgba(0,0,0,0.05)] hover:shadow-[0_20px_60px_-15px_rgba(0,0,0,0.1)] transition-all duration-500 group relative overflow-hidden cursor-pointer`}
               onClick={() => {
                 if (card.nav === 'calendar' || card.label === 'Calendar Overview') {
-                  const rolePrefix = user?.role === 'super_admin' ? 'superadmin' : user.role;
                   navigate(`/${rolePrefix}/calendar`);
                 } else {
                   const filter = card.nav ? `?show=${card.nav}` : '';
-                  const rolePrefix = isSuperAdmin ? 'superadmin' : (isAdmin ? 'admin' : user.role);
                   const path = (isAdmin || isSuperAdmin)
                     ? (selectedClass === 'all' ? `/${rolePrefix}/attendance${filter}` : `/${rolePrefix}/attendance/${encodeURIComponent(selectedClass)}${filter}`)
                     : `/${rolePrefix}/attendance${filter}`;
@@ -428,7 +430,7 @@ const Dashboard = () => {
             <motion.div
               variants={itemVariants}
               className="lg:col-span-2 bg-white rounded-[2.5rem] p-8 md:p-10 border border-gray-50 shadow-[0_20px_50px_-15px_rgba(0,0,0,0.05)] overflow-hidden relative group cursor-pointer"
-              onClick={() => navigate(`/${user?.role === 'super_admin' ? 'dashboard' : user.role}/timetable`)}
+              onClick={() => navigate(`/${rolePrefix}/timetable`)}
             >
               {/* Background decorative icon removed */}
 
@@ -543,7 +545,6 @@ const Dashboard = () => {
             variants={itemVariants}
             className="bg-white rounded-[2.5rem] p-8 border border-gray-50 shadow-[0_20px_50px_-15px_rgba(0,0,0,0.05)] flex flex-col justify-between group cursor-pointer"
             onClick={() => {
-              const rolePrefix = isSuperAdmin ? 'superadmin' : (isAdmin ? 'admin' : 'teacher');
               const path = (isAdmin || isSuperAdmin)
                 ? (selectedClass === 'all' ? `/${rolePrefix}/attendance` : `/${rolePrefix}/attendance/${encodeURIComponent(selectedClass)}`)
                 : `/${rolePrefix}/attendance`;
@@ -622,7 +623,7 @@ const Dashboard = () => {
                   key={idx}
                   whileHover={{ y: -5 }}
                   className="bg-white p-4 rounded-3xl border border-gray-50 shadow-sm hover:shadow-md transition-all cursor-pointer group"
-                  onClick={() => navigate(`/${isSuperAdmin ? 'superadmin' : 'admin'}/attendance/${encodeURIComponent(cls.name)}`)}
+                  onClick={() => navigate(`/${rolePrefix}/attendance/${encodeURIComponent(cls.name)}`)}
                 >
                   <div className="flex justify-between items-start mb-4">
                     <div className="space-y-0.5">
