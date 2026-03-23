@@ -1,5 +1,6 @@
   import React, { useState, useEffect, useRef } from 'react';
-import { FaTimes, FaSpinner, FaChevronDown, FaSearch } from 'react-icons/fa';
+import { FaTimes, FaChevronDown, FaSearch } from 'react-icons/fa';
+import { ButtonSpinner } from '../../../components/ui/Spinner';
 import { DAY_MAP_REVERSE } from '..';
 
 const EMPTY_FORM = { subject: '', teacherId: '', roomNumber: '', notes: '' };
@@ -257,7 +258,7 @@ const TimetableModal = ({
                 className="flex-[2] py-3 px-4 rounded-xl bg-primary text-white font-bold text-sm hover:bg-primary-hover shadow-xl shadow-primary/25 transition-all active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {loading ? (
-                  <FaSpinner className="animate-spin" />
+                  <ButtonSpinner />
                 ) : (
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" />

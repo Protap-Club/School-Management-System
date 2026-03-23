@@ -1,5 +1,7 @@
 import { useMemo, useState } from "react";
-import { FaCalendarAlt, FaChalkboardTeacher, FaSpinner } from "react-icons/fa";
+import { FaCalendarAlt, FaChalkboardTeacher } from "react-icons/fa";
+import { readError } from "../../utils";
+import { ButtonSpinner } from "../../components/ui/Spinner";
 import DashboardLayout from "../../layouts/DashboardLayout";
 import { useAuth } from "../auth";
 import TimetableGrid from "./components/TimetableGrid";
@@ -22,11 +24,6 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-const fallbackError = "Failed to load timetable data.";
-
-const readError = (error, fallback = fallbackError) => {
-    return error?.response?.data?.message || error?.message || fallback;
-};
 
 const flattenSchedule = (schedule) => {
     if (!schedule || typeof schedule !== "object") return [];
@@ -226,7 +223,7 @@ const TimetablePage = () => {
 
                 {isLoading ? (
                     <div className="flex h-64 items-center justify-center rounded-xl border border-gray-100 bg-white">
-                        <FaSpinner className="animate-spin text-2xl text-primary" />
+                        <ButtonSpinner className="text-2xl" />
                     </div>
                 ) : (
                     <div className="rounded-xl border border-gray-100 bg-white p-3 shadow-sm">
