@@ -118,3 +118,4 @@ mongoose.connect(conf.MONGO_URI, { dbName: conf.DB_NAME })
         logger.error("MongoDB connection error:", error);
         process.exit(1); // Exit the process with a failure code.
     });
+
