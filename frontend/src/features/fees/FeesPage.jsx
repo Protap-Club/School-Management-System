@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import {
@@ -16,6 +16,9 @@ import FeeStructureModal from '../../components/fees/FeeStructureModal';
 import PaymentModal from '../../components/fees/PaymentModal';
 import FeeStructureForm from '../../components/fees/FeeStructureForm';
 import SalaryForm from '../../components/fees/SalaryForm';
+import TeacherSalaryTab from './components/TeacherSalaryTab';
+import StudentStructuresTab from './components/StudentStructuresTab';
+import StudentFeesTab from './components/StudentFeesTab';
 import {
     FaPlus, FaEdit, FaTrash, FaTrashAlt, FaBolt, FaTimes, FaCheck, FaMoneyBillWave,
     FaChartBar, FaListAlt, FaEye, FaFilter, FaArrowLeft, FaArrowRight, FaReceipt, FaBan, FaHistory,
@@ -23,6 +26,10 @@ import {
 } from 'react-icons/fa';
 import { generateFeeReport, generateSalaryReceipt } from '../../utils/pdfGenerator';
 import { generateFeeExcel } from '../../utils/excelGenerator';
+import { SkeletonRows } from '../../components/ui/SkeletonRows';
+import { EmptyState } from '../../components/ui/EmptyState';
+import { ButtonSpinner } from '../../components/ui/Spinner';
+import { useToastMessage } from '../../hooks/useToastMessage';
 
 const MODAL_OVERLAY = 'modal-overlay fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4';
 const currentYear = new Date().getFullYear();
@@ -37,23 +44,8 @@ const StatusBadge = ({ status }) => {
     );
 };
 
-const SkeletonRow = ({ cols }) => (
-    <tr className="animate-pulse">
-        {Array.from({ length: cols }).map((_, i) => (
-            <td key={i} className="px-4 py-3"><div className="h-4 bg-gray-100 rounded-lg w-3/4"></div></td>
-        ))}
-    </tr>
-);
+// SkeletonRow & EmptyState moved to shared components
 
-const EmptyState = ({ icon: Icon, title, subtitle }) => (
-    <div className="text-center py-16">
-        <div className="w-16 h-16 bg-gray-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <Icon className="text-gray-300" size={24} />
-        </div>
-        <h3 className="text-lg font-medium text-gray-900">{title}</h3>
-        <p className="text-gray-500 text-sm mt-1">{subtitle}</p>
-    </div>
-);
 
 const FeesPage = () => {
     const queryClient = useQueryClient();
@@ -68,7 +60,7 @@ const FeesPage = () => {
     const [mgmtView, setMgmtView] = useState('selection'); // selection, student_list, student_form, staff
     const [studentSubTab, setStudentSubTab] = useState('structures'); // structures, overview, yearly
     const [staffSubTab, setStaffSubTab] = useState('dashboard'); // dashboard, overview, yearly
-    const [toast, setToast] = useState({ type: '', text: '' });
+    const { message: toast, showMessage: showToast } = useToastMessage(3500);
 
     // Structures state
     const [structFilters, setStructFilters] = useState({ academicYear: currentYear, standard: '', section: '', feeType: '' });
@@ -156,10 +148,7 @@ const FeesPage = () => {
     const updateSalaryStatusMut = useUpdateSalaryStatus();
     const updateTeacherProfileMut = useUpdateTeacherProfile();
 
-    const showToast = useCallback((type, text) => {
-        setToast({ type, text });
-        setTimeout(() => setToast({ type: '', text: '' }), 3500);
-    }, []);
+    // showToast provided by useToastMessage hook
 
     const structures = structData?.data || [];
 
@@ -418,7 +407,7 @@ const FeesPage = () => {
                                 </thead>
                                 <tbody className="divide-y divide-gray-50">
                                     {studentLoading ? (
-                                        Array.from({ length: 4 }).map((_, i) => <SkeletonRow key={i} cols={8} />)
+                                        <SkeletonRows rows={4} columns={8} />
                                     ) : studentFees.length === 0 ? (
                                         <tr><td colSpan={8}><EmptyState icon={FaHistory} title="No fee history" subtitle="No fees assigned to this student" /></td></tr>
                                     ) : (
@@ -542,7 +531,7 @@ const FeesPage = () => {
                                 </thead>
                                 <tbody className="divide-y divide-gray-50">
                                     {classLoading ? (
-                                        Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} cols={8} />)
+                                        <SkeletonRows rows={5} columns={8} />
                                     ) : filteredClassStudents.length === 0 ? (
                                         <tr><td colSpan={8}><EmptyState icon={FaEye} title="No students" subtitle="No fee assignments for this class/month" /></td></tr>
                                     ) : (
@@ -647,7 +636,7 @@ const FeesPage = () => {
                             </thead>
                             <tbody className="divide-y divide-gray-50">
                                 {isLoadingOverview ? (
-                                    Array.from({ length: 4 }).map((_, i) => <SkeletonRow key={i} cols={8} />)
+                                    <SkeletonRows rows={4} columns={8} />
                                 ) : overviewClasses.length === 0 ? (
                                     <tr><td colSpan={8}><EmptyState icon={FaEye} title="No fee data" subtitle="Generate assignments first to see overview" /></td></tr>
                                 ) : (
@@ -734,7 +723,7 @@ const FeesPage = () => {
                                 </thead>
                                 <tbody className="divide-y divide-gray-50">
                                     {yearlyLoading ? (
-                                        Array.from({ length: 6 }).map((_, i) => <SkeletonRow key={i} cols={6} />)
+                                        <SkeletonRows rows={6} columns={6} />
                                     ) : yearlyBreakdown.length === 0 ? (
                                         <tr><td colSpan={6}><EmptyState icon={FaChartBar} title="No data" subtitle="No fee data for this year" /></td></tr>
                                     ) : (
@@ -864,7 +853,7 @@ const FeesPage = () => {
                             </thead>
                             <tbody className="divide-y divide-gray-100">
                                 {salariesLoading ? (
-                                    Array.from({ length: 4 }).map((_, i) => <SkeletonRow key={i} cols={4} />)
+                                    <SkeletonRows rows={4} columns={4} />
                                 ) : (
                                     monthlyStats.filter(m => m.count > 0).length === 0 ? (
                                         <tr><td colSpan={4}><EmptyState icon={FaChartBar} title="No payroll data" subtitle="No salary entries found for this year" /></td></tr>
@@ -1004,12 +993,12 @@ const FeesPage = () => {
 
     return (
         <DashboardLayout>
-            {toast.text && (
-                <div className={`fixed top-6 right-6 z-[100] px-5 py-3.5 rounded-xl shadow-lg flex items-center gap-3 animate-fadeIn backdrop-blur-sm ${toast.type === 'success' ? 'bg-emerald-500/90 text-white' : 'bg-red-500/90 text-white'}`}>
+            {toast?.text && (
+                <div className={`fixed top-6 right-6 z-[100] px-5 py-3.5 rounded-xl shadow-lg flex items-center gap-3 animate-fadeIn backdrop-blur-sm ${toast?.type === 'success' ? 'bg-emerald-500/90 text-white' : 'bg-red-500/90 text-white'}`}>
                     <div className="w-6 h-6 rounded-full flex items-center justify-center bg-white/20">
-                        {toast.type === 'success' ? <FaCheck size={12} /> : <FaTimes size={12} />}
+                        {toast?.type === 'success' ? <FaCheck size={12} /> : <FaTimes size={12} />}
                     </div>
-                    <span className="font-medium">{toast.text}</span>
+                    <span className="font-medium">{toast?.text}</span>
                 </div>
             )}
 
@@ -1137,7 +1126,7 @@ const FeesPage = () => {
                                             </thead>
                                             <tbody className="divide-y divide-gray-50">
                                                 {structLoading ? (
-                                                    Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} cols={8} />)
+                                                    <SkeletonRows rows={5} columns={8} />
                                                 ) : structures.length === 0 ? (
                                                     <tr><td colSpan={8}><EmptyState icon={FaListAlt} title="No fee structures found" subtitle="Create a fee structure to get started" /></td></tr>
                                                 ) : (
@@ -1265,7 +1254,7 @@ const FeesPage = () => {
                                                     </thead>
                                                     <tbody className="divide-y divide-gray-50">
                                                         {salariesLoading ? (
-                                                            Array.from({ length: 3 }).map((_, i) => <SkeletonRow key={i} cols={5} />)
+                                                            <SkeletonRows rows={3} columns={5} />
                                                         ) : (salaryData?.data || []).filter(s => String(s.teacherId?._id || s.teacherId) === String(selectedStaff._id)).length === 0 ? (
                                                             <tr><td colSpan={6}><EmptyState icon={FaHistory} title="No salary records" subtitle="Create a salary entry to see records here" /></td></tr>
                                                         ) : (
@@ -1375,7 +1364,7 @@ const FeesPage = () => {
                                                 </thead>
                                                 <tbody className="divide-y divide-gray-50">
                                                     {teachersLoading || salariesLoading ? (
-                                                        Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} cols={5} />)
+                                                        <SkeletonRows rows={5} columns={5} />
                                                     ) : (() => {
                                                         const filteredStaffDashboard = (teachersData?.data?.users || []).filter(t => t.name.toLowerCase().includes(staffSearch.toLowerCase()));
                                                         if (filteredStaffDashboard.length === 0) {
@@ -1497,249 +1486,39 @@ const FeesPage = () => {
 
                 {/* ── TAB: Salary (Teacher Only) ────────────────────── */}
                 {activeTab === 'salary' && isTeacher && (
-                    <div className="space-y-6 animate-fadeIn">
-                        {/* Summary Cards */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                            <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
-                                <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Total Paid (Year)</p>
-                                <h3 className="text-2xl font-bold text-gray-900">
-                                    ₹{(mySalaryData?.data?.summary?.totalPaid || 0).toLocaleString()}
-                                </h3>
-                            </div>
-                            <div className="bg-amber-50 rounded-2xl border border-amber-100 p-5">
-                                <p className="text-xs font-bold text-amber-600 uppercase tracking-wider mb-1">Pending Amount</p>
-                                <h3 className="text-2xl font-bold text-amber-700">
-                                    ₹{(mySalaryData?.data?.summary?.totalPending || 0).toLocaleString()}
-                                </h3>
-                            </div>
-                        </div>
-
-                        {/* Salary Breakdown Table */}
-                        <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm">
-                            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-                                <h2 className="text-lg font-bold text-gray-900 font-display">Salary Payout History</h2>
-                                <p className="text-xs font-medium text-gray-500">{overviewYear}</p>
-                            </div>
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-sm text-left">
-                                    <thead className="bg-gray-50/50">
-                                        <tr>
-                                            {['Month', 'Amount', 'Status', 'Paid Date', 'Receipt'].map(h => (
-                                                <th key={h} className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">{h}</th>
-                                            ))}
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-gray-100">
-                                        {mySalaryLoading ? (
-                                            Array.from({ length: 3 }).map((_, i) => <SkeletonRow key={i} cols={4} />)
-                                        ) : (mySalaryData?.data?.salaries || []).length === 0 ? (
-                                            <tr><td colSpan={5}><EmptyState icon={FaWallet} title="No salary records" subtitle="Salary records created by admin will appear here." /></td></tr>
-                                        ) : (
-                                            (mySalaryData?.data?.salaries || []).sort((a, b) => b.month - a.month).map((salary) => {
-                                                const isPaid = salary.status === 'PAID';
-                                                return (
-                                                    <tr key={salary._id} className="hover:bg-gray-50/50 transition-colors">
-                                                        <td className="px-6 py-4 font-bold text-gray-900">{MONTH_LABELS[salary.month]} {salary.year}</td>
-                                                        <td className="px-6 py-4 font-black text-gray-900">₹{salary.amount?.toLocaleString()}</td>
-                                                        <td className="px-6 py-4">
-                                                            <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
-                                                                isPaid ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
-                                                            }`}>
-                                                                {salary.status}
-                                                            </span>
-                                                        </td>
-                                                        <td className="px-6 py-4 text-xs font-medium text-gray-500">
-                                                            {salary.paidDate ? new Date(salary.paidDate).toLocaleDateString() : '--'}
-                                                        </td>
-                                                        <td className="px-6 py-4">
-                                                            {isPaid ? (
-                                                                <button 
-                                                                    onClick={() => generateSalaryReceipt(salary, user)}
-                                                                    className="p-2 text-primary hover:bg-primary/10 rounded-lg transition-all"
-                                                                    title="Download Receipt"
-                                                                >
-                                                                    <FaDownload size={14} />
-                                                                </button>
-                                                            ) : (
-                                                                <span className="text-[10px] text-gray-400 font-black uppercase tracking-widest italic">Pending</span>
-                                                            )}
-                                                        </td>
-                                                    </tr>
-                                                );
-                                            })
-                                        )}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
+                    <TeacherSalaryTab
+                        mySalaryData={mySalaryData}
+                        mySalaryLoading={mySalaryLoading}
+                        overviewYear={overviewYear}
+                        user={user}
+                    />
                 )}
 
                 {/* ── TAB: Assigned Fees (Student Only) ─────────────── */}
                 {activeTab === 'structures' && isStudent && (
-                    <div className="space-y-4 animate-fadeIn">
-                        {structModal.editData && activeTab === 'structures' ? (
-                            <>
-                                <button onClick={() => setStructModal({ open: false, editData: null })} className="flex items-center gap-2 text-xs font-bold text-gray-500 hover:text-primary transition-all uppercase tracking-widest">
-                                    <FaArrowLeft size={10} /> Back to Assigned Fees
-                                </button>
-                                <FeeStructureForm
-                                    key={structModal.editData._id}
-                                    editData={structModal.editData}
-                                    onCancel={() => setStructModal({ open: false, editData: null })}
-                                    onSubmit={async (data) => {
-                                        await handleUpdateStructure({ id: structModal.editData._id, data });
-                                        setStructModal({ open: false, editData: null });
-                                    }}
-                                    isLoading={updateMut.isPending}
-                                    isAdmin={isAdmin}
-                                />
-                            </>
-                        ) : (
-                            <div className="bg-white rounded-2xl border border-gray-200 p-5 shadow-sm">
-                                <div className="mb-6">
-                                    <h2 className="text-xl font-bold text-gray-900 font-display">Assigned Fee Structures</h2>
-                                    <p className="text-sm text-gray-500">Overview of fee schemes applicable to your assigned classes.</p>
-                                </div>
-                                <div className="overflow-x-auto">
-                                    <table className="w-full text-sm text-left">
-                                        <thead>
-                                            <tr className="border-b border-gray-100 font-display">
-                                                {['Fee Type', 'Structure Name', 'Class', 'Amount', 'Frequency', 'Due Date'].map(h => (
-                                                    <th key={h} className="px-4 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">{h}</th>
-                                                ))}
-                                                <th className="px-4 py-4 text-center text-[10px] font-black text-gray-400 tracking-widest">Status</th>
-                                                <th className="px-4 py-4 text-center text-[10px] font-black text-gray-400 tracking-widest">Actions</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-gray-50">
-                                            {structLoading ? (
-                                                Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} cols={8} />)
-                                            ) : structures.length === 0 ? (
-                                                <tr><td colSpan={8}><EmptyState icon={FaListAlt} title="No fee structures" subtitle="Your classes have no assigned fee structures yet." /></td></tr>
-                                            ) : (
-                                                structures.map(st => (
-                                                    <tr key={st._id} className="hover:bg-gray-50/25 transition-colors group">
-                                                        <td className="px-4 py-4">
-                                                            <span className="px-2.5 py-1 bg-primary/5 text-primary rounded-lg text-[10px] font-bold uppercase">{FEE_TYPE_LABELS[st.feeType] || st.feeType}</span>
-                                                        </td>
-                                                        <td className="px-4 py-4 font-bold text-gray-900">{st.name}</td>
-                                                        <td className="px-4 py-4 text-gray-600 font-medium">Std {st.standard}-{st.section}</td>
-                                                        <td className="px-4 py-4 font-black text-gray-900">₹{st.amount?.toLocaleString()}</td>
-                                                        <td className="px-4 py-4 text-gray-600 font-medium">{FREQUENCY_LABELS[st.frequency] || st.frequency}</td>
-                                                        <td className="px-4 py-4 text-gray-600 font-medium">{st.dueDay}</td>
-                                                        <td className="px-4 py-4 text-center">
-                                                            <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${st.isActive ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>
-                                                                {st.isActive ? 'Active' : 'Inactive'}
-                                                            </span>
-                                                        </td>
-                                                        <td className="px-4 py-4 text-center">
-                                                            <div className="flex items-center justify-center gap-1 transition-opacity">
-                                                                <button onClick={() => setStructModal({ open: false, editData: st })} title="Edit Structure"
-                                                                    className="p-2 text-blue-500 hover:bg-blue-50 rounded-lg transition-all"><FaEdit size={14} /></button>
-                                                                <button onClick={() => setDeleteConfirm(st._id)} title="Delete Structure"
-                                                                    className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-all"><FaTrashAlt size={14} /></button>
-                                                            </div>
-                                                        </td>
-                                                    </tr>
-                                                ))
-                                            )}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        )}
-                    </div>
+                    <StudentStructuresTab
+                        structModal={structModal}
+                        setStructModal={setStructModal}
+                        structures={structures}
+                        structLoading={structLoading}
+                        handleUpdateStructure={handleUpdateStructure}
+                        updateMut={updateMut}
+                        isAdmin={isAdmin}
+                        setDeleteConfirm={setDeleteConfirm}
+                    />
                 )}
 
                 {/* ── TAB: Student Fees ────────────────────────────── */}
                 {activeTab === 'student_fees' && isStudent && (
-                    <div className="space-y-6 animate-fadeIn">
-                        {/* Highlights Row */}
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            {[
-                                { label: 'Total Payable', val: mySummary.totalDue || 0, icon: <FaWallet />, color: 'blue' },
-                                { label: 'Amount Paid', val: mySummary.totalPaid || 0, icon: <FaCheck />, color: 'emerald' },
-                                { label: 'Pending Balance', val: mySummary.totalPending || 0, icon: <FaCalendarCheck />, color: 'amber' },
-                            ].map((h, i) => (
-                                <div key={i} className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm group hover:shadow-md transition-all">
-                                    <div className="flex items-center gap-4">
-                                        <div className={`w-12 h-12 rounded-xl bg-${h.color}-50 text-${h.color}-600 flex items-center justify-center group-hover:scale-110 transition-transform`}>
-                                            {h.icon}
-                                        </div>
-                                        <div>
-                                            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">{h.label}</p>
-                                            <p className="text-2xl font-black text-gray-900 mt-0.5">₹{h.val.toLocaleString()}</p>
-                                        </div>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-
-                        <div className="bg-white rounded-2xl border border-gray-200 p-8 shadow-sm">
-                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-                                <div>
-                                    <h2 className="text-2xl font-black text-gray-900 font-display">My Fee Records</h2>
-                                    <p className="text-gray-500 mt-1">Detailed history of your fee assignments and payments.</p>
-                                </div>
-                                <select 
-                                    value={summaryYear}
-                                    onChange={(e) => setSummaryYear(Number(e.target.value))}
-                                    className="px-4 py-2.5 bg-gray-50 border-none rounded-xl text-sm font-bold text-gray-700 focus:ring-2 focus:ring-primary/20 cursor-pointer"
-                                >
-                                    {[currentYear, currentYear - 1].map(y => <option key={y} value={y}>Academic Year {y}</option>)}
-                                </select>
-                            </div>
-
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-sm text-left">
-                                    <thead>
-                                        <tr className="border-b border-gray-100 italic">
-                                            {['Month', 'Fee Name', 'Amount', 'Status', 'Payments'].map(h => (
-                                                <th key={h} className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">{h}</th>
-                                            ))}
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-gray-50">
-                                        {myFeesLoading ? (
-                                            Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} cols={5} />)
-                                        ) : myFees.length === 0 ? (
-                                            <tr><td colSpan={5}><EmptyState icon={FaFileInvoice} title="No fee records" subtitle="No fees have been assigned to you for this period." /></td></tr>
-                                        ) : (
-                                            myFees.map((f, i) => (
-                                                <tr key={i} className="hover:bg-gray-50/50 transition-colors group">
-                                                    <td className="px-6 py-5 font-bold text-gray-900">{MONTH_LABELS[f.month]}</td>
-                                                    <td className="px-6 py-5">
-                                                        <div className="font-bold text-gray-900">{f.name}</div>
-                                                        <div className="text-[10px] text-gray-400 font-black uppercase tracking-tighter">{FEE_TYPE_LABELS[f.feeType]}</div>
-                                                    </td>
-                                                    <td className="px-6 py-5 font-black text-gray-900">₹{f.amount.toLocaleString()}</td>
-                                                    <td className="px-6 py-5">
-                                                        <StatusBadge status={f.status} />
-                                                    </td>
-                                                    <td className="px-6 py-5">
-                                                        {f.payments?.length > 0 ? (
-                                                            <div className="space-y-1">
-                                                                {f.payments.map((p, pi) => (
-                                                                    <div key={pi} className="flex items-center gap-2 text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md w-fit">
-                                                                        <FaReceipt size={10} />
-                                                                        <span>₹{p.amount.toLocaleString()} on {new Date(p.date).toLocaleDateString()}</span>
-                                                                    </div>
-                                                                ))}
-                                                            </div>
-                                                        ) : (
-                                                            <span className="text-[10px] font-bold text-gray-400 italic">No payments</span>
-                                                        )}
-                                                    </td>
-                                                </tr>
-                                            ))
-                                        )}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
+                    <StudentFeesTab
+                        myFees={myFees}
+                        myFeesLoading={myFeesLoading}
+                        mySummary={mySummary}
+                        summaryYear={summaryYear}
+                        setSummaryYear={setSummaryYear}
+                    />
                 )}
+
             </div>
 
             {/* ── Modals ────────────────────────────────────────────── */}
@@ -1834,7 +1613,7 @@ const FeesPage = () => {
                             <button onClick={() => setDeleteConfirm(null)} className="flex-1 px-4 py-2.5 border border-gray-200 text-gray-700 font-medium rounded-xl hover:bg-gray-50 transition-colors">Cancel</button>
                             <button onClick={() => handleDeleteStructure(deleteConfirm)} disabled={deleteMut.isPending}
                                 className="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white font-medium rounded-xl transition-colors flex items-center justify-center gap-2 disabled:opacity-70">
-                                {deleteMut.isPending ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> : <FaTrash size={12} />}Delete
+                                {deleteMut.isPending ? <ButtonSpinner /> : <FaTrash size={12} />}Delete
                             </button>
                         </div>
                     </div>
