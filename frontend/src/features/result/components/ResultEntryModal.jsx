@@ -6,6 +6,7 @@ import {
   FaSave,
   FaTimes,
 } from 'react-icons/fa';
+import { ButtonSpinner } from '../../../components/ui/Spinner';
 
 const toNumber = (value) => {
   if (value === '' || value === null || value === undefined) return '';
@@ -298,7 +299,7 @@ const ResultEntryModal = ({
               className="px-5 py-3 rounded-2xl bg-slate-900 text-white font-semibold hover:bg-slate-800 transition-all shadow-lg shadow-slate-900/10 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {isSaving ? (
-                <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                <ButtonSpinner />
               ) : (
                 <FaCheckCircle size={14} />
               )}

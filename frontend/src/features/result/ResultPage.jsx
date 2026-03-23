@@ -10,6 +10,10 @@ import {
 import { TabButton } from '../../components/ui/NoticeUIComponents';
 import ResultEntryModal from './components/ResultEntryModal';
 import ResultDetailModal from './components/ResultDetailModal';
+import { readError } from '../../utils';
+import { SkeletonRows } from '../../components/ui/SkeletonRows';
+import { useToastMessage } from '../../hooks/useToastMessage';
+import { ButtonSpinner } from '../../components/ui/Spinner';
 import {
   FaArrowLeft,
   FaBookOpen,
@@ -53,8 +57,7 @@ const PASS_FAIL_STYLES = {
   },
 };
 
-const readError = (error, fallback) =>
-  error?.response?.data?.message || error?.message || fallback;
+// readError moved to shared utils
 
 const StatusBadge = ({ status }) => {
   const style = RESULT_STATUS_STYLES[status] || RESULT_STATUS_STYLES.draft;
@@ -100,19 +103,9 @@ const EmptyState = ({ icon: Icon, title, subtitle, action }) => (
   </div>
 );
 
-const SkeletonRows = ({ rows = 5, columns = 5 }) => (
-  <>
-    {Array.from({ length: rows }).map((_, rowIndex) => (
-      <tr key={rowIndex} className="animate-pulse">
-        {Array.from({ length: columns }).map((__, columnIndex) => (
-          <td key={columnIndex} className="px-5 py-4">
-            <div className="h-4 bg-slate-100 rounded-lg w-3/4"></div>
-          </td>
-        ))}
-      </tr>
-    ))}
-  </>
-);
+// SkeletonRows moved to shared components/ui/SkeletonRows.jsx
+const RESULT_SKELETON_CELL = 'px-5 py-4';
+const RESULT_SKELETON_BAR = 'h-4 bg-slate-100 rounded-lg w-3/4';
 
 const ResultPage = () => {
   const [selectedExam, setSelectedExam] = useState(null);
@@ -121,7 +114,7 @@ const ResultPage = () => {
   const [studentSearch, setStudentSearch] = useState('');
   const [resultSearch, setResultSearch] = useState('');
   const [filters, setFilters] = useState({ standard: '', section: '' });
-  const [toast, setToast] = useState({ type: '', text: '' });
+  const { message: toast, showMessage } = useToastMessage(3200);
   const [entryModal, setEntryModal] = useState({ open: false, student: null, result: null });
   const [detailModal, setDetailModal] = useState({ open: false, result: null });
 
@@ -206,10 +199,7 @@ const ResultPage = () => {
     );
   }, [completedExams]);
 
-  const showMessage = useCallback((type, text, duration = 3200) => {
-    setToast({ type, text });
-    setTimeout(() => setToast({ type: '', text: '' }), duration);
-  }, []);
+  // showMessage provided by useToastMessage hook
 
   const handleOpenExam = (exam) => {
     setSelectedExam(exam);
@@ -323,12 +313,12 @@ const ResultPage = () => {
 
   return (
     <DashboardLayout>
-      {toast.text && (
-        <div className={`fixed top-6 right-6 z-100 px-5 py-3.5 rounded-xl shadow-lg flex items-center gap-3 animate-fadeIn backdrop-blur-sm ${toast.type === 'success' ? 'bg-emerald-500/90 text-white' : 'bg-red-500/90 text-white'}`}>
+      {toast?.text && (
+        <div className={`fixed top-6 right-6 z-100 px-5 py-3.5 rounded-xl shadow-lg flex items-center gap-3 animate-fadeIn backdrop-blur-sm ${toast?.type === 'success' ? 'bg-emerald-500/90 text-white' : 'bg-red-500/90 text-white'}`}>
           <div className="w-6 h-6 rounded-full flex items-center justify-center bg-white/20">
-            {toast.type === 'success' ? <FaCheckCircle size={12} /> : <FaTimes size={12} />}
+            {toast?.type === 'success' ? <FaCheckCircle size={12} /> : <FaTimes size={12} />}
           </div>
-          <span className="font-medium">{toast.text}</span>
+          <span className="font-medium">{toast?.text}</span>
         </div>
       )}
 
@@ -415,7 +405,7 @@ const ResultPage = () => {
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {completedExamsQuery.isLoading ? (
-                      <SkeletonRows rows={5} columns={5} />
+                      <SkeletonRows rows={5} columns={5} cellClass={RESULT_SKELETON_CELL} barClass={RESULT_SKELETON_BAR} />
                     ) : filteredExams.length === 0 ? (
                       <tr>
                         <td colSpan={5} className="px-5 py-10">
@@ -503,7 +493,7 @@ const ResultPage = () => {
                   className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-primary text-white font-semibold hover:bg-primary-hover transition-all shadow-lg shadow-primary/20 disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   {publishResultsMutation.isPending ? (
-                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    <ButtonSpinner />
                   ) : (
                     <FaUpload size={13} />
                   )}
@@ -569,7 +559,7 @@ const ResultPage = () => {
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                       {examStudentsQuery.isLoading ? (
-                        <SkeletonRows rows={6} columns={3} />
+                        <SkeletonRows rows={6} columns={3} cellClass={RESULT_SKELETON_CELL} barClass={RESULT_SKELETON_BAR} />
                       ) : filteredStudents.length === 0 ? (
                         <tr>
                           <td colSpan={3} className="px-5 py-10">
@@ -651,7 +641,7 @@ const ResultPage = () => {
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                       {examResultsQuery.isLoading ? (
-                        <SkeletonRows rows={5} columns={6} />
+                        <SkeletonRows rows={5} columns={6} cellClass={RESULT_SKELETON_CELL} barClass={RESULT_SKELETON_BAR} />
                       ) : filteredResults.length === 0 ? (
                         <tr>
                           <td colSpan={6} className="px-5 py-10">
