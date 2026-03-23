@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import { useAuth } from '../auth';
 import {
@@ -10,6 +10,9 @@ import ExamModal from '../../components/examination/ExamModal';
 import { FaPlus, FaEdit, FaTrash, FaEye, FaCalendarAlt, FaClock,
   FaChalkboardTeacher, FaCheckCircle, FaExclamationTriangle, FaBan, FaFilter, FaSearch, FaTimes, FaInfoCircle, FaUserGraduate, FaLayerGroup, FaBolt, FaCalendarCheck } from 'react-icons/fa';
 import { TabButton } from '../../components/ui/NoticeUIComponents';
+import { EmptyState } from '../../components/ui/EmptyState';
+import { ButtonSpinner } from '../../components/ui/Spinner';
+import { useToastMessage } from '../../hooks/useToastMessage';
 
 // Constants
 const EXAM_TYPES = {
@@ -35,16 +38,6 @@ const CustomBadge = ({ styles, icon: Icon, label }) => (
   </span>
 );
 
-const EmptyState = ({ icon: Icon, title, subtitle, action }) => (
-  <div className="flex flex-col items-center justify-center py-20 px-4 bg-white rounded-2xl border border-dashed border-slate-300">
-    <div className="w-16 h-16 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-300 mb-4 border border-slate-100">
-      <Icon size={24} />
-    </div>
-    <h3 className="text-lg font-bold text-slate-900 mb-1">{title}</h3>
-    <p className="text-slate-500 text-center max-w-sm mb-6 text-sm">{subtitle}</p>
-    {action}
-  </div>
-);
 
 const StatsCard = ({ label, value, icon: Icon, colorClass, bgClass }) => (
   <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex items-center gap-5 transition-all hover:shadow-md">
@@ -82,7 +75,6 @@ const ExaminationPage = () => {
   const [selectedExam, setSelectedExam] = useState(null);
   const [showModal, setShowModal] = useState({ type: '', open: false, data: null });
   const [deleteConfirm, setDeleteConfirm] = useState({ open: false, examId: null });
-  const [toast, setToast] = useState({ type: '', text: '' });
   const [searchTerm, setSearchTerm] = useState('');
   const {
     availableStandards: schoolAvailableStandards,
@@ -141,10 +133,7 @@ const ExaminationPage = () => {
     return allUniqueSections;
   }, [isTeacher, teacherProfile, filters.standard, getSectionsForStandard, allUniqueSections]);
 
-  const showMessage = useCallback((type, text, duration = 3000) => {
-    setToast({ type, text });
-    setTimeout(() => setToast({ type: '', text: '' }), 3000);
-  }, []);
+  const { message, showMessage } = useToastMessage();
 
   const filteredExams = useMemo(() => {
     let result = exams;
@@ -677,7 +666,7 @@ const ExaminationPage = () => {
                   className="flex-1 px-6 py-3 bg-rose-500 text-white rounded-xl font-bold hover:bg-rose-600 transition-all shadow-lg shadow-rose-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
                   {deleteExamMutation.isPending ? (
-                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    <ButtonSpinner />
                   ) : (
                     <FaTrash size={14} />
                   )}
@@ -688,12 +677,12 @@ const ExaminationPage = () => {
           </div>
         )}
 
-        {toast.text && (
-          <div className={`fixed top-6 right-6 z-[100] px-5 py-3.5 rounded-xl shadow-lg flex items-center gap-3 animate-fadeIn backdrop-blur-sm ${toast.type === 'success' ? 'bg-emerald-500/90 text-white' : 'bg-red-500/90 text-white'}`}>
+        {message?.text && (
+          <div className={`fixed top-6 right-6 z-[100] px-5 py-3.5 rounded-xl shadow-lg flex items-center gap-3 animate-fadeIn backdrop-blur-sm ${message.type === 'success' ? 'bg-emerald-500/90 text-white' : 'bg-red-500/90 text-white'}`}>
             <div className="w-6 h-6 rounded-full flex items-center justify-center bg-white/20">
-              {toast.type === 'success' ? <FaCheckCircle size={12} /> : <FaTimes size={12} />}
+              {message.type === 'success' ? <FaCheckCircle size={12} /> : <FaTimes size={12} />}
             </div>
-            <span className="font-medium">{toast.text}</span>
+            <span className="font-medium">{message.text}</span>
           </div>
         )}
       </div>

@@ -4,6 +4,7 @@ import {
     FaBookOpen, FaInfoCircle, FaCheckCircle, FaExclamationTriangle, FaUserGraduate
 } from 'react-icons/fa';
 import { useSchoolClasses } from '../../hooks/useSchoolClasses';
+import { ButtonSpinner } from '../../components/ui/Spinner';
 
 const INITIAL_FORM = {
     name: '',
@@ -637,7 +638,7 @@ const ExamModal = ({ isOpen, onClose, onSubmit, editData, isLoading, userRole, u
                             >
                                 {isLoading ? (
                                     <div className="flex items-center gap-3">
-                                        <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+                                        <ButtonSpinner />
                                         <span>Processing...</span>
                                     </div>
                                 ) : (
