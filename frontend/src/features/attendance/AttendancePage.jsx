@@ -17,7 +17,7 @@ import StudentHistoryModal from './components/StudentHistoryModal';
 import { AttendanceStatCards } from './components/AttendanceStatCards';
 import AdminClassList from './components/AdminClassList';
 import TeacherStudentList from './components/TeacherStudentList';
-import PaginationControls from './components/PaginationControls';
+import PaginationControls from '../../components/ui/PaginationControls';
 
 // Icons & UI
 import { FaCalendarAlt, FaUsers, FaCheckCircle, FaTimesCircle, FaSearch, FaWifi, FaClipboardList } from 'react-icons/fa';

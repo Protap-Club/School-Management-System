@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import { useAuth } from '../auth';
-import { FaChevronLeft, FaChevronRight, FaCalendarAlt, FaPlus, FaTrash, FaTimes, FaSpinner, FaClock, FaTag, FaUmbrellaBeach, FaUsers, FaEdit } from 'react-icons/fa';
+import { FaChevronLeft, FaChevronRight, FaCalendarAlt, FaPlus, FaTrash, FaTimes, FaClock, FaTag, FaUmbrellaBeach, FaUsers, FaEdit } from 'react-icons/fa';
 import api from '../../lib/axios';
+import { ButtonSpinner } from '../../components/ui/Spinner';
+import { useToastMessage } from '../../hooks/useToastMessage';
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const TYPE_CONFIG = {
@@ -55,7 +57,7 @@ const CalendarPage = () => {
   
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState({ text: '', type: '' });
+
   const [tooltip, setTooltip] = useState({ event: null, position: { x: 0, y: 0 }, expanded: false });
   const [formData, setFormData] = useState(resetFormForDate(''));
   
@@ -117,7 +119,7 @@ const CalendarPage = () => {
   const isClassSelectionInvalid = formData.targetAudience === 'classes'
     && (isAdmin ? !isAdminClassValid : formData.targetClasses.length === 0);
 
-  const showMessage = (text, type = 'success') => { setMessage({ text, type }); setTimeout(() => setMessage({ text: '', type: '' }), 3000); };
+  const { message, showMessage } = useToastMessage();
   const updateFormField = (field, value) => setFormData(prev => ({ ...prev, [field]: value }));
 
   const fetchEvents = useCallback(async () => {
@@ -271,17 +273,17 @@ const CalendarPage = () => {
         targetClasses: resolvedTargetClasses 
       };
       
-      if (formData._id) { await api.put(`/calendar/${formData._id}`, payload); showMessage('Event updated!'); }
-      else { await api.post('/calendar', payload); showMessage('Event created!'); }
+      if (formData._id) { await api.put(`/calendar/${formData._id}`, payload); showMessage('success', 'Event updated!'); }
+      else { await api.post('/calendar', payload); showMessage('success', 'Event created!'); }
       setShowEditModal(false); fetchEvents();
-    } catch (error) { showMessage(error.response?.data?.message || 'Failed to save event', 'error'); }
+    } catch (error) { showMessage('error', error.response?.data?.message || 'Failed to save event'); }
     finally { setSaving(false); }
   }, [formData, fetchEvents]);
 
   const handleDeleteEvent = useCallback(async (idToUse = formData._id) => {
     if (!idToUse) return;
-    try { setSaving(true); await api.delete(`/calendar/${idToUse}`); showMessage('Event deleted!'); setShowEditModal(false); fetchEvents(); }
-    catch (error) { showMessage(error.response?.data?.message || 'Failed to delete event', 'error'); }
+    try { setSaving(true); await api.delete(`/calendar/${idToUse}`); showMessage('success', 'Event deleted!'); setShowEditModal(false); fetchEvents(); }
+    catch (error) { showMessage('error', error.response?.data?.message || 'Failed to delete event'); }
     finally { setSaving(false); }
   }, [formData._id, fetchEvents]);
 
@@ -290,10 +292,10 @@ const CalendarPage = () => {
     try {
       setSaving(true);
       const res = await api.delete(`/calendar/date/${dateStr}`);
-      showMessage(res.data?.message || 'Events cleared!');
+      showMessage('success', res.data?.message || 'Events cleared!');
       fetchEvents();
     } catch (error) {
-       showMessage(error.response?.data?.message || 'Failed to clear events', 'error');
+       showMessage('error', error.response?.data?.message || 'Failed to clear events');
     } finally {
       setSaving(false);
     }
@@ -343,9 +345,9 @@ const renderFormField = (label, children) => (
 
   return (
     <DashboardLayout>
-      {message.text && (
-        <div className={`fixed top-6 right-6 z-[60] px-4 py-2.5 rounded-xl shadow-lg text-sm font-medium flex items-center gap-2 animate-fadeIn ${message.type === 'error' ? 'bg-red-600 text-white' : 'bg-gray-900 text-white'}`}>
-          {message.type === 'error' ? <FaTimes /> : <FaCalendarAlt />}{message.text}
+      {message?.text && (
+        <div className={`fixed top-6 right-6 z-[60] px-4 py-2.5 rounded-xl shadow-lg text-sm font-medium flex items-center gap-2 animate-fadeIn ${message?.type === 'error' ? 'bg-red-600 text-white' : 'bg-gray-900 text-white'}`}>
+          {message?.type === 'error' ? <FaTimes /> : <FaCalendarAlt />}{message?.text}
         </div>
       )}
       {tooltip.event && !showDayModal && (
@@ -665,7 +667,7 @@ const renderFormField = (label, children) => (
                 </button>
                 <button onClick={handleSaveEvent} disabled={!formData.title.trim() || saving || isClassSelectionInvalid}
                   className="px-6 py-3 bg-primary text-white rounded-2xl font-bold hover:bg-primary-hover hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm shadow-md">
-                  {saving && <FaSpinner className="animate-spin" />}
+                  {saving && <ButtonSpinner />}
                   {isClassSelectionInvalid
                     ? (isAdmin ? 'Enter Valid Class & Section' : 'Select a Class to Continue')
                     : (formData._id ? 'Update Event' : 'Create Event')}

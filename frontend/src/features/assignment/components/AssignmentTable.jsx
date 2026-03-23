@@ -9,7 +9,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { AssignmentPaginationControls } from './AssignmentPaginationControls';
+import PaginationControls from '../../../components/ui/PaginationControls';
 
 export const AssignmentTable = ({
     assignments,
@@ -205,7 +205,7 @@ export const AssignmentTable = ({
                 </Table>
             </div>
             {onPageChange && (
-                <AssignmentPaginationControls
+                <PaginationControls
                     currentPage={currentPage}
                     totalItems={totalItems}
                     pageSize={pageSize}

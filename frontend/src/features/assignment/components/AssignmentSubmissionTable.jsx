@@ -9,7 +9,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { AssignmentPaginationControls } from './AssignmentPaginationControls';
+import PaginationControls from '../../../components/ui/PaginationControls';
 
 const formatDateTime = (value) => {
     const parsed = new Date(value);
@@ -163,7 +163,7 @@ export const AssignmentSubmissionTable = ({
                 </Table>
             </div>
             {onPageChange && (
-                <AssignmentPaginationControls
+                <PaginationControls
                     currentPage={currentPage}
                     totalItems={totalItems}
                     pageSize={pageSize}
