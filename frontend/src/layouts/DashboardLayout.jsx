@@ -1,7 +1,6 @@
 import React, { useEffect } from 'react';
 import { Sidebar, Header } from '../components/layout';
 import { useSidebar } from '../state';
-import api from '../api/axios';
 
 const DashboardLayout = ({ children, onSearch, searchValue }) => {
     const { isCollapsed } = useSidebar();

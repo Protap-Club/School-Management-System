@@ -2,7 +2,9 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import DashboardLayout from '../layouts/DashboardLayout';
 import { useAuth } from '../features/auth';
 import { useTheme, useFeatures } from '../state';
-import api from '../api/axios';
+import api from '../lib/axios';
+import { ButtonSpinner, PageSpinner } from '../components/ui/Spinner';
+import { useToastMessage } from '../hooks/useToastMessage';
 import {
     FaPalette,
     FaImage,
@@ -65,13 +67,12 @@ const Settings = () => {
     const canManageAcademic = ['super_admin', 'admin'].includes(currentUser?.role);
     const currentSchoolId = currentUser?.schoolId?._id || currentUser?.schoolId;
     const fileInputRef = useRef(null);
-    const messageTimerRef = useRef(null);
 
     const [settings, setSettings] = useState({ logoUrl: '', theme: { accentColor: '#2563eb' } });
     const [refreshKey, setRefreshKey] = useState(() => Date.now());
     const [loading, setLoading] = useState(true);
     const [uploading, setUploading] = useState(false);
-    const [message, setMessage] = useState({ type: '', text: '' });
+    const { message, showMessage } = useToastMessage();
 
     const [features, setFeatures] = useState({});
     const [featuresLoading, setFeaturesLoading] = useState(false);
@@ -83,11 +84,6 @@ const Settings = () => {
     const [newStandard, setNewStandard] = useState('');
     const [newSection, setNewSection] = useState('');
 
-    const showMessage = useCallback((type, text, duration = 2600) => {
-        if (messageTimerRef.current) clearTimeout(messageTimerRef.current);
-        setMessage({ type, text });
-        messageTimerRef.current = setTimeout(() => setMessage({ type: '', text: '' }), duration);
-    }, []);
 
     const fetchAcademicClasses = useCallback(async () => {
         if (!canManageAcademic) return;
@@ -130,10 +126,6 @@ const Settings = () => {
 
         fetchSchoolData();
         if (canManageAcademic) fetchAcademicClasses();
-
-        return () => {
-            if (messageTimerRef.current) clearTimeout(messageTimerRef.current);
-        };
     }, [currentSchoolId, isSuperAdmin, canManageAcademic, fetchAcademicClasses]);
 
     const handleToggleFeature = useCallback(async (featureKey) => {
@@ -278,7 +270,7 @@ const Settings = () => {
         return (
             <DashboardLayout>
                 <div className="flex items-center justify-center h-[60vh]">
-                    <div className="animate-spin rounded-full h-8 w-8 border-2 border-gray-200 border-t-gray-700"></div>
+                    <PageSpinner />
                 </div>
             </DashboardLayout>
         );
@@ -396,7 +388,7 @@ const Settings = () => {
                                     className={`w-full group flex flex-col items-center justify-center gap-3 px-6 py-8 border-2 border-dashed rounded-2xl transition-all ${uploading ? 'border-gray-200 bg-gray-50 cursor-not-allowed' : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50 cursor-pointer'}`}
                                 >
                                     <div className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-colors ${uploading ? 'bg-gray-100' : 'bg-gray-100 group-hover:bg-gray-200'}`}>
-                                        {uploading ? <div className="animate-spin rounded-full h-6 w-6 border-2 border-gray-300 border-t-gray-700"></div> : <FaUpload className="text-gray-400 group-hover:text-gray-600" size={20} />}
+                                        {uploading ? <ButtonSpinner /> : <FaUpload className="text-gray-400 group-hover:text-gray-600" size={20} />}
                                     </div>
                                     <div className="text-center">
                                         <span className={`text-base font-medium ${uploading ? 'text-gray-400' : 'text-gray-700'}`}>{uploading ? 'Uploading...' : 'Click to upload logo'}</span>
@@ -448,7 +440,7 @@ const Settings = () => {
                                                 className="px-4 py-2.5 rounded-xl text-white font-semibold transition-opacity hover:opacity-90 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                                                 style={{ backgroundColor: accentColor }}
                                             >
-                                                {savingClass ? <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin"></div> : <FaPlus size={12} />}
+                                                {savingClass ? <ButtonSpinner /> : <FaPlus size={12} />}
                                                 Create
                                             </button>
                                         </div>
@@ -463,7 +455,7 @@ const Settings = () => {
                                         <div className="max-h-72 overflow-y-auto">
                                             {classesLoading ? (
                                                 <div className="py-8 flex justify-center">
-                                                    <div className="animate-spin rounded-full h-6 w-6 border-2 border-gray-200 border-t-gray-700"></div>
+                                                    <ButtonSpinner />
                                                 </div>
                                             ) : classSections.length === 0 ? (
                                                 <div className="py-10 text-center">
@@ -520,7 +512,7 @@ const Settings = () => {
                                 <div className="p-4">
                                     {featuresLoading ? (
                                         <div className="flex items-center justify-center py-8">
-                                            <div className="animate-spin rounded-full h-6 w-6 border-2 border-gray-200 border-t-gray-700"></div>
+                                            <ButtonSpinner />
                                         </div>
                                     ) : (
                                         <div className="space-y-2">{Object.entries(FEATURE_META).map(([key, meta]) => renderFeatureToggle(key, meta))}</div>

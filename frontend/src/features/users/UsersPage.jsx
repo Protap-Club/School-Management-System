@@ -13,6 +13,9 @@ import {
     useArchivedUsers,
     useToggleUsersStatus,
 } from './api/queries';
+import { useToastMessage } from '../../hooks/useToastMessage';
+
+
 
 const ROLE_PERMISSIONS = { super_admin: ['admin', 'teacher', 'student'], admin: ['teacher', 'student'], teacher: ['student'] };
 const ROLE_LABELS = {
@@ -69,7 +72,7 @@ const UsersPage = () => {
     const [selectedUser, setSelectedUser] = useState(null);
     const [modalMode, setModalMode] = useState('view');
     const [deleteConfirm, setDeleteConfirm] = useState({ open: false, users: [], isBulk: false });
-    const [message, setMessage] = useState({ type: '', text: '' });
+    const { message, showMessage } = useToastMessage();
 
     const allowedRoles = ROLE_PERMISSIONS[currentUser?.role] || [];
     const isAdminOrAbove = currentUser?.role === 'super_admin' || currentUser?.role === 'admin';
@@ -83,12 +86,6 @@ const UsersPage = () => {
     const currentData = showArchived ? archivedData?.data : usersData?.data;
     const loading = showArchived ? archivedLoading : usersLoading;
     const usersList = useMemo(() => (Array.isArray(currentData?.users) ? currentData.users : []), [currentData]);
-
-    const showMessage = useCallback((type, text) => {
-        setMessage({ type, text });
-        setTimeout(() => setMessage({ type: '', text: '' }), 3000);
-    }, []);
-
     // Filter, Sort Logic
     const filteredUsers = useMemo(() => {
         if (!usersList) return [];
@@ -131,13 +128,12 @@ const UsersPage = () => {
 
     return (
         <DashboardLayout>
-            {message.text && (
+            {message?.text && (
                 <div className={`fixed top-6 right-6 z-[100] px-5 py-3.5 rounded-lg shadow-lg flex items-center gap-3 animate-fadeIn backdrop-blur-sm ${message.type === 'success' ? 'bg-emerald-500/90 text-white' : 'bg-red-500/90 text-white'}`}>
                     <div className="w-5 h-5 rounded-full flex items-center justify-center bg-white/20">
                         {message.type === 'success' ? <FaCheck size={10} /> : <FaTimes size={10} />}
                     </div>
                     <span className="font-medium text-sm">{message.text}</span>
-                    <button onClick={() => setMessage({ type: '', text: '' })} className="ml-2 p-1.5 hover:bg-white/20 rounded-md transition-colors"><FaTimes size={10} /></button>
                 </div>
             )}
 
