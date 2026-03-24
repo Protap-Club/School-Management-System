@@ -33,6 +33,7 @@ import { SkeletonRows } from '../../components/ui/SkeletonRows';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { ButtonSpinner } from '../../components/ui/Spinner';
 import { useToastMessage } from '../../hooks/useToastMessage';
+import { useSchoolClasses } from '../../hooks/useSchoolClasses';
 
 const MODAL_OVERLAY = 'modal-overlay fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4';
 const currentYear = new Date().getFullYear();
@@ -99,6 +100,24 @@ const FeesPage = () => {
     useEffect(() => {
         setStaffDashboardPage(1);
     }, [staffSearch]);
+
+    const { availableStandards, allUniqueSections, getSectionsForStandard } = useSchoolClasses({ enabled: isAdmin });
+
+    const standardFilterOptions = useMemo(() => {
+        const merged = new Set((availableStandards || []).map((value) => String(value || '').trim()).filter(Boolean));
+        const current = String(structFilters.standard || '').trim();
+        if (current) merged.add(current);
+        return Array.from(merged).sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
+    }, [availableStandards, structFilters.standard]);
+
+    const sectionFilterOptions = useMemo(() => {
+        const selectedStandard = String(structFilters.standard || '').trim();
+        const source = selectedStandard ? getSectionsForStandard(selectedStandard) : allUniqueSections;
+        const merged = new Set((source || []).map((value) => String(value || '').trim().toUpperCase()).filter(Boolean));
+        const current = String(structFilters.section || '').trim().toUpperCase();
+        if (current) merged.add(current);
+        return Array.from(merged).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+    }, [allUniqueSections, getSectionsForStandard, structFilters.standard, structFilters.section]);
 
     // Queries
     const cleanFilters = useMemo(() => {
@@ -482,15 +501,28 @@ const FeesPage = () => {
                                         <input type="number" placeholder="Year" value={structFilters.academicYear}
                                             onChange={(e) => setStructFilters(p => ({ ...p, academicYear: e.target.value }))}
                                             className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg w-24 focus:ring-primary focus:border-primary" />
-                                        <select value={structFilters.standard} onChange={(e) => setStructFilters(p => ({ ...p, standard: e.target.value }))}
+                                        <select value={structFilters.standard} onChange={(e) => {
+                                            const nextStandard = e.target.value;
+                                            const validSections = (nextStandard ? getSectionsForStandard(nextStandard) : allUniqueSections)
+                                                .map((value) => String(value || '').trim().toUpperCase());
+                                            setStructFilters((prev) => {
+                                                const currentSection = String(prev.section || '').trim().toUpperCase();
+                                                const shouldResetSection = currentSection && validSections.length > 0 && !validSections.includes(currentSection);
+                                                return {
+                                                    ...prev,
+                                                    standard: nextStandard,
+                                                    section: shouldResetSection ? '' : prev.section,
+                                                };
+                                            });
+                                        }}
                                             className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg w-32 focus:ring-primary focus:border-primary">
                                             <option value="">Standard</option>
-                                            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(s => <option key={s} value={s}>{s}</option>)}
+                                            {standardFilterOptions.map((s) => <option key={s} value={s}>{s}</option>)}
                                         </select>
                                         <select value={structFilters.section} onChange={(e) => setStructFilters(p => ({ ...p, section: e.target.value }))}
                                             className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg w-32 focus:ring-primary focus:border-primary">
                                             <option value="">Section</option>
-                                            {['A', 'B', 'C'].map(s => <option key={s} value={s}>{s}</option>)}
+                                            {sectionFilterOptions.map((s) => <option key={s} value={s}>{s}</option>)}
                                         </select>
                                         <select value={structFilters.feeType} onChange={(e) => setStructFilters(p => ({ ...p, feeType: e.target.value }))}
                                             className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:ring-primary focus:border-primary">
