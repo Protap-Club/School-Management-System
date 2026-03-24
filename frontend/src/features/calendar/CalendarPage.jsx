@@ -344,8 +344,11 @@ const CalendarPage = () => {
     finally { setSaving(false); }
   }, [formData._id, fetchEvents]);
 
-  const handleClearDayEvents = async (dateStr) => {
-    if (!window.confirm(`Are you sure you want to clear all your events on ${dateStr}?`)) return;
+  const handleClearDayEvents = async (dateStr, containsExamManagedEvents = false) => {
+    const confirmationMessage = containsExamManagedEvents
+      ? `Are you sure you want to clear non-exam events on ${dateStr}? Exam events managed by Examination will be kept.`
+      : `Are you sure you want to clear all your events on ${dateStr}?`;
+    if (!window.confirm(confirmationMessage)) return;
     try {
       setSaving(true);
       const res = await api.delete(`/calendar/date/${dateStr}`);
@@ -546,9 +549,9 @@ const renderFormField = (label, children) => (
             
             {canEdit && (
               <div className="p-4 border-t border-gray-100 bg-white flex justify-between gap-3">
-                 {hasClearableDayEvents && !hasExamModuleEvents ? (
-                   <button onClick={() => handleClearDayEvents(selectedDateStr)} disabled={saving} className="px-4 py-2.5 text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors flex items-center justify-center min-w-[120px]">
-                     {saving ? <ButtonSpinner className="w-4 h-4 border-2 border-red-300 border-t-red-600 rounded-full animate-spin" /> : 'Clear All'}
+                 {hasClearableDayEvents ? (
+                   <button onClick={() => handleClearDayEvents(selectedDateStr, hasExamModuleEvents)} disabled={saving} className="px-4 py-2.5 text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors flex items-center justify-center min-w-[120px]">
+                     {saving ? <ButtonSpinner className="w-4 h-4 border-2 border-red-300 border-t-red-600 rounded-full animate-spin" /> : (hasExamModuleEvents ? 'Clear Non-Exam' : 'Clear All')}
                    </button>
                  ) : <div></div>}
                  <button onClick={() => openCreateEventModal(selectedDateStr)} className="flex-1 px-4 py-2.5 text-xs font-bold text-white bg-primary hover:bg-primary-hover rounded-lg transition-colors shadow-sm flex items-center justify-center gap-2">
