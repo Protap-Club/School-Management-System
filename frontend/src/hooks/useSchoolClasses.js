@@ -1,15 +1,28 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { getSchoolClasses } from '../api/school';
 
 const SCHOOL_CLASSES_KEY = ['school', 'classes'];
 
-export const useSchoolClasses = () => {
+export const useSchoolClasses = (options = {}) => {
+    const { enabled = true } = options;
     const { data: responseData, isLoading: loading, error, refetch } = useQuery({
         queryKey: SCHOOL_CLASSES_KEY,
         queryFn: getSchoolClasses,
         staleTime: 5 * 60 * 1000, // 5 minutes cache
+        enabled,
     });
+
+    useEffect(() => {
+        const handleCustomClassesUpdate = () => {
+            refetch();
+        };
+
+        window.addEventListener('customClassesUpdated', handleCustomClassesUpdate);
+        return () => {
+            window.removeEventListener('customClassesUpdated', handleCustomClassesUpdate);
+        };
+    }, [refetch]);
 
     const dataPayload = responseData?.data || {};
     

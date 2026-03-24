@@ -106,9 +106,49 @@ const CalendarPage = () => {
   const normalizedStandard = adminClassInput.standard.trim();
   const normalizedSection = adminClassInput.section.trim().toUpperCase();
   const adminClassKey = normalizedStandard && normalizedSection ? `${normalizedStandard}-${normalizedSection}` : '';
+
+  const adminStandardOptions = useMemo(() => {
+    const fromPairs = Array.from(
+      new Set(
+        (availableClasses.classSections || [])
+          .map(c => String(c.standard || '').trim())
+          .filter(Boolean)
+      )
+    );
+    if (fromPairs.length > 0) {
+      return fromPairs.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
+    }
+
+    const fallback = Array.from(
+      new Set((availableClasses.standards || []).map(v => String(v || '').trim()).filter(Boolean))
+    );
+    return fallback.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
+  }, [availableClasses.classSections, availableClasses.standards]);
+
+  const adminSectionOptions = useMemo(() => {
+    if (!normalizedStandard) return [];
+
+    const byStandard = Array.from(
+      new Set(
+        (availableClasses.classSections || [])
+          .filter(c => String(c.standard || '').trim() === normalizedStandard)
+          .map(c => String(c.section || '').trim().toUpperCase())
+          .filter(Boolean)
+      )
+    );
+    if (byStandard.length > 0) {
+      return byStandard.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+    }
+
+    const fallback = Array.from(
+      new Set((availableClasses.sections || []).map(v => String(v || '').trim().toUpperCase()).filter(Boolean))
+    );
+    return fallback.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+  }, [availableClasses.classSections, availableClasses.sections, normalizedStandard]);
+
   const classSectionKeys = useMemo(
     () => new Set((availableClasses.classSections || []).map(c => `${c.standard}-${c.section}`)),
-    [availableClasses]
+    [availableClasses.classSections]
   );
   const isAdminClassValid = isAdmin && formData.targetAudience === 'classes'
     && normalizedStandard
@@ -189,6 +229,21 @@ const CalendarPage = () => {
     return map;
   }, [events]);
 
+  const selectedDayEvents = useMemo(
+    () => (selectedDateStr ? (getEventsForDate[selectedDateStr] || []) : []),
+    [getEventsForDate, selectedDateStr]
+  );
+
+  const hasExamModuleEvents = useMemo(
+    () => selectedDayEvents.some(event => event.sourceType === 'exam'),
+    [selectedDayEvents]
+  );
+
+  const hasClearableDayEvents = useMemo(
+    () => selectedDayEvents.some(event => !event.sourceType),
+    [selectedDayEvents]
+  );
+
   const holidayCount = useMemo(() => {
     const uniqueDays = new Set();
     const monthStart = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
@@ -223,7 +278,9 @@ const CalendarPage = () => {
     setFormData(loadFormFromEvent(event));
     if (isAdmin) {
       const classKey = event?.targetClasses?.[0] || '';
-      const [standard = '', section = ''] = classKey.split('-');
+      const splitIndex = classKey.lastIndexOf('-');
+      const standard = splitIndex > 0 ? classKey.slice(0, splitIndex) : '';
+      const section = splitIndex > 0 ? classKey.slice(splitIndex + 1) : '';
       setAdminClassInput({ standard, section });
     }
     setShowEditModal(true);
@@ -278,7 +335,7 @@ const CalendarPage = () => {
       setShowEditModal(false); fetchEvents();
     } catch (error) { showMessage('error', error.response?.data?.message || 'Failed to save event'); }
     finally { setSaving(false); }
-  }, [formData, fetchEvents]);
+  }, [formData, fetchEvents, isAdmin, isAdminClassValid, adminClassKey, showMessage]);
 
   const handleDeleteEvent = useCallback(async (idToUse = formData._id) => {
     if (!idToUse) return;
@@ -287,8 +344,11 @@ const CalendarPage = () => {
     finally { setSaving(false); }
   }, [formData._id, fetchEvents]);
 
-  const handleClearDayEvents = async (dateStr) => {
-    if (!window.confirm(`Are you sure you want to clear all your events on ${dateStr}?`)) return;
+  const handleClearDayEvents = async (dateStr, containsExamManagedEvents = false) => {
+    const confirmationMessage = containsExamManagedEvents
+      ? `Are you sure you want to clear non-exam events on ${dateStr}? Exam events managed by Examination will be kept.`
+      : `Are you sure you want to clear all your events on ${dateStr}?`;
+    if (!window.confirm(confirmationMessage)) return;
     try {
       setSaving(true);
       const res = await api.delete(`/calendar/date/${dateStr}`);
@@ -426,13 +486,13 @@ const renderFormField = (label, children) => (
                  <h2 className="text-lg font-bold text-gray-900">
                    {new Date(selectedDateStr).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
                  </h2>
-                 <p className="text-xs font-medium text-gray-500 mt-0.5">{getEventsForDate[selectedDateStr]?.length || 0} events scheduled</p>
+                 <p className="text-xs font-medium text-gray-500 mt-0.5">{selectedDayEvents.length} events scheduled</p>
                </div>
                <button onClick={() => setShowDayModal(false)} className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"><FaTimes size={18} /></button>
             </div>
             
             <div className="p-5 overflow-y-auto flex-1 bg-gray-50/30">
-              {(!getEventsForDate[selectedDateStr] || getEventsForDate[selectedDateStr].length === 0) ? (
+              {selectedDayEvents.length === 0 ? (
                 <div className="text-center py-12">
                    <div className="w-16 h-16 bg-gray-100 text-gray-300 rounded-full flex items-center justify-center mx-auto mb-4"><FaCalendarAlt size={24} /></div>
                    <h3 className="text-sm font-bold text-gray-700 mb-1">No events scheduled</h3>
@@ -440,7 +500,7 @@ const renderFormField = (label, children) => (
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {getEventsForDate[selectedDateStr].map(event => {
+                  {selectedDayEvents.map(event => {
                     const colors = getTypeColors(event.type);
                     // Determine if current user can edit this specific event.
                     // Exam events created from Examination module are read-only here.
@@ -478,15 +538,20 @@ const renderFormField = (label, children) => (
                       </div>
                     )
                   })}
+                  {hasExamModuleEvents && (
+                    <div className="rounded-xl border border-blue-200 bg-blue-50 px-3 py-2.5 text-xs font-medium text-blue-800">
+                      This exam event is managed from the Examination section. Once the exam is completed, this calendar event will be auto-deleted.
+                    </div>
+                  )}
                 </div>
               )}
             </div>
             
             {canEdit && (
               <div className="p-4 border-t border-gray-100 bg-white flex justify-between gap-3">
-                 {getEventsForDate[selectedDateStr]?.length > 0 ? (
-                   <button onClick={() => handleClearDayEvents(selectedDateStr)} disabled={saving} className="px-4 py-2.5 text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors flex items-center justify-center min-w-[120px]">
-                     {saving ? <ButtonSpinner className="w-4 h-4 border-2 border-red-300 border-t-red-600 rounded-full animate-spin" /> : 'Clear All'}
+                 {hasClearableDayEvents ? (
+                   <button onClick={() => handleClearDayEvents(selectedDateStr, hasExamModuleEvents)} disabled={saving} className="px-4 py-2.5 text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors flex items-center justify-center min-w-[120px]">
+                     {saving ? <ButtonSpinner className="w-4 h-4 border-2 border-red-300 border-t-red-600 rounded-full animate-spin" /> : (hasExamModuleEvents ? 'Clear Non-Exam' : 'Clear All')}
                    </button>
                  ) : <div></div>}
                  <button onClick={() => openCreateEventModal(selectedDateStr)} className="flex-1 px-4 py-2.5 text-xs font-bold text-white bg-primary hover:bg-primary-hover rounded-lg transition-colors shadow-sm flex items-center justify-center gap-2">
@@ -604,23 +669,32 @@ const renderFormField = (label, children) => (
                     isAdmin ? (
                       <div className="mt-4 bg-white border border-gray-200 rounded-2xl p-4">
                         <div className="grid grid-cols-2 gap-3">
-                          <input
-                            type="text"
+                          <select
                             value={adminClassInput.standard}
-                            onChange={(e) => setAdminClassInput(prev => ({ ...prev, standard: e.target.value }))}
-                            placeholder="Class (e.g., 10)"
-                            className={INPUT_CLASS}
-                          />
-                          <input
-                            type="text"
+                            onChange={(e) => setAdminClassInput({ standard: e.target.value, section: '' })}
+                            className={`${INPUT_CLASS} appearance-none`}
+                          >
+                            <option value="">Select Class</option>
+                            {adminStandardOptions.map((standard) => (
+                              <option key={standard} value={standard}>{standard}</option>
+                            ))}
+                          </select>
+                          <select
                             value={adminClassInput.section}
                             onChange={(e) => setAdminClassInput(prev => ({ ...prev, section: e.target.value }))}
-                            placeholder="Section (e.g., A)"
-                            className={INPUT_CLASS}
-                          />
+                            disabled={!normalizedStandard || adminSectionOptions.length === 0}
+                            className={`${INPUT_CLASS} appearance-none disabled:bg-gray-50 disabled:text-gray-400 disabled:cursor-not-allowed`}
+                          >
+                            <option value="">
+                              {!normalizedStandard ? 'Select Class First' : 'Select Section'}
+                            </option>
+                            {adminSectionOptions.map((section) => (
+                              <option key={section} value={section}>{section}</option>
+                            ))}
+                          </select>
                         </div>
                         <p className={`mt-3 text-xs font-semibold ${isAdminClassValid ? 'text-emerald-600' : 'text-gray-500'}`}>
-                          {isAdminClassValid ? 'Class and section verified.' : 'Enter a valid class and section to continue.'}
+                          {isAdminClassValid ? 'Class and section verified.' : 'Select a valid class and section to continue.'}
                         </p>
                       </div>
                     ) : (
@@ -669,7 +743,7 @@ const renderFormField = (label, children) => (
                   className="px-6 py-3 bg-primary text-white rounded-2xl font-bold hover:bg-primary-hover hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm shadow-md">
                   {saving && <ButtonSpinner />}
                   {isClassSelectionInvalid
-                    ? (isAdmin ? 'Enter Valid Class & Section' : 'Select a Class to Continue')
+                    ? (isAdmin ? 'Select Valid Class & Section' : 'Select a Class to Continue')
                     : (formData._id ? 'Update Event' : 'Create Event')}
                 </button>
               </div>

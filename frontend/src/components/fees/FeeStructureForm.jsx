@@ -3,8 +3,9 @@ import { FaTimes, FaCheck, FaPlus, FaSave, FaArrowLeft } from 'react-icons/fa';
 import {
     FEE_TYPES, FEE_TYPE_LABELS, FREQUENCY_OPTIONS, FREQUENCY_LABELS,
 } from '../../features/fees';
-import { useFeeStructures, useCreateFeeStructure, useUpdateFeeStructure, useFeeTypes } from '../../features/fees/api/queries';
+import { useFeeTypes } from '../../features/fees/api/queries';
 import FeeTypeSideCard from './FeeTypeSideCard';
+import { useSchoolClasses } from '../../hooks/useSchoolClasses';
 
 const INITIAL_FORM = {
     academicYear: new Date().getFullYear(),
@@ -24,6 +25,9 @@ const MONTHS = [
     { value: 7, label: 'Jul' }, { value: 8, label: 'Aug' }, { value: 9, label: 'Sep' },
     { value: 10, label: 'Oct' }, { value: 11, label: 'Nov' }, { value: 12, label: 'Dec' },
 ];
+
+const normalizeStandard = (value) => String(value || '').trim();
+const normalizeSection = (value) => String(value || '').trim().toUpperCase();
 
 const FeeStructureForm = ({ onCancel, onSubmit, editData, isLoading, isAdmin }) => {
     const isEdit = !!editData;
@@ -45,6 +49,7 @@ const FeeStructureForm = ({ onCancel, onSubmit, editData, isLoading, isAdmin }) 
 
     const [showSideCard, setShowSideCard] = useState(false);
     const { data: feeTypesResp } = useFeeTypes({ enabled: isAdmin });
+    const { availableStandards, allUniqueSections, getSectionsForStandard } = useSchoolClasses({ enabled: isAdmin });
     
     // Combine hardcoded defaults with backend types
     const feeTypes = React.useMemo(() => {
@@ -75,6 +80,24 @@ const FeeStructureForm = ({ onCancel, onSubmit, editData, isLoading, isAdmin }) 
         return combined;
     }, [feeTypesResp, form.feeType]);
 
+    const standardOptions = React.useMemo(() => {
+        const merged = new Set((availableStandards || []).map(normalizeStandard).filter(Boolean));
+        const current = normalizeStandard(form.standard);
+        if (current) merged.add(current);
+        return Array.from(merged).sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
+    }, [availableStandards, form.standard]);
+
+    const sectionOptions = React.useMemo(() => {
+        const selectedStandard = normalizeStandard(form.standard);
+        const source = selectedStandard ? getSectionsForStandard(selectedStandard) : allUniqueSections;
+        const merged = new Set((source || []).map(normalizeSection).filter(Boolean));
+        const current = normalizeSection(form.section);
+        if (current) merged.add(current);
+        return Array.from(merged).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+    }, [allUniqueSections, form.standard, form.section, getSectionsForStandard]);
+
+    const [errors, setErrors] = useState({});
+
     useEffect(() => {
         if (editData) {
             setForm({
@@ -94,10 +117,10 @@ const FeeStructureForm = ({ onCancel, onSubmit, editData, isLoading, isAdmin }) 
         }
         setErrors({});
     }, [editData]);
-    const [errors, setErrors] = useState({});
 
     const handleChange = useCallback((field, value) => {
-        setForm(prev => ({ ...prev, [field]: value }));
+        const nextValue = field === 'section' ? normalizeSection(value) : value;
+        setForm(prev => ({ ...prev, [field]: nextValue }));
         setErrors(prev => ({ ...prev, [field]: '' }));
     }, []);
 
@@ -133,6 +156,19 @@ const FeeStructureForm = ({ onCancel, onSubmit, editData, isLoading, isAdmin }) 
         });
     }, [form.frequency]);
 
+    useEffect(() => {
+        if (isEdit) return;
+
+        const selectedStandard = normalizeStandard(form.standard);
+        const selectedSection = normalizeSection(form.section);
+        if (!selectedStandard || !selectedSection) return;
+
+        const validSections = (getSectionsForStandard(selectedStandard) || []).map(normalizeSection);
+        if (validSections.length > 0 && !validSections.includes(selectedSection)) {
+            setForm(prev => ({ ...prev, section: '' }));
+        }
+    }, [form.standard, form.section, getSectionsForStandard, isEdit]);
+
     const validate = () => {
         const e = {};
         if (!form.standard) e.standard = 'Required';
@@ -157,7 +193,11 @@ const FeeStructureForm = ({ onCancel, onSubmit, editData, isLoading, isAdmin }) 
             dueDay: Number(form.dueDay),
         };
         if (isEdit) {
-            const { academicYear, standard, section, feeType, ...updateData } = payload;
+            const updateData = { ...payload };
+            delete updateData.academicYear;
+            delete updateData.standard;
+            delete updateData.section;
+            delete updateData.feeType;
             onSubmit(updateData);
         } else {
             onSubmit(payload);
@@ -194,7 +234,7 @@ const FeeStructureForm = ({ onCancel, onSubmit, editData, isLoading, isAdmin }) 
                         <select value={form.standard} onChange={(e) => handleChange('standard', e.target.value)}
                             className={inputCls('standard')} disabled={isEdit}>
                             <option value="" disabled hidden></option>
-                            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(s => <option key={s} value={s}>{s}</option>)}
+                            {standardOptions.map((s) => <option key={s} value={s}>{s}</option>)}
                         </select>
                         {errors.standard && <p className="text-[10px] text-red-500 mt-1 ml-1 font-bold">{errors.standard}</p>}
                     </div>
@@ -203,7 +243,7 @@ const FeeStructureForm = ({ onCancel, onSubmit, editData, isLoading, isAdmin }) 
                         <select value={form.section} onChange={(e) => handleChange('section', e.target.value)}
                             className={inputCls('section')} disabled={isEdit}>
                             <option value="" disabled hidden></option>
-                            {['A', 'B', 'C'].map(s => <option key={s} value={s}>{s}</option>)}
+                            {sectionOptions.map((s) => <option key={s} value={s}>{s}</option>)}
                         </select>
                         {errors.section && <p className="text-[10px] text-red-500 mt-1 ml-1 font-bold">{errors.section}</p>}
                     </div>

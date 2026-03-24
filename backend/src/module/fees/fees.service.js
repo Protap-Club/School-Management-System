@@ -3,6 +3,7 @@ import { FeeStructure, FeeAssignment, FeePayment } from "./Fee.model.js";
 import { FeeType } from "./FeeType.model.js";
 import StudentProfile from "../user/model/StudentProfile.model.js";
 import TeacherProfile from "../user/model/TeacherProfile.model.js";
+import School from "../school/School.model.js";
 import { USER_ROLES } from "../../constants/userRoles.js";
 import { NotFoundError, ConflictError, BadRequestError, ForbiddenError } from "../../utils/customError.js";
 import logger from "../../config/logger.js";
@@ -11,24 +12,71 @@ import logger from "../../config/logger.js";
 // ADMIN — Fee Structure CRUD
 // ═══════════════════════════════════════════════════════════════
 
+const normalizeClassSection = ({ standard, section }) => ({
+    standard: String(standard || "").trim(),
+    section: String(section || "").trim().toUpperCase(),
+});
+
+const escapeRegex = (value) => String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+const assertValidClassSection = async (schoolId, standard, section) => {
+    const normalized = normalizeClassSection({ standard, section });
+    if (!normalized.standard || !normalized.section) {
+        throw new BadRequestError("Standard and section are required");
+    }
+
+    const [school, hasMatchingStudents] = await Promise.all([
+        School.findById(schoolId).select("academic.classSections").lean(),
+        StudentProfile.exists({
+            schoolId,
+            standard: new RegExp(`^${escapeRegex(normalized.standard)}$`, "i"),
+            section: new RegExp(`^${escapeRegex(normalized.section)}$`, "i"),
+        }),
+    ]);
+
+    const configuredPairs = school?.academic?.classSections || [];
+    const isConfigured = configuredPairs.some((pair) => {
+        const parsed = normalizeClassSection(pair || {});
+        return (
+            parsed.standard.toLowerCase() === normalized.standard.toLowerCase() &&
+            parsed.section === normalized.section
+        );
+    });
+
+    if (!isConfigured && !hasMatchingStudents) {
+        throw new BadRequestError(
+            `Class ${normalized.standard} - ${normalized.section} is not configured in School Settings`
+        );
+    }
+
+    return normalized;
+};
+
 export const createFeeStructure = async (schoolId, data, userId) => {
+    const normalizedClass = await assertValidClassSection(schoolId, data.standard, data.section);
+    const payload = {
+        ...data,
+        standard: normalizedClass.standard,
+        section: normalizedClass.section,
+    };
+
     const exists = await FeeStructure.exists({
         schoolId,
-        academicYear: data.academicYear,
-        standard: data.standard,
-        section: data.section,
-        feeType: data.feeType,
+        academicYear: payload.academicYear,
+        standard: payload.standard,
+        section: payload.section,
+        feeType: payload.feeType,
     });
 
     if (exists) {
         throw new ConflictError(
-            `${data.feeType} fee already exists for ${data.standard} - ${data.section}(${data.academicYear})`
+            `${payload.feeType} fee already exists for ${payload.standard} - ${payload.section}(${payload.academicYear})`
         );
     }
 
     const structure = await FeeStructure.create({
         schoolId,
-        ...data,
+        ...payload,
         createdBy: userId,
     });
 
@@ -40,8 +88,8 @@ export const getFeeStructures = async (schoolId, filters = {}, user = {}) => {
     const query = { schoolId };
 
     // Admin filters
-    if (filters.standard) query.standard = filters.standard;
-    if (filters.section) query.section = filters.section;
+    if (filters.standard) query.standard = String(filters.standard).trim();
+    if (filters.section) query.section = String(filters.section).trim().toUpperCase();
 
     if (filters.academicYear) query.academicYear = Number(filters.academicYear);
     if (filters.feeType) query.feeType = filters.feeType;
