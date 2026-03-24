@@ -39,6 +39,11 @@ export const login = async (email, password, platform, metadata = {}) => {
         throw new ForbiddenError("Account is deactivated");
     }
 
+    if (user.isArchived) {
+        logger.warn("Login failed: Account archived", { email, platform, role: user.role });
+        throw new ForbiddenError("Account has been archived. Contact your administrator.");
+    }
+
     // Platform-specific restrictions
     if (platform === 'web') {
         if (user.role === USER_ROLES.STUDENT) {
@@ -117,7 +122,7 @@ export const refreshAccessToken = async (oldRefreshToken, metadata = {}) => {
     }
 
     const user = tokenDoc.userId;
-    if (!user || !user.isActive) {
+    if (!user || !user.isActive || user.isArchived) {
         throw new UnauthorizedError("User is no longer active");
     }
 

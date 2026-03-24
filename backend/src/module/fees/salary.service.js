@@ -1,10 +1,17 @@
 import Salary from "./Salary.model.js";
+import User from "../user/model/User.model.js";
 import TeacherProfile from "../user/model/TeacherProfile.model.js";
 import { NotFoundError, ConflictError, BadRequestError } from "../../utils/customError.js";
 import logger from "../../config/logger.js";
 
 // ── Create Salary Entry ────────────────────────────────────────
 export const createSalaryEntry = async (schoolId, data, userId) => {
+    // Block salary creation for archived teachers
+    const teacher = await User.findById(data.teacherId).select("isArchived").lean();
+    if (teacher?.isArchived) {
+        throw new BadRequestError("Cannot create salary entry for an archived teacher");
+    }
+
     const exists = await Salary.exists({
         schoolId,
         teacherId: data.teacherId,
@@ -42,7 +49,7 @@ export const getSalaryEntries = async (schoolId, filters = {}) => {
     if (filters.status) query.status = filters.status;
 
     const salaries = await Salary.find(query)
-        .populate("teacherId", "name email contactNo")
+        .populate("teacherId", "name email contactNo isArchived")
         .sort({ year: -1, month: -1 })
         .lean();
 
