@@ -1,6 +1,8 @@
 // Notices TanStack Query Hooks
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useSelector } from 'react-redux';
 import { noticesApi } from './api';
+import { selectAccessToken } from '../../auth/authSlice';
 
 export const noticeKeys = {
     all: ['notices'],
@@ -16,28 +18,38 @@ export const noticeKeys = {
     acknowledgments: (id) => [...noticeKeys.all, 'acknowledgments', id],
 };
 
+const useProtectedQueryEnabled = (enabled = true) => {
+    const accessToken = useSelector(selectAccessToken);
+    return Boolean(accessToken) && enabled;
+};
+
 // Get notices with filters
 export const useNotices = (filters = {}) => {
+    const enabled = useProtectedQueryEnabled();
     return useQuery({
         queryKey: noticeKeys.list(filters),
         queryFn: () => noticesApi.getNotices(filters),
+        enabled,
     });
 };
 
 // Get notice by ID
 export const useNotice = (id) => {
+    const enabled = useProtectedQueryEnabled(!!id);
     return useQuery({
         queryKey: noticeKeys.detail(id),
         queryFn: () => noticesApi.getNoticeById(id),
-        enabled: !!id,
+        enabled,
     });
 };
 
 // Get received notices (notifications)
 export const useReceivedNotices = () => {
+    const enabled = useProtectedQueryEnabled();
     return useQuery({
         queryKey: noticeKeys.received(),
         queryFn: noticesApi.getReceivedNotices,
+        enabled,
     });
 };
 
@@ -65,45 +77,51 @@ export const useDeleteNotice = () => {
 
 // Get classes
 export const useClasses = (enabled = true) => {
+    const queryEnabled = useProtectedQueryEnabled(enabled);
     return useQuery({
         queryKey: noticeKeys.classes(),
         queryFn: noticesApi.getClasses,
-        enabled,
+        enabled: queryEnabled,
     });
 };
 
 // Get students
 export const useStudents = (enabled = true) => {
+    const queryEnabled = useProtectedQueryEnabled(enabled);
     return useQuery({
         queryKey: noticeKeys.students(),
         queryFn: noticesApi.getStudents,
-        enabled,
+        enabled: queryEnabled,
     });
 };
 
 // Get teachers
 export const useTeachers = (enabled = true) => {
+    const queryEnabled = useProtectedQueryEnabled(enabled);
     return useQuery({
         queryKey: noticeKeys.teachers(),
         queryFn: noticesApi.getTeachers,
-        enabled,
+        enabled: queryEnabled,
     });
 };
 
 // Get all users (Admin only)
 export const useAllUsers = (filters = {}, enabled = true) => {
+    const queryEnabled = useProtectedQueryEnabled(enabled);
     return useQuery({
         queryKey: noticeKeys.allUsers(filters),
         queryFn: () => noticesApi.getAllUsers(filters),
-        enabled,
+        enabled: queryEnabled,
     });
 };
 
 // Get groups
 export const useGroups = () => {
+    const enabled = useProtectedQueryEnabled();
     return useQuery({
         queryKey: noticeKeys.groups(),
         queryFn: noticesApi.getGroups,
+        enabled,
     });
 };
 
@@ -144,10 +162,11 @@ export const useAcknowledgeNotice = (id) => {
 
 // Get acknowledgment status for a notice (sender view)
 export const useAcknowledgments = (id) => {
+    const enabled = useProtectedQueryEnabled(!!id);
     return useQuery({
         queryKey: noticeKeys.acknowledgments(id),
         queryFn: () => noticesApi.getAcknowledgments(id),
-        enabled: !!id,
+        enabled,
         staleTime: 30 * 1000, // 30 seconds — sender status can refresh quickly
     });
 };

@@ -21,7 +21,7 @@ export const useSidebar = () => {
 
 // ==== Theme Hook ====
 import { selectBranding, setBranding, setAccentColor, applyThemeToDOM } from './themeSlice';
-import { selectIsAuthenticated } from '../features/auth';
+import { selectAccessToken, selectIsAuthenticated } from '../features/auth';
 import api from '../lib/axios';
 
 // Theme query keys
@@ -33,6 +33,7 @@ export const useTheme = () => {
     const dispatch = useDispatch();
     const branding = useSelector(selectBranding);
     const isAuthenticated = useSelector(selectIsAuthenticated);
+    const accessToken = useSelector(selectAccessToken);
 
     // Fetch branding using TanStack Query
     const { data: brandingData, isLoading: loading, refetch: fetchBranding } = useQuery({
@@ -41,7 +42,7 @@ export const useTheme = () => {
             const response = await api.get('/school');
             return response.data;
         },
-        enabled: isAuthenticated,
+        enabled: isAuthenticated && Boolean(accessToken),
         staleTime: 5 * 60 * 1000,
     });
 
@@ -94,6 +95,7 @@ const featuresKeys = {
 export const useFeatures = () => {
     const queryClient = useQueryClient();
     const isAuthenticated = useSelector(selectIsAuthenticated);
+    const accessToken = useSelector(selectAccessToken);
 
     const { data, isLoading: loading } = useQuery({
         queryKey: featuresKeys.school(),
@@ -101,7 +103,7 @@ export const useFeatures = () => {
             const response = await api.get('/school');
             return response.data;
         },
-        enabled: isAuthenticated,
+        enabled: isAuthenticated && Boolean(accessToken),
         staleTime: 5 * 60 * 1000,
     });
 

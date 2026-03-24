@@ -1,6 +1,8 @@
 // Attendance TanStack Query Hooks — all server-state management for attendance.
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useSelector } from 'react-redux';
 import { attendanceApi } from './api';
+import { selectAccessToken } from '../../auth/authSlice';
 
 // ─── Query Keys ─────────────────────────────────────────
 export const attendanceKeys = {
@@ -11,38 +13,50 @@ export const attendanceKeys = {
     profile: () => [...attendanceKeys.all, 'profile'],
 };
 
+const useProtectedQueryEnabled = (enabled = true) => {
+    const accessToken = useSelector(selectAccessToken);
+    return Boolean(accessToken) && enabled;
+};
+
 // ─── Queries ────────────────────────────────────────────
 
 /** Fetch all students for attendance view. */
 export const useStudents = () => {
+    const enabled = useProtectedQueryEnabled();
     return useQuery({
         queryKey: attendanceKeys.students(),
         queryFn: attendanceApi.getStudents,
+        enabled,
     });
 };
 
 /** Fetch all teachers (admin view). */
 export const useTeachers = (enabled = true) => {
+    const queryEnabled = useProtectedQueryEnabled(enabled);
     return useQuery({
         queryKey: attendanceKeys.teachers(),
         queryFn: attendanceApi.getTeachers,
-        enabled,
+        enabled: queryEnabled,
     });
 };
 
 /** Fetch today's attendance records. */
 export const useTodayAttendance = () => {
+    const enabled = useProtectedQueryEnabled();
     return useQuery({
         queryKey: attendanceKeys.today(),
         queryFn: attendanceApi.getTodayAttendance,
+        enabled,
     });
 };
 
 /** Fetch current user's profile. */
 export const useProfile = () => {
+    const enabled = useProtectedQueryEnabled();
     return useQuery({
         queryKey: attendanceKeys.profile(),
         queryFn: attendanceApi.getProfile,
+        enabled,
     });
 };
 

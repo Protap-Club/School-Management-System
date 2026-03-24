@@ -19,6 +19,7 @@ export const useAuth = () => {
         queryFn: authApi.checkAuth,
         retry: false,
         staleTime: 10 * 60 * 1000,
+        enabled: !user || !accessToken,
     });
 
     useEffect(() => {
@@ -53,7 +54,10 @@ export const useAuth = () => {
             if (data.success) {
                 dispatch(storeAccessToken(data.token));
                 dispatch(setUser(data.user));
-                queryClient.invalidateQueries({ queryKey: authKeys.user() });
+                queryClient.setQueryData(authKeys.user(), {
+                    success: true,
+                    user: data.user,
+                });
             }
         },
     });
@@ -63,6 +67,7 @@ export const useAuth = () => {
         mutationFn: authApi.logout,
         onSuccess: () => {
             dispatch(clearUser());
+            queryClient.removeQueries({ queryKey: authKeys.user() });
             queryClient.clear();
             // Redirect to login
             window.location.href = '/login';

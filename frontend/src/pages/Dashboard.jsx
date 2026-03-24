@@ -30,7 +30,7 @@ import { useMySchedule, DAY_MAP, DAYS_OF_WEEK } from '../features/timetable';
 import { useNotices } from '../features/notices';
 
 const Dashboard = () => {
-  const { user } = useAuth();
+  const { user, accessToken } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const isTeacher = user?.role === 'teacher';
@@ -122,6 +122,8 @@ const Dashboard = () => {
 
   // Fetch current month calendar events for overview
   useEffect(() => {
+    if (!user || !accessToken) return;
+
     const fetchCalendarStats = async () => {
       try {
         const now = new Date();
@@ -144,7 +146,7 @@ const Dashboard = () => {
     };
 
     fetchCalendarStats();
-  }, []);
+  }, [user, accessToken]);
 
   // Local state for socket updates
   useEffect(() => {

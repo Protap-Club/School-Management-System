@@ -19,7 +19,7 @@ const ROLE_GRADIENTS = {
 };
 
 const Header = () => {
-    const { user, logout } = useAuth();
+    const { user, accessToken, logout } = useAuth();
     const { toggleSidebar } = useSidebar();
     const navigate = useNavigate();
     const dispatch = useDispatch();
@@ -54,22 +54,22 @@ const Header = () => {
 
     useEffect(() => {
         const fetchBranding = async () => {
-            if (user) {
-                try {
-                    const response = await api.get('/school');
-                    if (response.data.success && response.data.data) {
-                        setSchoolBranding(response.data.data);
-                        setRefreshKey(Date.now());
-                    }
-                } catch (error) {
-                    console.error('Failed to fetch branding', error);
+            if (!user || !accessToken) return;
+
+            try {
+                const response = await api.get('/school');
+                if (response.data.success && response.data.data) {
+                    setSchoolBranding(response.data.data);
+                    setRefreshKey(Date.now());
                 }
+            } catch (error) {
+                console.error('Failed to fetch branding', error);
             }
         };
         fetchBranding();
         window.addEventListener('settingsUpdated', fetchBranding);
         return () => window.removeEventListener('settingsUpdated', fetchBranding);
-    }, [user]);
+    }, [user, accessToken]);
 
     const handleUploadSuccess = (newAvatarUrl) => {
         if (user) {
