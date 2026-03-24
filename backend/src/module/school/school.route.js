@@ -26,7 +26,7 @@ const router = express.Router();
 
 
 router.get("/", getSchoolById);
-router.get("/classes", checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN]), getSchoolClasses);
+router.get("/classes", checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN, USER_ROLES.TEACHER]), getSchoolClasses);
 router.post("/classes", checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN]), validate(upsertClassSectionSchema), addSchoolClassSection);
 router.delete("/classes", checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN]), validate(removeClassSectionSchema), removeSchoolClassSection);
 router.put("/", checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN]), validate(updateSchoolSchema), updateSchool);

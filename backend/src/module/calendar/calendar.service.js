@@ -1,9 +1,45 @@
 import { CalendarEvent } from "./calendar.model.js";
 import StudentProfile from "../user/model/StudentProfile.model.js";
 import TeacherProfile from "../user/model/TeacherProfile.model.js";
+import School from "../school/School.model.js";
 import logger from "../../config/logger.js";
 import { ConflictError, NotFoundError, BadRequestError, ForbiddenError } from "../../utils/customError.js";
 import { USER_ROLES } from "../../constants/userRoles.js";
+
+const escapeRegex = (value) => String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+const parseClassKey = (value) => {
+    const raw = String(value || "").trim();
+    const sepIndex = raw.lastIndexOf("-");
+    if (sepIndex <= 0 || sepIndex >= raw.length - 1) return null;
+
+    const standard = raw.slice(0, sepIndex).trim();
+    const section = raw.slice(sepIndex + 1).trim().toUpperCase();
+    if (!standard || !section) return null;
+
+    return { standard, section, key: `${standard}-${section}` };
+};
+
+const normalizeTargetClasses = (targetClasses = []) => {
+    if (!Array.isArray(targetClasses)) {
+        throw new BadRequestError("targetClasses must be an array");
+    }
+
+    const parsed = targetClasses.map(parseClassKey);
+    const invalid = parsed
+        .map((item, idx) => (!item ? targetClasses[idx] : null))
+        .filter(Boolean);
+
+    if (invalid.length) {
+        throw new BadRequestError("Invalid class format. Use '<standard>-<section>' (e.g., '10-A').");
+    }
+
+    const uniqueKeys = Array.from(new Set(parsed.map((item) => item.key)));
+    return {
+        normalizedKeys: uniqueKeys,
+        parsedPairs: parsed,
+    };
+};
 
 // Helper: Enforce teacher scope for writing calendar events
 const enforceTeacherScope = async (user, targetClasses) => {
@@ -12,52 +48,69 @@ const enforceTeacherScope = async (user, targetClasses) => {
     const profile = await TeacherProfile.findOne({ schoolId: user.schoolId, userId: user._id })
         .select('assignedClasses').lean();
     
-    const allowed = (profile?.assignedClasses || []).map(c => `${c.standard}-${c.section}`);
-    const unauthorized = (targetClasses || []).filter(c => !allowed.includes(c));
+    const allowed = (profile?.assignedClasses || []).map(c => `${String(c.standard).trim()}-${String(c.section).trim().toUpperCase()}`);
+    const normalizedRequested = (targetClasses || [])
+        .map((cls) => parseClassKey(cls)?.key || String(cls).trim());
+    const unauthorized = normalizedRequested.filter(c => !allowed.includes(c));
     
     if (unauthorized.length) {
         throw new ForbiddenError(`Not authorized for classes: ${unauthorized.join(', ')}`);
     }
 };
 
-const validateTargetClasses = async (schoolId, targetClasses = []) => {
-    if (!Array.isArray(targetClasses) || targetClasses.length === 0) return;
+const validateTargetClasses = async (schoolId, targetClasses = [], { requireNonEmpty = false } = {}) => {
+    const { normalizedKeys, parsedPairs } = normalizeTargetClasses(targetClasses);
 
-    const classFilters = targetClasses.map((cls) => {
-        const [standard, section] = String(cls).split("-");
-        return { schoolId, standard, section };
+    if (requireNonEmpty && normalizedKeys.length === 0) {
+        throw new BadRequestError("At least one class is required when audience is set to specific classes");
+    }
+    if (normalizedKeys.length === 0) return [];
+
+    const classFilters = parsedPairs.map(({ standard, section }) => ({
+        schoolId,
+        standard: new RegExp(`^${escapeRegex(standard)}$`, "i"),
+        section: new RegExp(`^${escapeRegex(section)}$`, "i"),
+    }));
+
+    const [school, existingProfiles] = await Promise.all([
+        School.findById(schoolId).select("academic.classSections").lean(),
+        StudentProfile.find({ schoolId, $or: classFilters }).select("standard section").lean(),
+    ]);
+
+    const validKeys = new Set();
+
+    (school?.academic?.classSections || []).forEach((pair) => {
+        const parsed = parseClassKey(`${pair?.standard}-${pair?.section}`);
+        if (parsed) validKeys.add(parsed.key);
     });
 
-    const hasInvalidFormat = classFilters.some(c => !c.standard || !c.section);
-    if (hasInvalidFormat) {
-        throw new BadRequestError("Invalid class format. Use '<standard>-<section>' (e.g., '10-A').");
-    }
+    existingProfiles.forEach((profile) => {
+        const parsed = parseClassKey(`${profile?.standard}-${profile?.section}`);
+        if (parsed) validKeys.add(parsed.key);
+    });
 
-    const existing = await StudentProfile.find({ $or: classFilters })
-        .select("standard section")
-        .lean();
-
-    const validKeys = new Set(existing.map(c => `${c.standard}-${c.section}`));
-    const invalid = targetClasses.filter(c => !validKeys.has(c));
-
+    const invalid = normalizedKeys.filter((key) => !validKeys.has(key));
     if (invalid.length) {
         throw new BadRequestError(`Invalid class/section: ${invalid.join(", ")}`);
     }
+
+    return normalizedKeys;
 };
 
 // Create a new calendar event
 export const createCalendarEvent = async (eventData, user) => {
     const { title, start, end, allDay, type, description, targetAudience, targetClasses } = eventData;
     const schoolId = user.schoolId;
+    const audience = user.role === USER_ROLES.TEACHER ? 'classes' : (targetAudience || 'all');
+    const normalizedTargetClasses = audience === 'classes'
+        ? await validateTargetClasses(schoolId, targetClasses, { requireNonEmpty: true })
+        : [];
 
     if (user.role === USER_ROLES.TEACHER) {
         if (targetAudience === 'all') {
             throw new ForbiddenError("Teachers cannot create school-wide events");
         }
-        await enforceTeacherScope(user, targetClasses);
-    }
-    if (targetAudience === 'classes') {
-        await validateTargetClasses(schoolId, targetClasses);
+        await enforceTeacherScope(user, normalizedTargetClasses);
     }
 
     // Edge Case: Check if an exact duplicate event already exists to prevent spam
@@ -80,8 +133,8 @@ export const createCalendarEvent = async (eventData, user) => {
         allDay: allDay !== undefined ? allDay : true,
         type: type || 'event',
         description,
-        targetAudience: user.role === USER_ROLES.TEACHER ? 'classes' : (targetAudience || 'all'),
-        targetClasses: targetClasses || [],
+        targetAudience: audience,
+        targetClasses: normalizedTargetClasses,
         createdBy: user._id,
         schoolId
     });
@@ -223,21 +276,26 @@ export const updateCalendarEvent = async (id, updateData, user) => {
         if (event.targetAudience === 'all') {
             throw new ForbiddenError("Teachers cannot edit school-wide events");
         }
-        await enforceTeacherScope(user, event.targetClasses);
         
         // New audience cannot be school-wide
         if (updateData.targetAudience === 'all') {
             throw new ForbiddenError("Teachers cannot make events school-wide");
         }
-        // Must have permission on new target classes
-        if (updateData.targetClasses) {
-            await enforceTeacherScope(user, updateData.targetClasses);
-        }
     }
     const nextAudience = updateData.targetAudience ?? event.targetAudience;
     const nextClasses = updateData.targetClasses ?? event.targetClasses ?? [];
+    let normalizedNextClasses = [];
     if (nextAudience === 'classes') {
-        await validateTargetClasses(event.schoolId, nextClasses);
+        normalizedNextClasses = await validateTargetClasses(event.schoolId, nextClasses, { requireNonEmpty: true });
+        if (user.role === USER_ROLES.TEACHER) {
+            await enforceTeacherScope(user, normalizedNextClasses);
+        }
+        updateData.targetClasses = normalizedNextClasses;
+    } else if (updateData.targetAudience === 'all') {
+        updateData.targetClasses = [];
+    }
+    if (user.role === USER_ROLES.TEACHER && event.targetAudience === 'classes' && !updateData.targetClasses) {
+        await enforceTeacherScope(user, event.targetClasses);
     }
 
     // Merge new dates with existing ones to validate range correctly
