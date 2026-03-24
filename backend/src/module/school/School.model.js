@@ -102,7 +102,7 @@ schoolSchema.virtual("adminCount", {
   localField: "_id",
   foreignField: "schoolId",
   count: true,
-  match: { role: "admin" },
+  match: { role: "admin", isArchived: { $ne: true } },
 });
 
 // Count Teachers
@@ -111,7 +111,7 @@ schoolSchema.virtual("teacherCount", {
   localField: "_id",
   foreignField: "schoolId",
   count: true,
-  match: { role: "teacher" },
+  match: { role: "teacher", isArchived: { $ne: true } },
 });
 
 // Count Students
@@ -120,7 +120,7 @@ schoolSchema.virtual("studentCount", {
   localField: "_id",
   foreignField: "schoolId",
   count: true,
-  match: { role: "student" },
+  match: { role: "student", isArchived: { $ne: true } },
 });
 
 export default mongoose.model("School", schoolSchema);

@@ -1,4 +1,4 @@
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 
 const MONTH_LABELS = {
     1: 'January', 2: 'February', 3: 'March', 4: 'April', 5: 'May', 6: 'June',
@@ -6,56 +6,64 @@ const MONTH_LABELS = {
 };
 
 /**
- * Generates an Excel spreadsheet report for class fees overview
+ * Generates an Excel spreadsheet report for class fees overview.
+ * Uses ExcelJS (MIT, actively maintained) instead of the deprecated xlsx/SheetJS CE.
  */
-export const generateFeeExcel = (classStudents, summary, classInfo, month, year) => {
-    console.log('Generating Fee Excel...', { classStudents, summary, classInfo, month, year });
-    
+export const generateFeeExcel = async (classStudents, summary, classInfo, month, year) => {
     try {
-        // Step 1: Format data for the worksheet
-        // We want a flat structure, similar to the PDF table
-        const excelData = classStudents.flatMap(student => 
+        const rows = classStudents.flatMap(student =>
             (student.fees || []).map(fee => ({
-                'Student Name': student.name,
-                'Fee Type': fee.name || fee.feeType,
-                'Total Amount (INR)': fee.amount || 0,
-                'Paid (INR)': fee.paid || 0,
-                'Status': fee.status,
-                'Due Date': fee.dueDate ? new Date(fee.dueDate).toLocaleDateString() : '-'
+                name: student.name,
+                feeType: fee.name || fee.feeType,
+                amount: fee.amount || 0,
+                paid: fee.paid || 0,
+                status: fee.status,
+                dueDate: fee.dueDate ? new Date(fee.dueDate).toLocaleDateString() : '-'
             }))
         );
 
-        if (excelData.length === 0) {
+        if (rows.length === 0) {
             alert('No records found for the selected filters to export.');
             return;
         }
 
-        // Step 2: Create worksheet
-        const worksheet = XLSX.utils.json_to_sheet(excelData);
+        const workbook = new ExcelJS.Workbook();
+        const sheet = workbook.addWorksheet('Fee Report');
 
-        // Step 3: Create workbook and append sheet
-        const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, 'Fee Report');
-
-        // Step 4: Add some header information (optional, but good for context)
-        // Adjust column widths for better readability
-        const colWidths = [
-            { wch: 25 }, // Student Name
-            { wch: 20 }, // Fee Type
-            { wch: 18 }, // Total Amount
-            { wch: 15 }, // Paid
-            { wch: 12 }, // Status
-            { wch: 12 }  // Due Date
+        // Define columns with headers and widths
+        sheet.columns = [
+            { header: 'Student Name',      key: 'name',    width: 25 },
+            { header: 'Fee Type',           key: 'feeType', width: 20 },
+            { header: 'Total Amount (INR)', key: 'amount',  width: 18 },
+            { header: 'Paid (INR)',         key: 'paid',    width: 15 },
+            { header: 'Status',             key: 'status',  width: 12 },
+            { header: 'Due Date',           key: 'dueDate', width: 12 },
         ];
-        worksheet['!cols'] = colWidths;
 
-        // Step 5: Generate file name and download
+        // Style the header row
+        sheet.getRow(1).font = { bold: true };
+
+        // Add data rows
+        rows.forEach(row => sheet.addRow(row));
+
+        // Generate buffer and trigger download
+        const buffer = await workbook.xlsx.writeBuffer();
+        const blob = new Blob([buffer], {
+            type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        });
+
         const className = `${classInfo?.standard || 'Class'}_${classInfo?.section || ''}`.trim();
         const monthName = MONTH_LABELS[month] || '';
         const fileName = `Fee_Report_${className}_${monthName}_${year || ''}.xlsx`;
 
-        XLSX.writeFile(workbook, fileName);
-        console.log('Fee Excel Report Generated Successfully');
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
     } catch (error) {
         console.error('Failed to generate Excel Report:', error);
         alert('Could not generate Excel file. Please check the console for errors.');

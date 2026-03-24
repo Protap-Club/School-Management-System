@@ -82,7 +82,7 @@ const AdminClassList = ({
                                     </div>
                                     <div>
                                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] leading-tight mb-0.5">Class Teacher</p>
-                                        <p className="text-base font-black text-slate-900 leading-tight tracking-tight">{group.teacher?.name || 'Unassigned'}</p>
+                                        <p className="text-base font-black text-slate-900 leading-tight tracking-tight">{group.teacher?.isArchived ? 'No Assigned Teacher' : (group.teacher?.name || 'Unassigned')}</p>
                                     </div>
                                 </div>
                             </div>
@@ -225,7 +225,7 @@ const AdminClassList = ({
                                         <FaUserTie className="text-slate-500" />
                                     </div>
                                     <div className="text-sm hidden sm:block">
-                                        <p className="font-bold text-slate-900">{group.teacher?.name || 'Unassigned'}</p>
+                                        <p className="font-bold text-slate-900">{group.teacher?.isArchived ? 'No Assigned Teacher' : (group.teacher?.name || 'Unassigned')}</p>
                                         <p className="font-medium text-muted-foreground text-xs uppercase tracking-widest">Class Teacher</p>
                                     </div>
                                 </div>

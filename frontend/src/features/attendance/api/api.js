@@ -10,7 +10,7 @@ export const attendanceApi = {
 
     /** Fetch all teachers (paginated). */
     getTeachers: async () => {
-        const response = await api.get('/users?role=teacher&pageSize=500');
+        const response = await api.get('/users?role=teacher&pageSize=500&isArchived=false');
         return response.data;
     },
 

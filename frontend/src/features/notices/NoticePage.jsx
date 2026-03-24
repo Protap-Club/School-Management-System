@@ -391,16 +391,16 @@ const NoticePage = () => {
                                                 <img src={item.createdBy.avatar} alt={item.createdBy.name} className="w-9 h-9 rounded-full object-cover shadow-sm" />
                                             ) : (
                                                 <div className="w-9 h-9 rounded-full bg-linear-to-br flex items-center justify-center font-bold text-sm shadow-sm from-amber-100 to-amber-200 text-amber-700">
-                                                    {(item.createdBy?.name || 'U').charAt(0).toUpperCase()}
+                                                    {(item.createdBy?.isArchived ? 'A' : (item.createdBy?.name || 'U').charAt(0)).toUpperCase()}
                                                 </div>
                                             )}
                                             <div>
                                                 <div className="flex items-center gap-2">
                                                     <span className="font-semibold text-gray-900 text-[15px]">
-                                                        {item.createdBy?.name || 'System User'}
+                                                        {item.createdBy?.isArchived ? 'No Assigned Teacher' : (item.createdBy?.name || 'System User')}
                                                     </span>
-                                                    <span className="bg-blue-50 text-blue-600 text-[10px] font-extrabold px-2 py-0.5 rounded-md uppercase tracking-wide">
-                                                        {item.createdBy?.role || 'User'}
+                                                    <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-md uppercase tracking-wide ${item.createdBy?.isArchived ? 'bg-red-50 text-red-500' : 'bg-blue-50 text-blue-600'}`}>
+                                                        {item.createdBy?.isArchived ? 'Archived' : (item.createdBy?.role || 'User')}
                                                     </span>
                                                 </div>
                                                 {isAdmin && (

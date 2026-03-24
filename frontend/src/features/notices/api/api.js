@@ -102,7 +102,7 @@ export const noticesApi = {
 
     // Get teachers list
     getTeachers: async () => {
-        const response = await api.get('/users?role=teacher&pageSize=5000');
+        const response = await api.get('/users?role=teacher&pageSize=5000&isArchived=false');
         return response.data;
     },
 

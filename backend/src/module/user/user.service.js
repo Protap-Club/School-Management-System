@@ -2,6 +2,7 @@ import User from "./model/User.model.js";
 import StudentProfile from "./model/StudentProfile.model.js";
 import TeacherProfile from "./model/TeacherProfile.model.js";
 import School from "../school/School.model.js";
+import RefreshToken from "../auth/RefreshToken.model.js";
 import { PROFILE_CONFIG } from "../../config/profiles.js";
 import { sendCredentialsEmail } from "../../utils/email.util.js";
 import { USER_ROLES, canManageRole, VIEWABLE_ROLES } from "../../constants/userRoles.js";
@@ -296,9 +297,11 @@ export const toggleArchive = async (creator, userIds, isArchived) => {
     if (isArchived) {
         updateData.archivedAt = new Date();
         updateData.archivedBy = creator._id;
+        updateData.isActive = false;
     } else {
         updateData.archivedAt = null;
         updateData.archivedBy = null;
+        updateData.isActive = true;
     }
 
     const verifiedIds = targetUsers.map(u => u._id);
@@ -306,6 +309,14 @@ export const toggleArchive = async (creator, userIds, isArchived) => {
         { _id: { $in: verifiedIds } },
         { $set: updateData }
     );
+
+    // Revoke all refresh tokens for archived users (immediate session invalidation)
+    if (isArchived) {
+        await RefreshToken.updateMany(
+            { userId: { $in: verifiedIds }, isRevoked: false },
+            { $set: { isRevoked: true, expiresAt: new Date() } }
+        );
+    }
 
     // 7. LOG AND RETURN
     logger.info({

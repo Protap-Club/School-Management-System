@@ -2,6 +2,7 @@ import { TimeSlot, Timetable, TimetableEntry, DAYS_OF_WEEK } from "./Timetable.m
 import { NotFoundError, ConflictError, ForbiddenError, BadRequestError } from "../../utils/customError.js";
 import logger from "../../config/logger.js";
 import StudentProfile from "../user/model/StudentProfile.model.js";
+import User from "../user/model/User.model.js";
 
 // HELPERS
 
@@ -103,7 +104,7 @@ export const getTimetableById = async (schoolId, id) => {
 
     const entries = await TimetableEntry.find({ timetableId: id })
         .populate("timeSlotId", "slotNumber startTime endTime")
-        .populate("teacherId", "name")
+        .populate("teacherId", "name isArchived")
         .sort({ dayOfWeek: 1 })
         .lean();
 
@@ -282,7 +283,7 @@ export const getUserTimetable = async (schoolId, userId, role, platform) => {
     }
 
     const result = await TimetableEntry.find(query)
-        .populate("teacherId", "name")
+        .populate("teacherId", "name isArchived")
         .populate("timetableId", "standard section academicYear")
         .populate("timeSlotId", "slotNumber startTime endTime slotType")
         .lean();

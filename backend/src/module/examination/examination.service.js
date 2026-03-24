@@ -125,8 +125,8 @@ export const getExams = async (schoolId, filters = {}, user) => {
     if (filters.status) query.status = filters.status;
 
     return await Exam.find(query)
-        .populate("createdBy", "name email")
-        .populate("schedule.assignedTeacher", "name email")
+        .populate("createdBy", "name email isArchived")
+        .populate("schedule.assignedTeacher", "name email isArchived")
         .sort({ createdAt: -1 })
         .lean();
 };
@@ -140,8 +140,8 @@ export const getExamById = async (schoolId, examId, user) => {
     if (schoolId) query.schoolId = schoolId;
 
     const exam = await Exam.findOne(query)
-        .populate("createdBy", "name email")
-        .populate("schedule.assignedTeacher", "name email")
+        .populate("createdBy", "name email isArchived")
+        .populate("schedule.assignedTeacher", "name email isArchived")
         .lean();
 
     if (!exam) throw new NotFoundError("Exam not found");
@@ -334,8 +334,8 @@ export const getMyExams = async (schoolId, userId, filters = {}) => {
     if (filters.academicYear) query.academicYear = Number(filters.academicYear);
 
     const exams = await Exam.find(query)
-        .populate("createdBy", "name email")
-        .populate("schedule.assignedTeacher", "name email")
+        .populate("createdBy", "name email isArchived")
+        .populate("schedule.assignedTeacher", "name email isArchived")
         .sort({ createdAt: -1 })
         .lean();
 

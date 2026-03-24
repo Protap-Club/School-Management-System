@@ -24,13 +24,16 @@ const TimetableGrid = ({
   };
 
   const getTeacherName = (teacherId) => {
-    if (!teacherId) return 'Unassigned';
-    // If teacherId has embedded name (from populated response), use it directly
-    if (teacherId?.name) return teacherId.name;
+    if (!teacherId) return 'No Assigned Teacher';
+    // If teacherId has embedded name (from populated response), check archive status
+    if (teacherId?.name) {
+      return teacherId.isArchived ? 'No Assigned Teacher' : teacherId.name;
+    }
     // Fallback: lookup in teachers array
     const id = teacherId?._id || teacherId;
     const teacher = teachers.find((t) => t._id === id);
-    return teacher ? teacher.name : 'Unassigned';
+    if (!teacher) return 'No Assigned Teacher';
+    return teacher.isArchived ? 'No Assigned Teacher' : teacher.name;
   };
   const getClassDisplay = (entry) => {
     if (entry.timetableId) {
