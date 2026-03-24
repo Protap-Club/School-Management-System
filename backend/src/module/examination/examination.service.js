@@ -211,15 +211,7 @@ export const deleteExam = async (schoolId, examId, user) => {
         }
     }
 
-    const classKey = `${exam.standard}-${exam.section}`;
-    const deleted = await CalendarEvent.deleteMany({ sourceType: "exam", sourceId: exam._id });
-    if ((deleted?.deletedCount ?? 0) === 0) {
-        await CalendarEvent.deleteMany({
-            type: "exam",
-            title: exam.name,
-            targetClasses: [classKey]
-        });
-    }
+    await deleteExamCalendarEvents(exam);
 
     if (exam.status === "COMPLETED") {
         await Result.deleteMany({ schoolId, examId: exam._id });
@@ -280,6 +272,20 @@ const createExamCalendarEvents = async (exam, schoolId) => {
     }
 };
 
+const deleteExamCalendarEvents = async (exam) => {
+    const classKey = `${exam.standard}-${exam.section}`;
+    const deleted = await CalendarEvent.deleteMany({ sourceType: "exam", sourceId: exam._id });
+
+    // Backward-compatible cleanup for older exam calendar events
+    if ((deleted?.deletedCount ?? 0) === 0) {
+        await CalendarEvent.deleteMany({
+            type: "exam",
+            title: exam.name,
+            targetClasses: [classKey]
+        });
+    }
+};
+
 export const updateStatus = async (schoolId, examId, newStatus, user) => {
     const exam = await Exam.findOne({ _id: examId, schoolId, isActive: true });
     if (!exam) throw new NotFoundError("Exam not found");
@@ -309,6 +315,9 @@ export const updateStatus = async (schoolId, examId, newStatus, user) => {
 
     if (newStatus === "PUBLISHED") {
         await createExamCalendarEvents(exam, schoolId);
+    }
+    if (newStatus === "COMPLETED") {
+        await deleteExamCalendarEvents(exam);
     }
 
     logger.info(`Exam status changed: ${examId} → ${newStatus}`);

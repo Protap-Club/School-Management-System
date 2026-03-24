@@ -229,6 +229,21 @@ const CalendarPage = () => {
     return map;
   }, [events]);
 
+  const selectedDayEvents = useMemo(
+    () => (selectedDateStr ? (getEventsForDate[selectedDateStr] || []) : []),
+    [getEventsForDate, selectedDateStr]
+  );
+
+  const hasExamModuleEvents = useMemo(
+    () => selectedDayEvents.some(event => event.sourceType === 'exam'),
+    [selectedDayEvents]
+  );
+
+  const hasClearableDayEvents = useMemo(
+    () => selectedDayEvents.some(event => !event.sourceType),
+    [selectedDayEvents]
+  );
+
   const holidayCount = useMemo(() => {
     const uniqueDays = new Set();
     const monthStart = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
@@ -468,13 +483,13 @@ const renderFormField = (label, children) => (
                  <h2 className="text-lg font-bold text-gray-900">
                    {new Date(selectedDateStr).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
                  </h2>
-                 <p className="text-xs font-medium text-gray-500 mt-0.5">{getEventsForDate[selectedDateStr]?.length || 0} events scheduled</p>
+                 <p className="text-xs font-medium text-gray-500 mt-0.5">{selectedDayEvents.length} events scheduled</p>
                </div>
                <button onClick={() => setShowDayModal(false)} className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"><FaTimes size={18} /></button>
             </div>
             
             <div className="p-5 overflow-y-auto flex-1 bg-gray-50/30">
-              {(!getEventsForDate[selectedDateStr] || getEventsForDate[selectedDateStr].length === 0) ? (
+              {selectedDayEvents.length === 0 ? (
                 <div className="text-center py-12">
                    <div className="w-16 h-16 bg-gray-100 text-gray-300 rounded-full flex items-center justify-center mx-auto mb-4"><FaCalendarAlt size={24} /></div>
                    <h3 className="text-sm font-bold text-gray-700 mb-1">No events scheduled</h3>
@@ -482,7 +497,7 @@ const renderFormField = (label, children) => (
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {getEventsForDate[selectedDateStr].map(event => {
+                  {selectedDayEvents.map(event => {
                     const colors = getTypeColors(event.type);
                     // Determine if current user can edit this specific event.
                     // Exam events created from Examination module are read-only here.
@@ -520,13 +535,18 @@ const renderFormField = (label, children) => (
                       </div>
                     )
                   })}
+                  {hasExamModuleEvents && (
+                    <div className="rounded-xl border border-blue-200 bg-blue-50 px-3 py-2.5 text-xs font-medium text-blue-800">
+                      This exam event is managed from the Examination section. Once the exam is completed, this calendar event will be auto-deleted.
+                    </div>
+                  )}
                 </div>
               )}
             </div>
             
             {canEdit && (
               <div className="p-4 border-t border-gray-100 bg-white flex justify-between gap-3">
-                 {getEventsForDate[selectedDateStr]?.length > 0 ? (
+                 {hasClearableDayEvents && !hasExamModuleEvents ? (
                    <button onClick={() => handleClearDayEvents(selectedDateStr)} disabled={saving} className="px-4 py-2.5 text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors flex items-center justify-center min-w-[120px]">
                      {saving ? <ButtonSpinner className="w-4 h-4 border-2 border-red-300 border-t-red-600 rounded-full animate-spin" /> : 'Clear All'}
                    </button>
