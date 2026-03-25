@@ -5,31 +5,33 @@ import logger from "../../config/logger.js";
 import { loadSeedJson } from "../lib/loadJson.js";
 
 const calData = loadSeedJson("calendar.json");
+const { schools: schoolsDef } = loadSeedJson("schools.json");
 
 const seedCalendar = async () => {
   logger.info("=== Seeding Calendar ===");
 
-  const school = await School.findOne({ code: "NV" });
-  if (!school) throw new Error("School not found. Run seed-school first.");
+  for (const schoolDef of schoolsDef) {
+    const school = await School.findOne({ code: schoolDef.code });
+    if (!school) continue;
 
-  const admin = await User.findOne({ schoolId: school._id, role: "admin" }).select("_id");
-  await CalendarEvent.deleteMany({ schoolId: school._id });
+    const admin = await User.findOne({ schoolId: school._id, role: "admin" }).select("_id");
+    await CalendarEvent.deleteMany({ schoolId: school._id });
 
-  const events = calData.events.map((event) => ({
-    ...event,
-    start: new Date(event.start),
-    end: new Date(event.end),
-    targetAudience: "all",
-    targetClasses: [],
-    schoolId: school._id,
-    createdBy: admin?._id || null,
-  }));
+    const events = calData.events.map((event) => ({
+      ...event,
+      start: new Date(event.start),
+      end: new Date(event.end),
+      targetAudience: "all",
+      targetClasses: [],
+      schoolId: school._id,
+      createdBy: admin?._id || null,
+    }));
 
-  if (events.length) {
-    await CalendarEvent.insertMany(events);
+    if (events.length) {
+      await CalendarEvent.insertMany(events);
+    }
+    logger.info(`[${schoolDef.code}] Calendar events seeded: ${events.length}`);
   }
-  logger.info(`Calendar events seeded: ${events.length}`);
 };
 
 export default seedCalendar;
-
