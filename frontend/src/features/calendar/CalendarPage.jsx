@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import { useAuth } from '../auth';
 import { FaChevronLeft, FaChevronRight, FaCalendarAlt, FaPlus, FaTrash, FaTimes, FaClock, FaTag, FaUmbrellaBeach, FaUsers, FaEdit } from 'react-icons/fa';
@@ -58,7 +59,7 @@ const CalendarPage = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  const [tooltip, setTooltip] = useState({ event: null, position: { x: 0, y: 0 }, expanded: false });
+  const [tooltip, setTooltip] = useState({ event: null, position: { x: 0, y: 0 }, placement: 'bottom', expanded: false });
   const [formData, setFormData] = useState(resetFormForDate(''));
   
   // Class list for target audience picker
@@ -289,8 +290,23 @@ const CalendarPage = () => {
   const handleEventHover = useCallback((event, e) => {
     if (event) {
       const rect = e.currentTarget.getBoundingClientRect();
-      setTooltip({ event, position: { x: rect.left + rect.width / 2, y: rect.bottom + 8 }, expanded: false });
-    } else { setTooltip({ event: null, position: { x: 0, y: 0 }, expanded: false }); }
+      const windowHeight = window.innerHeight;
+      
+      // Heuristic: If the event is in the bottom half of the viewport, show tooltip above.
+      const shouldShowAbove = rect.bottom > windowHeight / 2;
+      
+      setTooltip({ 
+        event, 
+        position: { 
+          x: rect.left + rect.width / 2, 
+          y: shouldShowAbove ? rect.top - 12 : rect.bottom + 12 
+        }, 
+        placement: shouldShowAbove ? 'top' : 'bottom',
+        expanded: false 
+      });
+    } else { 
+      setTooltip({ event: null, position: { x: 0, y: 0 }, placement: 'bottom', expanded: false }); 
+    }
   }, []);
 
   const handleSaveEvent = useCallback(async () => {
@@ -410,24 +426,34 @@ const renderFormField = (label, children) => (
           {message?.type === 'error' ? <FaTimes /> : <FaCalendarAlt />}{message?.text}
         </div>
       )}
-      {tooltip.event && !showDayModal && (
-        <div className="fixed z-40 bg-white rounded-xl shadow-xl border border-gray-200 p-4 min-w-[260px] max-w-[340px] animate-fadeIn pointer-events-none"
-          style={{ left: `${Math.min(tooltip.position.x, window.innerWidth - 360)}px`, top: `${tooltip.position.y}px`, transform: 'translateX(-50%)' }}>
-          <div className="flex items-start gap-3">
-            <div className={`w-1.5 rounded-full flex-shrink-0 ${getTypeColors(tooltip.event.type).bg}`} style={{ minHeight: '50px' }}></div>
-            <div className="flex-1 min-w-0">
-              <h4 className="font-bold text-gray-900 text-sm mb-2 leading-tight">{tooltip.event.title}</h4>
-              <div className="flex items-center gap-2 mb-2">
-                 <span className={`px-2 py-0.5 rounded text-[10px] uppercase tracking-wider font-bold ${getTypeColors(tooltip.event.type).light}`}>{TYPE_CONFIG[tooltip.event.type]?.label || 'Event'}</span>
-              </div>
-              {tooltip.event.targetAudience === 'classes' && tooltip.event.targetClasses?.length > 0 && (
-                <div className="flex flex-wrap gap-1 mt-1 mb-2">
-                  {tooltip.event.targetClasses.map(c => <span key={c} className="text-[9px] font-bold text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-100">{c}</span>)}
+      {tooltip.event && !showDayModal && createPortal(
+        <div className="fixed z-[10000] pointer-events-none"
+          style={{ 
+            left: `${Math.min(Math.max(tooltip.position.x, 190), window.innerWidth - 190)}px`, 
+            top: tooltip.placement === 'bottom' ? `${tooltip.position.y}px` : 'auto',
+            bottom: tooltip.placement === 'top' ? `${window.innerHeight - tooltip.position.y}px` : 'auto',
+            transform: 'translateX(-50%)' 
+          }}>
+          <div className="animate-fadeIn">
+            <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 p-5 min-w-[280px] max-w-[350px]">
+              <div className="flex items-start gap-3">
+                <div className={`w-1.5 rounded-full flex-shrink-0 ${getTypeColors(tooltip.event.type).bg}`} style={{ minHeight: '50px' }}></div>
+                <div className="flex-1 min-w-0">
+                  <h4 className="font-bold text-gray-900 text-sm mb-2 leading-tight">{tooltip.event.title}</h4>
+                  <div className="flex items-center gap-2 mb-2">
+                     <span className={`px-2 py-0.5 rounded text-[10px] uppercase tracking-wider font-bold ${getTypeColors(tooltip.event.type).light}`}>{TYPE_CONFIG[tooltip.event.type]?.label || 'Event'}</span>
+                  </div>
+                  {tooltip.event.targetAudience === 'classes' && tooltip.event.targetClasses?.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-1 mb-2">
+                      {tooltip.event.targetClasses.map(c => <span key={c} className="text-[9px] font-bold text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-100">{c}</span>)}
+                    </div>
+                  )}
                 </div>
-              )}
+              </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
       <div className="space-y-4 max-w-7xl mx-auto">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">

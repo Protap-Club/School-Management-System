@@ -48,6 +48,14 @@ const UserDetailModal = ({ user, onClose, initialMode = 'view', onSuccess }) => 
   const isTeacher = user?.role === 'teacher';
   const isAdmin = user?.role === 'admin';
   const isEditing = mode === 'edit';
+  const isArchivedUser = Boolean(user?.isArchived);
+  const isActiveUser = Boolean(user?.isActive);
+
+  const memberStatus = isArchivedUser
+    ? { dotClass: 'bg-amber-400', labelClass: 'text-amber-100', label: 'Archived Member' }
+    : isActiveUser
+      ? { dotClass: 'bg-emerald-400', labelClass: 'text-blue-100', label: 'Active Member' }
+      : { dotClass: 'bg-gray-300', labelClass: 'text-gray-200', label: 'Inactive Member' };
 
   useEffect(() => {
     if (isEditing && (isStudent || isTeacher)) {
@@ -131,8 +139,8 @@ const UserDetailModal = ({ user, onClose, initialMode = 'view', onSuccess }) => 
                   <span className="px-2.5 py-0.5 bg-white/20 rounded-lg text-[10px] font-black uppercase tracking-wider">
                     {user.role?.replace('_', ' ')}
                   </span>
-                  <span className="w-1 h-1 rounded-full bg-emerald-400"></span>
-                  <span className="text-blue-100 text-xs font-bold uppercase tracking-widest">Active Member</span>
+                  <span className={`w-1 h-1 rounded-full ${memberStatus.dotClass}`}></span>
+                  <span className={`text-xs font-bold uppercase tracking-widest ${memberStatus.labelClass}`}>{memberStatus.label}</span>
                 </div>
               </div>
             </div>
