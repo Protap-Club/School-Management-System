@@ -11,6 +11,7 @@ import {
     ForbiddenError,
 } from "../../utils/customError.js";
 import logger from "../../config/logger.js";
+import { assertClassSectionExists } from "../../utils/classSection.util.js";
 
 // ═══════════════════════════════════════════════════════════════
 // Helper — Validate teacher has access to a class
@@ -26,7 +27,6 @@ const assertTeacherClassAccess = async (userId, schoolId, standard, section) => 
     if (!hasAccess) {
         throw new ForbiddenError("You can only manage exams for your assigned classes");
     }
-    return profile;
 };
 
 // ═══════════════════════════════════════════════════════════════
@@ -41,12 +41,24 @@ export const createExam = async (schoolId, data, user) => {
         throw new BadRequestError("School ID is required");
     }
 
+    const normalizedClassSection = await assertClassSectionExists(
+        activeSchoolId,
+        data.standard,
+        data.section,
+        { message: "Exam class-section is not configured in Settings" }
+    );
+
     // Role-based exam type enforcement
     if (user.role === USER_ROLES.TEACHER) {
         if (data.examType !== "CLASS_TEST") {
             throw new ForbiddenError("Teachers can only create CLASS_TEST exams");
         }
-        await assertTeacherClassAccess(user._id, activeSchoolId, data.standard, data.section);
+        await assertTeacherClassAccess(
+            user._id,
+            activeSchoolId,
+            normalizedClassSection.standard,
+            normalizedClassSection.section
+        );
     } else if (user.role === USER_ROLES.ADMIN) {
         if (data.examType !== "TERM_EXAM") {
             throw new ForbiddenError("Admins should create TERM_EXAM exams");
@@ -59,8 +71,8 @@ export const createExam = async (schoolId, data, user) => {
         schoolId: activeSchoolId,
         name: data.name,
         academicYear: data.academicYear,
-        standard: data.standard,
-        section: data.section,
+        standard: normalizedClassSection.standard,
+        section: normalizedClassSection.section,
         examType: data.examType,
         status: { $in: ["DRAFT", "PUBLISHED"] },
         isActive: true,
@@ -76,6 +88,8 @@ export const createExam = async (schoolId, data, user) => {
     const createData = {
         ...data,
         schoolId: activeSchoolId,
+        standard: normalizedClassSection.standard,
+        section: normalizedClassSection.section,
         createdBy: user._id,
         createdByRole: user.role,
     };
