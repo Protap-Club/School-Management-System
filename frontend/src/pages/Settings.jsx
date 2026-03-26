@@ -398,6 +398,63 @@ const Settings = () => {
                             </div>
                         </div>
 
+                        <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-3xl border border-gray-200 p-6 lg:p-7 shadow-sm">
+                            <div className="mb-6">
+                                <h3 className="text-lg font-semibold text-gray-900">Live Preview</h3>
+                                <p className="text-sm text-gray-500">Instant preview of your branding updates</p>
+                            </div>
+                            <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
+                                <div className="p-4 flex items-center gap-3" style={{ backgroundColor: accentColor }}>
+                                    {settings.logoUrl ? (
+                                        <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center p-1.5">
+                                            <img
+                                                src={`${settings.logoUrl}${settings.logoUrl.includes('?') ? '&' : '?'}t=${refreshKey}`}
+                                                alt="Logo"
+                                                className="h-full w-full object-contain"
+                                                onError={(e) => { e.target.style.display = 'none'; }}
+                                            />
+                                        </div>
+                                    ) : (
+                                        <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
+                                            <span className="text-white font-bold text-lg">S</span>
+                                        </div>
+                                    )}
+                                    <div>
+                                        <p className="text-white font-semibold text-sm">School Portal</p>
+                                        <p className="text-white/70 text-xs">Management System</p>
+                                    </div>
+                                </div>
+
+                                <div className="p-3 space-y-1">
+                                    <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-white text-sm font-medium" style={{ backgroundColor: accentColor }}>
+                                        <div className="w-5 h-5 bg-white/20 rounded"></div>
+                                        <span>Dashboard</span>
+                                    </div>
+                                    <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 text-sm hover:bg-gray-50">
+                                        <div className="w-5 h-5 bg-gray-200 rounded"></div>
+                                        <span>Users</span>
+                                    </div>
+                                </div>
+
+                                <div className="px-4 pb-4">
+                                    <button className="w-full py-2.5 rounded-lg text-white text-sm font-medium transition-opacity hover:opacity-90" style={{ backgroundColor: accentColor }}>
+                                        Sample Button
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="mt-5 p-4 bg-white rounded-2xl border border-gray-200">
+                                <p className="text-xs text-gray-400 uppercase tracking-wider font-semibold mb-2">Current Theme</p>
+                                <div className="flex items-center gap-3">
+                                    <div className="w-8 h-8 rounded-lg shadow-sm" style={{ backgroundColor: accentColor }}></div>
+                                    <div>
+                                        <p className="text-sm font-medium text-gray-900">{THEME_COLORS.find((c) => c.value === accentColor)?.name || 'Custom'}</p>
+                                        <p className="text-xs text-gray-400 font-mono">{accentColor}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                         {canManageAcademic && (
                             <div className="bg-white rounded-3xl border border-gray-200 shadow-sm overflow-hidden">
                                 <div className="px-6 py-5 border-b border-gray-100 flex items-center gap-4">
@@ -520,63 +577,6 @@ const Settings = () => {
                                 </div>
                             </div>
                         )}
-
-                        <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-3xl border border-gray-200 p-6 lg:p-7 shadow-sm">
-                            <div className="mb-6">
-                                <h3 className="text-lg font-semibold text-gray-900">Live Preview</h3>
-                                <p className="text-sm text-gray-500">Instant preview of your branding updates</p>
-                            </div>
-                            <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
-                                <div className="p-4 flex items-center gap-3" style={{ backgroundColor: accentColor }}>
-                                    {settings.logoUrl ? (
-                                        <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center p-1.5">
-                                            <img
-                                                src={`${settings.logoUrl}${settings.logoUrl.includes('?') ? '&' : '?'}t=${refreshKey}`}
-                                                alt="Logo"
-                                                className="h-full w-full object-contain"
-                                                onError={(e) => { e.target.style.display = 'none'; }}
-                                            />
-                                        </div>
-                                    ) : (
-                                        <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
-                                            <span className="text-white font-bold text-lg">S</span>
-                                        </div>
-                                    )}
-                                    <div>
-                                        <p className="text-white font-semibold text-sm">School Portal</p>
-                                        <p className="text-white/70 text-xs">Management System</p>
-                                    </div>
-                                </div>
-
-                                <div className="p-3 space-y-1">
-                                    <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-white text-sm font-medium" style={{ backgroundColor: accentColor }}>
-                                        <div className="w-5 h-5 bg-white/20 rounded"></div>
-                                        <span>Dashboard</span>
-                                    </div>
-                                    <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 text-sm hover:bg-gray-50">
-                                        <div className="w-5 h-5 bg-gray-200 rounded"></div>
-                                        <span>Users</span>
-                                    </div>
-                                </div>
-
-                                <div className="px-4 pb-4">
-                                    <button className="w-full py-2.5 rounded-lg text-white text-sm font-medium transition-opacity hover:opacity-90" style={{ backgroundColor: accentColor }}>
-                                        Sample Button
-                                    </button>
-                                </div>
-                            </div>
-
-                            <div className="mt-5 p-4 bg-white rounded-2xl border border-gray-200">
-                                <p className="text-xs text-gray-400 uppercase tracking-wider font-semibold mb-2">Current Theme</p>
-                                <div className="flex items-center gap-3">
-                                    <div className="w-8 h-8 rounded-lg shadow-sm" style={{ backgroundColor: accentColor }}></div>
-                                    <div>
-                                        <p className="text-sm font-medium text-gray-900">{THEME_COLORS.find((c) => c.value === accentColor)?.name || 'Custom'}</p>
-                                        <p className="text-xs text-gray-400 font-mono">{accentColor}</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
                     </div>
                 </div>
             </div>
