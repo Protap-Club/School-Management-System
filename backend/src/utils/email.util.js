@@ -34,6 +34,20 @@ const parseTemplate = (html, data) => {
 // Sends credentials email with School Branding
 export const sendCredentialsEmail = async ({ to, name, role, password, schoolName }) => {
     try {
+        // ── DEV GUARD ────────────────────────────────────────────────────────────
+        // In local development we skip real email delivery and just log
+        // the credentials to the console.  Remove this block (or set
+        // NODE_ENV=production) before deploying to a live environment.
+        if (process.env.NODE_ENV !== 'production') {
+            logger.warn(`[DEV] Email sending skipped. Credentials for ${to}:`);
+            logger.warn(`[DEV]   Name     : ${name}`);
+            logger.warn(`[DEV]   Role     : ${role}`);
+            logger.warn(`[DEV]   Email    : ${to}`);
+            logger.warn(`[DEV]   Password : ${password}`);
+            return { success: true };
+        }
+        // ─────────────────────────────────────────────────────────────────────────
+
         if (!conf.SMTP_USER || !conf.SMTP_PASS) {
             logger.warn("SMTP not configured. Email skipped.");
             return { success: false };
