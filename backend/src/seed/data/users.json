@@ -1,0 +1,595 @@
+{
+  "JNV": {
+    "superAdmin": {
+      "name": "Viraj",
+      "email": "viraj@jnv.com",
+      "role": "super_admin",
+      "contactNo": "+91-98790-11001"
+    },
+    "admins": [
+      {
+        "name": "Kartik Varia",
+        "email": "kartik@jnv.com",
+        "role": "admin",
+        "contactNo": "+91-98790-11002"
+      },
+      {
+        "name": "Jay Prajapati",
+        "email": "jay@jnv.com",
+        "role": "admin",
+        "contactNo": "+91-98790-11003"
+      }
+    ],
+    "teachers": [
+      {
+        "name": "Anita Verma",
+        "email": "anita@jnv.com",
+        "contactNo": "+91-98790-12001"
+      },
+      {
+        "name": "Manoj Tiwari",
+        "email": "manoj@jnv.com",
+        "contactNo": "+91-98790-12002"
+      },
+      {
+        "name": "Priya Nair",
+        "email": "priya@jnv.com",
+        "contactNo": "+91-98790-12003"
+      },
+      {
+        "name": "Vikram Singh",
+        "email": "vikram@jnv.com",
+        "contactNo": "+91-98790-12004"
+      },
+      {
+        "name": "Sunita Desai",
+        "email": "sunita@jnv.com",
+        "contactNo": "+91-98790-12005"
+      },
+      {
+        "name": "Ramesh Gupta",
+        "email": "ramesh@jnv.com",
+        "contactNo": "+91-98790-12006"
+      },
+      {
+        "name": "Kavita Joshi",
+        "email": "kavita@jnv.com",
+        "contactNo": "+91-98790-12007"
+      },
+      {
+        "name": "Ashok Mehta",
+        "email": "ashok@jnv.com",
+        "contactNo": "+91-98790-12008"
+      },
+      {
+        "name": "Meena Rao",
+        "email": "meena@jnv.com",
+        "contactNo": "+91-98790-12009"
+      },
+      {
+        "name": "Sanjay Pandey",
+        "email": "sanjay@jnv.com",
+        "contactNo": "+91-98790-12010"
+      },
+      {
+        "name": "Lakshmi Menon",
+        "email": "lakshmi@jnv.com",
+        "contactNo": "+91-98790-12011"
+      },
+      {
+        "name": "Arun Saxena",
+        "email": "arun@jnv.com",
+        "contactNo": "+91-98790-12012"
+      },
+      {
+        "name": "Geeta Bhatt",
+        "email": "geeta@jnv.com",
+        "contactNo": "+91-98790-12013"
+      },
+      {
+        "name": "Dinesh Yadav",
+        "email": "dinesh@jnv.com",
+        "contactNo": "+91-98790-12014"
+      },
+      {
+        "name": "Rekha Mishra",
+        "email": "rekha@jnv.com",
+        "contactNo": "+91-98790-12015"
+      },
+      {
+        "name": "Nitin Kulkarni",
+        "email": "nitin@jnv.com",
+        "contactNo": "+91-98790-12016"
+      },
+      {
+        "name": "Shobha Reddy",
+        "email": "shobha@jnv.com",
+        "contactNo": "+91-98790-12017"
+      },
+      {
+        "name": "Prakash Jha",
+        "email": "prakash@jnv.com",
+        "contactNo": "+91-98790-12018"
+      }
+    ]
+  },
+  "NV": {
+    "superAdmin": {
+      "name": "Viraj",
+      "email": "viraj@nv.com",
+      "role": "super_admin",
+      "contactNo": "+91-98250-21001"
+    },
+    "admins": [
+      {
+        "name": "Vrajesh Pandya",
+        "email": "vrajesh@nv.com",
+        "role": "admin",
+        "contactNo": "+91-98250-21002"
+      },
+      {
+        "name": "Priyansh Dabhi",
+        "email": "priyansh@nv.com",
+        "role": "admin",
+        "contactNo": "+91-98250-21003"
+      }
+    ],
+    "teachers": [
+      {
+        "name": "Ritu Sharma",
+        "email": "ritu@nv.com",
+        "contactNo": "+91-98250-22001"
+      },
+      {
+        "name": "Pranav Deshmukh",
+        "email": "pranav@nv.com",
+        "contactNo": "+91-98250-22002"
+      },
+      {
+        "name": "Swati Kulkarni",
+        "email": "swati@nv.com",
+        "contactNo": "+91-98250-22003"
+      },
+      {
+        "name": "Hemant Joshi",
+        "email": "hemant@nv.com",
+        "contactNo": "+91-98250-22004"
+      },
+      {
+        "name": "Pooja Mehta",
+        "email": "pooja@nv.com",
+        "contactNo": "+91-98250-22005"
+      },
+      {
+        "name": "Rakesh Bhatia",
+        "email": "rakesh@nv.com",
+        "contactNo": "+91-98250-22006"
+      },
+      {
+        "name": "Asha Pillai",
+        "email": "asha@nv.com",
+        "contactNo": "+91-98250-22007"
+      },
+      {
+        "name": "Vijay Chauhan",
+        "email": "vijay@nv.com",
+        "contactNo": "+91-98250-22008"
+      },
+      {
+        "name": "Nandini Rao",
+        "email": "nandini@nv.com",
+        "contactNo": "+91-98250-22009"
+      },
+      {
+        "name": "Govind Patel",
+        "email": "govind@nv.com",
+        "contactNo": "+91-98250-22010"
+      },
+      {
+        "name": "Sarita Mishra",
+        "email": "sarita@nv.com",
+        "contactNo": "+91-98250-22011"
+      },
+      {
+        "name": "Kiran Thakur",
+        "email": "kiran@nv.com",
+        "contactNo": "+91-98250-22012"
+      },
+      {
+        "name": "Madhuri Iyer",
+        "email": "madhuri@nv.com",
+        "contactNo": "+91-98250-22013"
+      },
+      {
+        "name": "Bharat Agarwal",
+        "email": "bharat@nv.com",
+        "contactNo": "+91-98250-22014"
+      },
+      {
+        "name": "Lata Saxena",
+        "email": "lata@nv.com",
+        "contactNo": "+91-98250-22015"
+      },
+      {
+        "name": "Sunil Parmar",
+        "email": "sunil@nv.com",
+        "contactNo": "+91-98250-22016"
+      },
+      {
+        "name": "Divya Nair",
+        "email": "divya@nv.com",
+        "contactNo": "+91-98250-22017"
+      },
+      {
+        "name": "Manoj Dave",
+        "email": "manoj@nv.com",
+        "contactNo": "+91-98250-22018"
+      }
+    ]
+  },
+  "AV": {
+    "superAdmin": {
+      "name": "Viraj",
+      "email": "viraj@av.com",
+      "role": "super_admin",
+      "contactNo": "+91-79260-31001"
+    },
+    "admins": [
+      {
+        "name": "Shivam Patel",
+        "email": "shivam@av.com",
+        "role": "admin",
+        "contactNo": "+91-79260-31002"
+      },
+      {
+        "name": "Ashish Jhadhav",
+        "email": "ashish@av.com",
+        "role": "admin",
+        "contactNo": "+91-79260-31003"
+      }
+    ],
+    "teachers": [
+      {
+        "name": "Vaishali Pandya",
+        "email": "vaishali@av.com",
+        "contactNo": "+91-79260-32001"
+      },
+      {
+        "name": "Jayesh Bhatt",
+        "email": "jayesh@av.com",
+        "contactNo": "+91-79260-32002"
+      },
+      {
+        "name": "Usha Soni",
+        "email": "usha@av.com",
+        "contactNo": "+91-79260-32003"
+      },
+      {
+        "name": "Nikhil Vyas",
+        "email": "nikhil@av.com",
+        "contactNo": "+91-79260-32004"
+      },
+      {
+        "name": "Parul Oza",
+        "email": "parul@av.com",
+        "contactNo": "+91-79260-32005"
+      },
+      {
+        "name": "Kamlesh Solanki",
+        "email": "kamlesh@av.com",
+        "contactNo": "+91-79260-32006"
+      },
+      {
+        "name": "Hetal Parikh",
+        "email": "hetal@av.com",
+        "contactNo": "+91-79260-32007"
+      },
+      {
+        "name": "Darshan Rathod",
+        "email": "darshan@av.com",
+        "contactNo": "+91-79260-32008"
+      },
+      {
+        "name": "Anjali Chauhan",
+        "email": "anjali@av.com",
+        "contactNo": "+91-79260-32009"
+      },
+      {
+        "name": "Mukesh Prajapati",
+        "email": "mukesh@av.com",
+        "contactNo": "+91-79260-32010"
+      },
+      {
+        "name": "Snehal Doshi",
+        "email": "snehal@av.com",
+        "contactNo": "+91-79260-32011"
+      },
+      {
+        "name": "Ravi Thakor",
+        "email": "ravi@av.com",
+        "contactNo": "+91-79260-32012"
+      },
+      {
+        "name": "Komal Gajjar",
+        "email": "komal@av.com",
+        "contactNo": "+91-79260-32013"
+      },
+      {
+        "name": "Alpesh Vaghela",
+        "email": "alpesh@av.com",
+        "contactNo": "+91-79260-32014"
+      },
+      {
+        "name": "Bhavna Makwana",
+        "email": "bhavna@av.com",
+        "contactNo": "+91-79260-32015"
+      },
+      {
+        "name": "Dharmesh Raval",
+        "email": "dharmesh@av.com",
+        "contactNo": "+91-79260-32016"
+      },
+      {
+        "name": "Foram Shah",
+        "email": "foram@av.com",
+        "contactNo": "+91-79260-32017"
+      },
+      {
+        "name": "Girish Suthar",
+        "email": "girish@av.com",
+        "contactNo": "+91-79260-32018"
+      }
+    ]
+  },
+  "studentConfig": {
+    "standards": [
+      "1",
+      "2",
+      "3",
+      "4",
+      "5",
+      "6",
+      "7",
+      "8",
+      "9",
+      "10",
+      "11",
+      "12"
+    ],
+    "sections": [
+      "A",
+      "B",
+      "C",
+      "D"
+    ],
+    "studentsPerSection": 30,
+    "year": 2026,
+    "admissionDateStart": "2026-04-01",
+    "admissionDateRangeDays": 30,
+    "basePhonePrefix": "+91-9",
+    "emailDomains": {
+      "JNV": "jnv.com",
+      "NV": "nv.com",
+      "AV": "av.com"
+    },
+    "rollNumberPrefixes": {
+      "JNV": "JNV",
+      "NV": "NV",
+      "AV": "AV"
+    }
+  },
+  "studentNamePools": {
+    "maleFirstNames": [
+      "Aarav",
+      "Vivaan",
+      "Aditya",
+      "Vihaan",
+      "Arjun",
+      "Reyansh",
+      "Sai",
+      "Ansh",
+      "Kabir",
+      "Dhruv",
+      "Krishna",
+      "Ritvik",
+      "Aarush",
+      "Shaurya",
+      "Atharv",
+      "Advait",
+      "Arnav",
+      "Rudra",
+      "Ishaan",
+      "Piyush",
+      "Rohan",
+      "Yash",
+      "Dev",
+      "Harsh",
+      "Parth",
+      "Manav",
+      "Raj",
+      "Neil",
+      "Darsh",
+      "Siddharth",
+      "Mihir",
+      "Kian",
+      "Ayaan",
+      "Varun",
+      "Ved",
+      "Tejas",
+      "Ishan",
+      "Kunal",
+      "Soham",
+      "Laksh"
+    ],
+    "femaleFirstNames": [
+      "Aadhya",
+      "Saanvi",
+      "Ananya",
+      "Isha",
+      "Diya",
+      "Pari",
+      "Myra",
+      "Sara",
+      "Anika",
+      "Kiara",
+      "Riya",
+      "Navya",
+      "Angel",
+      "Amaira",
+      "Pihu",
+      "Aaradhya",
+      "Avni",
+      "Zara",
+      "Trisha",
+      "Mahi",
+      "Kavya",
+      "Riddhi",
+      "Nidhi",
+      "Tanya",
+      "Shreya",
+      "Palak",
+      "Naina",
+      "Sanya",
+      "Khushi",
+      "Prisha",
+      "Meera",
+      "Dimple",
+      "Jiya",
+      "Tanvi",
+      "Swara",
+      "Anvi",
+      "Kriti",
+      "Hiral",
+      "Bhavya",
+      "Suhani"
+    ],
+    "lastNames": [
+      "Patel",
+      "Shah",
+      "Sharma",
+      "Mehta",
+      "Desai",
+      "Joshi",
+      "Gupta",
+      "Kumar",
+      "Singh",
+      "Verma",
+      "Chauhan",
+      "Trivedi",
+      "Raval",
+      "Bhatt",
+      "Pandey",
+      "Mishra",
+      "Yadav",
+      "Thakur",
+      "Nair",
+      "Iyer",
+      "Reddy",
+      "Rao",
+      "Pillai",
+      "Menon",
+      "Agarwal",
+      "Saxena",
+      "Bhatia",
+      "Kulkarni",
+      "Parmar",
+      "Dave",
+      "Soni",
+      "Vyas",
+      "Solanki",
+      "Rathod",
+      "Thakor",
+      "Modi",
+      "Gajjar",
+      "Vaghela",
+      "Doshi",
+      "Makwana"
+    ],
+    "fatherFirstNames": [
+      "Ramesh",
+      "Suresh",
+      "Mahesh",
+      "Rajesh",
+      "Naresh",
+      "Mukesh",
+      "Dinesh",
+      "Rakesh",
+      "Kamlesh",
+      "Nilesh",
+      "Hitesh",
+      "Paresh",
+      "Jayesh",
+      "Brijesh",
+      "Jignesh",
+      "Alpesh",
+      "Dharmesh",
+      "Chirag",
+      "Darshan",
+      "Girish",
+      "Harish",
+      "Ketan",
+      "Maulik",
+      "Nitin",
+      "Pravin",
+      "Ravi",
+      "Sanjay",
+      "Tushar",
+      "Umesh",
+      "Vikas"
+    ],
+    "motherFirstNames": [
+      "Sita",
+      "Gita",
+      "Rita",
+      "Sunita",
+      "Anita",
+      "Kavita",
+      "Savita",
+      "Lalita",
+      "Mamta",
+      "Neeta",
+      "Reema",
+      "Seema",
+      "Shobha",
+      "Rekha",
+      "Nisha",
+      "Usha",
+      "Asha",
+      "Bharati",
+      "Champa",
+      "Devi",
+      "Hema",
+      "Jaya",
+      "Kamla",
+      "Lata",
+      "Mina",
+      "Padma",
+      "Radha",
+      "Sarla",
+      "Vimal",
+      "Pushpa"
+    ],
+    "addresses": [
+      "12 Mahatma Gandhi Road, Sector 7, Gandhinagar, Gujarat 382007",
+      "45 Nehru Nagar, Vastrapur, Ahmedabad, Gujarat 380015",
+      "78 Sardar Patel Colony, Alkapuri, Vadodara, Gujarat 390007",
+      "23 Tilak Marg, Subhanpura, Vadodara, Gujarat 390023",
+      "56 Rajiv Gandhi Society, Satellite, Ahmedabad, Gujarat 380015",
+      "89 Ambedkar Road, Karelibaug, Vadodara, Gujarat 390018",
+      "34 Vivekanand Nagar, Shahibag, Ahmedabad, Gujarat 380004",
+      "67 Tagore Society, Bodakdev, Ahmedabad, Gujarat 380054",
+      "90 Panchsheel Society, Navrangpura, Ahmedabad, Gujarat 380009",
+      "15 Swami Narayan Complex, Maninagar, Ahmedabad, Gujarat 380008",
+      "42 Shastri Nagar, Gotri, Vadodara, Gujarat 390021",
+      "71 Indira Colony, Vasna, Ahmedabad, Gujarat 380007",
+      "28 Chanakya Puri, Manjalpur, Vadodara, Gujarat 390011",
+      "53 Azad Society, Ambawadi, Ahmedabad, Gujarat 380006",
+      "86 Vallabh Nagar, Sayajigunj, Vadodara, Gujarat 390005",
+      "19 Sarojini Road, Paldi, Ahmedabad, Gujarat 380007",
+      "62 Lal Bahadur Shastri Marg, Fatehgunj, Vadodara, Gujarat 390002",
+      "37 Bapunagar Society, Odhav, Ahmedabad, Gujarat 382415",
+      "74 Jawaharlal Nehru Road, Race Course, Vadodara, Gujarat 390007",
+      "11 Acharya Marg, Ellisbridge, Ahmedabad, Gujarat 380006"
+    ]
+  }
+}

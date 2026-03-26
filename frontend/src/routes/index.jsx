@@ -18,6 +18,7 @@ const Fees = lazy(() => import('../pages/Fees'));
 const Examination = lazy(() => import('../pages/Examination'));
 const Assignments = lazy(() => import('../features/assignment/AssignmentPage'));
 const Result = lazy(() => import('../pages/Result'));
+const Profile = lazy(() => import('../pages/Profile'));
 
 // Loading fallback component
 const PageLoader = () => (
@@ -99,6 +100,7 @@ export const pages = {
     Examination,
     Assignments,
     Result,
+    Profile,
 };
 
 // Export utilities
