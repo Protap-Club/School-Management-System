@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
-  FaTimes, FaIdCard, FaBuilding, FaLayerGroup, FaEnvelope, FaPhone, FaSave, FaUser, FaTrash, FaChalkboardTeacher
+  FaTimes, FaIdCard, FaBuilding, FaLayerGroup, FaEnvelope, FaPhone, FaSave, FaChalkboardTeacher
 } from 'react-icons/fa';
-import api from '../../../lib/axios';
 import { useUpdateUser } from '../api/queries';
+import { useSchoolClasses } from '../../../hooks/useSchoolClasses';
 
 const naturalSort = (arr) => {
   return [...arr].sort((a, b) => {
@@ -16,8 +16,7 @@ const UserDetailModal = ({ user, onClose, initialMode = 'view', onSuccess }) => 
   const [mode, setMode] = useState(initialMode);
   const [formData, setFormData] = useState({});
   const [guardianTab, setGuardianTab] = useState('parents');
-  const [standards, setStandards] = useState([]);
-  const [sections, setSections] = useState([]);
+  const [teacherClassDraft, setTeacherClassDraft] = useState({ standard: '', section: '' });
 
   useEffect(() => {
     if (user) {
@@ -41,6 +40,7 @@ const UserDetailModal = ({ user, onClose, initialMode = 'view', onSuccess }) => 
         }
       });
       setMode(initialMode);
+      setTeacherClassDraft({ standard: '', section: '' });
     }
   }, [user, initialMode]);
 
@@ -50,6 +50,39 @@ const UserDetailModal = ({ user, onClose, initialMode = 'view', onSuccess }) => 
   const isEditing = mode === 'edit';
   const isArchivedUser = Boolean(user?.isArchived);
   const isActiveUser = Boolean(user?.isActive);
+  const { classSections } = useSchoolClasses({ enabled: isEditing && (isStudent || isTeacher) });
+
+  const classSectionsMap = useMemo(() => {
+    const map = {};
+
+    classSections.forEach((pair) => {
+      const standard = String(pair?.standard || '').trim();
+      const section = String(pair?.section || '').trim().toUpperCase();
+      if (!standard || !section) return;
+      if (!map[standard]) map[standard] = new Set();
+      map[standard].add(section);
+    });
+
+    return Object.fromEntries(
+      Object.entries(map).map(([standard, sections]) => [standard, naturalSort(Array.from(sections))])
+    );
+  }, [classSections]);
+
+  const standards = useMemo(
+    () => naturalSort(Object.keys(classSectionsMap)),
+    [classSectionsMap]
+  );
+
+  useEffect(() => {
+    if (!isTeacher || !isEditing) return;
+    setTeacherClassDraft((current) => {
+      if (current.standard || current.section) return current;
+      const existing = formData.profile?.assignedClasses?.[0] || {};
+      const fallbackStandard = existing.standard || standards[0] || '';
+      const fallbackSection = existing.section || (fallbackStandard ? (classSectionsMap[fallbackStandard] || [])[0] : '') || '';
+      return { standard: fallbackStandard, section: fallbackSection };
+    });
+  }, [classSectionsMap, formData.profile?.assignedClasses, isEditing, isTeacher, standards]);
 
   const memberStatus = isArchivedUser
     ? { dotClass: 'bg-amber-400', labelClass: 'text-amber-100', label: 'Archived Member' }
@@ -58,48 +91,85 @@ const UserDetailModal = ({ user, onClose, initialMode = 'view', onSuccess }) => 
       : { dotClass: 'bg-gray-300', labelClass: 'text-gray-200', label: 'Inactive Member' };
 
   useEffect(() => {
-    if (isEditing && (isStudent || isTeacher)) {
-      const fetchClasses = async () => {
-        try {
-          const response = await api.get('/school/classes');
-          const data = response.data?.data;
-          
-          let localData = { standards: [], sections: [] };
-          try {
-            const stored = localStorage.getItem('school_custom_classes');
-            if (stored) localData = JSON.parse(stored);
-          } catch (e) {
-            console.error('Failed to parse local classes', e);
-          }
-          
-          setStandards(naturalSort(Array.from(new Set([...(data?.standards || []), ...(localData.standards || [])]))));
-          setSections(naturalSort(Array.from(new Set([...(data?.sections || []), ...(localData.sections || [])]))));
-        } catch {
-          let localData = { standards: [], sections: [] };
-          try {
-            const stored = localStorage.getItem('school_custom_classes');
-            if (stored) localData = JSON.parse(stored);
-          } catch (e) {
-            console.error('Failed to parse local classes', e);
-          }
-          setStandards(naturalSort(localData.standards || []));
-          setSections(naturalSort(localData.sections || []));
-        }
-      };
-      fetchClasses();
+    if (!isEditing || !isStudent) return;
+
+    const selectedStandardValue = String(formData.profile?.standard || '').trim();
+    const selectedSectionValue = String(formData.profile?.section || '').trim().toUpperCase();
+    if (!selectedStandardValue) return;
+
+    const allowedSections = classSectionsMap[selectedStandardValue] || [];
+    if (allowedSections.length === 0) {
+      setFormData((current) => ({
+        ...current,
+        profile: { ...current.profile, standard: '', section: '' }
+      }));
+      return;
     }
-  }, [isEditing, isStudent, isTeacher]);
+
+    if (selectedSectionValue && allowedSections.includes(selectedSectionValue)) {
+      return;
+    }
+
+    setFormData((current) => ({
+      ...current,
+      profile: {
+        ...current.profile,
+        section: ''
+      }
+    }));
+  }, [classSectionsMap, formData.profile?.section, formData.profile?.standard, isEditing, isStudent]);
 
   if (!user) return null;
 
   const handleSave = async () => {
     try {
-      await updateUserMutation.mutateAsync({ ...user, ...formData });
+      await updateUserMutation.mutateAsync({
+        id: user._id,
+        payload: {
+          name: formData.name,
+          email: formData.email,
+          contactNo: formData.contactNo,
+          profile: formData.profile,
+        }
+      });
       if (onSuccess) onSuccess('User updated successfully');
       setMode('view');
     } catch (error) {
       console.error('Update failed', error);
     }
+  };
+  const handleAddTeacherClass = () => {
+    const standard = String(teacherClassDraft.standard || '').trim();
+    const section = String(teacherClassDraft.section || '').trim().toUpperCase();
+    if (!standard || !section) return;
+
+    const current = Array.isArray(formData.profile?.assignedClasses)
+      ? formData.profile.assignedClasses
+      : [];
+
+    const exists = current.some(
+      (cls) => String(cls.standard) === standard && String(cls.section).toUpperCase() === section
+    );
+    if (exists) return;
+
+    const next = [...current, { standard, section, subjects: [] }];
+    setFormData((prev) => ({
+      ...prev,
+      profile: { ...prev.profile, assignedClasses: next }
+    }));
+  };
+
+  const handleRemoveTeacherClass = (target) => {
+    const current = Array.isArray(formData.profile?.assignedClasses)
+      ? formData.profile.assignedClasses
+      : [];
+    const next = current.filter(
+      (cls) => !(String(cls.standard) === String(target.standard) && String(cls.section).toUpperCase() === String(target.section).toUpperCase())
+    );
+    setFormData((prev) => ({
+      ...prev,
+      profile: { ...prev.profile, assignedClasses: next }
+    }));
   };
   // Helper to get teacher's primary class
   const getTeacherClass = () => {
@@ -109,6 +179,10 @@ const UserDetailModal = ({ user, onClose, initialMode = 'view', onSuccess }) => 
     }
     return 'Not Assigned';
   };
+  const selectedStandard = String(formData.profile?.standard || '').trim();
+  const sections = selectedStandard ? (classSectionsMap[selectedStandard] || []) : [];
+  const teacherSelectedStandard = String(teacherClassDraft.standard || '').trim();
+  const teacherSections = teacherSelectedStandard ? (classSectionsMap[teacherSelectedStandard] || []) : [];
 
   return (
     <div className="modal-overlay fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[60] p-4 animate-fadeIn">
@@ -244,7 +318,15 @@ const UserDetailModal = ({ user, onClose, initialMode = 'view', onSuccess }) => 
                         <select
                           className="w-full bg-gray-50 rounded px-2 py-1 text-xs font-black outline-none border border-gray-100 focus:border-blue-300 transition-all"
                           value={formData.profile?.standard}
-                          onChange={(e) => setFormData({ ...formData, profile: { ...formData.profile, standard: e.target.value } })}
+                          onChange={(e) => {
+                            const nextStandard = e.target.value;
+                            const allowedSections = classSectionsMap[nextStandard] || [];
+                            const nextSection = allowedSections.includes(formData.profile?.section) ? formData.profile?.section : '';
+                            setFormData({
+                              ...formData,
+                              profile: { ...formData.profile, standard: nextStandard, section: nextSection }
+                            });
+                          }}
                         >
                           <option value="" disabled hidden>Standard</option>
                           {standards.map(std => <option key={std} value={std}>{std}</option>)}
@@ -269,6 +351,72 @@ const UserDetailModal = ({ user, onClose, initialMode = 'view', onSuccess }) => 
                         </select>
                       ) : (
                         <span className="text-sm font-black text-gray-900">{formData.profile?.section || 'N/A'}</span>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {isTeacher && (
+                  <div className="p-4 bg-white rounded-2xl border border-gray-100 shadow-sm">
+                    <div className="flex items-center justify-between mb-3">
+                      <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Assigned Classes</p>
+                      <span className="text-[10px] font-semibold text-gray-500">{formData.profile?.assignedClasses?.length || 0} total</span>
+                    </div>
+
+                    {isEditing && (
+                      <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-2 items-center mb-3">
+                        <select
+                          className="w-full bg-gray-50 rounded px-2 py-1.5 text-xs font-black outline-none border border-gray-100 focus:border-blue-300 transition-all"
+                          value={teacherClassDraft.standard}
+                          onChange={(e) => {
+                            const nextStandard = e.target.value;
+                            const nextSection = (classSectionsMap[nextStandard] || [])[0] || '';
+                            setTeacherClassDraft({ standard: nextStandard, section: nextSection });
+                          }}
+                        >
+                          <option value="" disabled hidden>Standard</option>
+                          {standards.map(std => <option key={std} value={std}>{std}</option>)}
+                        </select>
+                        <select
+                          className="w-full bg-gray-50 rounded px-2 py-1.5 text-xs font-black outline-none border border-gray-100 focus:border-blue-300 transition-all"
+                          value={teacherClassDraft.section}
+                          onChange={(e) => setTeacherClassDraft((prev) => ({ ...prev, section: e.target.value }))}
+                          disabled={!teacherSelectedStandard}
+                        >
+                          <option value="" disabled hidden>Section</option>
+                          {teacherSections.map(sec => <option key={sec} value={sec}>{sec}</option>)}
+                        </select>
+                        <button
+                          type="button"
+                          onClick={handleAddTeacherClass}
+                          className="px-3 py-1.5 rounded-lg text-xs font-bold bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+                        >
+                          Add
+                        </button>
+                      </div>
+                    )}
+
+                    <div className="flex flex-wrap gap-2">
+                      {(formData.profile?.assignedClasses || []).length === 0 ? (
+                        <span className="text-xs text-gray-400">Not Assigned</span>
+                      ) : (
+                        (formData.profile?.assignedClasses || []).map((cls, index) => (
+                          <span
+                            key={`${cls.standard}-${cls.section}-${index}`}
+                            className="inline-flex items-center gap-2 px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 text-xs font-semibold"
+                          >
+                            {cls.standard}-{cls.section}
+                            {isEditing && (
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveTeacherClass(cls)}
+                                className="text-indigo-500 hover:text-indigo-700"
+                              >
+                                <FaTimes size={10} />
+                              </button>
+                            )}
+                          </span>
+                        ))
                       )}
                     </div>
                   </div>
