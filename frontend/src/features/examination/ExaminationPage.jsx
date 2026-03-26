@@ -469,18 +469,7 @@ const ExaminationPage = () => {
             <EmptyState
               icon={FaCalendarAlt}
               title="No examinations found"
-              subtitle={searchTerm ? `We couldn't find any exams matching "${searchTerm}". Try different keywords.` : "Get started by creating your first examination schedule for the current academic year."}
-              action={
-                isAdmin && (
-                  <button
-                    onClick={() => setShowModal({ type: 'create', open: true, data: null })}
-                    className="flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-xl font-bold shadow-lg shadow-primary/20"
-                  >
-                    <FaPlus size={14} />
-                    <span>Create Your First Exam</span>
-                  </button>
-                )
-              }
+              subtitle={searchTerm ? `We couldn't find any exams matching "${searchTerm}". Try different keywords.` : "No examination schedules have been created yet for the current academic year."}
             />
           )}
         </div>
