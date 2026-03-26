@@ -1,44 +1,6 @@
 import React from 'react';
-import { FaBook, FaPlus, FaSearch } from 'react-icons/fa';
-import { useAssignmentOptions } from '../hooks/useAssignmentOptions';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "../../../components/ui/select";
-
-const FilterSelect = ({
-    value,
-    onChange,
-    disabled,
-    options,
-    icon = null,
-    placeholder,
-}) => (
-    <div className="flex flex-col min-w-[160px]">
-        <Select 
-            value={value?.toString()} 
-            onValueChange={(val) => onChange({ target: { value: val } })}
-            disabled={disabled}
-        >
-            <SelectTrigger className="w-full rounded-xl border-slate-200 bg-white px-4 shadow-sm transition-all hover:border-primary/30 focus:ring-4 focus:ring-primary/10 focus:border-primary text-sm font-medium text-slate-700">
-                <div className="flex items-center gap-2.5">
-                    {icon && <span className="text-slate-400">{icon}</span>}
-                    <SelectValue placeholder={placeholder} />
-                </div>
-            </SelectTrigger>
-            <SelectContent className="rounded-xl border-slate-100 shadow-xl z-[150] overflow-hidden">
-                {options.map((option) => (
-                    <SelectItem key={option.value} value={option.value.toString()} className="text-sm py-2.5 px-4 cursor-pointer focus:bg-primary/10 focus:text-primary rounded-lg mx-1 my-0.5 transition-colors">
-                        {option.label}
-                    </SelectItem>
-                ))}
-            </SelectContent>
-        </Select>
-    </div>
-);
+import { FaSearch } from 'react-icons/fa';
+import { useSchoolClasses } from '../../../hooks/useSchoolClasses';
 
 export const AssignmentFilters = ({
     searchQuery,
@@ -48,82 +10,60 @@ export const AssignmentFilters = ({
     onStandardChange,
     sectionFilter,
     onSectionChange,
-    subjectFilter,
-    onSubjectChange,
-    statusFilter,
-    onStatusChange,
-    onAddAssignment,
-    canCreate
 }) => {
-    const { 
-        availableStandards, 
-        getSectionsForStandard, 
-        getSubjectsForClass, 
-        loading 
-    } = useAssignmentOptions();
+    const {
+        availableStandards,
+        getSectionsForStandard,
+        allUniqueSections,
+        loading,
+    } = useSchoolClasses();
 
-    const sections = getSectionsForStandard(standardFilter);
-    const subjects = getSubjectsForClass(standardFilter, sectionFilter);
+    // Get subjects from assignment metadata for the subject dropdown
+    // We import the original hook just for subjects
+    const sections = standardFilter && standardFilter !== 'all'
+        ? getSectionsForStandard(standardFilter)
+        : allUniqueSections;
 
     return (
         <div className="relative flex w-full flex-col gap-4 py-2 lg:flex-row lg:items-center">
-            <div className="relative z-40 flex flex-wrap items-center gap-3 lg:flex-shrink-0">
-                <FilterSelect
+            <div className="flex flex-wrap items-center gap-2">
+                {/* Class filter */}
+                <select
                     value={standardFilter}
                     onChange={(e) => onStandardChange(e.target.value)}
                     disabled={loading || availableStandards.length === 0}
-                    placeholder="All Classes"
-                    options={[
-                        { value: 'all', label: 'All Classes' },
-                        ...availableStandards.map((std) => ({ value: std, label: `Class ${std}` }))
-                    ]}
-                />
-                <FilterSelect
+                    className="px-4 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-slate-700 focus:outline-none hover:bg-slate-100 transition-all cursor-pointer min-w-[130px]"
+                >
+                    <option value="all">All Classes</option>
+                    {availableStandards.map((std) => (
+                        <option key={std} value={std}>Class {std}</option>
+                    ))}
+                </select>
+
+                {/* Section filter */}
+                <select
                     value={sectionFilter}
                     onChange={(e) => onSectionChange(e.target.value)}
-                    disabled={loading || sections.length === 0}
-                    placeholder="All Sections"
-                    options={[
-                        { value: 'all', label: 'All Sections' },
-                        ...sections.map((sec) => ({ value: sec, label: `Section ${sec}` }))
-                    ]}
-                />
-                <FilterSelect
-                    value={subjectFilter}
-                    onChange={(e) => onSubjectChange(e.target.value)}
                     disabled={loading}
-                    icon={<FaBook size={12} />}
-                    placeholder="All Subjects"
-                    options={[
-                        { value: 'all', label: 'All Subjects' },
-                        ...subjects.map((sub) => ({ value: sub, label: sub }))
-                    ]}
-                />
+                    className="px-4 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-slate-700 focus:outline-none hover:bg-slate-100 transition-all cursor-pointer min-w-[130px]"
+                >
+                    <option value="all">All Sections</option>
+                    {sections.map((sec) => (
+                        <option key={sec} value={sec}>{sec}</option>
+                    ))}
+                </select>
             </div>
 
             {/* Search Input */}
-            <div className="relative z-0 min-w-[220px] flex-1">
-                <span className="absolute inset-y-0 left-0 flex items-center pl-4 text-slate-400"><FaSearch size={14} /></span>
+            <div className="relative z-0 min-w-[220px] flex-1 group">
+                <FaSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors" size={14} />
                 <input
                     type="text"
                     placeholder={searchPlaceholder}
                     value={searchQuery}
                     onChange={(e) => onSearchChange(e.target.value)}
-                    className="search-input rounded-xl border-slate-200 bg-white shadow-sm transition-all focus:border-primary focus:ring-primary/10 font-medium"
+                    className="w-full pl-12 pr-4 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:bg-white transition-all text-sm font-medium"
                 />
-            </div>
-
-            {/* Actions */}
-            <div className="flex items-center gap-2 sm:ml-auto">
-                {canCreate && (
-                    <button
-                        onClick={onAddAssignment}
-                        className="btn-primary px-5 rounded-lg shadow-sm hover:shadow-md whitespace-nowrap"
-                    >
-                        <FaPlus size={14} />
-                        <span>Add Assignment</span>
-                    </button>
-                )}
             </div>
         </div>
     );

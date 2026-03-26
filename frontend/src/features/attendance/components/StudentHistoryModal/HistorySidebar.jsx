@@ -5,27 +5,30 @@ import { STATUS_CONFIG } from './AttendanceCalendar';
 
 export const STAT_CARDS = [
     { key: 'present', label: 'Present', ...STATUS_CONFIG.present },
-    { key: 'late', label: 'Late', ...STATUS_CONFIG.late },
     { key: 'absent', label: 'Absent', ...STATUS_CONFIG.absent },
 ];
 
 const HistorySidebar = ({ stats, selectedDay }) => {
+    // If original status was 'late', show it as 'present' in the details
+    const displayStatus = selectedDay?.status === 'late' ? 'present' : selectedDay?.status;
+    const config = displayStatus ? STATUS_CONFIG[displayStatus] : null;
+
     return (
-        <div className="w-full lg:w-[260px] p-4 lg:p-5 bg-slate-50/50 overflow-y-auto shrink-0 flex flex-col gap-4">
+        <div className="w-full lg:w-[280px] p-5 lg:p-6 bg-slate-50/40 border-l border-slate-100 overflow-y-auto shrink-0 flex flex-col gap-6">
             <div>
-                <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3">Summary</h4>
-                <div className="space-y-3">
+                <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] mb-5 px-1">Statistics</h4>
+                <div className="space-y-4">
                     {STAT_CARDS.map(({ key, label, icon, iconBg, textColor }) => (
-                        <div key={key} className="relative group">
-                            <Card className="relative overflow-hidden border-0 shadow-lg shadow-slate-200/40 bg-white/90 backdrop-blur-xl rounded-2xl hover:-translate-y-1 hover:shadow-xl hover:shadow-slate-300/50 transition-all duration-300 ring-1 ring-slate-900/5">
-                                <div className={`absolute top-0 right-0 w-16 h-16 ${iconBg} rounded-full blur-2xl -mr-4 -mt-4 opacity-50 pointer-events-none group-hover:opacity-80 transition-opacity duration-300`} />
-                                <CardContent className="p-3 relative z-10 flex items-center gap-3">
-                                    <div className={`w-8 h-8 rounded-lg ${iconBg} flex items-center justify-center shadow-inner ring-1 ring-black/5 transform group-hover:scale-105 group-hover:rotate-[3deg] transition-all duration-300`}>
-                                        {React.cloneElement(icon, { size: 14 })}
+                        <div key={key} className="relative group/card">
+                            <Card className="relative overflow-hidden border-0 shadow-[0_8px_30px_rgb(0,0,0,0.04)] bg-white/80 backdrop-blur-xl rounded-[24px] hover:-translate-y-1 hover:shadow-[0_20px_40px_rgb(0,0,0,0.08)] transition-all duration-500 ring-1 ring-slate-200/50">
+                                <div className={`absolute top-0 right-0 w-20 h-20 ${iconBg} rounded-full blur-3xl -mr-6 -mt-6 opacity-40 group-hover/card:opacity-60 transition-opacity duration-500 pointer-events-none`} />
+                                <CardContent className="p-4 relative z-10 flex items-center gap-4">
+                                    <div className={`w-11 h-11 rounded-2xl ${iconBg} flex items-center justify-center shadow-[inset_0_2px_4px_rgba(0,0,0,0.05)] ring-1 ring-black/5 transform group-hover/card:scale-110 group-hover/card:rotate-3 transition-all duration-500`}>
+                                        {React.cloneElement(icon, { size: 18 })}
                                     </div>
                                     <div className="space-y-0.5">
-                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest drop-shadow-sm">{label}</p>
-                                        <p className={`text-xl font-black tracking-tighter ${textColor} drop-shadow-sm leading-none`}>{stats[key]}</p>
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{label}</p>
+                                        <p className={`text-2xl font-black tracking-tight ${textColor} leading-none`}>{stats[key]}</p>
                                     </div>
                                 </CardContent>
                             </Card>
@@ -35,44 +38,45 @@ const HistorySidebar = ({ stats, selectedDay }) => {
             </div>
 
             {selectedDay ? (
-                <div className="relative group mt-2">
-                    <Card className={`relative overflow-hidden border-0 shadow-xl rounded-2xl transition-all ring-1 ring-black/5 ${STATUS_CONFIG[selectedDay.status]?.light || 'bg-slate-50'}`}>
-                        <div className={`absolute top-0 right-0 w-20 h-20 ${STATUS_CONFIG[selectedDay.status]?.legendColor || 'bg-slate-200'} rounded-full blur-2xl -mr-6 -mt-6 opacity-20 pointer-events-none`} />
-                        <CardHeader className="p-4 pb-1 relative z-10">
-                            <CardTitle className="text-[10px] font-black text-slate-500/80 uppercase tracking-widest">Day Details</CardTitle>
+                <div className="relative group/detail mt-0">
+                    <Card className={`relative overflow-hidden border-0 shadow-[0_15px_35px_rgba(0,0,0,0.08)] rounded-[24px] transition-all duration-500 ring-1 ring-black/5 ${config?.light || 'bg-slate-50'}`}>
+                        <div className={`absolute top-0 right-0 w-24 h-24 ${config?.legendColor || 'bg-slate-200'} rounded-full blur-3xl -mr-8 -mt-8 opacity-20 pointer-events-none`} />
+                        <CardHeader className="p-4 pb-1.5 relative z-10">
+                            <CardTitle className="text-[10px] font-black text-slate-500/60 uppercase tracking-[0.2em]">Day Insight</CardTitle>
                         </CardHeader>
-                        <CardContent className="p-4 pt-2 space-y-3 relative z-10">
-                            <div className="flex items-center gap-3">
-                                <div className={`w-8 h-8 rounded-xl flex items-center justify-center shadow-sm transform hover:scale-105 transition-transform ${STATUS_CONFIG[selectedDay.status]?.color}`}>
-                                    {React.cloneElement(STATUS_CONFIG[selectedDay.status]?.icon, { className: "text-white w-3.5 h-3.5", size: 14 })}
+                        <CardContent className="p-4 pt-1.5 space-y-3 relative z-10">
+                            <div className="flex items-center gap-3.5">
+                                <div className={`w-10 h-10 rounded-[14px] flex items-center justify-center shadow-md transform group-hover/detail:scale-110 transition-all duration-500 ${config?.color}`}>
+                                    {config?.icon && React.cloneElement(config.icon, { className: "text-white w-4 h-4", size: 16 })}
                                 </div>
                                 <div>
-                                    <span className={`block text-base font-black capitalize tracking-tight drop-shadow-sm ${STATUS_CONFIG[selectedDay.status]?.textColor || 'text-slate-900'}`}>{selectedDay.status}</span>
+                                    <span className={`block text-base font-black capitalize tracking-tight ${config?.textColor || 'text-slate-900'}`}>{displayStatus}</span>
                                     <span className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-0.5">
-                                        {new Date(selectedDay.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                                        {new Date(selectedDay.date).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
                                     </span>
                                 </div>
                             </div>
-                            {selectedDay.checkIn !== '-' && (
-                                <div className="flex items-center gap-2 text-sm font-bold text-slate-700 bg-white/90 backdrop-blur-md p-2.5 rounded-xl border border-white shadow-sm ring-1 ring-black/5">
-                                    <div className="w-6 h-6 rounded-md bg-slate-100 flex items-center justify-center">
+                            
+                            <div className="p-3.5 rounded-xl bg-white/60 backdrop-blur-md border border-white/80 shadow-[0_4px_15px_rgba(0,0,0,0.02)] ring-1 ring-black/5 space-y-2.5">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-7 h-7 rounded-lg bg-slate-100/80 flex items-center justify-center">
                                         <FaClock className="text-slate-400 w-3 h-3" />
                                     </div>
                                     <div>
                                         <span className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Check-in</span>
-                                        <span className="block text-sm font-black text-slate-900 leading-none">{selectedDay.checkIn}</span>
+                                        <span className="block text-xs font-black text-slate-900 leading-none">{selectedDay.checkIn || 'N/A'}</span>
                                     </div>
                                 </div>
-                            )}
+                            </div>
                         </CardContent>
                     </Card>
                 </div>
             ) : (
-                <div className="flex-1 flex flex-col items-center justify-center border-2 border-dashed border-slate-200 rounded-[2rem] bg-white/50 p-10 text-center mt-4">
-                    <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mb-4">
-                        <FaClock className="text-slate-300 w-6 h-6" />
+                <div className="flex-1 flex flex-col items-center justify-center border-2 border-dashed border-slate-200 rounded-[40px] bg-white/40 p-10 text-center mt-2 group/empty hover:bg-white/60 transition-all duration-500">
+                    <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center mb-6 group-hover/empty:scale-110 group-hover/empty:rotate-12 transition-all duration-700 shadow-inner">
+                        <FaClock className="text-slate-300 w-8 h-8" />
                     </div>
-                    <p className="text-base font-bold text-slate-400 text-balance leading-relaxed">Select a day on the calendar to view detailed check-in records.</p>
+                    <p className="text-[13px] font-bold text-slate-400 text-balance leading-relaxed px-2 tracking-tight">Tap any day to see<br/>detailed analytics</p>
                 </div>
             )}
         </div>
