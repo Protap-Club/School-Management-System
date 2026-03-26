@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { FaCalendarAlt, FaChalkboardTeacher } from "react-icons/fa";
 import { readError } from "../../utils";
 import { ButtonSpinner } from "../../components/ui/Spinner";
@@ -23,6 +23,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { makeClassKey, sortClassSections } from "../../utils/classSection";
 
 
 const flattenSchedule = (schedule) => {
@@ -37,7 +38,7 @@ const TimetablePage = () => {
 
     const [adminViewMode, setAdminViewMode] = useState("class");
     const [selectedTeacherId, setSelectedTeacherId] = useState("");
-    const [selectedTimetableId, setSelectedTimetableId] = useState("");
+    const [selectedClassKey, setSelectedClassKey] = useState("");
     const [createDialogOpen, setCreateDialogOpen] = useState(false);
     const [errorMessage, setErrorMessage] = useState("");
     const [modalState, setModalState] = useState({ open: false, cell: null });
@@ -49,17 +50,82 @@ const TimetablePage = () => {
     const timeSlots = timeSlotsQuery.data?.data || [];
     const timetables = timetablesQuery.data?.data || [];
     const teachers = teachersQuery.data?.data?.users || [];
-    const availableClasses = availableClassesQuery.data?.data || { standards: [], sections: [], subjects: [], rooms: [] };
+    const availableClasses = availableClassesQuery.payload || {
+        standards: [],
+        sections: [],
+        classSections: [],
+        subjects: [],
+        rooms: [],
+    };
+
+    const configuredClassSections = useMemo(
+        () => sortClassSections(availableClasses?.classSections || []),
+        [availableClasses]
+    );
+
+    const configuredClassSectionSet = useMemo(
+        () => new Set(configuredClassSections.map((pair) => makeClassKey(pair))),
+        [configuredClassSections]
+    );
 
     const sortedTimetables = useMemo(() => {
-        return [...timetables].sort((a, b) => {
+        const filteredTimetables = timetables.filter((item) => {
+            if (configuredClassSectionSet.size === 0) return true;
+            const key = `${String(item.standard || "").trim().toLowerCase()}::${String(item.section || "").trim().toUpperCase()}`;
+            return configuredClassSectionSet.has(key);
+        });
+
+        return [...filteredTimetables].sort((a, b) => {
             const aVal = `${a.standard}${a.section}`;
             const bVal = `${b.standard}${b.section}`;
             return aVal.localeCompare(bVal, undefined, { numeric: true, sensitivity: 'base' });
         });
-    }, [timetables]);
+    }, [configuredClassSectionSet, timetables]);
 
-    const activeTimetableId = selectedTimetableId || sortedTimetables[0]?._id || "";
+    const latestTimetableByClassKey = useMemo(() => {
+        const map = new Map();
+
+        sortedTimetables.forEach((item) => {
+            const key = makeClassKey(item);
+            const current = map.get(key);
+
+            if (!current || Number(item.academicYear || 0) >= Number(current.academicYear || 0)) {
+                map.set(key, item);
+            }
+        });
+
+        return map;
+    }, [sortedTimetables]);
+
+    const classOptions = useMemo(
+        () =>
+            configuredClassSections.map((pair) => {
+                const key = makeClassKey(pair);
+                return {
+                    ...pair,
+                    key,
+                    timetable: latestTimetableByClassKey.get(key) || null,
+                };
+            }),
+        [configuredClassSections, latestTimetableByClassKey]
+    );
+
+    useEffect(() => {
+        if (!classOptions.length) {
+            if (selectedClassKey) {
+                setSelectedClassKey("");
+            }
+            return;
+        }
+
+        const stillAvailable = classOptions.some((item) => item.key === selectedClassKey);
+        if (!stillAvailable) {
+            setSelectedClassKey(classOptions[0].key);
+        }
+    }, [classOptions, selectedClassKey]);
+
+    const activeClassOption = classOptions.find((item) => item.key === selectedClassKey) || classOptions[0] || null;
+    const activeTimetableId = activeClassOption?.timetable?._id || "";
     const activeTeacherId = selectedTeacherId || teachers[0]?._id || "";
 
     const selectedTimetableQuery = useTimetable(
@@ -105,7 +171,7 @@ const TimetablePage = () => {
     };
 
     const handleCellClick = (day, slot, entry) => {
-        if (isTeacher || adminViewMode !== "class") return;
+        if (isTeacher || adminViewMode !== "class" || !activeTimetableId) return;
         setModalState({ open: true, cell: { day, slot, entry } });
     };
 
@@ -136,9 +202,8 @@ const TimetablePage = () => {
     const handleCreateTimetable = async (payload) => {
         setErrorMessage("");
         try {
-            const result = await createTimetableMutation.mutateAsync(payload);
-            const createdId = result?.data?._id;
-            if (createdId) setSelectedTimetableId(createdId);
+            await createTimetableMutation.mutateAsync(payload);
+            setSelectedClassKey(makeClassKey(payload));
             return true;
         } catch (error) {
             setErrorMessage(readError(error, "Failed to create timetable."));
@@ -182,14 +247,14 @@ const TimetablePage = () => {
 
                             {adminViewMode === "class" ? (
                                 <div className="flex items-center gap-2">
-                                    <Select value={activeTimetableId} onValueChange={setSelectedTimetableId}>
+                                    <Select value={activeClassOption?.key || ""} onValueChange={setSelectedClassKey}>
                                         <SelectTrigger className="w-52">
-                                            <SelectValue placeholder="Select timetable" />
+                                            <SelectValue placeholder="Select class" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            {sortedTimetables.map((tt) => (
-                                                <SelectItem key={tt._id} value={tt._id}>
-                                                    {tt.standard}-{tt.section} ({tt.academicYear})
+                                            {classOptions.map((item) => (
+                                                <SelectItem key={item.key} value={item.key}>
+                                                    {item.standard}-{item.section}{item.timetable ? ` (${item.timetable.academicYear})` : " (Not created)"}
                                                 </SelectItem>
                                             ))}
                                         </SelectContent>
@@ -226,15 +291,23 @@ const TimetablePage = () => {
                         <ButtonSpinner className="text-2xl" />
                     </div>
                 ) : (
-                    <div className="rounded-xl border border-gray-100 bg-white p-3 shadow-sm">
-                        <TimetableGrid
-                            entries={displayEntries}
-                            timeSlots={timeSlots}
-                            teachers={teachers}
-                            onCellClick={handleCellClick}
-                            readOnly={isTeacher || adminViewMode === "teacher"}
-                            showClass={isTeacher || adminViewMode === "teacher"}
-                        />
+                    <div className="space-y-3">
+                        {isAdmin && adminViewMode === "class" && activeClassOption && !activeTimetableId && (
+                            <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                                No timetable exists yet for {activeClassOption.standard}-{activeClassOption.section}. Click `New` to create it.
+                            </div>
+                        )}
+
+                        <div className="rounded-xl border border-gray-100 bg-white p-3 shadow-sm">
+                            <TimetableGrid
+                                entries={displayEntries}
+                                timeSlots={timeSlots}
+                                teachers={teachers}
+                                onCellClick={handleCellClick}
+                                readOnly={isTeacher || adminViewMode === "teacher" || (isAdmin && adminViewMode === "class" && !activeTimetableId)}
+                                showClass={isTeacher || adminViewMode === "teacher"}
+                            />
+                        </div>
                     </div>
                 )}
             </div>

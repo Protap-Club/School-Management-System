@@ -1,5 +1,7 @@
+import { useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import * as timetableApi from "./api";
+import { useSchoolClasses } from "../../../hooks/useSchoolClasses";
 
 export const timetableKeys = {
     all: ["timetable"],
@@ -10,7 +12,6 @@ export const timetableKeys = {
     mySchedule: () => [...timetableKeys.all, 'mySchedule'],
     teacherSchedule: (id, year) => [...timetableKeys.all, 'teacherSchedule', id, year],
     teachers: () => [...timetableKeys.all, "teachers"],
-    availableClasses: () => [...timetableKeys.all, "availableClasses"],
 };
 
 export const useTimeSlots = () => {
@@ -45,11 +46,26 @@ export const useDeleteTimeSlot = () => {
 };
 
 export const useTimetables = (filters = {}, enabled = true) => {
-    return useQuery({
+    const query = useQuery({
         queryKey: timetableKeys.timetableFilters(filters),
         queryFn: () => timetableApi.getTimetables(filters),
         enabled,
     });
+
+    useEffect(() => {
+        if (!enabled) return undefined;
+
+        const handleCustomClassesUpdate = () => {
+            query.refetch();
+        };
+
+        window.addEventListener("customClassesUpdated", handleCustomClassesUpdate);
+        return () => {
+            window.removeEventListener("customClassesUpdated", handleCustomClassesUpdate);
+        };
+    }, [enabled, query.refetch]);
+
+    return query;
 };
 
 export const useTimetable = (id, enabled = true) => {
@@ -129,9 +145,5 @@ export const useTeachers = (enabled = true) => {
 };
 
 export const useAvailableClasses = (enabled = true) => {
-    return useQuery({
-        queryKey: timetableKeys.availableClasses(),
-        queryFn: timetableApi.getSchoolClasses,
-        enabled,
-    });
+    return useSchoolClasses({ enabled });
 };
