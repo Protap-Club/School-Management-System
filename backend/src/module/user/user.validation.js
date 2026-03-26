@@ -104,18 +104,52 @@ export const userIdsBodySchema = z.object({
     }),
 });
 
-export const getProfileSchema = z.object({
-    params: z.object({
-        id: objectIdSchema.optional(),
-    }),
-    query: z.object({
-        platform: z.string().optional(),
-    }),
-});
-
 export const updateTeacherProfileSchema = z.object({
     params: userIdParamsSchema.shape.params,
     body: z.object({
         expectedSalary: z.coerce.number().gt(100, 'Expected salary must be more than 100').optional(),
     }).strict()
+});
+
+const classAssignmentSchema = z.object({
+    standard: z.string(),
+    section: z.string(),
+    subjects: z.array(z.string()).optional(),
+});
+
+const profileUpdateSchema = z.object({
+    // Student profile fields
+    rollNumber: z.string().optional(),
+    standard: z.string().optional(),
+    section: z.string().optional(),
+    year: z.coerce.number().optional(),
+    admissionDate: z.string().optional(),
+    fatherName: z.string().optional(),
+    fatherContact: z.string().optional(),
+    motherName: z.string().optional(),
+    motherContact: z.string().optional(),
+    guardianName: z.string().optional(),
+    guardianContact: z.string().optional(),
+    address: z.string().optional(),
+
+    // Teacher profile fields
+    employeeId: z.string().optional(),
+    qualification: z.string().optional(),
+    joiningDate: z.string().optional(),
+    expectedSalary: z.coerce.number().gt(100, 'Expected salary must be more than 100').optional(),
+    assignedClasses: z.array(classAssignmentSchema).optional(),
+
+    // Admin profile fields
+    department: z.string().optional(),
+    permissions: z.array(z.string()).optional(),
+}).strict();
+
+export const updateUserSchema = z.object({
+    params: userIdParamsSchema.shape.params,
+    body: z.object({
+        name: z.string().min(1, 'Name is required').optional(),
+        email: z.string().trim().email('Invalid email address').optional(),
+        contactNo: z.string().optional(),
+        profile: profileUpdateSchema.optional(),
+    }).strict(),
 });

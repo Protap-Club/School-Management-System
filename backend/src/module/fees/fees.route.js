@@ -39,7 +39,6 @@ import {
     allClassesOverviewSchema,
     yearlySummarySchema,
     studentFeeHistorySchema,
-    myClassFeesSchema,
     myFeesSchema,
     createFeeTypeSchema,
 } from "./fees.validation.js";

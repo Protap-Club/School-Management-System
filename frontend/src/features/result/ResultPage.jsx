@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import {
   useCompletedResultExams,
@@ -16,6 +16,8 @@ import { EmptyState } from '../../components/ui/EmptyState';
 import { useToastMessage } from '../../hooks/useToastMessage';
 import { ButtonSpinner } from '../../components/ui/Spinner';
 import { StatusBadge, OutcomeBadge } from './components/ResultStatusBadge';
+import { useSchoolClasses } from '../../hooks/useSchoolClasses';
+import { makeClassKey } from '../../utils/classSection';
 import {
   FaArrowLeft,
   FaBookOpen,
@@ -70,6 +72,15 @@ const ResultPage = () => {
   const publishResultsMutation = usePublishExamResults();
 
   const completedExams = useMemo(() => completedExamsQuery.data || [], [completedExamsQuery.data]);
+  const { classSections } = useSchoolClasses();
+  const configuredClassKeySet = useMemo(
+    () => new Set(classSections.map((item) => makeClassKey(item))),
+    [classSections]
+  );
+  const activeCompletedExams = useMemo(
+    () => completedExams.filter((item) => configuredClassKeySet.has(makeClassKey(item))),
+    [completedExams, configuredClassKeySet]
+  );
   const examStudentsData = examStudentsQuery.data;
   const examResultsData = examResultsQuery.data;
   const currentExam = examStudentsData?.exam || examResultsData?.exam || selectedExam;
@@ -83,20 +94,20 @@ const ResultPage = () => {
   );
 
   const availableStandards = useMemo(
-    () => [...new Set(completedExams.map((item) => String(item.standard)))].sort((a, b) => Number(a) - Number(b)),
-    [completedExams]
+    () => [...new Set(activeCompletedExams.map((item) => String(item.standard)))].sort((a, b) => Number(a) - Number(b)),
+    [activeCompletedExams]
   );
 
   const availableSections = useMemo(() => {
     const filteredByStandard = filters.standard
-      ? completedExams.filter((item) => String(item.standard) === String(filters.standard))
-      : completedExams;
+      ? activeCompletedExams.filter((item) => String(item.standard) === String(filters.standard))
+      : activeCompletedExams;
 
     return [...new Set(filteredByStandard.map((item) => String(item.section)))].sort();
-  }, [completedExams, filters.standard]);
+  }, [activeCompletedExams, filters.standard]);
 
   const filteredExams = useMemo(() => {
-    return completedExams.filter((item) => {
+    return activeCompletedExams.filter((item) => {
       const matchesSearch =
         !searchTerm ||
         item.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -106,7 +117,7 @@ const ResultPage = () => {
       const matchesSection = !filters.section || String(item.section) === String(filters.section);
       return matchesSearch && matchesStandard && matchesSection;
     });
-  }, [completedExams, filters.section, filters.standard, searchTerm]);
+  }, [activeCompletedExams, filters.section, filters.standard, searchTerm]);
 
   const filteredStudents = useMemo(() => {
     return examStudents.filter((item) => {
@@ -127,7 +138,7 @@ const ResultPage = () => {
   }, [examResults, resultSearch]);
 
   const examOverview = useMemo(() => {
-    return completedExams.reduce(
+    return activeCompletedExams.reduce(
       (acc, item) => {
         acc.totalExams += 1;
         acc.totalStudents += item.counts?.totalStudents || 0;
@@ -142,7 +153,7 @@ const ResultPage = () => {
         pendingResults: 0,
       }
     );
-  }, [completedExams]);
+  }, [activeCompletedExams]);
 
   // showMessage provided by useToastMessage hook
 

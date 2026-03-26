@@ -5,6 +5,7 @@ import DashboardLayout from '../../layouts/DashboardLayout';
 import { useAuth } from '../../features/auth';
 import { useFeatures } from '../../state';
 import { connectSocket, disconnectSocket } from '../../api/socket';
+import { useSchoolClasses } from '../../hooks/useSchoolClasses';
 import {
     useStudents,
     useTeachers,
@@ -33,11 +34,6 @@ const STATUS_STYLES = {
     unmarked: 'bg-slate-100 text-slate-500 hover:bg-slate-200 border-slate-200',
 };
 const STATUS_LABELS = { present: 'Present', late: 'Late', absent: 'Absent', unmarked: 'Unmarked' };
-const STAT_CARDS_CONFIG = [
-    { label: 'Total Students', key: 'total', color: 'text-blue-600', bg: 'bg-blue-100' },
-    { label: 'Present Today', key: 'present', color: 'text-emerald-600', bg: 'bg-emerald-100' },
-    { label: 'Absent Today', key: 'absent', color: 'text-rose-600', bg: 'bg-rose-100' },
-];
 const ITEMS_PER_PAGE = 15;
 
 // ─── Helpers ────────────────────────────────────────────
@@ -47,8 +43,20 @@ const buildAttendanceMap = (records = []) => {
     return map;
 };
 
-const buildClassGroups = (students = [], teachers = []) => {
+const buildClassGroups = (students = [], teachers = [], configuredClassSections = []) => {
     const groups = {};
+    const configuredKeys = new Set(
+        configuredClassSections.map((item) => `${item.standard} ${item.section}`.trim())
+    );
+
+    configuredClassSections.forEach((item) => {
+        const key = `${item.standard} ${item.section}`.trim();
+        const classTeacher = teachers.find(t => t.profile?.assignedClasses?.some(
+            ac => String(ac.standard) === String(item.standard) && String(ac.section) === String(item.section)
+        ));
+        groups[key] = { id: key, standard: item.standard, section: item.section, teacher: classTeacher || null, students: [] };
+    });
+
     students.forEach(student => {
         // Hide "Unassigned" class by skipping students without a assigned standard
         if (!student.profile?.standard) return;
@@ -56,6 +64,7 @@ const buildClassGroups = (students = [], teachers = []) => {
         const std = student.profile.standard;
         const sec = student.profile?.section || '';
         const key = `${std} ${sec}`.trim();
+        if (configuredKeys.size > 0 && !configuredKeys.has(key)) return;
         if (!groups[key]) {
             const classTeacher = teachers.find(t => t.profile?.assignedClasses?.some(ac => String(ac.standard) === String(std) && String(ac.section) === String(sec)));
             groups[key] = { id: key, standard: std, section: sec, teacher: classTeacher || null, students: [] };
@@ -94,6 +103,7 @@ const AttendancePage = () => {
     const { data: teachersRes, isLoading: teachersLoading } = useTeachers(isAdmin);
     const { data: attendanceRes, isLoading: attendanceLoading } = useTodayAttendance();
     const manualMutation = useMarkManualAttendance();
+    const { classSections: configuredClassSections } = useSchoolClasses({ enabled: isAdmin });
 
     // UI State
     const [socketConnected, setSocketConnected] = useState(false);
@@ -126,7 +136,10 @@ const AttendancePage = () => {
     const attendanceRecords = useMemo(() => attendanceRes?.data || [], [attendanceRes]);
     const attendanceMap = useMemo(() => buildAttendanceMap(attendanceRecords), [attendanceRecords]);
 
-    const allGroupedClasses = useMemo(() => isAdmin ? buildClassGroups(filteredStudents, teachers) : {}, [isAdmin, filteredStudents, teachers]);
+    const allGroupedClasses = useMemo(
+        () => isAdmin ? buildClassGroups(filteredStudents, teachers, configuredClassSections) : {},
+        [configuredClassSections, filteredStudents, isAdmin, teachers]
+    );
 
     const groupedClasses = useMemo(() => {
         if (!isAdmin) return {};

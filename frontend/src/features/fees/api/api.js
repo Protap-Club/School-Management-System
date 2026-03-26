@@ -68,10 +68,6 @@ export const feesApi = {
 
     // ── Teacher Specific ──────────────────────────────────────────
 
-    getMyClassFees: async ({ academicYear, month }) => {
-        const response = await api.get(`/fees/my-classes?academicYear=${academicYear}&month=${month}`);
-        return response.data;
-    },
 
     // ── Student Specific ──────────────────────────────────────────
     getMyFees: async (filters = {}) => {

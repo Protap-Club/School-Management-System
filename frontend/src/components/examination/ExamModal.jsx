@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { 
-    FaTimes, FaPlus, FaTrash, FaSave, FaCalendarAlt, FaClock, 
-    FaBookOpen, FaInfoCircle, FaCheckCircle, FaExclamationTriangle, FaUserGraduate
+    FaTimes, FaPlus, FaTrash, FaCalendarAlt, FaClock, 
+    FaBookOpen, FaInfoCircle, FaCheckCircle, FaExclamationTriangle
 } from 'react-icons/fa';
 import { useSchoolClasses } from '../../hooks/useSchoolClasses';
 import { ButtonSpinner } from '../../components/ui/Spinner';
@@ -88,6 +88,17 @@ const ExamModal = ({ isOpen, onClose, onSubmit, editData, isLoading, userRole, u
         }
         return allUniqueSections;
     }, [isTeacher, user, form.standard, getSectionsForStandard, allUniqueSections]);
+
+    useEffect(() => {
+        if (form.standard && !availableStandards.includes(form.standard)) {
+            setForm((prev) => ({ ...prev, standard: '', section: '' }));
+            return;
+        }
+
+        if (form.section && !availableSections.includes(form.section)) {
+            setForm((prev) => ({ ...prev, section: '' }));
+        }
+    }, [availableSections, availableStandards, form.section, form.standard]);
 
     // Initialize form with edit data or reset to initial
     useEffect(() => {

@@ -32,6 +32,16 @@ export const getUserById = asyncHandler(async (req, res) => {
     });
 });
 
+// Update a user (admin/super admin)
+export const updateUser = asyncHandler(async (req, res) => {
+    const result = await userService.updateUser(req.user, req.params.id, req.body);
+    res.status(200).json({
+        success: true,
+        message: "User updated successfully",
+        data: { user: result }
+    });
+});
+
 // Get own profile (accessible from both web and mobile)
 export const getMyProfile = asyncHandler(async (req, res) => {
     const result = await userService.getMyProfile(req.user._id);

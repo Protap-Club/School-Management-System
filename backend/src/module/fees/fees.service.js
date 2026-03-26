@@ -3,57 +3,26 @@ import { FeeStructure, FeeAssignment, FeePayment } from "./Fee.model.js";
 import { FeeType } from "./FeeType.model.js";
 import StudentProfile from "../user/model/StudentProfile.model.js";
 import TeacherProfile from "../user/model/TeacherProfile.model.js";
-import School from "../school/School.model.js";
 import { USER_ROLES } from "../../constants/userRoles.js";
 import { NotFoundError, ConflictError, BadRequestError, ForbiddenError } from "../../utils/customError.js";
 import logger from "../../config/logger.js";
+import {
+    assertClassSectionExists,
+    buildClassSectionKey,
+    getConfiguredClassSections,
+} from "../../utils/classSection.util.js";
 
 // ═══════════════════════════════════════════════════════════════
 // ADMIN — Fee Structure CRUD
 // ═══════════════════════════════════════════════════════════════
 
-const normalizeClassSection = ({ standard, section }) => ({
-    standard: String(standard || "").trim(),
-    section: String(section || "").trim().toUpperCase(),
-});
-
-const escapeRegex = (value) => String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-
-const assertValidClassSection = async (schoolId, standard, section) => {
-    const normalized = normalizeClassSection({ standard, section });
-    if (!normalized.standard || !normalized.section) {
-        throw new BadRequestError("Standard and section are required");
-    }
-
-    const [school, hasMatchingStudents] = await Promise.all([
-        School.findById(schoolId).select("academic.classSections").lean(),
-        StudentProfile.exists({
-            schoolId,
-            standard: new RegExp(`^${escapeRegex(normalized.standard)}$`, "i"),
-            section: new RegExp(`^${escapeRegex(normalized.section)}$`, "i"),
-        }),
-    ]);
-
-    const configuredPairs = school?.academic?.classSections || [];
-    const isConfigured = configuredPairs.some((pair) => {
-        const parsed = normalizeClassSection(pair || {});
-        return (
-            parsed.standard.toLowerCase() === normalized.standard.toLowerCase() &&
-            parsed.section === normalized.section
-        );
-    });
-
-    if (!isConfigured && !hasMatchingStudents) {
-        throw new BadRequestError(
-            `Class ${normalized.standard} - ${normalized.section} is not configured in School Settings`
-        );
-    }
-
-    return normalized;
-};
-
 export const createFeeStructure = async (schoolId, data, userId) => {
-    const normalizedClass = await assertValidClassSection(schoolId, data.standard, data.section);
+    const normalizedClass = await assertClassSectionExists(
+        schoolId,
+        data.standard,
+        data.section,
+        { message: "Class is not configured in School Settings" }
+    );
     const payload = {
         ...data,
         standard: normalizedClass.standard,
@@ -84,7 +53,7 @@ export const createFeeStructure = async (schoolId, data, userId) => {
     return structure;
 };
 
-export const getFeeStructures = async (schoolId, filters = {}, user = {}) => {
+export const getFeeStructures = async (schoolId, filters = {}) => {
     const query = { schoolId };
 
     // Admin filters
@@ -100,7 +69,7 @@ export const getFeeStructures = async (schoolId, filters = {}, user = {}) => {
         .lean();
 };
 
-export const updateFeeStructure = async (schoolId, id, data, user) => {
+export const updateFeeStructure = async (schoolId, id, data) => {
     // Prevent updating key fields that define uniqueness
     const { schoolId: _, feeType: __, standard: ___, section: ____, academicYear: _____, ...safeUpdates } = data;
 
@@ -117,7 +86,7 @@ export const updateFeeStructure = async (schoolId, id, data, user) => {
     return structure;
 };
 
-export const deleteFeeStructure = async (schoolId, id, user) => {
+export const deleteFeeStructure = async (schoolId, id) => {
     const query = { _id: id, schoolId };
 
     const structure = await FeeStructure.findOneAndDelete(query);
@@ -226,7 +195,7 @@ export const generateAssignments = async (schoolId, feeStructureId, month, year,
 // ADMIN — Assignment Management
 // ═══════════════════════════════════════════════════════════════
 
-export const updateAssignment = async (schoolId, assignmentId, data, user) => {
+export const updateAssignment = async (schoolId, assignmentId, data) => {
     const assignment = await FeeAssignment.findOne({ _id: assignmentId, schoolId });
     if (!assignment) throw new NotFoundError("Fee assignment not found");
 
@@ -265,7 +234,7 @@ const generateReceiptNumber = (schoolId) => {
     return `RCP - ${shortId} -${timestamp} `;
 };
 
-export const recordPayment = async (schoolId, assignmentId, paymentData, recordedBy, user) => {
+export const recordPayment = async (schoolId, assignmentId, paymentData, recordedBy) => {
     const assignment = await FeeAssignment.findOne({ _id: assignmentId, schoolId });
     if (!assignment) throw new NotFoundError("Fee assignment not found");
 
@@ -384,6 +353,7 @@ export const getClassFeeOverview = async (schoolId, academicYear, month, standar
 
 // All-classes summary for a specific month (Admin only)
 export const getAllClassesFeeOverview = async (schoolId, academicYear, month) => {
+    const { keySet } = await getConfiguredClassSections(schoolId);
     const assignments = await FeeAssignment.find({
         schoolId,
         academicYear: Number(academicYear),
@@ -397,6 +367,7 @@ export const getAllClassesFeeOverview = async (schoolId, academicYear, month) =>
     for (const a of assignments) {
         const fs = a.feeStructureId;
         if (!fs) continue;
+        if (!keySet.has(buildClassSectionKey(fs.standard, fs.section))) continue;
         const key = `${fs.standard}-${fs.section}`;
         if (!classMap[key]) {
             classMap[key] = {
@@ -447,8 +418,6 @@ export const getYearlyFeeSummary = async (schoolId, academicYear) => {
     })
         .populate("feeStructureId", "feeType name")
         .lean();
-
-    logger.info(`[DEBUG] getYearlyFeeSummary found ${assignments.length} assignments for year ${academicYear}`);
 
     // Group by month and type
     const monthMap = {};
@@ -528,7 +497,6 @@ export const getYearlyFeeSummary = async (schoolId, academicYear) => {
         ? Number(((yearTotal.totalCollected / yearTotal.totalDue) * 100).toFixed(2))
         : 0;
 
-    logger.info(`[DEBUG] getYearlyFeeSummary result breakdown count: ${monthlyBreakdown.length}, type count: ${typeBreakdown.length}`);
     return { academicYear: Number(academicYear), monthlyBreakdown, typeBreakdown, yearTotal };
 };
 

@@ -15,23 +15,18 @@ export const usersApi = {
         return response.data;
     },
 
-    getUserById: async (id) => {
-        const response = await api.get(`/users/${id}`);
-        return response.data;
-    },
-
     createUser: async (payload) => {
         const response = await api.post("/users", payload);
         return response.data;
     },
 
-    toggleArchive: async ({ userIds, isArchived }) => {
-        const response = await api.patch("/users/archive", { userIds, isArchived });
+    updateUser: async (id, payload) => {
+        const response = await api.patch(`/users/${id}`, payload);
         return response.data;
     },
 
-    getMyProfile: async () => {
-        const response = await api.get("/users/me/profile");
+    toggleArchive: async ({ userIds, isArchived }) => {
+        const response = await api.patch("/users/archive", { userIds, isArchived });
         return response.data;
     },
 };

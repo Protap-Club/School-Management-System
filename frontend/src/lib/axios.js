@@ -8,15 +8,39 @@ if (!API_BASE_URL) {
 }
 
 let accessToken = null;
+const accessTokenListeners = new Set();
+
+const notifyAccessTokenListeners = (token) => {
+    accessTokenListeners.forEach((listener) => {
+        try {
+            listener(token || null);
+        } catch (error) {
+            console.error('Access token listener failed', error);
+        }
+    });
+};
 
 export const setAccessToken = (token) => {
     accessToken = token || null;
+    notifyAccessTokenListeners(accessToken);
 };
 
 export const getAccessToken = () => accessToken;
 
 export const clearAccessToken = () => {
     accessToken = null;
+    notifyAccessTokenListeners(null);
+};
+
+export const subscribeAccessToken = (listener) => {
+    if (typeof listener !== 'function') {
+        return () => {};
+    }
+
+    accessTokenListeners.add(listener);
+    return () => {
+        accessTokenListeners.delete(listener);
+    };
 };
 
 const api = axios.create({

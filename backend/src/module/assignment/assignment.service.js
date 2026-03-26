@@ -2,10 +2,17 @@ import mongoose from "mongoose";
 import { Assignment } from "./Assignment.model.js";
 import { Submission } from "./Submission.model.js";
 import StudentProfile from "../user/model/StudentProfile.model.js";
+import { Timetable, TimetableEntry } from "../timetable/Timetable.model.js";
 import { BadRequestError, NotFoundError, ForbiddenError } from "../../utils/customError.js";
 import { deleteFromCloudinary } from "../../middlewares/upload.middleware.js";
 import { USER_ROLES } from "../../constants/userRoles.js";
 import logger from "../../config/logger.js";
+import {
+    assertClassSectionExists,
+    buildClassSectionKey,
+    getConfiguredClassSections,
+    normalizeClassSection,
+} from "../../utils/classSection.util.js";
 
 const isAdminRole = (role) => [USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN].includes(role);
 
@@ -110,6 +117,20 @@ const normalizeBoolean = (value, defaultValue = false) => {
 
 const escapeRegExp = (value = "") => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
+const sortAlphaNumeric = (items = []) =>
+    [...items].sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: "base" }));
+
+const getConfiguredClassSectionContext = async (schoolId) => {
+    const { classSections, keySet } = await getConfiguredClassSections(schoolId);
+    return { classSections, keySet };
+};
+
+const assertClassSectionConfigured = async (schoolId, standard, section) => {
+    return assertClassSectionExists(schoolId, standard, section, {
+        message: "Selected class-section is not configured in Settings",
+    });
+};
+
 const assertCanManageAssignment = (role) => {
     if (![USER_ROLES.TEACHER, USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN].includes(role)) {
         throw new ForbiddenError("You do not have permission to manage assignments");
@@ -188,16 +209,18 @@ const buildAssignmentSummaryMap = async (assignmentIds = []) => {
 };
 
 export const createAssignment = async (schoolId, userId, body, files) => {
-    let { standard, section, subject } = body;
+    const { subject } = body;
     const dueDate = assertFutureDueDate(body.dueDate);
 
     if (!subject) {
         throw new BadRequestError("Subject is required");
     }
 
-    if (!standard || !section) {
+    if (!body.standard || !body.section) {
         throw new BadRequestError("Standard and section are required");
     }
+
+    const normalizedClassSection = await assertClassSectionConfigured(schoolId, body.standard, body.section);
 
     const assignment = await Assignment.create({
         schoolId,
@@ -205,8 +228,8 @@ export const createAssignment = async (schoolId, userId, body, files) => {
         title: body.title,
         description: body.description || "",
         subject,
-        standard,
-        section,
+        standard: normalizedClassSection.standard,
+        section: normalizedClassSection.section,
         dueDate,
         attachments: mapFiles(files),
         requiresSubmission: normalizeBoolean(body.requiresSubmission, false),
@@ -697,7 +720,7 @@ export const getMySubmission = async (schoolId, assignmentId, studentId) => {
     return formatSubmission(submission);
 };
 
-export const listSubmissions = async (schoolId, assignmentId, role) => {
+export const listSubmissions = async (schoolId, assignmentId) => {
     if (!mongoose.Types.ObjectId.isValid(assignmentId)) {
         throw new BadRequestError("Invalid assignment ID");
     }
@@ -761,37 +784,7 @@ export const listSubmissions = async (schoolId, assignmentId, role) => {
 };
 
 export const getAssignmentMetadata = async (schoolId) => {
-    let entries = [];
-    let allTimetablesForAdmin = [];
-    let profileClasses = [];
-    let assignments = [];
-
-    const { Timetable, TimetableEntry } = await import("../timetable/Timetable.model.js");
-
-    const [foundEntries, foundTimetables, foundAssignments, studentClasses] = await Promise.all([
-        TimetableEntry.find({ schoolId })
-            .populate({
-                path: "timetableId",
-                select: "standard section",
-            })
-            .lean(),
-        Timetable.find({ schoolId }).lean(),
-        Assignment.find({ schoolId })
-            .select("standard section subject")
-            .lean(),
-        StudentProfile.aggregate([
-            { $match: { schoolId: new mongoose.Types.ObjectId(schoolId) } },
-            { $group: { _id: { standard: "$standard", section: "$section" } } },
-        ]),
-    ]);
-
-    entries = foundEntries;
-    allTimetablesForAdmin = foundTimetables;
-    assignments = foundAssignments;
-    profileClasses = studentClasses.map((c) => ({
-        standard: c._id.standard,
-        section: c._id.section,
-    }));
+    const { classSections, keySet } = await getConfiguredClassSectionContext(schoolId);
 
     const standards = new Set();
     const sections = new Set();
@@ -801,9 +794,7 @@ export const getAssignmentMetadata = async (schoolId) => {
         sectionSubjects: {},
     };
 
-    profileClasses.forEach(({ standard, section, subjects: profileSubjects = [] }) => {
-        if (!standard || !section) return;
-
+    classSections.forEach(({ standard, section }) => {
         standards.add(standard);
         sections.add(section);
 
@@ -813,80 +804,61 @@ export const getAssignmentMetadata = async (schoolId) => {
         mappings.classSections[standard].add(section);
 
         const key = `${standard}-${section}`;
-        if (!mappings.sectionSubjects[key]) {
-            mappings.sectionSubjects[key] = new Set();
-        }
-
-        profileSubjects.forEach((subject) => {
-            if (!subject) return;
-            subjects.add(subject);
-            mappings.sectionSubjects[key].add(subject);
-        });
+        mappings.sectionSubjects[key] = new Set();
     });
 
-    allTimetablesForAdmin.forEach((timetable) => {
-        const standard = timetable.standard;
-        const section = timetable.section;
-        if (!standard || !section) return;
+    const timetables = await Timetable.find({ schoolId })
+        .select("_id standard section")
+        .lean();
 
-        standards.add(standard);
-        sections.add(section);
+    const timetableClassMap = new Map();
+    for (const timetable of timetables) {
+        const normalized = normalizeClassSection(timetable);
+        const key = buildClassSectionKey(normalized.standard, normalized.section);
+        if (!keySet.has(key)) continue;
+        timetableClassMap.set(String(timetable._id), normalized);
+    }
 
-        if (!mappings.classSections[standard]) {
-            mappings.classSections[standard] = new Set();
-        }
-        mappings.classSections[standard].add(section);
-    });
+    const allowedTimetableIds = [...timetableClassMap.keys()]
+        .filter((id) => mongoose.Types.ObjectId.isValid(id))
+        .map((id) => new mongoose.Types.ObjectId(id));
+
+    const [entries, assignments] = await Promise.all([
+        allowedTimetableIds.length
+            ? TimetableEntry.find({ schoolId, timetableId: { $in: allowedTimetableIds } })
+                .select("timetableId subject")
+                .lean()
+            : [],
+        Assignment.find({ schoolId })
+            .select("standard section subject")
+            .lean(),
+    ]);
 
     entries.forEach((entry) => {
-        const standard = entry.timetableId?.standard;
-        const section = entry.timetableId?.section;
-        const subject = entry.subject;
+        const timetableClass = timetableClassMap.get(String(entry.timetableId));
+        if (!timetableClass || !entry.subject) return;
 
-        if (!standard || !section) return;
-
-        standards.add(standard);
-        sections.add(section);
-        if (subject) subjects.add(subject);
-
-        if (!mappings.classSections[standard]) {
-            mappings.classSections[standard] = new Set();
-        }
-        mappings.classSections[standard].add(section);
-
-        const key = `${standard}-${section}`;
-        if (!mappings.sectionSubjects[key]) {
-            mappings.sectionSubjects[key] = new Set();
-        }
-        if (subject) mappings.sectionSubjects[key].add(subject);
+        subjects.add(entry.subject);
+        const mapKey = `${timetableClass.standard}-${timetableClass.section}`;
+        mappings.sectionSubjects[mapKey]?.add(entry.subject);
     });
 
-    assignments.forEach(({ standard, section, subject }) => {
-        if (!standard || !section) return;
+    assignments.forEach((assignment) => {
+        const normalized = normalizeClassSection(assignment);
+        if (!normalized.standard || !normalized.section || !assignment.subject) return;
 
-        standards.add(standard);
-        sections.add(section);
+        const key = buildClassSectionKey(normalized.standard, normalized.section);
+        if (!keySet.has(key)) return;
 
-        if (!mappings.classSections[standard]) {
-            mappings.classSections[standard] = new Set();
-        }
-        mappings.classSections[standard].add(section);
-
-        const key = `${standard}-${section}`;
-        if (!mappings.sectionSubjects[key]) {
-            mappings.sectionSubjects[key] = new Set();
-        }
-
-        if (subject) {
-            subjects.add(subject);
-            mappings.sectionSubjects[key].add(subject);
-        }
+        subjects.add(assignment.subject);
+        const mapKey = `${normalized.standard}-${normalized.section}`;
+        mappings.sectionSubjects[mapKey]?.add(assignment.subject);
     });
 
     const result = {
-        standards: Array.from(standards).sort((a, b) => (parseInt(a, 10) || 0) - (parseInt(b, 10) || 0)),
-        sections: Array.from(sections).sort(),
-        subjects: Array.from(subjects).sort(),
+        standards: sortAlphaNumeric(Array.from(standards)),
+        sections: sortAlphaNumeric(Array.from(sections)),
+        subjects: sortAlphaNumeric(Array.from(subjects)),
         mappings: {
             classSections: {},
             sectionSubjects: {},
@@ -894,11 +866,11 @@ export const getAssignmentMetadata = async (schoolId) => {
     };
 
     Object.keys(mappings.classSections).forEach((standard) => {
-        result.mappings.classSections[standard] = Array.from(mappings.classSections[standard]).sort();
+        result.mappings.classSections[standard] = sortAlphaNumeric(Array.from(mappings.classSections[standard]));
     });
 
     Object.keys(mappings.sectionSubjects).forEach((key) => {
-        result.mappings.sectionSubjects[key] = Array.from(mappings.sectionSubjects[key]).sort();
+        result.mappings.sectionSubjects[key] = sortAlphaNumeric(Array.from(mappings.sectionSubjects[key]));
     });
 
     return result;
