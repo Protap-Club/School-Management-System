@@ -1,12 +1,10 @@
 import { CalendarEvent } from "./calendar.model.js";
 import StudentProfile from "../user/model/StudentProfile.model.js";
 import TeacherProfile from "../user/model/TeacherProfile.model.js";
-import School from "../school/School.model.js";
 import logger from "../../config/logger.js";
 import { ConflictError, NotFoundError, BadRequestError, ForbiddenError } from "../../utils/customError.js";
 import { USER_ROLES } from "../../constants/userRoles.js";
-
-const escapeRegex = (value) => String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+import { assertClassSectionListExists } from "../../utils/classSection.util.js";
 
 const parseClassKey = (value) => {
     const raw = String(value || "").trim();
@@ -66,35 +64,16 @@ const validateTargetClasses = async (schoolId, targetClasses = [], { requireNonE
     }
     if (normalizedKeys.length === 0) return [];
 
-    const classFilters = parsedPairs.map(({ standard, section }) => ({
+    const validatedPairs = await assertClassSectionListExists(
         schoolId,
-        standard: new RegExp(`^${escapeRegex(standard)}$`, "i"),
-        section: new RegExp(`^${escapeRegex(section)}$`, "i"),
-    }));
+        parsedPairs.map(({ standard, section }) => ({ standard, section })),
+        {
+            requireNonEmpty,
+            message: `Invalid class/section: ${normalizedKeys.join(", ")}`,
+        }
+    );
 
-    const [school, existingProfiles] = await Promise.all([
-        School.findById(schoolId).select("academic.classSections").lean(),
-        StudentProfile.find({ schoolId, $or: classFilters }).select("standard section").lean(),
-    ]);
-
-    const validKeys = new Set();
-
-    (school?.academic?.classSections || []).forEach((pair) => {
-        const parsed = parseClassKey(`${pair?.standard}-${pair?.section}`);
-        if (parsed) validKeys.add(parsed.key);
-    });
-
-    existingProfiles.forEach((profile) => {
-        const parsed = parseClassKey(`${profile?.standard}-${profile?.section}`);
-        if (parsed) validKeys.add(parsed.key);
-    });
-
-    const invalid = normalizedKeys.filter((key) => !validKeys.has(key));
-    if (invalid.length) {
-        throw new BadRequestError(`Invalid class/section: ${invalid.join(", ")}`);
-    }
-
-    return normalizedKeys;
+    return validatedPairs.map((item) => `${item.standard}-${item.section}`);
 };
 
 // Create a new calendar event
