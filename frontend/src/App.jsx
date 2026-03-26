@@ -8,7 +8,7 @@ import { pages, PageLoader } from './routes';
 
 function App() {
     // Destructure lazy-loaded page components
-    const { Login, Dashboard, UsersPage, Settings, Attendance, Notice, TimetablePage, Calendar, Notifications, Fees, Examination, Assignments, Result, Profile } = pages;
+    const { Login, Dashboard, UsersPage, Settings, Attendance, Notice, TimetablePage, Calendar, Notifications, Fees, Examination, Assignments, Result } = pages;
 
     const rolePathMap = {
         super_admin: 'superadmin',
@@ -43,7 +43,6 @@ function App() {
         { suffix: 'result', roles: ['super_admin', 'admin', 'teacher'], component: <Result />, feature: 'result' },
         { suffix: 'assignments', roles: ['super_admin'], component: <Assignments />, feature: 'assignment' },
         { suffix: 'assignments', roles: ['admin', 'teacher'], component: <Assignments /> },
-        { suffix: 'profile', roles: ['super_admin', 'admin', 'teacher'], component: <Profile /> },
     ];
 
     return (
