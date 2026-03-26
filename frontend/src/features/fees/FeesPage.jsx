@@ -25,7 +25,8 @@ import { StaffOverviewPanel, StaffYearlySummaryPanel } from './components/AdminS
 import {
     FaPlus, FaEdit, FaTrash, FaTrashAlt, FaBolt, FaTimes, FaCheck, FaMoneyBillWave,
     FaChartBar, FaListAlt, FaEye, FaFilter, FaArrowLeft, FaArrowRight, FaReceipt, FaBan, FaHistory,
-    FaWallet, FaCalendarCheck, FaSearch, FaUser, FaFileInvoice, FaCalendarAlt, FaDownload, FaEllipsisV
+    FaWallet, FaCalendarCheck, FaSearch, FaUser, FaFileInvoice, FaCalendarAlt, FaDownload, FaEllipsisV,
+    FaMoneyCheckAlt
 } from 'react-icons/fa';
 import { generateFeeReport, generateSalaryReceipt } from '../../utils/pdfGenerator';
 import { generateFeeExcel } from '../../utils/excelGenerator';
@@ -410,9 +411,14 @@ const FeesPage = () => {
 
             <div className="space-y-6">
                 {/* Header */}
-                <div>
-                    <h1 className="text-3xl font-bold text-gray-900">Fee Management</h1>
-                    <p className="text-gray-500 mt-1">Configure structures, track collections, and manage staff payouts</p>
+                <div className="flex items-center gap-6 mb-8">
+                    <div className="w-16 h-16 bg-white rounded-2xl shadow-lg flex items-center justify-center text-primary transform hover:rotate-6 transition-transform">
+                        <FaMoneyCheckAlt size={32} />
+                    </div>
+                    <div className="space-y-1">
+                        <h1 className="text-3xl font-bold text-gray-900">Fee Management</h1>
+                        <p className="text-gray-500 mt-1">Configure structures, track collections, and manage staff payouts</p>
+                    </div>
                 </div>
 
                 {/* Tabs */}
