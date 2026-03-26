@@ -2,10 +2,11 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import { useAuth } from '../auth';
-import { FaChevronLeft, FaChevronRight, FaCalendarAlt, FaPlus, FaTrash, FaTimes, FaClock, FaTag, FaUmbrellaBeach, FaUsers, FaEdit } from 'react-icons/fa';
+import { FaChevronLeft, FaChevronRight, FaCalendarAlt, FaPlus, FaTrash, FaTimes, FaClock, FaUmbrellaBeach, FaUsers, FaEdit } from 'react-icons/fa';
 import api from '../../lib/axios';
 import { ButtonSpinner } from '../../components/ui/Spinner';
 import { useToastMessage } from '../../hooks/useToastMessage';
+import { useSchoolClasses } from '../../hooks/useSchoolClasses';
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const TYPE_CONFIG = {
@@ -40,8 +41,6 @@ const loadFormFromEvent = (event) => {
   };
 };
 
-const INPUT_CLASS = 'w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-sm';
-
 const CalendarPage = () => {
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin' || user?.role === 'super_admin';
@@ -66,13 +65,13 @@ const CalendarPage = () => {
   const [classes, setClasses] = useState([]);
   const [availableClasses, setAvailableClasses] = useState({ standards: [], sections: [], classSections: [] });
   const [adminClassInput, setAdminClassInput] = useState({ standard: '', section: '' });
+  const { payload: adminSchoolClasses } = useSchoolClasses({ enabled: canEdit && isAdmin });
 
   // Fetch classes for dropdown based on role
   useEffect(() => {
     if (!canEdit) return;
     
-    // Teachers fetch ONLY their assigned classes from their profile
-    // Admins fetch ALL school classes from timetables API
+    // Teachers fetch ONLY their assigned classes from their profile.
     if (isTeacher) {
       api.get('/users/me/profile')
         .then(res => {
@@ -87,22 +86,21 @@ const CalendarPage = () => {
           );
         })
         .catch(() => {});
-    } else {
-      api.get('/school/classes')
-        .then(res => {
-          const data = res.data?.data || { standards: [], sections: [], classSections: [] };
-          setAvailableClasses({
-            standards: (data.standards || []).map(v => String(v)),
-            sections: (data.sections || []).map(v => String(v).toUpperCase()),
-            classSections: (data.classSections || []).map(c => ({
-              standard: String(c.standard),
-              section: String(c.section).toUpperCase(),
-            })),
-          });
-        })
-        .catch(() => {});
     }
   }, [canEdit, isTeacher]);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+
+    setAvailableClasses({
+      standards: (adminSchoolClasses?.standards || []).map(v => String(v)),
+      sections: (adminSchoolClasses?.sections || []).map(v => String(v).toUpperCase()),
+      classSections: (adminSchoolClasses?.classSections || []).map(c => ({
+        standard: String(c.standard),
+        section: String(c.section).toUpperCase(),
+      })),
+    });
+  }, [adminSchoolClasses, isAdmin]);
 
   const normalizedStandard = adminClassInput.standard.trim();
   const normalizedSection = adminClassInput.section.trim().toUpperCase();
