@@ -18,7 +18,6 @@ const Fees = lazy(() => import('../pages/Fees'));
 const Examination = lazy(() => import('../pages/Examination'));
 const Assignments = lazy(() => import('../features/assignment/AssignmentPage'));
 const Result = lazy(() => import('../pages/Result'));
-
 // Loading fallback component
 const PageLoader = () => (
     <div className="flex items-center justify-center min-h-screen">
