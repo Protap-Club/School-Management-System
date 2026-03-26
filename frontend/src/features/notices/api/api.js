@@ -45,52 +45,6 @@ export const noticesApi = {
         return response.data;
     },
 
-    // Get classes list (derived from timetable data)
-    getClasses: async () => {
-        try {
-            const response = await api.get('/timetables');
-            const timetables = response.data?.data || [];
-            // Transform timetable data into class options
-            const classOptions = timetables.map(t => ({
-                standard: t.standard,
-                section: t.section,
-                value: `${t.standard}-${t.section}`,
-                label: `Class ${t.standard} - Section ${t.section}`
-            }));
-
-            const normalize = (val) => {
-                const num = Number(val);
-                return Number.isNaN(num) ? null : num;
-            };
-
-            classOptions.sort((a, b) => {
-                const aStdNum = normalize(a.standard);
-                const bStdNum = normalize(b.standard);
-                if (aStdNum !== null && bStdNum !== null && aStdNum !== bStdNum) {
-                    return aStdNum - bStdNum;
-                }
-                const stdCompare = String(a.standard ?? '').localeCompare(
-                    String(b.standard ?? ''),
-                    undefined,
-                    { numeric: true, sensitivity: 'base' }
-                );
-                if (stdCompare !== 0) return stdCompare;
-                return String(a.section ?? '').localeCompare(
-                    String(b.section ?? ''),
-                    undefined,
-                    { numeric: true, sensitivity: 'base' }
-                );
-            });
-
-            return {
-                success: true,
-                data: classOptions.map(({ value, label }) => ({ value, label }))
-            };
-        } catch {
-            return { success: true, data: [] };
-        }
-    },
-
     // Get students list
     // Bug 4 fix: Use /notices/my-students instead of /users?role=student&pageSize=100
     // The old endpoint was capped at 100 records — teachers with >100 students (e.g. Priya with 122)

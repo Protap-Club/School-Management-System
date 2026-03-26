@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSelector } from 'react-redux';
 import { noticesApi } from './api';
 import { selectAccessToken } from '../../auth/authSlice';
+import { useSchoolClasses } from '../../../hooks/useSchoolClasses';
 
 export const noticeKeys = {
     all: ['notices'],
@@ -10,7 +11,6 @@ export const noticeKeys = {
     list: (filters) => [...noticeKeys.lists(), filters],
     detail: (id) => [...noticeKeys.all, 'detail', id],
     groups: () => [...noticeKeys.all, 'groups'],
-    classes: () => [...noticeKeys.all, 'classes'],
     students: () => [...noticeKeys.all, 'students'],
     teachers: () => [...noticeKeys.all, 'teachers'],
     allUsers: (filters = {}) => [...noticeKeys.all, 'allUsers', filters],
@@ -78,11 +78,18 @@ export const useDeleteNotice = () => {
 // Get classes
 export const useClasses = (enabled = true) => {
     const queryEnabled = useProtectedQueryEnabled(enabled);
-    return useQuery({
-        queryKey: noticeKeys.classes(),
-        queryFn: noticesApi.getClasses,
-        enabled: queryEnabled,
-    });
+    const schoolClasses = useSchoolClasses({ enabled: queryEnabled });
+
+    return {
+        ...schoolClasses,
+        data: {
+            success: true,
+            data: schoolClasses.classSections.map((pair) => ({
+                value: `${pair.standard}-${pair.section}`,
+                label: `Class ${pair.standard} - Section ${pair.section}`,
+            })),
+        },
+    };
 };
 
 // Get students
