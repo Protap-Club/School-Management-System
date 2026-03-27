@@ -5,6 +5,8 @@ import {
 import { useUpdateUser, useUsers } from '../api/queries';
 import { useSchoolClasses } from '../../../hooks/useSchoolClasses';
 
+const LIGHT_SELECT_CLASS = 'w-full bg-white text-gray-900 rounded px-2 py-1.5 text-xs font-black outline-none border border-gray-100 focus:border-blue-300 transition-all';
+
 const naturalSort = (arr) => {
   return [...arr].sort((a, b) => {
     return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
@@ -65,19 +67,15 @@ const UserDetailModal = ({ user, onClose, initialMode = 'view', onSuccess }) => 
     return new Set(
       (teachersQuery.data?.data?.users || [])
         .filter((teacher) => String(teacher._id) !== String(user?._id))
-        .flatMap((teacher) => (teacher.profile?.assignedClasses || []).map((item) => buildClassKey(item)))
+        .map((teacher) => teacher.profile?.assignedClasses?.[0])
+        .filter(Boolean)
+        .map((item) => buildClassKey(item))
     );
   }, [teachersQuery.data?.data?.users, user?._id]);
-  const teacherAssignableClassSections = useMemo(
-    () => classSections.filter((pair) => !occupiedTeacherClassKeys.has(buildClassKey(pair)) || currentTeacherClassKeys.has(buildClassKey(pair))),
-    [classSections, currentTeacherClassKeys, occupiedTeacherClassKeys]
-  );
-
   const classSectionsMap = useMemo(() => {
     const map = {};
 
-    const sourcePairs = isTeacher ? teacherAssignableClassSections : classSections;
-    sourcePairs.forEach((pair) => {
+    classSections.forEach((pair) => {
       const standard = String(pair?.standard || '').trim();
       const section = String(pair?.section || '').trim().toUpperCase();
       if (!standard || !section) return;
@@ -88,7 +86,7 @@ const UserDetailModal = ({ user, onClose, initialMode = 'view', onSuccess }) => 
     return Object.fromEntries(
       Object.entries(map).map(([standard, sections]) => [standard, naturalSort(Array.from(sections))])
     );
-  }, [classSections, isTeacher, teacherAssignableClassSections]);
+  }, [classSections]);
 
   const standards = useMemo(
     () => naturalSort(Object.keys(classSectionsMap)),
@@ -351,7 +349,8 @@ const UserDetailModal = ({ user, onClose, initialMode = 'view', onSuccess }) => 
                       </div>
                       {isEditing ? (
                         <select
-                          className="w-full bg-gray-50 rounded px-2 py-1 text-xs font-black outline-none border border-gray-100 focus:border-blue-300 transition-all"
+                          className="w-full bg-white text-gray-900 rounded px-2 py-1 text-xs font-black outline-none border border-gray-100 focus:border-blue-300 transition-all"
+                          style={{ colorScheme: 'light' }}
                           value={formData.profile?.standard}
                           onChange={(e) => {
                             const nextStandard = e.target.value;
@@ -363,8 +362,8 @@ const UserDetailModal = ({ user, onClose, initialMode = 'view', onSuccess }) => 
                             });
                           }}
                         >
-                          <option value="" disabled hidden>Standard</option>
-                          {standards.map(std => <option key={std} value={std}>{std}</option>)}
+                          <option value="">Standard</option>
+                          {standards.map(std => <option key={std} value={std} className="bg-white text-gray-900">{std}</option>)}
                         </select>
                       ) : (
                         <span className="text-sm font-black text-gray-900">{formData.profile?.standard || 'N/A'}</span>
@@ -377,12 +376,13 @@ const UserDetailModal = ({ user, onClose, initialMode = 'view', onSuccess }) => 
                       </div>
                       {isEditing ? (
                         <select
-                          className="w-full bg-gray-50 rounded px-2 py-1 text-xs font-black outline-none border border-gray-100 focus:border-blue-300 transition-all"
+                          className="w-full bg-white text-gray-900 rounded px-2 py-1 text-xs font-black outline-none border border-gray-100 focus:border-blue-300 transition-all"
+                          style={{ colorScheme: 'light' }}
                           value={formData.profile?.section}
                           onChange={(e) => setFormData({ ...formData, profile: { ...formData.profile, section: e.target.value } })}
                         >
-                          <option value="" disabled hidden>Section</option>
-                          {sections.map(sec => <option key={sec} value={sec}>{sec}</option>)}
+                          <option value="">Section</option>
+                          {sections.map(sec => <option key={sec} value={sec} className="bg-white text-gray-900">{sec}</option>)}
                         </select>
                       ) : (
                         <span className="text-sm font-black text-gray-900">{formData.profile?.section || 'N/A'}</span>
@@ -401,7 +401,8 @@ const UserDetailModal = ({ user, onClose, initialMode = 'view', onSuccess }) => 
                     {isEditing && (
                       <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-2 items-center mb-3">
                         <select
-                          className="w-full bg-gray-50 rounded px-2 py-1.5 text-xs font-black outline-none border border-gray-100 focus:border-blue-300 transition-all"
+                          className={LIGHT_SELECT_CLASS}
+                          style={{ colorScheme: 'light' }}
                           value={teacherClassDraft.standard}
                           onChange={(e) => {
                             const nextStandard = e.target.value;
@@ -409,17 +410,18 @@ const UserDetailModal = ({ user, onClose, initialMode = 'view', onSuccess }) => 
                             setTeacherClassDraft({ standard: nextStandard, section: nextSection });
                           }}
                         >
-                          <option value="" disabled hidden>Standard</option>
-                          {standards.map(std => <option key={std} value={std}>{std}</option>)}
+                          <option value="">Standard</option>
+                          {standards.map(std => <option key={std} value={std} className="bg-white text-gray-900">{std}</option>)}
                         </select>
                         <select
-                          className="w-full bg-gray-50 rounded px-2 py-1.5 text-xs font-black outline-none border border-gray-100 focus:border-blue-300 transition-all"
+                          className={LIGHT_SELECT_CLASS}
+                          style={{ colorScheme: 'light' }}
                           value={teacherClassDraft.section}
                           onChange={(e) => setTeacherClassDraft((prev) => ({ ...prev, section: e.target.value }))}
                           disabled={!teacherSelectedStandard}
                         >
-                          <option value="" disabled hidden>Section</option>
-                          {teacherSections.map(sec => <option key={sec} value={sec}>{sec}</option>)}
+                          <option value="">Section</option>
+                          {teacherSections.map(sec => <option key={sec} value={sec} className="bg-white text-gray-900">{sec}</option>)}
                         </select>
                         <button
                           type="button"

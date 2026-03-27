@@ -24,7 +24,17 @@ const InputField = ({ label, name, value, onChange, type = "text", required = fa
     </div>
 );
 
-const SelectField = ({ label, name, value, onChange, options, placeholder, required = false, loading = false }) => (
+const SelectField = ({
+    label,
+    name,
+    value,
+    onChange,
+    options,
+    placeholder,
+    required = false,
+    loading = false,
+    disabled = false
+}) => (
     <div className="space-y-1">
         <label className="text-sm font-medium text-gray-700 flex items-center gap-1">
             {label} {required && <span className="text-red-500">*</span>}
@@ -34,12 +44,13 @@ const SelectField = ({ label, name, value, onChange, options, placeholder, requi
             value={value}
             onChange={onChange}
             required={required}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all bg-white disabled:opacity-60"
-            disabled={loading}
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all bg-white text-gray-900 disabled:bg-gray-100 disabled:text-gray-500 disabled:opacity-100"
+            disabled={disabled}
+            style={{ colorScheme: 'light' }}
         >
-            <option value="" disabled hidden>{loading ? 'Loading...' : `Select ${label}`}</option>
+            <option value="">{loading ? 'Loading...' : (placeholder || `Select ${label}`)}</option>
             {options.map(opt => (
-                <option key={opt} value={opt}>{opt}</option>
+                <option key={opt} value={opt} className="bg-white text-gray-900">{opt}</option>
             ))}
         </select>
     </div>
@@ -84,32 +95,19 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
     const { loading: classesLoading, classSections, availableStandards: standards, getSectionsForStandard, allUniqueSections } = useSchoolClasses();
     const occupiedTeacherClassKeys = useMemo(() => {
         return new Set(
-            (teachersQuery.data?.data?.users || []).flatMap((teacher) =>
-                (teacher.profile?.assignedClasses || []).map((assignedClass) => buildClassKey(assignedClass))
-            )
+            (teachersQuery.data?.data?.users || [])
+                .map((teacher) => teacher.profile?.assignedClasses?.[0])
+                .filter(Boolean)
+                .map((assignedClass) => buildClassKey(assignedClass))
         );
     }, [teachersQuery.data?.data?.users]);
-    const availableTeacherClassSections = useMemo(
-        () => classSections.filter((item) => !occupiedTeacherClassKeys.has(buildClassKey(item))),
-        [classSections, occupiedTeacherClassKeys]
+    const selectedTeacherClassOccupied = useMemo(
+        () => roleToAdd === 'teacher' && formData.standard && formData.section
+            ? occupiedTeacherClassKeys.has(buildClassKey({ standard: formData.standard, section: formData.section }))
+            : false,
+        [formData.section, formData.standard, occupiedTeacherClassKeys, roleToAdd]
     );
-    const teacherAvailableStandards = useMemo(
-        () => [...new Set(availableTeacherClassSections.map((item) => String(item.standard)))],
-        [availableTeacherClassSections]
-    );
-    const teacherAvailableSections = useMemo(() => {
-        if (!formData.standard) {
-            return [...new Set(availableTeacherClassSections.map((item) => String(item.section)))];
-        }
-
-        return availableTeacherClassSections
-            .filter((item) => String(item.standard) === String(formData.standard))
-            .map((item) => String(item.section));
-    }, [availableTeacherClassSections, formData.standard]);
-    const sections = roleToAdd === 'teacher'
-        ? teacherAvailableSections
-        : (formData.standard ? getSectionsForStandard(formData.standard) : allUniqueSections);
-    const activeStandards = roleToAdd === 'teacher' ? teacherAvailableStandards : standards;
+    const sections = formData.standard ? getSectionsForStandard(formData.standard) : allUniqueSections;
     const teacherAssignmentLoading = classesLoading || teachersQuery.isLoading;
 
     const roleLabel = roleToAdd?.charAt(0).toUpperCase() + roleToAdd?.slice(1);
@@ -141,19 +139,6 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
         fetchSchoolDetails();
     }, [isOpen, user, roleToAdd]);
 
-    useEffect(() => {
-        if (roleToAdd !== 'teacher') return;
-
-        if (formData.standard && !teacherAvailableStandards.includes(formData.standard)) {
-            setFormData((current) => ({ ...current, standard: '', section: '' }));
-            return;
-        }
-
-        if (formData.section && !teacherAvailableSections.includes(formData.section)) {
-            setFormData((current) => ({ ...current, section: '' }));
-        }
-    }, [formData.section, formData.standard, roleToAdd, teacherAvailableSections, teacherAvailableStandards]);
-
     if (!isOpen) return null;
 
     const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -175,6 +160,11 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
             if (roleToAdd === 'admin') {
                 if (formData.department) payload.department = formData.department;
             } else if (roleToAdd === 'teacher') {
+                if (formData.standard && formData.section && selectedTeacherClassOccupied) {
+                    setError('A class teacher is already assigned to this class. Please choose another class or replace the existing teacher first.');
+                    setLoading(false);
+                    return;
+                }
                 if (formData.standard) payload.standard = formData.standard;
                 if (formData.section) payload.section = formData.section;
                 if (formData.expectedSalary !== '') {
@@ -271,14 +261,16 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
                                     <SelectField
                                         label="Primary Standard" name="standard" value={formData.standard}
                                         onChange={handleChange} required
-                                        options={activeStandards} placeholder="Choose Class"
-                                        loading={teacherAssignmentLoading}
+                                        options={standards} placeholder="Choose Standard"
+                                        loading={classesLoading}
+                                        disabled={classesLoading}
                                     />
                                     <SelectField
                                         label="Primary Section" name="section" value={formData.section}
                                         onChange={handleChange} required
                                         options={sections} placeholder="Choose Section"
-                                        loading={teacherAssignmentLoading}
+                                        loading={classesLoading}
+                                        disabled={classesLoading || !formData.standard}
                                     />
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -288,10 +280,10 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
                                 </div>
                                 <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
                                     {teacherAssignmentLoading
-                                        ? 'Checking which classes already have a class teacher...'
-                                        : availableTeacherClassSections.length === 0
-                                            ? 'Every configured class already has a class teacher. Remove or replace an existing class teacher before creating a new one.'
-                                            : 'Only classes without an active class teacher are selectable here.'}
+                                        ? 'Checking current class-teacher assignments...'
+                                        : selectedTeacherClassOccupied
+                                            ? 'This selected class already has a class teacher. Saving will be blocked until you choose a free class.'
+                                            : 'All configured classes are visible here. If a class already has a class teacher, saving will show a clear message.'}
                                 </div>
                             </div>
                         )}
@@ -307,12 +299,14 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
                                         onChange={handleChange} required
                                         options={standards}
                                         loading={classesLoading}
+                                        disabled={classesLoading}
                                     />
                                     <SelectField
                                         label="Section" name="section" value={formData.section}
                                         onChange={handleChange} required
                                         options={sections}
                                         loading={classesLoading}
+                                        disabled={classesLoading || !formData.standard}
                                     />
                                 </div>
                             </div>
