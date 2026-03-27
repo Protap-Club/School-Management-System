@@ -154,3 +154,11 @@ export const updateUserSchema = z.object({
         profile: profileUpdateSchema.optional(),
     }).strict(),
 });
+
+export const replaceClassTeacherSchema = z.object({
+    body: z.object({
+        standard: z.string().min(1, 'Standard is required'),
+        section: z.string().min(1, 'Section is required'),
+        replacementTeacherId: objectIdSchema,
+    }).strict(),
+});

@@ -89,3 +89,12 @@ export const updateTeacherProfile = asyncHandler(async (req, res) => {
         data: result
     });
 });
+
+export const replaceClassTeacher = asyncHandler(async (req, res) => {
+    const result = await userService.replaceClassTeacher(req.user, req.body);
+    res.status(200).json({
+        success: true,
+        message: "Class teacher replaced successfully",
+        data: result
+    });
+});

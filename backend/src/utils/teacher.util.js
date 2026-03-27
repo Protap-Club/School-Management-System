@@ -48,6 +48,9 @@ export const normalizeTeacherAssignedClasses = (items = []) => {
 export const mergeTeacherAssignedClasses = (existing = [], incoming = []) =>
     normalizeTeacherAssignedClasses([...(existing || []), ...(incoming || [])]);
 
+export const getPrimaryTeacherAssignedClass = (items = []) =>
+    normalizeTeacherAssignedClasses(items)[0] || null;
+
 export const ensureActiveTeacher = async (schoolId, teacherId, options = {}) => {
     const { message = "Replacement teacher not found or is inactive" } = options;
 
@@ -77,8 +80,10 @@ export const findTeacherClassConflicts = async (
     classSections = [],
     options = {}
 ) => {
-    const { excludeUserIds = [] } = options;
-    const normalizedClasses = normalizeTeacherAssignedClasses(classSections);
+    const { excludeUserIds = [], primaryOnly = true } = options;
+    const normalizedClasses = primaryOnly
+        ? (getPrimaryTeacherAssignedClass(classSections) ? [getPrimaryTeacherAssignedClass(classSections)] : [])
+        : normalizeTeacherAssignedClasses(classSections);
 
     if (normalizedClasses.length === 0) {
         return [];
@@ -122,7 +127,13 @@ export const findTeacherClassConflicts = async (
             return;
         }
 
-        normalizeTeacherAssignedClasses(profile.assignedClasses || []).forEach((assignedClass) => {
+        const teacherAssignedClasses = primaryOnly
+            ? (getPrimaryTeacherAssignedClass(profile.assignedClasses || [])
+                ? [getPrimaryTeacherAssignedClass(profile.assignedClasses || [])]
+                : [])
+            : normalizeTeacherAssignedClasses(profile.assignedClasses || []);
+
+        teacherAssignedClasses.forEach((assignedClass) => {
             const classKey = buildClassSectionKey(assignedClass.standard, assignedClass.section);
             const seenKey = `${String(profile.userId)}::${classKey}`;
             if (!requestedKeys.has(classKey) || seenPairs.has(seenKey)) {
