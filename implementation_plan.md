@@ -1,667 +1,657 @@
-# Frontend Audit — Phase-wise Implementation Plan
+# Implementation Plan: Settings-Driven Real-Time Class/Section Sync
 
-> **Source:** [frontend_code_audit_2026_03_23.md](file:///D:/Protap/SMS/School-Management-System/frontend_code_audit_2026_03_23.md)
-> **Constraint:** Zero functional or visual changes. Pure structural cleanup only.
-> **Root:** `D:\Protap\SMS\School-Management-System\frontend\src` (referred to as `src/` below)
+Last updated: 2026-03-25
 
----
+## 1. Requirement Lock
 
-## Overview
+This implementation must make `School.academic.classSections` the only active class/section catalog for a school.
 
-| Phase | Description | Parallelizable | Audit Issues Covered |
-|-------|-------------|----------------|----------------------|
-| **1** | Create all shared files & utilities | ❌ Must run first | Prereq for all |
-| **2** | FeesPage — extract dupes, decompose tabs | ✅ After Phase 1 | #1, #2, #3, #6, #8, #12 |
-| **3** | ResultPage + Result modals | ✅ After Phase 1 | #1, #2, #3, #5, #6, #8 |
-| **4** | ExaminationPage + ExamModal | ✅ After Phase 1 | #1, #6, #8 |
-| **5** | TimetablePage + TimetableModal | ✅ After Phase 1 | #5, #8 |
-| **6** | Settings, Users, Dashboard, DashboardLayout | ✅ After Phase 1 | #6, #7, #8, #10, #11 |
-| **7** | Calendar, Attendance, Assignment, Notifications | ✅ After Phase 1 | #4, #8, #13 |
-| **8** | App.css deletion + api/axios cleanup (remaining) | ✅ After Phase 1 | #9, #11 (remaining files) |
+Required behavior:
 
----
+1. The Settings page must show the full sorted class-section list from the current school's database.
+2. When a class-section is created in Settings, it must show a local `New` badge only for the current Settings page session.
+3. That `New` badge must disappear after navigation away, remount, or full reload.
+4. Dashboard, Users, teacher-facing class selectors, Fees, Timetable, Assignment, Examination, Notice, and any other active class/section picker must use the same settings-owned list.
+5. Create/delete changes from Settings must propagate to other open screens and clients without a full website reload.
+6. Removed classes must stop appearing as active options everywhere, even if old students, fees, exams, or assignments still reference them historically.
 
-## Phase 1 — Create Shared Utilities & Components (Prerequisite)
+Assumptions for a safe one-shot implementation:
 
-**Goal:** Create every new shared file that later phases will import. No existing file is modified.
+1. Historical financial/academic records should be preserved unless the module already performs safe cleanup.
+2. Active selectors and default overview screens must exclude removed classes immediately.
+3. Only routed pages/components need to be changed. `frontend/src/pages/Timetable.jsx` is legacy and is not used by the current router.
 
-### Files CREATED (write-only)
+## 2. Verified Codebase Audit
 
-| New File | Audit Issue | Purpose |
-|----------|-------------|---------|
-| `src/components/ui/EmptyState.jsx` | #1 | Shared `<EmptyState>` component |
-| `src/components/ui/StatusBadge.jsx` | #2 | Generic `<StatusBadge>` with `styles` prop |
-| `src/components/ui/SkeletonRows.jsx` | #3 | Shared `<SkeletonRows rows columns>` |
-| `src/components/ui/PaginationControls.jsx` | #4 | Consolidated pagination (superset API from Assignment version) |
-| `src/components/ui/Spinner.jsx` | #8 | `<ButtonSpinner>` + `<PageSpinner>` |
-| `src/hooks/useToastMessage.js` | #6 | `useToastMessage()` hook returning `{ message, showMessage }` |
+### 2.1 Backend source of truth already exists
 
-### Files MODIFIED (append-only)
+- `backend/src/module/school/School.model.js`
+  - Stores classes under `academic.classSections`.
+  - Each item is a plain object with `{ standard, section }`.
+  - There is no `_id` per class-section item.
+- `backend/src/module/school/school.service.js`
+  - `getSchoolClasses()` already returns:
+    - `standards`
+    - `sections`
+    - `classSections`
+    - `subjects`
+    - `rooms`
+  - `addSchoolClassSection()` and `removeSchoolClassSection()` already exist.
+  - Sorting is already implemented server-side.
 
-| File | Change |
-|------|--------|
-| [src/utils/index.js](file:///D:/Protap/SMS/School-Management-System/frontend/src/utils/index.js) | Append `readError()` (Issue #5) and `getRelativeTime()` (Issue #13) |
+### 2.2 Existing API surface is sufficient
 
----
+No new endpoint is required.
 
-### Step 1.1 — Create `src/components/ui/EmptyState.jsx`
+- `GET /api/v1/school/classes`
+- `POST /api/v1/school/classes`
+- `DELETE /api/v1/school/classes`
 
-```jsx
-import React from 'react';
+### 2.3 Real-time infrastructure exists, but one blocker is real
 
-export const EmptyState = ({ icon: Icon, title, subtitle, action }) => (
-  <div className="text-center py-12 text-gray-400">
-    {Icon && <Icon className="mx-auto text-3xl mb-2 opacity-50" />}
-    <div className="font-semibold text-gray-500">{title}</div>
-    {subtitle && <div className="text-xs mt-1">{subtitle}</div>}
-    {action && <div className="mt-3">{action}</div>}
-  </div>
-);
+- `backend/src/socket.js`
+  - Socket server requires `socket.handshake.auth.token`.
+  - School rooms already exist as `school-${schoolId}`.
+- `frontend/src/api/socket.js`
+  - Client connects and joins rooms.
+  - Client does not send the auth token at all.
+
+This means current class real-time sync cannot be trusted until socket auth is fixed.
+
+### 2.4 Settings page is partly ready
+
+- `frontend/src/pages/Settings.jsx`
+  - Already uses `useSchoolClasses()`.
+  - Already keeps local `newlyCreatedKeys` in memory, which is the right shape for the `New` badge requirement.
+  - Still relies on:
+    - direct `api.post('/school/classes')`
+    - direct `api.delete('/school/classes')`
+    - `window.dispatchEvent(new Event('customClassesUpdated'))`
+
+The badge behavior is close, but propagation is still fragmented.
+
+### 2.5 Active frontend consumers are inconsistent today
+
+| Surface | Current source | Status |
+|---|---|---|
+| Settings | `useSchoolClasses` | Good base, needs shared mutation/cache flow |
+| Users Add modal | `useSchoolClasses` | Good |
+| Users detail modal | direct `/school/classes` fetch | Must migrate |
+| Dashboard | derives class list from student groups | Must migrate |
+| Fees filters | `useSchoolClasses` | Good base |
+| Fees overviews | derives classes from fee data | Must filter by settings |
+| Timetable | own `/school/classes` query | Must unify |
+| Assignment | metadata query for classes + subjects | Must split classes from subjects |
+| Examination page/modal | `useSchoolClasses` | Good base, backend still missing validation |
+| Notice | own `/school/classes` query | Must unify |
+| Calendar | own `/school/classes` fetch for admin | Must unify |
+| Attendance | derives groups from student profiles | Should align to avoid removed ghost classes |
+| Result | derives filter options from completed exams | Secondary alignment recommended |
+
+### 2.6 Backend validation is also inconsistent today
+
+Already settings-driven:
+
+- `backend/src/module/timetable/timetable.service.js`
+- `backend/src/module/assignment/assignment.service.js`
+- `backend/src/module/notice/notice.service.js`
+
+Not fully settings-driven:
+
+- `backend/src/module/user/user.service.js`
+  - user creation does not verify student/teacher class data against Settings
+- `backend/src/module/examination/examination.service.js`
+  - exam creation does not verify class-section against Settings
+- `backend/src/module/fees/fees.service.js`
+  - allows a fallback if matching students exist, even when Settings no longer contains the class
+- `backend/src/module/calendar/calendar.service.js`
+  - allows a fallback if student profiles exist, even when Settings no longer contains the class
+
+### 2.7 Deletion side effects are partial
+
+`backend/src/module/school/school.service.js -> removeSchoolClassSection()` already cleans:
+
+- teacher assigned classes
+- student profiles
+- notice recipients
+- timetable data
+
+It does not clean or suppress all class-bound data in:
+
+- fees
+- assignment
+- examination
+- result
+- calendar
+
+So the implementation must explicitly decide how those modules behave after class removal.
+
+## 3. Architecture Decision Record
+
+### Decision
+
+Use `School.academic.classSections` as the canonical write/read source and propagate changes with:
+
+1. immediate local TanStack cache updates on Settings mutations
+2. authenticated Socket.io snapshot events for all open clients
+3. temporary `customClassesUpdated` fallback only for legacy listeners during migration
+
+### Why this is the right fit here
+
+- The backend model and APIs already exist.
+- Socket rooms already exist per school.
+- Several screens already depend on TanStack Query.
+- The app does not need a new Redux slice for this; query cache is enough.
+
+### Canonical identifier
+
+Because class-section items do not have `_id`, all client-side tracking must use:
+
+`classKey = ${standard.trim().toLowerCase()}::${section.trim().toUpperCase()}`
+
+This applies to:
+
+- Settings `New` badge
+- local dedupe
+- cache comparisons
+- selection reset logic
+
+### Event contract
+
+Add one canonical payload shape for class sync:
+
+```json
+{
+  "schoolId": "664f...",
+  "action": "created",
+  "changed": { "standard": "10", "section": "A" },
+  "classSections": [{ "standard": "10", "section": "A" }],
+  "standards": ["10"],
+  "sections": ["A"],
+  "subjects": ["Math"],
+  "rooms": ["101"],
+  "version": "2026-03-25T14:30:00.000Z"
+}
 ```
 
-> [!IMPORTANT]
-> Before writing this file, view the three existing definitions at:
-> - [src/features/fees/FeesPage.jsx](file:///D:/Protap/SMS/School-Management-System/frontend/src/features/fees/FeesPage.jsx) lines 48-57
-> - [src/features/result/ResultPage.jsx](file:///D:/Protap/SMS/School-Management-System/frontend/src/features/result/ResultPage.jsx) lines 92-101
-> - [src/features/examination/ExaminationPage.jsx](file:///D:/Protap/SMS/School-Management-System/frontend/src/features/examination/ExaminationPage.jsx) lines 38-49
->
-> Produce a **superset** component that renders identically for all three call sites. Copy the exact Tailwind classes from the original with the broadest set. If classes differ between files, use the majority pattern and verify pixel parity.
+Recommended implementation detail:
 
----
+- emit canonical event: `school:classes:changed`
+- keep `class:created` / `class:deleted` as short-lived compatibility aliases during rollout
 
-### Step 1.2 — Create `src/components/ui/StatusBadge.jsx`
+## 4. Target State
 
-```jsx
-const DEFAULT_STYLE = 'bg-gray-100 text-gray-600';
+### 4.1 One read path
 
-export const StatusBadge = ({ status, styles }) => {
-  const s = styles[status] || DEFAULT_STYLE;
-  return (
-    <span className={`px-2 py-1 rounded-full text-xs font-semibold ${s}`}>
-      {status}
-    </span>
-  );
-};
-```
+Every active class/section selector should read from one shared hook/query only:
 
-> Before writing: view [FeesPage.jsx](file:///D:/Protap/SMS/School-Management-System/frontend/src/features/fees/FeesPage.jsx) lines 31-38 and [ResultPage.jsx](file:///D:/Protap/SMS/School-Management-System/frontend/src/features/result/ResultPage.jsx) lines 59-88 to capture the exact styling classes for each status value. These become the `FEE_STATUS_STYLES` and `RESULT_STATUS_STYLES` constants that consumers define locally.
+- query key: `['school', schoolId, 'classes']`
+- source endpoint: `GET /school/classes`
 
----
+### 4.2 One write path
 
-### Step 1.3 — Create `src/components/ui/SkeletonRows.jsx`
+Settings mutations should:
 
-```jsx
-export const SkeletonRows = ({ rows = 5, columns = 4 }) => (
-  <>
-    {Array.from({ length: rows }).map((_, i) => (
-      <tr key={i}>
-        {Array.from({ length: columns }).map((_, j) => (
-          <td key={j} className="px-4 py-3">
-            <div className="h-4 bg-gray-200 rounded animate-pulse w-24" />
-          </td>
-        ))}
-      </tr>
-    ))}
-  </>
-);
-```
+1. call the existing POST/DELETE API
+2. write returned payload into the shared query cache immediately
+3. update local `newlyCreatedKeys` only in Settings
+4. let the socket update all other open clients
 
-> Before writing: view [FeesPage.jsx](file:///D:/Protap/SMS/School-Management-System/frontend/src/features/fees/FeesPage.jsx) lines 40-46 and [ResultPage.jsx](file:///D:/Protap/SMS/School-Management-System/frontend/src/features/result/ResultPage.jsx) lines 103-115 to match exact `<td>` padding, `h-4`/`w-*` classes, and `animate-pulse` pattern.
+### 4.3 One rule for other modules
 
----
+Other modules may still derive:
 
-### Step 1.4 — Create `src/components/ui/PaginationControls.jsx`
+- students
+- subjects
+- fees
+- results
+- assignments
 
-Copy [src/features/assignment/components/AssignmentPaginationControls.jsx](file:///D:/Protap/SMS/School-Management-System/frontend/src/features/assignment/components/AssignmentPaginationControls.jsx) (89 lines) **verbatim** into the new file. Change only:
-1. The export name from `AssignmentPaginationControls` → `PaginationControls`.
-2. Make `onPageSizeChange` and `pageSize` optional with sensible defaults so the Attendance usage (which doesn't pass them) still works.
+But they must never derive the active class/section option list from those datasets.
 
-> [!IMPORTANT]
-> The new component **must** accept both `itemsPerPage` (Attendance's prop name) and `pageSize` (Assignment's prop name). Use: `const size = pageSize || itemsPerPage || 10;`
+They may only:
 
----
+1. join their module data against the configured class set
+2. filter out removed classes from active views
+3. preserve historical records where deletion would be unsafe
 
-### Step 1.5 — Create `src/components/ui/Spinner.jsx`
+## 5. Phase-by-Phase Execution Plan
 
-```jsx
-// Small inline button spinner (white-on-colored-bg)
-export const ButtonSpinner = () => (
-  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-);
+### Phase 1: Foundation and Shared Utilities
 
-// Page-level loading spinner (configurable size)
-export const PageSpinner = ({ size = 'h-8 w-8' }) => (
-  <div className={`animate-spin rounded-full ${size} border-2 border-gray-200 border-t-gray-600`} />
-);
-```
+Goal: establish one canonical class-section helper set on both backend and frontend.
 
-> Before writing: grep all spinner patterns across the codebase (`animate-spin.*border.*rounded-full`) and ensure these two cover the majority. Any cosmetic differences (e.g., `border-gray-200` vs `border-gray-100`) must match the most common variant exactly.
+Backend changes:
 
----
+- Add a shared class-section utility module, preferably `backend/src/utils/classSection.util.js`
+- Move duplicated helpers into it:
+  - normalize class-section
+  - build composite key
+  - sort class-sections
+  - load configured class set for a school
+  - assert a class-section exists in Settings
+  - assert a list of target classes exists in Settings
 
-### Step 1.6 — Create `src/hooks/useToastMessage.js`
+Frontend changes:
 
-```js
-import { useState, useRef, useCallback, useEffect } from 'react';
+- Add a small shared helper, preferably `frontend/src/utils/classSection.js`
+- Expose:
+  - `makeClassKey`
+  - `sortClassSections`
+  - `normalizeClassSection`
 
-export const useToastMessage = (duration = 4000) => {
-  const [message, setMessage] = useState(null);
-  const timerRef = useRef(null);
+Why Phase 1 must happen first:
 
-  const showMessage = useCallback((type, text) => {
-    clearTimeout(timerRef.current);
-    setMessage({ type, text });
-    timerRef.current = setTimeout(() => setMessage(null), duration);
-  }, [duration]);
+- the backend currently duplicates this logic in school, timetable, fees, assignment, notice, and calendar
+- the frontend duplicates the same composite-key and sort logic in Settings and other places
 
-  useEffect(() => () => clearTimeout(timerRef.current), []);
+### Phase 2: Fix Real-Time Transport First
 
-  return { message, showMessage };
-};
-```
+Goal: make the socket connection actually authenticated and usable.
 
-> Before writing: view the `showMessage` implementations in all 5 files (Settings.jsx, UsersPage.jsx, ResultPage.jsx, ExaminationPage.jsx, CalendarPage.jsx) to confirm the pattern is identical. If any file uses a different duration or extra behavior, expose it as a parameter.
+Files:
 
----
+- `frontend/src/api/socket.js`
+- `frontend/src/lib/axios.js`
+- optionally `frontend/src/features/auth/useAuth.js` if a token bridge is needed
 
-### Step 1.7 — Append to [src/utils/index.js](file:///D:/Protap/SMS/School-Management-System/frontend/src/utils/index.js)
+Required changes:
 
-Add at the end of the file (after line 43):
+1. send the current access token in `io(..., { auth: { token } })`
+2. update `socket.auth.token` before reconnects
+3. ensure reconnect after refresh-token renewal does not leave the socket on a stale token
 
-```js
-// Extract error message from Axios error objects (Issue #5)
-export const readError = (error, fallback = 'Something went wrong') =>
-  error?.response?.data?.message || error?.message || fallback;
+Why this is mandatory:
 
-// Human-readable relative time string (Issue #13)
-export const getRelativeTime = (dateString) => {
-  // Copy the EXACT body from src/pages/Notifications.jsx lines 12-28
-};
-```
+- backend already rejects unauthenticated sockets
+- every instant cross-client update depends on this being correct
 
-> [!IMPORTANT]
-> Copy the `getRelativeTime` body **exactly** from [Notifications.jsx](file:///D:/Protap/SMS/School-Management-System/frontend/src/pages/Notifications.jsx) lines 12-28. Do not rewrite.
-> Copy the `readError` body from [ResultPage.jsx](file:///D:/Protap/SMS/School-Management-System/frontend/src/features/result/ResultPage.jsx) line 56-57 or [TimetablePage.jsx](file:///D:/Protap/SMS/School-Management-System/frontend/src/features/timetable/TimetablePage.jsx) line 27-33 (they're identical).
+### Phase 3: Backend Class Sync Hardening
 
----
+Goal: make backend create/delete and validations consistently settings-driven.
 
-### Phase 1 — Self-Verification Checklist
+Files:
 
-- [ ] All 6 new files exist under `src/components/ui/` and `src/hooks/`
-- [ ] [src/utils/index.js](file:///D:/Protap/SMS/School-Management-System/frontend/src/utils/index.js) has `readError` and `getRelativeTime` appended
-- [ ] No existing file was modified (except [utils/index.js](file:///D:/Protap/SMS/School-Management-System/frontend/src/utils/index.js) append)
-- [ ] All new files have valid JSX/JS syntax (run `npx eslint` on each)
-- [ ] Imports within new files resolve (e.g., `react`, `useCallback`)
-- [ ] Dev server still compiles without errors (`npm run dev` shows no new warnings)
+- `backend/src/module/school/school.service.js`
+- `backend/src/module/user/user.service.js`
+- `backend/src/module/examination/examination.service.js`
+- `backend/src/module/fees/fees.service.js`
+- `backend/src/module/calendar/calendar.service.js`
 
----
+Work:
 
-## Phase 2 — FeesPage Cleanup & Decomposition
+1. In `school.service.js`
+   - after create/delete, build the full `/school/classes` snapshot
+   - emit `school:classes:changed`
+   - keep legacy `class:created` / `class:deleted` temporarily if needed
 
-**Audit Issues:** #1, #2, #3, #6, #8, #12
+2. In `user.service.js`
+   - validate student `standard/section` against Settings before profile creation
+   - validate teacher `assignedClasses` or `standard/section` against Settings before profile creation
 
-### Files READ
+3. In `examination.service.js`
+   - validate exam `standard/section` against Settings on create
 
-| File | Purpose |
-|------|---------|
-| [src/features/fees/FeesPage.jsx](file:///D:/Protap/SMS/School-Management-System/frontend/src/features/fees/FeesPage.jsx) | Primary target (1,848 lines) |
+4. In `fees.service.js`
+   - remove the fallback that treats matching students as enough
+   - active fee structures must be creatable only for configured classes
 
-### Files WRITTEN
+5. In `calendar.service.js`
+   - remove the fallback that treats student profiles as valid target classes
+   - teacher/admin class targeting must accept only configured classes
 
-| File | Action |
-|------|--------|
-| [src/features/fees/FeesPage.jsx](file:///D:/Protap/SMS/School-Management-System/frontend/src/features/fees/FeesPage.jsx) | Remove inline dupes, replace with imports, extract tab components |
-| `src/features/fees/components/FeeStructuresTab.jsx` | **[NEW]** Extracted from FeesPage |
-| `src/features/fees/components/StaffSalaryTab.jsx` | **[NEW]** Extracted from FeesPage |
-| `src/features/fees/components/StudentFeeHistoryTab.jsx` | **[NEW]** Extracted from FeesPage |
-| `src/features/fees/components/YearlySummaryTab.jsx` | **[NEW]** Extracted from FeesPage |
-| `src/features/fees/components/FeeMonthlyOverviewTab.jsx` | **[NEW]** Extracted from FeesPage |
+Recommended rule:
 
-> [!NOTE]
-> All `src/components/fees/*` modal files (FeeStructureForm, FeeStructureModal, FeeTypeSideCard, GenerateAssignmentsModal, PaymentModal, SalaryForm) are **NOT touched** in this phase.
+- Settings is the only source for active classes
+- student existence is not a substitute for active configuration
 
-### Step 2.1 — Remove inline `EmptyState` (Issue #1)
+### Phase 4: Canonical Frontend Query and Cache Updates
 
-1. Delete the `EmptyState` component definition at ~lines 48-57.
-2. Add import: `import { EmptyState } from '../../components/ui/EmptyState';`
-3. All existing `<EmptyState ... />` JSX call sites remain unchanged.
+Goal: move the app to one school-classes cache contract.
 
-### Step 2.2 — Remove inline `StatusBadge` (Issue #2)
+Primary file:
 
-1. Delete the `StatusBadge` / status-color-map definition at ~lines 31-38.
-2. Add import: `import { StatusBadge } from '../../components/ui/StatusBadge';`
-3. Define locally: `const FEE_STATUS_STYLES = { paid: '...', pending: '...', overdue: '...' };` (copy exact classes from deleted code).
-4. Update JSX: `<StatusBadge status={fee.status} styles={FEE_STATUS_STYLES} />`
+- `frontend/src/hooks/useSchoolClasses.js`
 
-### Step 2.3 — Remove inline `SkeletonRow` (Issue #3)
+Required changes:
 
-1. Delete the `SkeletonRow` component definition at ~lines 40-46.
-2. Add import: `import { SkeletonRows } from '../../components/ui/SkeletonRows';`
-3. Replace every `Array.from({ length: N }).map((_, i) => <SkeletonRow key={i} cols={C} />)` with `<SkeletonRows rows={N} columns={C} />`.
+1. scope query key by schoolId
+   - current constant `['school', 'classes']` should become school-aware
 
-### Step 2.4 — Replace `showToast` with `useToastMessage` (Issue #6)
+2. return both raw and derived data
+   - `classSections`
+   - `availableStandards`
+   - `allUniqueSections`
+   - `getSectionsForStandard`
+   - `subjects`
+   - `rooms`
+   - raw payload for advanced consumers
 
-1. Delete inline `showToast` state, ref, and function.
-2. Add import: `import { useToastMessage } from '../../hooks/useToastMessage';`
-3. Add `const { message, showMessage } = useToastMessage();` at the top of the component.
-4. Replace `showToast(...)` calls with `showMessage(...)`.
-5. Replace the inline toast rendering `<div>` with the same JSX but reading from `message.type` and `message.text`.
+3. on class sync event:
+   - prefer `queryClient.setQueryData()` when full snapshot exists
+   - otherwise invalidate/refetch
 
-### Step 2.5 — Replace inline spinners (Issue #8)
+4. keep `customClassesUpdated` only as temporary legacy support
 
-1. Add import: `import { ButtonSpinner, PageSpinner } from '../../components/ui/Spinner';`
-2. Find all occurrences of `<div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />` (and similar) and replace with `<ButtonSpinner />`.
-3. Find page-level spinner divs and replace with `<PageSpinner />` or `<PageSpinner size="h-12 w-12" />`.
+Important guard rail:
 
-### Step 2.6 — Decompose into tab components (Issue #12)
+- avoid each consumer maintaining its own `/school/classes` cache with a different key
 
-For each tab component:
-1. Identify the JSX block rendered when that tab is active.
-2. Move it to a new file under `src/features/fees/components/`.
-3. The new component receives all needed data and callbacks **as props** — no logic changes, no state lifting.
-4. In [FeesPage.jsx](file:///D:/Protap/SMS/School-Management-System/frontend/src/features/fees/FeesPage.jsx), replace the inline JSX block with `<FeeStructuresTab ... />` etc.
-5. [FeesPage.jsx](file:///D:/Protap/SMS/School-Management-System/frontend/src/features/fees/FeesPage.jsx) becomes the orchestrator: tab nav, shared state/hooks, renders selected tab.
+### Phase 5: Settings Page Completion
 
-**Tab extraction map:**
+Goal: finish the source screen so it updates itself immediately and other pages consistently.
 
-| Tab | Extract To | Approximate FeesPage Line Range |
-|-----|-----------|-------------------------------|
-| Fee Structures | `FeeStructuresTab.jsx` | Identify by `activeTab === 'structures'` |
-| Staff Salary | `StaffSalaryTab.jsx` | Identify by `activeTab === 'salary'` |
-| Student Fee History | `StudentFeeHistoryTab.jsx` | Identify by `activeTab === 'history'` |
-| Yearly Summary | `YearlySummaryTab.jsx` | Identify by `activeTab === 'yearly'` |
-| Monthly Overview | `FeeMonthlyOverviewTab.jsx` | Identify by `activeTab === 'monthly'` |
+File:
 
-> [!IMPORTANT]
-> Each extracted component must render **pixel-identical** output. Pass ALL state variables and handler functions from FeesPage as props. Do NOT reorganize any state.
+- `frontend/src/pages/Settings.jsx`
 
-### Phase 2 — Self-Verification Checklist
+Required changes:
 
-- [ ] [FeesPage.jsx](file:///D:/Protap/SMS/School-Management-System/frontend/src/features/fees/FeesPage.jsx) no longer contains local definitions of `EmptyState`, `StatusBadge`, `SkeletonRow`, `showToast`/`showMessage`, or inline spinner divs
-- [ ] All 5 new tab component files exist under `src/features/fees/components/`
-- [ ] [FeesPage.jsx](file:///D:/Protap/SMS/School-Management-System/frontend/src/features/fees/FeesPage.jsx) imports from `components/ui/EmptyState`, `components/ui/StatusBadge`, `components/ui/SkeletonRows`, `components/ui/Spinner`, `hooks/useToastMessage`
-- [ ] All 5 tab components import correctly from their parent
-- [ ] Dev server compiles without errors
-- [ ] Navigate to the Fees page → each tab renders identically to before
-- [ ] No new console errors or warnings
+1. keep `newlyCreatedKeys` local and in-memory only
+2. on successful create:
+   - add the composite key to `newlyCreatedKeys`
+   - write returned payload into the shared query cache immediately
+3. on successful delete:
+   - remove the composite key from `newlyCreatedKeys`
+   - write returned payload into the shared query cache immediately
+4. stop relying on ad hoc refetch timing for the creator tab
+5. keep the badge purely local to the current Settings mount
 
----
+Expected badge behavior:
 
-## Phase 3 — ResultPage + Result Modals
+- user creates `10-A` -> badge appears beside `10-A`
+- user navigates away and back -> badge is gone
+- user reloads -> badge is gone
+- another admin on another browser sees the new class, but not the creator's local `New` badge
 
-**Audit Issues:** #1, #2, #3, #5, #6, #8
+### Phase 6: Consumer Migration by Module
 
-### Files WRITTEN
+#### Dashboard
 
-| File | Action |
-|------|--------|
-| [src/features/result/ResultPage.jsx](file:///D:/Protap/SMS/School-Management-System/frontend/src/features/result/ResultPage.jsx) | Remove inline dupes, replace with imports |
-| [src/features/result/components/ResultDetailModal.jsx](file:///D:/Protap/SMS/School-Management-System/frontend/src/features/result/components/ResultDetailModal.jsx) | Replace inline spinners |
-| [src/features/result/components/ResultEntryModal.jsx](file:///D:/Protap/SMS/School-Management-System/frontend/src/features/result/components/ResultEntryModal.jsx) | Replace inline spinners |
+Files:
 
-### Step 3.1 — Remove inline `EmptyState` (Issue #1)
+- `frontend/src/pages/Dashboard.jsx`
 
-1. Delete definition at ~line 92-101.
-2. Add: `import { EmptyState } from '../../components/ui/EmptyState';`
+Changes:
 
-### Step 3.2 — Remove inline `StatusBadge` (Issue #2)
+1. drive admin class filter options from `useSchoolClasses().classSections`
+2. keep student/attendance stats as data sources, but intersect displayed class groups with configured class keys
+3. reset `selectedClass` to `all` if the chosen class is deleted
+4. allow configured classes with zero students to appear as valid filter options if the UX should mirror Settings exactly
 
-1. Delete definition at ~lines 59-88.
-2. Add: `import { StatusBadge } from '../../components/ui/StatusBadge';`
-3. Define locally: `const RESULT_STATUS_STYLES = { draft: '...', published: '...', locked: '...' };`
-4. Update JSX usages.
+Why:
 
-### Step 3.3 — Remove inline `SkeletonRows` (Issue #3)
+- current dashboard invents its active class universe from student profiles
+- deleted classes can survive there as ghost groups
 
-1. Delete definition at ~lines 103-115.
-2. Add: `import { SkeletonRows } from '../../components/ui/SkeletonRows';`
+#### Users
 
-### Step 3.4 — Remove inline `readError` (Issue #5)
+Files:
 
-1. Delete definition at ~line 56-57.
-2. Add: `import { readError } from '../../utils';`
+- `frontend/src/features/users/components/AddUserModal.jsx`
+- `frontend/src/features/users/components/UserDetailModal.jsx`
 
-### Step 3.5 — Replace `showMessage` with `useToastMessage` (Issue #6)
+Changes:
 
-1. Delete inline `message` state, `messageRef`, `showMessage` function.
-2. Add: `import { useToastMessage } from '../../hooks/useToastMessage';`
-3. Add: `const { message, showMessage } = useToastMessage();`
-4. Keep toast rendering JSX, but bind to `message.type` / `message.text`.
+1. keep Add modal on the shared hook
+2. replace direct `/school/classes` fetch in UserDetailModal with the shared hook
+3. reset `section` when its parent `standard` becomes invalid after a live update
 
-### Step 3.6 — Replace inline spinners (Issue #8)
+#### Fees
 
-In [ResultPage.jsx](file:///D:/Protap/SMS/School-Management-System/frontend/src/features/result/ResultPage.jsx), [ResultDetailModal.jsx](file:///D:/Protap/SMS/School-Management-System/frontend/src/features/result/components/ResultDetailModal.jsx), and [ResultEntryModal.jsx](file:///D:/Protap/SMS/School-Management-System/frontend/src/features/result/components/ResultEntryModal.jsx):
-1. Add: `import { ButtonSpinner, PageSpinner } from '../../components/ui/Spinner';` (adjust path for modals: `../../../components/ui/Spinner`)
-2. Replace matching spinner divs.
+Files:
 
-### Phase 3 — Self-Verification Checklist
+- `frontend/src/features/fees/FeesPage.jsx`
 
-- [ ] [ResultPage.jsx](file:///D:/Protap/SMS/School-Management-System/frontend/src/features/result/ResultPage.jsx) no longer contains local `EmptyState`, `StatusBadge`, `SkeletonRows`, `readError`, `showMessage`
-- [ ] All 3 files import from the correct shared locations
-- [ ] Dev server compiles without errors
-- [ ] Result page renders identically (all tabs, modals)
-- [ ] No console errors
+Changes:
 
----
+1. keep filter/dropdown options sourced from the shared hook
+2. filter overview class rows against the configured class set
+3. reset `selectedClass` if that class is deleted
+4. ensure fee-structure creation cannot target removed classes
 
-## Phase 4 — ExaminationPage + ExamModal
+Why:
 
-**Audit Issues:** #1, #6, #8
+- filters already use the hook
+- overview tables still derive class presence from fee assignment data
 
-### Files WRITTEN
+#### Timetable
 
-| File | Action |
-|------|--------|
-| [src/features/examination/ExaminationPage.jsx](file:///D:/Protap/SMS/School-Management-System/frontend/src/features/examination/ExaminationPage.jsx) | Remove inline dupes |
-| [src/components/examination/ExamModal.jsx](file:///D:/Protap/SMS/School-Management-System/frontend/src/components/examination/ExamModal.jsx) | Replace inline spinners |
+Files:
 
-### Step 4.1 — Remove inline `EmptyState` (Issue #1)
+- `frontend/src/features/timetable/api/queries.js`
+- `frontend/src/features/timetable/TimetablePage.jsx`
+- `frontend/src/features/timetable/components/CreateTimetableDialog.jsx`
 
-1. Delete definition at ~lines 38-49.
-2. Add: `import { EmptyState } from '../../components/ui/EmptyState';`
+Changes:
 
-### Step 4.2 — Replace `showMessage` with `useToastMessage` (Issue #6)
+1. stop owning an independent `/school/classes` query for active class options
+2. consume the shared hook payload, or reuse the exact same query key if subjects/rooms must stay in the timetable layer
+3. keep timetable selection reset when a class is deleted
+4. preserve current server-side timetable cleanup on class deletion
 
-1. Delete inline `message` state, `messageRef`, `showMessage`.
-2. Add: `import { useToastMessage } from '../../hooks/useToastMessage';`
-3. Add: `const { message, showMessage } = useToastMessage();`
+#### Assignment
 
-### Step 4.3 — Replace inline spinners (Issue #8)
+Files:
 
-In both [ExaminationPage.jsx](file:///D:/Protap/SMS/School-Management-System/frontend/src/features/examination/ExaminationPage.jsx) and [ExamModal.jsx](file:///D:/Protap/SMS/School-Management-System/frontend/src/components/examination/ExamModal.jsx):
-1. Add: `import { ButtonSpinner, PageSpinner } from '../../components/ui/Spinner';` (adjust relative path for ExamModal)
-2. Replace matching spinner divs.
+- `frontend/src/features/assignment/hooks/useAssignmentOptions.js`
+- `frontend/src/features/assignment/components/AssignmentModal.jsx`
+- `frontend/src/features/assignment/components/AssignmentFilters.jsx`
 
-### Phase 4 — Self-Verification Checklist
+Changes:
 
-- [ ] [ExaminationPage.jsx](file:///D:/Protap/SMS/School-Management-System/frontend/src/features/examination/ExaminationPage.jsx) no longer contains local `EmptyState` or `showMessage`
-- [ ] Both files import spinners from shared location
-- [ ] Dev server compiles without errors
-- [ ] Examination page renders identically
-- [ ] ExamModal opens/closes correctly
+1. split class sourcing from subject sourcing
+2. standards/sections must come from `useSchoolClasses`
+3. subjects can continue coming from assignment metadata
+4. invalidate assignment metadata on class changes only if subject mappings need recalculation
 
----
+Why:
 
-## Phase 5 — TimetablePage + TimetableModal
+- the module currently mixes settings-owned class data with assignment/timetable-derived metadata
 
-**Audit Issues:** #5, #8
+#### Examination
 
-### Files WRITTEN
+Files:
 
-| File | Action |
-|------|--------|
-| [src/features/timetable/TimetablePage.jsx](file:///D:/Protap/SMS/School-Management-System/frontend/src/features/timetable/TimetablePage.jsx) | Remove `readError`, replace spinners |
-| [src/features/timetable/components/TimetableModal.jsx](file:///D:/Protap/SMS/School-Management-System/frontend/src/features/timetable/components/TimetableModal.jsx) | Replace spinners |
+- `frontend/src/features/examination/ExaminationPage.jsx`
+- `frontend/src/components/examination/ExamModal.jsx`
+- `backend/src/module/examination/examination.service.js`
 
-### Step 5.1 — Remove inline `readError` (Issue #5)
+Changes:
 
-1. Delete `readError` definition at ~lines 27-33.
-2. Add: `import { readError } from '../../utils';`
+1. keep frontend options on the shared hook
+2. add backend validation so exam creation cannot bypass Settings
+3. reset invalid filters or form selections if a class is deleted during use
 
-### Step 5.2 — Replace inline spinners (Issue #8)
+#### Notice
 
-In [TimetablePage.jsx](file:///D:/Protap/SMS/School-Management-System/frontend/src/features/timetable/TimetablePage.jsx):
-- Replace `<FaSpinner className="animate-spin" />` instances with `<ButtonSpinner />` (or keep `<FaSpinner>` if they're used differently — verify visually).
+Files:
 
-In [TimetableModal.jsx](file:///D:/Protap/SMS/School-Management-System/frontend/src/features/timetable/components/TimetableModal.jsx):
-- Same treatment for any `<FaSpinner className="animate-spin" />`.
-- Add: `import { ButtonSpinner } from '../../../components/ui/Spinner';`
+- `frontend/src/features/notices/api/api.js`
+- `frontend/src/features/notices/api/queries.js`
+- `frontend/src/features/notices/useNoticeHandlers.js`
 
-### Phase 5 — Self-Verification Checklist
+Changes:
 
-- [ ] [TimetablePage.jsx](file:///D:/Protap/SMS/School-Management-System/frontend/src/features/timetable/TimetablePage.jsx) no longer contains a local `readError`
-- [ ] Spinner imports resolve correctly
-- [ ] Dev server compiles without errors
-- [ ] Timetable page + modal render identically
+1. stop creating a dedicated `/school/classes` query just for notices
+2. map notice recipient class options from the shared hook
+3. keep backend validation in `notice.service.js` as the final guard
 
----
+#### Calendar
 
-## Phase 6 — Settings, Users, Dashboard, DashboardLayout
+Files:
 
-**Audit Issues:** #6, #7, #8, #10, #11
+- `frontend/src/features/calendar/CalendarPage.jsx`
+- `backend/src/module/calendar/calendar.service.js`
 
-### Files WRITTEN
+Changes:
 
-| File | Action |
-|------|--------|
-| [src/pages/Settings.jsx](file:///D:/Protap/SMS/School-Management-System/frontend/src/pages/Settings.jsx) | Replace `showMessage`, spinners, update `api/axios` import |
-| [src/features/users/UsersPage.jsx](file:///D:/Protap/SMS/School-Management-System/frontend/src/features/users/UsersPage.jsx) | Replace `showMessage`, spinners |
-| [src/features/users/components/UserDetailModal.jsx](file:///D:/Protap/SMS/School-Management-System/frontend/src/features/users/components/UserDetailModal.jsx) | Update `api/axios` import |
-| [src/pages/Dashboard.jsx](file:///D:/Protap/SMS/School-Management-System/frontend/src/pages/Dashboard.jsx) | Dedupe `rolePrefix`, remove dead `<style>` block |
-| [src/layouts/DashboardLayout.jsx](file:///D:/Protap/SMS/School-Management-System/frontend/src/layouts/DashboardLayout.jsx) | Update `api/axios` import |
+1. replace admin-side direct `/school/classes` fetch with the shared hook
+2. teacher assigned classes should be intersected with configured settings classes
+3. backend must reject removed classes even if stale student data exists
 
-### Step 6.1 — Settings.jsx (Issue #6, #8, #11)
+#### Attendance and Result
 
-1. Delete inline `showMessage` state/ref/function.
-2. Add: `import { useToastMessage } from '../hooks/useToastMessage';`
-3. Add: `const { message, showMessage } = useToastMessage();`
-4. Replace inline spinner divs with `<PageSpinner />` / `<ButtonSpinner />`.
-5. Change import: `import api from '../api/axios';` → `import api from '../lib/axios';`
+These are secondary but recommended in the same rollout if "across the app" is strict.
 
-### Step 6.2 — UsersPage.jsx (Issue #6, #8)
+Attendance:
 
-1. Delete inline `showMessage` state/ref/function.
-2. Add: `import { useToastMessage } from '../../hooks/useToastMessage';`
-3. Add: `const { message, showMessage } = useToastMessage();`
-4. Replace inline spinner divs with `<ButtonSpinner />` / `<PageSpinner />`.
+- `frontend/src/features/attendance/AttendancePage.jsx`
+- intersect grouped classes with configured settings classes so deleted classes disappear from the active class list immediately
 
-### Step 6.3 — UserDetailModal.jsx (Issue #11)
+Result:
 
-1. Change import: `import api from '../../../api/axios';` → `import api from '../../../lib/axios';`
+- `frontend/src/features/result/ResultPage.jsx`
+- derive filter options from `configured classes intersect completed exam classes` instead of completed exams alone
 
-### Step 6.4 — Dashboard.jsx (Issue #7, #10)
+## 6. Behavior on Class Deletion
 
-1. **Issue #7:** Find the three `rolePrefix` computations (~lines 387, 391, 546). Replace with a single `useMemo`:
-```js
-const rolePrefix = useMemo(() =>
-  user?.role === 'super_admin' ? 'superadmin' : user?.role,
-[user?.role]);
-```
-2. **Issue #10:** Delete the entire `<style>` block defining `.custom-scrollbar` classes (search for `custom-scrollbar` in the JSX).
+Recommended policy for this rollout:
 
-### Step 6.5 — DashboardLayout.jsx (Issue #11)
+1. Hard-clean only where the app already does so safely:
+   - timetable
+   - notice recipients
+   - teacher assignments
+2. Preserve historical records in:
+   - assignments
+   - fees
+   - examinations
+   - results
+   - calendar history
+3. Exclude those preserved records from active class selectors and default class overview lists if their class is no longer configured
 
-1. Change import: `import api from '../api/axios';` → `import api from '../lib/axios';`
+Why this policy is safest:
 
-### Phase 6 — Self-Verification Checklist
+- it satisfies the user-facing requirement that active classes come only from Settings
+- it avoids destructive loss of academic or financial history
 
-- [ ] [Settings.jsx](file:///D:/Protap/SMS/School-Management-System/frontend/src/pages/Settings.jsx) and [UsersPage.jsx](file:///D:/Protap/SMS/School-Management-System/frontend/src/features/users/UsersPage.jsx) no longer contain local `showMessage`
-- [ ] [Dashboard.jsx](file:///D:/Protap/SMS/School-Management-System/frontend/src/pages/Dashboard.jsx) has exactly one `rolePrefix` computation and no `<style>` block for `custom-scrollbar`
-- [ ] [Settings.jsx](file:///D:/Protap/SMS/School-Management-System/frontend/src/pages/Settings.jsx), [DashboardLayout.jsx](file:///D:/Protap/SMS/School-Management-System/frontend/src/layouts/DashboardLayout.jsx), [UserDetailModal.jsx](file:///D:/Protap/SMS/School-Management-System/frontend/src/features/users/components/UserDetailModal.jsx) import from `lib/axios` (not `api/axios`)
-- [ ] Dev server compiles without errors
-- [ ] Settings page, Users page, Dashboard all render identically
-- [ ] No console errors
+## 7. File Change Index
 
----
+### Add
 
-## Phase 7 — Calendar, Attendance, Assignment, Notifications
+- `backend/src/utils/classSection.util.js`
+- `frontend/src/utils/classSection.js`
 
-**Audit Issues:** #4, #6, #8, #13
+### Modify
 
-### Files WRITTEN
+- `backend/src/module/school/school.service.js`
+- `backend/src/module/user/user.service.js`
+- `backend/src/module/examination/examination.service.js`
+- `backend/src/module/fees/fees.service.js`
+- `backend/src/module/calendar/calendar.service.js`
+- `frontend/src/api/socket.js`
+- `frontend/src/hooks/useSchoolClasses.js`
+- `frontend/src/pages/Settings.jsx`
+- `frontend/src/pages/Dashboard.jsx`
+- `frontend/src/features/users/components/UserDetailModal.jsx`
+- `frontend/src/features/fees/FeesPage.jsx`
+- `frontend/src/features/timetable/api/queries.js`
+- `frontend/src/features/timetable/TimetablePage.jsx`
+- `frontend/src/features/assignment/hooks/useAssignmentOptions.js`
+- `frontend/src/features/notices/api/api.js`
+- `frontend/src/features/notices/api/queries.js`
+- `frontend/src/features/notices/useNoticeHandlers.js`
+- `frontend/src/features/calendar/CalendarPage.jsx`
 
-| File | Action |
-|------|--------|
-| [src/features/calendar/CalendarPage.jsx](file:///D:/Protap/SMS/School-Management-System/frontend/src/features/calendar/CalendarPage.jsx) | Replace `showMessage`, spinners |
-| [src/features/attendance/components/PaginationControls.jsx](file:///D:/Protap/SMS/School-Management-System/frontend/src/features/attendance/components/PaginationControls.jsx) | **[DELETE]** |
-| [src/features/attendance/AttendancePage.jsx](file:///D:/Protap/SMS/School-Management-System/frontend/src/features/attendance/AttendancePage.jsx) | Update PaginationControls import, replace spinners |
-| [src/features/assignment/components/AssignmentPaginationControls.jsx](file:///D:/Protap/SMS/School-Management-System/frontend/src/features/assignment/components/AssignmentPaginationControls.jsx) | **[DELETE]** |
-| [src/features/assignment/AssignmentPage.jsx](file:///D:/Protap/SMS/School-Management-System/frontend/src/features/assignment/AssignmentPage.jsx) | Update PaginationControls import |
-| [src/pages/Notifications.jsx](file:///D:/Protap/SMS/School-Management-System/frontend/src/pages/Notifications.jsx) | Remove inline `getRelativeTime`, import from utils |
+### Optional same-pass alignment
 
-### Step 7.1 — CalendarPage.jsx (Issue #6, #8)
+- `frontend/src/features/attendance/AttendancePage.jsx`
+- `frontend/src/features/result/ResultPage.jsx`
 
-1. Delete inline `showMessage` state/ref/function.
-2. Add: `import { useToastMessage } from '../../hooks/useToastMessage';`
-3. Add: `const { message, showMessage } = useToastMessage();`
-4. Replace inline spinner divs with `<ButtonSpinner />`.
-5. Add: `import { ButtonSpinner } from '../../components/ui/Spinner';`
+## 8. Edge Cases and Guard Rails
 
-### Step 7.2 — Consolidate PaginationControls (Issue #4)
+1. Multiple admins create/delete at the same time
+   - always trust the server snapshot, not local optimistic ordering
 
-1. In [AttendancePage.jsx](file:///D:/Protap/SMS/School-Management-System/frontend/src/features/attendance/AttendancePage.jsx): change import from `./components/PaginationControls` → `../../components/ui/PaginationControls`.
-   - Map prop names if needed: if Attendance uses `itemsPerPage`, the shared component already handles it (per Phase 1 Step 1.4).
-2. In [AssignmentPage.jsx](file:///D:/Protap/SMS/School-Management-System/frontend/src/features/assignment/AssignmentPage.jsx): change import from `./components/AssignmentPaginationControls` → `../../components/ui/PaginationControls`.
-   - Rename component usage from `<AssignmentPaginationControls>` → `<PaginationControls>`.
-3. **Delete:** [src/features/attendance/components/PaginationControls.jsx](file:///D:/Protap/SMS/School-Management-System/frontend/src/features/attendance/components/PaginationControls.jsx)
-4. **Delete:** [src/features/assignment/components/AssignmentPaginationControls.jsx](file:///D:/Protap/SMS/School-Management-System/frontend/src/features/assignment/components/AssignmentPaginationControls.jsx)
+2. A selected class disappears while a user is on another page
+   - reset invalid selections to `all` or blank
+   - show a toast like: `Selected class was removed from Settings`
 
-### Step 7.3 — Replace spinners in AttendancePage (Issue #8)
+3. Socket temporarily disconnected
+   - creator tab still updates from mutation success cache write
+   - other clients resync on reconnect via snapshot event and query invalidation
 
-1. Add: `import { PageSpinner } from '../../components/ui/Spinner';`
-2. Replace any `<div className="animate-spin rounded-full h-12 w-12 border-..." />` with `<PageSpinner size="h-12 w-12" />`.
+4. Section mismatch after a standard changes
+   - always clear invalid `section` state if it no longer belongs to the selected standard
 
-### Step 7.4 — Notifications.jsx (Issue #13)
+5. New badge leakage
+   - never store it in Redux, localStorage, sessionStorage, or server
 
-1. Delete the inline `getRelativeTime` function (~lines 12-28).
-2. Add: `import { getRelativeTime } from '../utils';`
+6. Legacy listeners during migration
+   - keep `customClassesUpdated` only until all consumers are moved to the shared query/hook path
 
-### Phase 7 — Self-Verification Checklist
+7. Non-routed legacy files
+   - do not spend implementation time on `frontend/src/pages/Timetable.jsx`
 
-- [ ] [CalendarPage.jsx](file:///D:/Protap/SMS/School-Management-System/frontend/src/features/calendar/CalendarPage.jsx) no longer contains local `showMessage`
-- [ ] [src/features/attendance/components/PaginationControls.jsx](file:///D:/Protap/SMS/School-Management-System/frontend/src/features/attendance/components/PaginationControls.jsx) is deleted
-- [ ] [src/features/assignment/components/AssignmentPaginationControls.jsx](file:///D:/Protap/SMS/School-Management-System/frontend/src/features/assignment/components/AssignmentPaginationControls.jsx) is deleted
-- [ ] [AttendancePage.jsx](file:///D:/Protap/SMS/School-Management-System/frontend/src/features/attendance/AttendancePage.jsx) imports `PaginationControls` from `components/ui/`
-- [ ] [AssignmentPage.jsx](file:///D:/Protap/SMS/School-Management-System/frontend/src/features/assignment/AssignmentPage.jsx) imports `PaginationControls` from `components/ui/` and uses `<PaginationControls>` (not `<AssignmentPaginationControls>`)
-- [ ] [Notifications.jsx](file:///D:/Protap/SMS/School-Management-System/frontend/src/pages/Notifications.jsx) imports `getRelativeTime` from `utils`
-- [ ] Dev server compiles without errors
-- [ ] Calendar, Attendance, Assignment, Notifications pages all render identically
-- [ ] Pagination works correctly on both Attendance and Assignment pages
+## 9. Verification Matrix
 
----
+Because the repo has no real automated test suite today, this rollout needs a strict manual verification pass plus build/lint.
 
-## Phase 8 — Dead File Cleanup + Remaining api/axios Consumers
+### Required commands
 
-**Audit Issues:** #9, #11 (remaining consumers)
+- Frontend: `npm run lint`
+- Frontend: `npm run build`
+- Backend: start app and verify logs for socket joins and class events
 
-### Files WRITTEN/DELETED
+### Manual scenarios
 
-| File | Action |
-|------|--------|
-| [src/App.css](file:///D:/Protap/SMS/School-Management-System/frontend/src/App.css) | **[DELETE]** |
-| [src/api/axios.js](file:///D:/Protap/SMS/School-Management-System/frontend/src/api/axios.js) | **[DELETE]** (only after all consumers are migrated) |
-| `src/features/result/api/api.js` | Update `api/axios` import → `lib/axios` |
-| `src/features/examination/api/api.js` | Update `api/axios` import → `lib/axios` |
-| [src/components/layout/AvatarUploadModal.jsx](file:///D:/Protap/SMS/School-Management-System/frontend/src/components/layout/AvatarUploadModal.jsx) | Update `api/axios` import → `lib/axios` |
-| [src/components/layout/Header.jsx](file:///D:/Protap/SMS/School-Management-System/frontend/src/components/layout/Header.jsx) | Update `api/axios` import → `lib/axios` |
+1. Create `10-A` in Settings and confirm:
+   - it appears immediately in Settings
+   - it shows `New`
+   - it appears in Dashboard filter, Users modal, Fees filters, Timetable create dialog, Assignment modal, Exam modal, Notice recipient picker, Calendar class picker without reload
 
-### Step 8.1 — Delete App.css (Issue #9)
+2. Reload Settings and confirm the `New` badge is gone.
 
-1. Verify [App.css](file:///D:/Protap/SMS/School-Management-System/frontend/src/App.css) is not imported anywhere (already confirmed: zero grep hits).
-2. Delete [src/App.css](file:///D:/Protap/SMS/School-Management-System/frontend/src/App.css).
+3. Open two admin browsers for the same school:
+   - create a class in browser A
+   - confirm browser B updates without refresh
 
-### Step 8.2 — Migrate remaining `api/axios` consumers (Issue #11)
+4. Delete a class in Settings and confirm:
+   - it disappears from Settings
+   - active selectors reset if they were pointing at it
+   - Dashboard and Fees overviews no longer list it as an active class
+   - Timetable selection disappears immediately
 
-The following files still import from `api/axios` and are NOT touched by Phase 6:
+5. Try to create:
+   - a student in a removed class
+   - a teacher assigned to a removed class
+   - an exam for a removed class
+   - a fee structure for a removed class
+   - a calendar event for a removed class
+   and confirm all are rejected
 
-| File | Current Import | New Import |
-|------|---------------|------------|
-| `src/features/result/api/api.js` | `import api from '../../../api/axios';` | `import api from '../../../lib/axios';` |
-| `src/features/examination/api/api.js` | `import api from '../../../api/axios';` | `import api from '../../../lib/axios';` |
-| [src/components/layout/AvatarUploadModal.jsx](file:///D:/Protap/SMS/School-Management-System/frontend/src/components/layout/AvatarUploadModal.jsx) | `import api from '../../api/axios';` | `import api from '../../lib/axios';` |
-| [src/components/layout/Header.jsx](file:///D:/Protap/SMS/School-Management-System/frontend/src/components/layout/Header.jsx) | `import api from '../../api/axios';` | `import api from '../../lib/axios';` |
+6. Confirm notice class recipients only show settings-owned classes.
 
-> Files **already migrated in Phase 6:** [Settings.jsx](file:///D:/Protap/SMS/School-Management-System/frontend/src/pages/Settings.jsx), [DashboardLayout.jsx](file:///D:/Protap/SMS/School-Management-System/frontend/src/layouts/DashboardLayout.jsx), [UserDetailModal.jsx](file:///D:/Protap/SMS/School-Management-System/frontend/src/features/users/components/UserDetailModal.jsx).
+7. Confirm timetable cleanup still works after class deletion.
 
-### Step 8.3 — Delete [src/api/axios.js](file:///D:/Protap/SMS/School-Management-System/frontend/src/api/axios.js)
+## 10. Rollback Plan
 
-After all 7 consumers are migrated (4 in this phase + 3 in Phase 6):
-1. Grep for `api/axios` to confirm zero remaining imports.
-2. Delete [src/api/axios.js](file:///D:/Protap/SMS/School-Management-System/frontend/src/api/axios.js).
+If the rollout causes instability:
 
-### Phase 8 — Self-Verification Checklist
+1. keep backend validation helpers but disable socket-driven cache writes first
+2. fall back to invalidate/refetch on class changes
+3. keep Settings as the only writer
+4. revert module-by-module frontend migrations individually, starting with:
+   - Dashboard
+   - Calendar
+   - Notice
+   - Assignment
+5. do not roll back the source-of-truth model or existing `/school/classes` endpoint
 
-- [ ] [src/App.css](file:///D:/Protap/SMS/School-Management-System/frontend/src/App.css) no longer exists
-- [ ] [src/api/axios.js](file:///D:/Protap/SMS/School-Management-System/frontend/src/api/axios.js) no longer exists
-- [ ] Grep for `api/axios` returns zero hits across the entire `src/` directory
-- [ ] Grep for [App.css](file:///D:/Protap/SMS/School-Management-System/frontend/src/App.css) returns zero hits
-- [ ] All 4 migrated files import from `lib/axios` and resolve correctly
-- [ ] Dev server compiles without errors
-- [ ] All pages that use API calls still function correctly
+Recommended rollback boundary:
 
----
+- backend validation and event emission can stay
+- frontend consumer migrations can be reverted incrementally if a specific screen regresses
 
-## Verification Plan
+## 11. Execution Order Summary
 
-### Automated Verification
+For the cleanest one-shot implementation, execute in this exact order:
 
-After **all phases** are complete, run from the `frontend/` directory:
-
-```bash
-# 1. Compilation check — no build errors
-npm run build
-
-# 2. Grep for remaining inline patterns that should have been removed
-npx grep-it "const EmptyState" src/features/    # Expect: 0 hits
-npx grep-it "const StatusBadge" src/features/   # Expect: 0 hits
-npx grep-it "const SkeletonRow" src/features/   # Expect: 0 hits
-npx grep-it "api/axios" src/                     # Expect: 0 hits
-npx grep-it "App.css" src/                       # Expect: 0 hits
-```
-
-### Manual Verification (User)
-
-Navigate to each page in the browser and confirm **pixel-identical rendering**:
-
-1. **Dashboard** — cards, charts, role-specific content
-2. **Fees** — all 6 tabs (Structures, Generate, History, Monthly, Yearly, Salary)
-3. **Result** — table, skeleton loading, status badges, modals
-4. **Examination** — exam list, modal, empty states
-5. **Timetable** — grid, create/edit modal
-6. **Calendar** — event creation, toast messages
-7. **Attendance** — pagination, stat cards
-8. **Assignment** — pagination, table, filters
-9. **Notifications** — relative time display
-10. **Settings** — toast messages, save actions
-11. **Users** — table, detail modal, add user modal
-
----
-
-## Conflict Register
-
-The table below proves that **no file appears in more than one phase** (excluding Phase 1 shared files which are only created, not modified by later phases).
-
-| File | Phase(s) | Sections Touched | Conflict? |
-|------|----------|-----------------|-----------|
-| [src/utils/index.js](file:///D:/Protap/SMS/School-Management-System/frontend/src/utils/index.js) | 1 (append) | End of file only | ❌ None |
-| [src/features/fees/FeesPage.jsx](file:///D:/Protap/SMS/School-Management-System/frontend/src/features/fees/FeesPage.jsx) | 2 | Full file | ❌ None |
-| `src/features/fees/components/FeeStructuresTab.jsx` | 2 [NEW] | — | ❌ None |
-| `src/features/fees/components/StaffSalaryTab.jsx` | 2 [NEW] | — | ❌ None |
-| `src/features/fees/components/StudentFeeHistoryTab.jsx` | 2 [NEW] | — | ❌ None |
-| `src/features/fees/components/YearlySummaryTab.jsx` | 2 [NEW] | — | ❌ None |
-| `src/features/fees/components/FeeMonthlyOverviewTab.jsx` | 2 [NEW] | — | ❌ None |
-| [src/features/result/ResultPage.jsx](file:///D:/Protap/SMS/School-Management-System/frontend/src/features/result/ResultPage.jsx) | 3 | Full file | ❌ None |
-| [src/features/result/components/ResultDetailModal.jsx](file:///D:/Protap/SMS/School-Management-System/frontend/src/features/result/components/ResultDetailModal.jsx) | 3 | Spinners only | ❌ None |
-| [src/features/result/components/ResultEntryModal.jsx](file:///D:/Protap/SMS/School-Management-System/frontend/src/features/result/components/ResultEntryModal.jsx) | 3 | Spinners only | ❌ None |
-| [src/features/examination/ExaminationPage.jsx](file:///D:/Protap/SMS/School-Management-System/frontend/src/features/examination/ExaminationPage.jsx) | 4 | Full file | ❌ None |
-| [src/components/examination/ExamModal.jsx](file:///D:/Protap/SMS/School-Management-System/frontend/src/components/examination/ExamModal.jsx) | 4 | Spinners only | ❌ None |
-| [src/features/timetable/TimetablePage.jsx](file:///D:/Protap/SMS/School-Management-System/frontend/src/features/timetable/TimetablePage.jsx) | 5 | readError + spinners | ❌ None |
-| [src/features/timetable/components/TimetableModal.jsx](file:///D:/Protap/SMS/School-Management-System/frontend/src/features/timetable/components/TimetableModal.jsx) | 5 | Spinners only | ❌ None |
-| [src/pages/Settings.jsx](file:///D:/Protap/SMS/School-Management-System/frontend/src/pages/Settings.jsx) | 6 | showMessage + spinners + import | ❌ None |
-| [src/features/users/UsersPage.jsx](file:///D:/Protap/SMS/School-Management-System/frontend/src/features/users/UsersPage.jsx) | 6 | showMessage + spinners | ❌ None |
-| [src/features/users/components/UserDetailModal.jsx](file:///D:/Protap/SMS/School-Management-System/frontend/src/features/users/components/UserDetailModal.jsx) | 6 | Import only | ❌ None |
-| [src/pages/Dashboard.jsx](file:///D:/Protap/SMS/School-Management-System/frontend/src/pages/Dashboard.jsx) | 6 | rolePrefix + style block | ❌ None |
-| [src/layouts/DashboardLayout.jsx](file:///D:/Protap/SMS/School-Management-System/frontend/src/layouts/DashboardLayout.jsx) | 6 | Import only | ❌ None |
-| [src/features/calendar/CalendarPage.jsx](file:///D:/Protap/SMS/School-Management-System/frontend/src/features/calendar/CalendarPage.jsx) | 7 | showMessage + spinners | ❌ None |
-| [src/features/attendance/components/PaginationControls.jsx](file:///D:/Protap/SMS/School-Management-System/frontend/src/features/attendance/components/PaginationControls.jsx) | 7 [DELETE] | — | ❌ None |
-| [src/features/attendance/AttendancePage.jsx](file:///D:/Protap/SMS/School-Management-System/frontend/src/features/attendance/AttendancePage.jsx) | 7 | Import + spinners | ❌ None |
-| [src/features/assignment/components/AssignmentPaginationControls.jsx](file:///D:/Protap/SMS/School-Management-System/frontend/src/features/assignment/components/AssignmentPaginationControls.jsx) | 7 [DELETE] | — | ❌ None |
-| [src/features/assignment/AssignmentPage.jsx](file:///D:/Protap/SMS/School-Management-System/frontend/src/features/assignment/AssignmentPage.jsx) | 7 | Import only | ❌ None |
-| [src/pages/Notifications.jsx](file:///D:/Protap/SMS/School-Management-System/frontend/src/pages/Notifications.jsx) | 7 | getRelativeTime | ❌ None |
-| [src/App.css](file:///D:/Protap/SMS/School-Management-System/frontend/src/App.css) | 8 [DELETE] | — | ❌ None |
-| [src/api/axios.js](file:///D:/Protap/SMS/School-Management-System/frontend/src/api/axios.js) | 8 [DELETE] | — | ❌ None |
-| `src/features/result/api/api.js` | 8 | Import only | ❌ None |
-| `src/features/examination/api/api.js` | 8 | Import only | ❌ None |
-| [src/components/layout/AvatarUploadModal.jsx](file:///D:/Protap/SMS/School-Management-System/frontend/src/components/layout/AvatarUploadModal.jsx) | 8 | Import only | ❌ None |
-| [src/components/layout/Header.jsx](file:///D:/Protap/SMS/School-Management-System/frontend/src/components/layout/Header.jsx) | 8 | Import only | ❌ None |
-| `src/components/ui/EmptyState.jsx` | 1 [NEW] | — | ❌ None |
-| `src/components/ui/StatusBadge.jsx` | 1 [NEW] | — | ❌ None |
-| `src/components/ui/SkeletonRows.jsx` | 1 [NEW] | — | ❌ None |
-| `src/components/ui/PaginationControls.jsx` | 1 [NEW] | — | ❌ None |
-| `src/components/ui/Spinner.jsx` | 1 [NEW] | — | ❌ None |
-| `src/hooks/useToastMessage.js` | 1 [NEW] | — | ❌ None |
-
-**Result: Zero conflicts. Every file is touched by exactly one phase.**
-
-> [!NOTE]
-> The shadcn adoption items (S1-S8) from the second-pass review are **intentionally excluded** from this plan because they introduce **visual and behavioral changes** (e.g., replacing raw `<button>` with shadcn `Button` changes styling; replacing modals with `Dialog` changes animation/backdrop). These violate the "zero visual/functional change" constraint and should be addressed in a separate shadcn migration plan.
+1. shared backend/frontend class-section utilities
+2. socket auth fix
+3. backend class sync snapshot emission
+4. `useSchoolClasses` cache unification
+5. Settings mutation/cache flow and local `New` badge finalization
+6. Dashboard, Users, Fees, Timetable, Assignment, Examination, Notice, Calendar consumer migrations
+7. secondary Attendance and Result alignment if strict app-wide parity is required
+8. lint, build, and live multi-client verification
