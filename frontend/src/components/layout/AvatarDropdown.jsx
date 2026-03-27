@@ -5,6 +5,8 @@ import { FaUser, FaCog, FaSignOutAlt, FaChevronDown } from 'react-icons/fa';
 import AvatarUploadModal from './AvatarUploadModal';
 import { useDispatch } from 'react-redux';
 import { setUser } from '../../features/auth/authSlice';
+import { useQueryClient } from '@tanstack/react-query';
+import { authKeys } from '../../features/auth/api/api';
 
 const AvatarDropdown = () => {
     const { user, logout } = useAuth();
@@ -13,6 +15,7 @@ const AvatarDropdown = () => {
     const dropdownRef = useRef(null);
     const navigate = useNavigate();
     const dispatch = useDispatch();
+    const queryClient = useQueryClient();
 
     useEffect(() => {
         const handleClickOutside = (event) => {
@@ -35,10 +38,17 @@ const AvatarDropdown = () => {
         navigate('/login');
     };
 
-    const handleUploadSuccess = (newAvatarUrl) => {
+    const handleUploadSuccess = (payload) => {
         // Dispatch Redux action to update user state instantly
         if (user) {
-            dispatch(setUser({ ...user, avatarUrl: newAvatarUrl }));
+            const nextUser = {
+                ...user,
+                avatarUrl: payload?.avatarUrl || user.avatarUrl,
+                avatarPublicId: payload?.avatarPublicId || user.avatarPublicId,
+                updatedAt: payload?.updatedAt || user.updatedAt,
+            };
+            dispatch(setUser(nextUser));
+            queryClient.setQueryData(authKeys.user(), { success: true, user: nextUser });
         }
     };
 
@@ -53,7 +63,10 @@ const AvatarDropdown = () => {
         }
     };
 
-    const displayImage = user?.avatarUrl;
+    const avatarVersion = user?.avatarPublicId || user?.updatedAt || null;
+    const displayImage = user?.avatarUrl
+        ? `${user.avatarUrl}${avatarVersion ? `${user.avatarUrl.includes('?') ? '&' : '?'}v=${encodeURIComponent(avatarVersion)}` : ''}`
+        : null;
 
     return (
         <div className="relative flex items-center gap-2" ref={dropdownRef}>

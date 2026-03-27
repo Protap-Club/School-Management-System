@@ -6,6 +6,7 @@ import { useTheme, useFeatures } from '../state';
 import api from '../lib/axios';
 import { ButtonSpinner, PageSpinner } from '../components/ui/Spinner';
 import { useToastMessage } from '../hooks/useToastMessage';
+import { settingsKeys } from '../features/settings/api/queries';
 import {
     getSchoolClassesQueryKey,
     makeSchoolClassesQueryData,
@@ -66,8 +67,7 @@ const Settings = () => {
     const currentSchoolId = currentUser?.schoolId?._id || currentUser?.schoolId;
     const fileInputRef = useRef(null);
 
-    const [settings, setSettings] = useState({ logoUrl: '', theme: { accentColor: '#2563eb' } });
-    const [refreshKey, setRefreshKey] = useState(() => Date.now());
+    const [settings, setSettings] = useState({ logoUrl: '', logoPublicId: '', updatedAt: '', theme: { accentColor: '#2563eb' } });
     const [loading, setLoading] = useState(true);
     const [uploading, setUploading] = useState(false);
     const { message, showMessage } = useToastMessage();
@@ -97,6 +97,8 @@ const Settings = () => {
                     const school = response.data.data.school;
                     setSettings({
                         logoUrl: school.logoUrl || '',
+                        logoPublicId: school.logoPublicId || '',
+                        updatedAt: school.updatedAt || '',
                         theme: school.theme || { accentColor: '#2563eb' },
                     });
                     if (isSuperAdmin) setFeatures(school.features || {});
@@ -174,8 +176,26 @@ const Settings = () => {
             });
 
             if (response.data.success) {
-                setSettings((prev) => ({ ...prev, logoUrl: response.data.data.logoUrl }));
-                setRefreshKey(Date.now());
+                const nextLogo = {
+                    logoUrl: response.data.data.logoUrl || '',
+                    logoPublicId: response.data.data.logoPublicId || '',
+                    updatedAt: response.data.data.updatedAt || '',
+                };
+                setSettings((prev) => ({ ...prev, ...nextLogo }));
+                queryClient.setQueryData(settingsKeys.profile(), (prev) => {
+                    if (!prev?.data?.school) return prev;
+                    return {
+                        ...prev,
+                        data: {
+                            ...prev.data,
+                            school: {
+                                ...prev.data.school,
+                                ...nextLogo,
+                            },
+                        },
+                    };
+                });
+                queryClient.invalidateQueries({ queryKey: settingsKeys.profile() });
                 showMessage('success', 'Logo uploaded successfully');
                 window.dispatchEvent(new Event('settingsUpdated'));
             }
@@ -778,7 +798,7 @@ const Settings = () => {
                                     {settings.logoUrl ? (
                                         <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center p-1.5">
                                             <img
-                                                src={`${settings.logoUrl}${settings.logoUrl.includes('?') ? '&' : '?'}t=${refreshKey}`}
+                                                src={`${settings.logoUrl}${settings.logoPublicId || settings.updatedAt ? `${settings.logoUrl.includes('?') ? '&' : '?'}v=${encodeURIComponent(settings.logoPublicId || settings.updatedAt)}` : ''}`}
                                                 alt="Logo"
                                                 className="h-full w-full object-contain"
                                                 onError={(e) => { e.target.style.display = 'none'; }}

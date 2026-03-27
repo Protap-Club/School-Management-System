@@ -6,7 +6,6 @@ import api from '../../lib/axios';
 const AvatarUploadModal = ({ user, isOpen, onClose, onUploadSuccess }) => {
     const [file, setFile] = useState(null);
     const [preview, setPreview] = useState(null);
-    const [refreshKey, setRefreshKey] = useState(() => Date.now());
     const [error, setError] = useState('');
     const [uploading, setUploading] = useState(false);
     const [toastMessage, setToastMessage] = useState('');
@@ -66,11 +65,13 @@ const AvatarUploadModal = ({ user, isOpen, onClose, onUploadSuccess }) => {
             if (response.data.success) {
                 // Show toast inside modal before closing
                 setToastMessage('Avatar uploaded successfully!');
-                setRefreshKey(Date.now());
-                
                 setTimeout(() => {
                     // Update Redux/Context (which might unmount/rerender parent) 
-                    onUploadSuccess(response.data.data.avatarUrl);
+                    onUploadSuccess({
+                        avatarUrl: response.data.data.avatarUrl,
+                        avatarPublicId: response.data.data.avatarPublicId,
+                        updatedAt: response.data.data.updatedAt,
+                    });
                     handleClose();
                 }, 2000); // Wait 2 seconds before closing
             }
@@ -82,7 +83,12 @@ const AvatarUploadModal = ({ user, isOpen, onClose, onUploadSuccess }) => {
     };
 
     // Derived Display Image
-    const displayImage = preview || user?.avatarUrl;
+    const avatarVersion = user?.avatarPublicId || user?.updatedAt;
+    const displayImage = preview || (user?.avatarUrl
+        ? (avatarVersion
+            ? `${user.avatarUrl}${user.avatarUrl.includes('?') ? '&' : '?'}v=${encodeURIComponent(avatarVersion)}`
+            : user.avatarUrl)
+        : null);
 
     return (
         <div className="modal-overlay fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fadeIn p-4">
@@ -105,7 +111,7 @@ const AvatarUploadModal = ({ user, isOpen, onClose, onUploadSuccess }) => {
                     <div className="relative w-48 h-48 mb-6 group">
                         {displayImage ? (
                             <img
-                                src={displayImage.startsWith('data:') ? displayImage : `${displayImage}${displayImage.includes('?') ? '&' : '?'}t=${refreshKey}`}
+                                src={displayImage}
                                 alt="Avatar Preview"
                                 className="w-full h-full object-cover rounded-2xl border-4 border-gray-50 shadow-sm"
                             />

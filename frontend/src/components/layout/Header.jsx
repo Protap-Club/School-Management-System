@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../features/auth';
 import { useSidebar } from '../../state';
-import api from '../../lib/axios';
 import { useNavigate } from 'react-router-dom';
 import { headerContent } from '../../config/headerContent.js';
 import { FaBars, FaUserCircle, FaSignOutAlt, FaBuilding, FaChevronDown, FaSearch, FaBell } from 'react-icons/fa';
@@ -11,6 +10,7 @@ import { setUser } from '../../features/auth/authSlice';
 import { useReceivedNotices } from '../../features/notices';
 import { useQueryClient } from '@tanstack/react-query';
 import { authKeys } from '../../features/auth/api/api';
+import { useSchoolProfile } from '../../features/settings/api/queries';
 
 const ROLE_GRADIENTS = {
     super_admin: 'from-purple-600 to-blue-600',
@@ -19,13 +19,11 @@ const ROLE_GRADIENTS = {
 };
 
 const Header = () => {
-    const { user, accessToken, logout } = useAuth();
+    const { user, logout } = useAuth();
     const { toggleSidebar } = useSidebar();
     const navigate = useNavigate();
     const dispatch = useDispatch();
     const queryClient = useQueryClient();
-    const [schoolBranding, setSchoolBranding] = useState(null);
-    const [refreshKey, setRefreshKey] = useState(() => Date.now());
     const [dropdownOpen, setDropdownOpen] = useState(false);
     const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
     const dropdownRef = useRef(null);
@@ -52,31 +50,20 @@ const Header = () => {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    useEffect(() => {
-        const fetchBranding = async () => {
-            if (!user || !accessToken) return;
+    const { data: schoolProfile } = useSchoolProfile();
+    const school = schoolProfile?.data?.school || null;
 
-            try {
-                const response = await api.get('/school');
-                if (response.data.success && response.data.data) {
-                    setSchoolBranding(response.data.data);
-                    setRefreshKey(Date.now());
-                }
-            } catch (error) {
-                console.error('Failed to fetch branding', error);
-            }
-        };
-        fetchBranding();
-        window.addEventListener('settingsUpdated', fetchBranding);
-        return () => window.removeEventListener('settingsUpdated', fetchBranding);
-    }, [user, accessToken]);
-
-    const handleUploadSuccess = (newAvatarUrl) => {
+    const handleUploadSuccess = (payload) => {
         if (user) {
-            dispatch(setUser({ ...user, avatarUrl: newAvatarUrl }));
-            setRefreshKey(Date.now());
-            // Invalidate query to prevent old cache from overwriting Redux on remounts
-            queryClient.invalidateQueries({ queryKey: authKeys.user() });
+            const nextUser = {
+                ...user,
+                avatarUrl: payload?.avatarUrl || user.avatarUrl,
+                avatarPublicId: payload?.avatarPublicId || user.avatarPublicId,
+                updatedAt: payload?.updatedAt || user.updatedAt,
+            };
+            dispatch(setUser(nextUser));
+            // Keep auth cache in sync so route switches don't overwrite with stale data
+            queryClient.setQueryData(authKeys.user(), { success: true, user: nextUser });
         }
     };
 
@@ -88,9 +75,17 @@ const Header = () => {
         navigate('/notifications');
     };
 
-    const title = schoolBranding?.school?.name || (user?.role === 'super_admin' ? 'Protap' : 'SMS Portal');
-    const logo = schoolBranding?.school?.logoUrl || null;
+    const title = school?.name || (user?.role === 'super_admin' ? 'Protap' : 'SMS Portal');
+    const logo = school?.logoUrl || null;
+    const logoVersion = school?.logoPublicId || school?.updatedAt || null;
+    const logoSrc = logo
+        ? `${logo}${logoVersion ? `${logo.includes('?') ? '&' : '?'}v=${encodeURIComponent(logoVersion)}` : ''}`
+        : headerContent.logo;
     const roleGradient = ROLE_GRADIENTS[user?.role] || 'from-gray-600 to-gray-700';
+    const avatarVersion = user?.avatarPublicId || user?.updatedAt || null;
+    const avatarSrc = user?.avatarUrl
+        ? `${user.avatarUrl}${avatarVersion ? `${user.avatarUrl.includes('?') ? '&' : '?'}v=${encodeURIComponent(avatarVersion)}` : ''}`
+        : null;
 
     return (
         <header className="fixed top-0 left-0 w-full h-16 bg-white border-b border-gray-200 z-50 flex items-center justify-between px-4 shadow-sm">
@@ -100,11 +95,12 @@ const Header = () => {
                     <img src="/menus.png" alt="Menu" className="w-5 h-5" />
                 </button>
                 <div className="flex items-center gap-3">
-                    {(logo || headerContent.logo) ? (
+                    {logoSrc ? (
                         <img
-                            src={logo ? `${logo}${logo.includes('?') ? '&' : '?'}t=${refreshKey}` : headerContent.logo}
+                            src={logoSrc}
                             alt="Logo"
                             className="h-10 w-auto object-contain"
+                            loading="eager"
                             onError={(e) => { e.target.style.display = 'none'; }}
                         />
                     ) : (
@@ -139,8 +135,8 @@ const Header = () => {
                         <div
                             className={`w-10 h-10 rounded-full bg-gradient-to-r ${roleGradient} flex items-center justify-center text-white font-bold shadow-sm overflow-hidden shrink-0 border-2 border-transparent`}
                         >
-                            {user?.avatarUrl ? (
-                                <img src={`${user.avatarUrl}${user.avatarUrl.includes('?') ? '&' : '?'}t=${refreshKey}`} alt="Avatar" className="w-full h-full object-cover" />
+                        {avatarSrc ? (
+                                <img src={avatarSrc} alt="Avatar" className="w-full h-full object-cover" loading="eager" />
                             ) : (
                                 user?.name?.charAt(0).toUpperCase() || 'U'
                             )}
@@ -163,8 +159,8 @@ const Header = () => {
                                     title="Change Profile Picture"
                                 >
                                     <div className={`w-16 h-16 rounded-full bg-gradient-to-r ${roleGradient} flex items-center justify-center text-white font-bold shadow-md overflow-hidden text-2xl group-hover:ring-2 group-hover:ring-blue-100 transition-all`}>
-                                        {user?.avatarUrl ? (
-                                            <img src={`${user.avatarUrl}${user.avatarUrl.includes('?') ? '&' : '?'}t=${refreshKey}`} alt="Avatar" className="w-full h-full object-cover" />
+                                        {avatarSrc ? (
+                                            <img src={avatarSrc} alt="Avatar" className="w-full h-full object-cover" loading="eager" />
                                         ) : (
                                             user?.name?.charAt(0).toUpperCase() || 'U'
                                         )}
