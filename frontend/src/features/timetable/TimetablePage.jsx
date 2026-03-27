@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { FaCalendarAlt, FaChalkboardTeacher } from "react-icons/fa";
+import { FaCalendarAlt, FaChalkboardTeacher, FaExclamationTriangle, FaTimes } from "react-icons/fa";
 import { readError } from "../../utils";
 import { ButtonSpinner } from "../../components/ui/Spinner";
 import DashboardLayout from "../../layouts/DashboardLayout";
@@ -7,6 +7,7 @@ import { useAuth } from "../auth";
 import TimetableGrid from "./components/TimetableGrid";
 import TimetableModal from "./components/TimetableModal";
 import CreateTimetableDialog from "./components/CreateTimetableDialog";
+import { useToastMessage } from "../../hooks/useToastMessage";
 import {
     useAvailableClasses,
     useCreateEntry,
@@ -42,6 +43,7 @@ const TimetablePage = () => {
     const [createDialogOpen, setCreateDialogOpen] = useState(false);
     const [errorMessage, setErrorMessage] = useState("");
     const [modalState, setModalState] = useState({ open: false, cell: null });
+    const { message: toast, showMessage } = useToastMessage(5000);
 
     const timeSlotsQuery = useTimeSlots();
     const timetablesQuery = useTimetables({}, isAdmin);
@@ -185,6 +187,11 @@ const TimetablePage = () => {
             }
             closeModal();
         } catch (error) {
+            const apiError = error?.response?.data?.error;
+            if (apiError?.code === "TEACHER_SCHEDULE_CONFLICT") {
+                showMessage("warning", apiError.message || "Teacher schedule conflict.");
+                return;
+            }
             setErrorMessage(readError(error, "Failed to save timetable entry."));
         }
     };
@@ -217,6 +224,23 @@ const TimetablePage = () => {
     return (
         <DashboardLayout>
             <div className="space-y-4">
+                {toast?.text && (
+                    <div className={`fixed top-6 right-6 z-[120] px-5 py-3.5 rounded-2xl shadow-xl flex items-start gap-3 animate-fadeIn backdrop-blur-sm border ${toast?.type === 'warning'
+                        ? 'bg-amber-500/90 text-white border-amber-200/40'
+                        : 'bg-red-500/90 text-white border-red-200/40'
+                        }`}>
+                        <div className="mt-0.5 text-white/90">
+                            {toast?.type === 'warning' ? <FaExclamationTriangle size={14} /> : <FaTimes size={12} />}
+                        </div>
+                        <div className="text-sm">
+                            <p className="font-semibold">
+                                {toast?.type === 'warning' ? 'Schedule Conflict' : 'Action Failed'}
+                            </p>
+                            <p className="opacity-95">{toast.text}</p>
+                        </div>
+                    </div>
+                )}
+
                 {currentError && (
                     <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
                         {currentError}

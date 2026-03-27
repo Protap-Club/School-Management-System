@@ -229,7 +229,7 @@ export const createEntries = async (schoolId, timetableId, entries) => {
     // run all teacher conflict checks in parallel for better performance
     const conflictResults = await Promise.all(
         entries.map(async (entry) => {
-            // break periods have no teacher — no conflict possible
+            // break periods have no teacher - no conflict possible
             if (!entry.teacherId) return { entry, conflict: null, error: null };
 
             try {
@@ -239,9 +239,25 @@ export const createEntries = async (schoolId, timetableId, entries) => {
                     teacherId: entry.teacherId,
                     dayOfWeek: entry.dayOfWeek,
                     timeSlotId: entry.timeSlotId
-                }).populate('timetableId', 'standard section');
+                }).populate('timetableId', 'standard section').lean();
 
-                return { entry, conflict, error: null };
+                if (!conflict) return { entry, conflict: null, error: null };
+
+                const slot = await TimeSlot.findById(entry.timeSlotId)
+                    .select("slotNumber startTime endTime")
+                    .lean();
+
+                return {
+                    entry,
+                    conflict: {
+                        classKey: `${conflict.timetableId.standard}-${conflict.timetableId.section}`,
+                        timetableId: conflict.timetableId._id,
+                        dayOfWeek: entry.dayOfWeek,
+                        timeSlotId: entry.timeSlotId,
+                        slot
+                    },
+                    error: null
+                };
             } catch (error) {
                 return { entry, conflict: null, error: error.message };
             }
@@ -256,10 +272,13 @@ export const createEntries = async (schoolId, timetableId, entries) => {
         if (error) {
             failed.push({ ...entry, reason: error });
         } else if (conflict) {
-            // include which class the teacher is busy in so admin can fix the conflict
+            const timeLabel = conflict.slot?.startTime && conflict.slot?.endTime
+                ? ` (${conflict.slot.startTime} - ${conflict.slot.endTime})`
+                : '';
             failed.push({
                 ...entry,
-                reason: `Teacher busy in ${conflict.timetableId.standard}-${conflict.timetableId.section}`
+                reason: `Teacher already assigned in ${conflict.classKey} on ${conflict.dayOfWeek}${timeLabel}`,
+                conflict
             });
         } else {
             toInsert.push({ schoolId, timetableId, ...entry });

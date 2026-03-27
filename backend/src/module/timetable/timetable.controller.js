@@ -1,7 +1,7 @@
 import * as timetableService from "./timetable.service.js";
 import asyncHandler from "../../utils/asyncHandler.js";
 import logger from "../../config/logger.js";
-import { BadRequestError } from "../../utils/customError.js";
+import { ConflictError } from "../../utils/customError.js";
 
 // TIMESLOT CONTROLLERS
 
@@ -89,7 +89,11 @@ export const addEntry = asyncHandler(async (req, res) => {
     // if the single entry failed conflict check, throw error instead of returning partial result
     if (result.failed.length > 0) {
         const failure = result.failed[0];
-        throw new BadRequestError(failure.reason || "Failed to create entry");
+        throw new ConflictError(
+            failure.reason || "Teacher schedule conflict",
+            "TEACHER_SCHEDULE_CONFLICT",
+            failure.conflict ? { conflict: failure.conflict } : null
+        );
     }
 
     res.status(201).json({
