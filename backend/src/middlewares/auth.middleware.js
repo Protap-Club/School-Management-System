@@ -23,7 +23,7 @@ const checkAuth = async (req, res, next) => {
 
         // Optimization: .lean() returns a plain JS object instead of a heavy Mongoose document
         const findUser = await User.findById(decoded.id)
-            .select("_id name email role schoolId isActive avatarUrl contactNo")
+            .select("_id name email role schoolId isActive avatarUrl avatarPublicId updatedAt contactNo")
             .lean();
 
         if (!findUser) {

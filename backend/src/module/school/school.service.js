@@ -188,6 +188,8 @@ export const getSchoolProfile = async (schoolId) => {
         isActive: school.isActive,
         code: school.code,
         logoUrl: school.logoUrl,
+        logoPublicId: school.logoPublicId,
+        updatedAt: school.updatedAt,
         theme: school.theme,
         features: school.features,
         schoolId: school._id,
@@ -219,7 +221,7 @@ export const updateLogo = async (schoolId, logoUrl, logoPublicId) => {
 
     if (oldLogoPublicId) await deleteFromCloudinary(oldLogoPublicId);
 
-    return { logoUrl: school.logoUrl };
+    return { logoUrl: school.logoUrl, logoPublicId: school.logoPublicId, updatedAt: school.updatedAt };
 };
 
 // FEATURE MANAGEMENT 
@@ -523,12 +525,16 @@ export const getSchoolClasses = async (schoolId) => {
     const classSections = sortClassSections(hydratedClassSections);
     const standards = [...new Set(classSections.map((item) => item.standard))];
     const sections = [...new Set(classSections.map((item) => item.section))];
+    const classRoomLabels = classSections.map(
+        (item) => `Class ${item.standard}-${item.section}`
+    );
+    const mergedRooms = [...new Set([...(rooms || []), ...classRoomLabels])];
 
     return {
         standards,
         sections,
         classSections,
         subjects: subjects.filter(Boolean).sort(),
-        rooms: rooms.filter(Boolean).sort()
+        rooms: mergedRooms.filter(Boolean).sort()
     };
 };

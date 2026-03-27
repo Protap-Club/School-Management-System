@@ -553,7 +553,8 @@ export const updateAvatar = async (userId, avatarUrl, avatarPublicId) => {
 
     return {
         avatarUrl: user.avatarUrl,
-        avatarPublicId: user.avatarPublicId
+        avatarPublicId: user.avatarPublicId,
+        updatedAt: user.updatedAt
     };
 };
 

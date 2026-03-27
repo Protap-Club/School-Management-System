@@ -80,6 +80,8 @@ export const login = async (email, password, platform, metadata = {}) => {
         email: user.email,
         role: user.role,
         avatarUrl: user.avatarUrl,
+        avatarPublicId: user.avatarPublicId,
+        updatedAt: user.updatedAt,
     };
 
     return { user: userResponse, accessToken, refreshToken };
