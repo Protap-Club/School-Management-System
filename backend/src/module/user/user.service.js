@@ -23,6 +23,7 @@ import {
     ensureActiveTeacher,
     findTeacherClassConflicts,
     formatClassSectionLabel,
+    getPrimaryTeacherAssignedClass,
     mergeTeacherAssignedClasses,
     normalizeTeacherAssignedClasses,
 } from "../../utils/teacher.util.js";
@@ -643,12 +644,6 @@ export const toggleArchive = async (creator, userIds, isArchived, options = {}) 
                 archiveSummary.uniqueAssignedClasses,
                 teacherTargetIds
             );
-            await assertReplacementTeacherHasNoTimetableConflicts(
-                creator.schoolId,
-                teacherTargetIds,
-                replacementTeacher._id
-            );
-
             replacementProfile =
                 await TeacherProfile.findOne({
                     userId: replacementTeacher._id,
@@ -678,14 +673,17 @@ export const toggleArchive = async (creator, userIds, isArchived, options = {}) 
 
         const duplicateAssignments = new Map();
         restoringProfiles.forEach((profile) => {
-            normalizeTeacherAssignedClasses(profile.assignedClasses || []).forEach((assignedClass) => {
+            const assignedClass = getPrimaryTeacherAssignedClass(profile.assignedClasses || []);
+            if (!assignedClass) {
+                return;
+            }
+
                 const classKey = `${assignedClass.standard}::${assignedClass.section}`;
                 if (!duplicateAssignments.has(classKey)) {
                     duplicateAssignments.set(classKey, []);
                 }
 
                 duplicateAssignments.get(classKey).push(String(profile.userId));
-            });
         });
 
         const duplicateRestoreClass = [...duplicateAssignments.entries()].find(
@@ -703,7 +701,9 @@ export const toggleArchive = async (creator, userIds, isArchived, options = {}) 
 
         const conflicts = await findTeacherClassConflicts(
             creator.schoolId,
-            restoringProfiles.flatMap((profile) => profile.assignedClasses || []),
+            restoringProfiles
+                .map((profile) => getPrimaryTeacherAssignedClass(profile.assignedClasses || []))
+                .filter(Boolean),
             { excludeUserIds: teacherTargetIds }
         );
 
