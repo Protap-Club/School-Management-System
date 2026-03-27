@@ -24,11 +24,8 @@ import {
     findTeacherClassConflicts,
     formatClassSectionLabel,
     getPrimaryTeacherAssignedClass,
-    mergeTeacherAssignedClasses,
     normalizeTeacherAssignedClasses,
 } from "../../utils/teacher.util.js";
-
-const escapeRegex = (value = "") => String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 const getTeacherAssignmentsFromPayload = (userData = {}) => {
     if (Array.isArray(userData.assignedClasses) && userData.assignedClasses.length > 0) {
@@ -75,6 +72,9 @@ const normalizeUserClassAssignments = async (schoolId, role, userData, options =
             requestedAssignedClasses,
             { message: "One or more teacher assigned classes are not configured in Settings" }
         );
+        if (normalizedAssignedClasses.length > 1) {
+            throw new BadRequestError("A teacher can be class teacher for only one class");
+        }
         userData.assignedClasses = normalizeTeacherAssignedClasses(
             normalizedAssignedClasses.map((item) => {
                 const original = requestedAssignedClasses.find(
@@ -183,7 +183,6 @@ const assertReplacementTeacherCanTakeClasses = async (
 
     const conflicts = await findTeacherClassConflicts(schoolId, classSections, {
         excludeUserIds: [replacementTeacherId, ...archivedTeacherIds],
-        primaryOnly: false,
     });
 
     if (conflicts.length > 0) {
@@ -214,10 +213,10 @@ const transferTeacherResponsibilities = async (
     }
 
     const incomingClasses = normalizeTeacherAssignedClasses(classAssignmentsToTransfer);
-    replacementProfile.assignedClasses = mergeTeacherAssignedClasses(
-        replacementProfile.assignedClasses || [],
-        incomingClasses
-    );
+    const incomingPrimaryClass = incomingClasses[0] || null;
+    replacementProfile.assignedClasses = incomingPrimaryClass
+        ? [{ ...incomingPrimaryClass, subjects: [] }]
+        : [];
     await replacementProfile.save();
 
     const [
@@ -262,7 +261,7 @@ const transferTeacherResponsibilities = async (
     ]);
 
     return {
-        classesTransferred: normalizeTeacherAssignedClasses(incomingClasses).length,
+        classesTransferred: incomingPrimaryClass ? 1 : 0,
         timetableEntriesTransferred: timetableTransferResult.modifiedCount || 0,
         assignmentsTransferred: assignmentTransferResult.modifiedCount || 0,
         examsTransferred: ownedExamTransferResult.modifiedCount || 0,
@@ -571,7 +570,7 @@ export const toggleArchive = async (creator, userIds, isArchived, options = {}) 
         const primaryClassConflicts = await findTeacherClassConflicts(
             creator.schoolId,
             archiveSummary.primaryAssignedClasses,
-            { excludeUserIds: teacherTargetIds, primaryOnly: false }
+            { excludeUserIds: teacherTargetIds }
         );
         const conflictingPrimaryClassKeys = new Set(
             primaryClassConflicts.map((conflict) => `${conflict.standard}::${conflict.section}`)
@@ -591,6 +590,14 @@ export const toggleArchive = async (creator, userIds, isArchived, options = {}) 
         if (replacementTeacherId) {
             if (teacherTargetIds.some((id) => String(id) === String(replacementTeacherId))) {
                 throw new BadRequestError("Replacement teacher must be different from the archived teacher");
+            }
+
+            if (transferablePrimaryClasses.length > 1) {
+                throw new BadRequestError(
+                    "Please archive class teachers one by one when assigning a replacement. One teacher can be class teacher of only one class.",
+                    "MULTI_CLASS_REPLACEMENT_NOT_ALLOWED",
+                    { assignedClassLabels: transferablePrimaryClasses.map((item) => formatClassSectionLabel(item)) }
+                );
             }
 
             replacementTeacher = await ensureActiveTeacher(creator.schoolId, replacementTeacherId, {
@@ -664,7 +671,7 @@ export const toggleArchive = async (creator, userIds, isArchived, options = {}) 
             restoringProfiles
                 .map((profile) => getPrimaryTeacherAssignedClass(profile.assignedClasses || []))
                 .filter(Boolean),
-            { excludeUserIds: teacherTargetIds, primaryOnly: false }
+            { excludeUserIds: teacherTargetIds }
         );
 
         if (conflicts.length > 0) {
@@ -737,8 +744,11 @@ export const replaceClassTeacher = async (creator, data = {}) => {
         message: "Replacement teacher not found or is inactive",
     });
 
-    const standardRegex = new RegExp(`^${escapeRegex(normalizedClass.standard)}$`, "i");
-    const sectionRegex = new RegExp(`^${escapeRegex(normalizedClass.section)}$`, "i");
+    const mode = String(data.mode || "replace").trim().toLowerCase();
+    if (!["replace", "swap", "reassign"].includes(mode)) {
+        throw new BadRequestError("Invalid replacement mode. Use replace, swap, or reassign");
+    }
+
     const classKey = `${normalizedClass.standard}::${normalizedClass.section}`;
 
     const activeTeacherIds = (await User.find({
@@ -757,55 +767,98 @@ export const replaceClassTeacher = async (creator, data = {}) => {
         .select("userId assignedClasses")
         .lean();
 
-    const existingOwners = teacherProfiles
-        .filter((profile) => {
-            const primaryClass = getPrimaryTeacherAssignedClass(profile.assignedClasses || []);
-            return primaryClass && `${primaryClass.standard}::${primaryClass.section}` === classKey;
-        })
-        .map((profile) => profile.userId);
-
-    const ownerIdsToClear = existingOwners.filter(
-        (teacherId) => String(teacherId) !== String(replacementTeacher._id)
-    );
-
-    if (ownerIdsToClear.length > 0) {
-        await TeacherProfile.updateMany(
-            {
-                schoolId: creator.schoolId,
-                userId: { $in: ownerIdsToClear },
-            },
-            { $pull: { assignedClasses: { standard: standardRegex, section: sectionRegex } } }
+    const primaryClassByTeacher = new Map();
+    teacherProfiles.forEach((profile) => {
+        primaryClassByTeacher.set(
+            String(profile.userId),
+            getPrimaryTeacherAssignedClass(profile.assignedClasses || [])
         );
-    }
-
-    let replacementProfile = await TeacherProfile.findOne({
-        schoolId: creator.schoolId,
-        userId: replacementTeacher._id,
     });
 
-    if (!replacementProfile) {
-        replacementProfile = await TeacherProfile.create({
-            schoolId: creator.schoolId,
-            userId: replacementTeacher._id,
-            assignedClasses: [],
+    const currentOwner = teacherProfiles.find((profile) => {
+        const primaryClass = primaryClassByTeacher.get(String(profile.userId));
+        return primaryClass && `${primaryClass.standard}::${primaryClass.section}` === classKey;
+    }) || null;
+
+    const replacementPrimaryClass = primaryClassByTeacher.get(String(replacementTeacher._id)) || null;
+    const replacementPrimaryKey = replacementPrimaryClass
+        ? `${replacementPrimaryClass.standard}::${replacementPrimaryClass.section}`
+        : null;
+    const isAlreadyOwner = replacementPrimaryKey === classKey;
+
+    let reassignTeacher = null;
+    if (mode === "reassign" && replacementPrimaryClass && !isAlreadyOwner) {
+        if (!data.reassignTeacherId) {
+            throw new BadRequestError("Please choose a teacher to reassign the previous class");
+        }
+        if (String(data.reassignTeacherId) === String(replacementTeacher._id)) {
+            throw new BadRequestError("Reassigned teacher must be different from replacement teacher");
+        }
+        reassignTeacher = await ensureActiveTeacher(creator.schoolId, data.reassignTeacherId, {
+            message: "Reassigned teacher not found or is inactive",
         });
     }
 
-    const existingReplacementAssignments = normalizeTeacherAssignedClasses(
-        replacementProfile.assignedClasses || []
-    ).filter((item) => `${item.standard}::${item.section}` !== classKey);
+    if (mode === "swap" && !isAlreadyOwner) {
+        if (!currentOwner || String(currentOwner.userId) === String(replacementTeacher._id)) {
+            throw new BadRequestError("Swap requires an existing class teacher for this class");
+        }
+        if (!replacementPrimaryClass) {
+            throw new BadRequestError("Swap requires the selected replacement teacher to already own a class");
+        }
+    }
 
-    replacementProfile.assignedClasses = [
-        { standard: normalizedClass.standard, section: normalizedClass.section, subjects: [] },
-        ...existingReplacementAssignments,
-    ];
-    await replacementProfile.save();
+    const updates = new Map();
+    updates.set(String(replacementTeacher._id), {
+        standard: normalizedClass.standard,
+        section: normalizedClass.section,
+    });
+
+    if (currentOwner && String(currentOwner.userId) !== String(replacementTeacher._id)) {
+        if (mode === "swap" && replacementPrimaryClass && !isAlreadyOwner) {
+            updates.set(String(currentOwner.userId), {
+                standard: replacementPrimaryClass.standard,
+                section: replacementPrimaryClass.section,
+            });
+        } else {
+            updates.set(String(currentOwner.userId), null);
+        }
+    }
+
+    if (mode === "reassign" && reassignTeacher && replacementPrimaryClass && !isAlreadyOwner) {
+        updates.set(String(reassignTeacher._id), {
+            standard: replacementPrimaryClass.standard,
+            section: replacementPrimaryClass.section,
+        });
+    }
+
+    for (const [teacherId, classAssignment] of updates.entries()) {
+        let profile = await TeacherProfile.findOne({
+            schoolId: creator.schoolId,
+            userId: teacherId,
+        });
+
+        if (!profile) {
+            profile = await TeacherProfile.create({
+                schoolId: creator.schoolId,
+                userId: teacherId,
+                assignedClasses: [],
+            });
+        }
+
+        profile.assignedClasses = classAssignment
+            ? [{ standard: classAssignment.standard, section: classAssignment.section, subjects: [] }]
+            : [];
+        await profile.save();
+    }
 
     return {
         standard: normalizedClass.standard,
         section: normalizedClass.section,
+        mode,
         replacementTeacherId: replacementTeacher._id,
-        previousTeacherIds: ownerIdsToClear,
+        previousTeacherId: currentOwner ? currentOwner.userId : null,
+        reassignTeacherId: reassignTeacher?._id || null,
     };
 };
 

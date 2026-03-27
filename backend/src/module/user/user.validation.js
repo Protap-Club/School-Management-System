@@ -160,5 +160,15 @@ export const replaceClassTeacherSchema = z.object({
         standard: z.string().min(1, 'Standard is required'),
         section: z.string().min(1, 'Section is required'),
         replacementTeacherId: objectIdSchema,
-    }).strict(),
+        mode: z.enum(['replace', 'swap', 'reassign']).optional().default('replace'),
+        reassignTeacherId: objectIdSchema.optional(),
+    }).strict().superRefine((data, ctx) => {
+        if (data.mode === 'reassign' && !data.reassignTeacherId) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: 'reassignTeacherId is required when mode is reassign',
+                path: ['reassignTeacherId'],
+            });
+        }
+    }),
 });
