@@ -140,3 +140,14 @@ export const useMarkManualAttendance = () => {
         },
     });
 };
+
+export const useReplaceClassTeacher = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: attendanceApi.replaceClassTeacher,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: attendanceKeys.all });
+            queryClient.invalidateQueries({ queryKey: ['users'] });
+        },
+    });
+};

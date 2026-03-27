@@ -11,6 +11,7 @@ import {
     useTeachers,
     useTodayAttendance,
     useMarkManualAttendance,
+    useReplaceClassTeacher,
 } from './index';
 
 // Components
@@ -48,12 +49,30 @@ const buildClassGroups = (students = [], teachers = [], configuredClassSections 
     const configuredKeys = new Set(
         configuredClassSections.map((item) => `${item.standard} ${item.section}`.trim())
     );
+    const primaryClassTeacherByClass = {};
+
+    teachers.forEach((teacher) => {
+        const primaryClass = teacher.profile?.assignedClasses?.[0];
+        if (!primaryClass?.standard || !primaryClass?.section) return;
+
+        const key = `${primaryClass.standard} ${primaryClass.section}`.trim();
+        const existingTeacher = primaryClassTeacherByClass[key];
+
+        if (!existingTeacher) {
+            primaryClassTeacherByClass[key] = teacher;
+            return;
+        }
+
+        const existingTs = new Date(existingTeacher.profile?.updatedAt || existingTeacher.updatedAt || 0).getTime();
+        const nextTs = new Date(teacher.profile?.updatedAt || teacher.updatedAt || 0).getTime();
+        if (nextTs >= existingTs) {
+            primaryClassTeacherByClass[key] = teacher;
+        }
+    });
 
     configuredClassSections.forEach((item) => {
         const key = `${item.standard} ${item.section}`.trim();
-        const classTeacher = teachers.find(t => t.profile?.assignedClasses?.some(
-            ac => String(ac.standard) === String(item.standard) && String(ac.section) === String(item.section)
-        ));
+        const classTeacher = primaryClassTeacherByClass[key] || null;
         groups[key] = { id: key, standard: item.standard, section: item.section, teacher: classTeacher || null, students: [] };
     });
 
@@ -66,7 +85,7 @@ const buildClassGroups = (students = [], teachers = [], configuredClassSections 
         const key = `${std} ${sec}`.trim();
         if (configuredKeys.size > 0 && !configuredKeys.has(key)) return;
         if (!groups[key]) {
-            const classTeacher = teachers.find(t => t.profile?.assignedClasses?.some(ac => String(ac.standard) === String(std) && String(ac.section) === String(sec)));
+            const classTeacher = primaryClassTeacherByClass[key] || null;
             groups[key] = { id: key, standard: std, section: sec, teacher: classTeacher || null, students: [] };
         }
         groups[key].students.push(student);
@@ -103,6 +122,7 @@ const AttendancePage = () => {
     const { data: teachersRes, isLoading: teachersLoading } = useTeachers(isAdmin);
     const { data: attendanceRes, isLoading: attendanceLoading } = useTodayAttendance();
     const manualMutation = useMarkManualAttendance();
+    const replaceTeacherMutation = useReplaceClassTeacher();
     const { classSections: configuredClassSections } = useSchoolClasses({ enabled: isAdmin });
 
     // UI State
@@ -339,6 +359,9 @@ const AttendancePage = () => {
                         setSelectedStudent={setSelectedStudent} getStudentStatus={getStudentStatus}
                         STATUS_STYLES={STATUS_STYLES} STATUS_LABELS={STATUS_LABELS}
                         handleManualToggle={handleManualToggle} manualMutation={manualMutation}
+                        teachers={teachers}
+                        onReplaceClassTeacher={(payload) => replaceTeacherMutation.mutateAsync(payload)}
+                        replaceTeacherPending={replaceTeacherMutation.isPending}
                     />
                 ) : (
                     <TeacherStudentList
