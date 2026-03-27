@@ -53,8 +53,10 @@ export const getMyProfile = asyncHandler(async (req, res) => {
 
 // Toggle user archive status (soft delete / restore)
 export const toggleArchive = asyncHandler(async (req, res) => {
-    const { userIds, isArchived } = req.body;
-    const result = await userService.toggleArchive(req.user, userIds, isArchived);
+    const { userIds, isArchived, replacementTeacherId } = req.body;
+    const result = await userService.toggleArchive(req.user, userIds, isArchived, {
+        replacementTeacherId,
+    });
     logger.info(`User archive toggled: ${userIds.length} users, archived=${isArchived}`);
     res.status(200).json({
         success: true,

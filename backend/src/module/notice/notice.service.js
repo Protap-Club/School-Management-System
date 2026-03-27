@@ -173,7 +173,7 @@ export const createNotice = async (schoolId, userId, data, file) => {
         requiresAcknowledgment: data.requiresAcknowledgment === true || data.requiresAcknowledgment === 'true',
     });
 
-    await notice.populate("createdBy", "name email role");
+    await notice.populate("createdBy", "name email role isArchived");
     logger.info(`Notice created: ${notice._id}`);
 
     return notice;
@@ -236,7 +236,7 @@ export const getNotices = async (user, platform, filters = {}) => {
     }
 
     const results = await Notice.find(query)
-        .populate("createdBy", "name email role")
+        .populate("createdBy", "name email role isArchived")
         .sort({ createdAt: -1 })
         .limit(50)
         .lean();
@@ -263,7 +263,7 @@ export const getReceivedNotices = async (schoolId, user) => {
             schoolId,
             createdBy: { $in: teacherIds }
         })
-            .populate("createdBy", "name email role")
+            .populate("createdBy", "name email role isArchived")
             .sort({ createdAt: -1 })
             .limit(50)
             .lean();
@@ -324,7 +324,7 @@ export const getReceivedNotices = async (schoolId, user) => {
         createdBy: { $ne: userId },
         $or: orConditions
     })
-        .populate("createdBy", "name email role")
+        .populate("createdBy", "name email role isArchived")
         .sort({ createdAt: -1 })
         .limit(50)
         .lean();
@@ -339,7 +339,7 @@ export const getNoticeById = async (schoolId, noticeId) => {
     }
 
     const notice = await Notice.findOne({ _id: noticeId, schoolId })
-        .populate("createdBy", "name email role")
+        .populate("createdBy", "name email role isArchived")
         .lean();
 
     if (!notice) {
@@ -700,7 +700,7 @@ const getStudentMobileNotices = async (schoolId, user) => {
 const getTeacherMobileNotices = async (schoolId, user) => {
     const received = await getReceivedNotices(schoolId, user);
     const history = await Notice.find({ schoolId, createdBy: user._id })
-        .populate("createdBy", "name email role")
+        .populate("createdBy", "name email role isArchived")
         .sort({ createdAt: -1 })
         .limit(20) // Limit mobile history to recent 20
         .lean();

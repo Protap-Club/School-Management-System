@@ -3,6 +3,9 @@ import StudentProfile from "./model/StudentProfile.model.js";
 import TeacherProfile from "./model/TeacherProfile.model.js";
 import School from "../school/School.model.js";
 import RefreshToken from "../auth/RefreshToken.model.js";
+import { Assignment } from "../assignment/Assignment.model.js";
+import Exam from "../examination/Exam.model.js";
+import { TimetableEntry } from "../timetable/Timetable.model.js";
 import { PROFILE_CONFIG } from "../../config/profiles.js";
 import { sendCredentialsEmail } from "../../utils/email.util.js";
 import { USER_ROLES, canManageRole, VIEWABLE_ROLES } from "../../constants/userRoles.js";
@@ -15,8 +18,34 @@ import {
     assertClassSectionExists,
     assertClassSectionListExists,
 } from "../../utils/classSection.util.js";
+import {
+    assertTeacherClassAssignmentsAvailable,
+    ensureActiveTeacher,
+    findTeacherClassConflicts,
+    formatClassSectionLabel,
+    mergeTeacherAssignedClasses,
+    normalizeTeacherAssignedClasses,
+} from "../../utils/teacher.util.js";
 
-const normalizeUserClassAssignments = async (schoolId, role, userData) => {
+const getTeacherAssignmentsFromPayload = (userData = {}) => {
+    if (Array.isArray(userData.assignedClasses) && userData.assignedClasses.length > 0) {
+        return userData.assignedClasses;
+    }
+
+    if (userData.standard || userData.section) {
+        return [{
+            standard: userData.standard,
+            section: userData.section,
+            subjects: [],
+        }];
+    }
+
+    return [];
+};
+
+const normalizeUserClassAssignments = async (schoolId, role, userData, options = {}) => {
+    const { excludeUserId = null } = options;
+
     if (role === USER_ROLES.STUDENT && (userData.standard || userData.section)) {
         const normalizedStudentClass = await assertClassSectionExists(
             schoolId,
@@ -38,15 +67,26 @@ const normalizeUserClassAssignments = async (schoolId, role, userData) => {
         : [];
 
     if (requestedAssignedClasses.length > 0) {
-        userData.assignedClasses = await assertClassSectionListExists(
+        const normalizedAssignedClasses = await assertClassSectionListExists(
             schoolId,
             requestedAssignedClasses,
             { message: "One or more teacher assigned classes are not configured in Settings" }
         );
-        return;
-    }
+        userData.assignedClasses = normalizeTeacherAssignedClasses(
+            normalizedAssignedClasses.map((item) => {
+                const original = requestedAssignedClasses.find(
+                    (candidate) =>
+                        String(candidate?.standard || "").trim() === item.standard &&
+                        String(candidate?.section || "").trim().toUpperCase() === item.section
+                );
 
-    if (userData.standard || userData.section) {
+                return {
+                    ...item,
+                    subjects: Array.isArray(original?.subjects) ? original.subjects : [],
+                };
+            })
+        );
+    } else if (userData.standard || userData.section) {
         const normalizedTeacherClass = await assertClassSectionExists(
             schoolId,
             userData.standard,
@@ -57,6 +97,228 @@ const normalizeUserClassAssignments = async (schoolId, role, userData) => {
         userData.standard = normalizedTeacherClass.standard;
         userData.section = normalizedTeacherClass.section;
     }
+
+    const teacherAssignments = getTeacherAssignmentsFromPayload(userData);
+    if (teacherAssignments.length > 0) {
+        await assertTeacherClassAssignmentsAvailable(schoolId, teacherAssignments, {
+            excludeUserIds: excludeUserId ? [excludeUserId] : [],
+        });
+    }
+};
+
+const buildTeacherArchiveSummary = async (schoolId, teacherIds = []) => {
+    const profiles = await TeacherProfile.find({
+        schoolId,
+        userId: { $in: teacherIds },
+    })
+        .select("userId assignedClasses")
+        .lean();
+
+    const assignedClasses = profiles.flatMap((profile) =>
+        normalizeTeacherAssignedClasses(profile.assignedClasses || [])
+    );
+    const uniqueAssignedClasses = normalizeTeacherAssignedClasses(assignedClasses);
+
+    const [activeAssignmentCount, activeOwnedExamCount, activeInvigilationCount, timetableEntryCount] =
+        await Promise.all([
+            Assignment.countDocuments({
+                schoolId,
+                createdBy: { $in: teacherIds },
+                status: "active",
+            }),
+            Exam.countDocuments({
+                schoolId,
+                createdBy: { $in: teacherIds },
+                isActive: true,
+                status: { $in: ["DRAFT", "PUBLISHED"] },
+            }),
+            Exam.countDocuments({
+                schoolId,
+                isActive: true,
+                status: { $in: ["DRAFT", "PUBLISHED"] },
+                "schedule.assignedTeacher": { $in: teacherIds },
+            }),
+            TimetableEntry.countDocuments({
+                schoolId,
+                teacherId: { $in: teacherIds },
+            }),
+        ]);
+
+    return {
+        profiles,
+        uniqueAssignedClasses,
+        assignedClassCount: uniqueAssignedClasses.length,
+        assignedClassLabels: uniqueAssignedClasses.map((item) => formatClassSectionLabel(item)),
+        activeAssignmentCount,
+        activeOwnedExamCount,
+        activeInvigilationCount,
+        timetableEntryCount,
+        requiresReplacement:
+            uniqueAssignedClasses.length > 0 ||
+            activeAssignmentCount > 0 ||
+            activeOwnedExamCount > 0 ||
+            activeInvigilationCount > 0 ||
+            timetableEntryCount > 0,
+    };
+};
+
+const assertReplacementTeacherCanTakeClasses = async (
+    schoolId,
+    replacementTeacherId,
+    classSections = [],
+    archivedTeacherIds = []
+) => {
+    if (!classSections.length) {
+        return;
+    }
+
+    const conflicts = await findTeacherClassConflicts(schoolId, classSections, {
+        excludeUserIds: [replacementTeacherId, ...archivedTeacherIds],
+    });
+
+    if (conflicts.length > 0) {
+        const firstConflict = conflicts[0];
+        throw new ConflictError(
+            `Class ${firstConflict.classLabel} is already assigned to ${firstConflict.teacherName}`,
+            "CLASS_TEACHER_ALREADY_ASSIGNED",
+            { conflicts }
+        );
+    }
+};
+
+const assertReplacementTeacherHasNoTimetableConflicts = async (
+    schoolId,
+    sourceTeacherIds = [],
+    replacementTeacherId
+) => {
+    const sourceEntries = await TimetableEntry.find({
+        schoolId,
+        teacherId: { $in: sourceTeacherIds },
+    })
+        .select("dayOfWeek timeSlotId")
+        .lean();
+
+    if (sourceEntries.length === 0) {
+        return;
+    }
+
+    const uniquePairs = new Map();
+    sourceEntries.forEach((entry) => {
+        const key = `${entry.dayOfWeek}::${String(entry.timeSlotId)}`;
+        if (!uniquePairs.has(key)) {
+            uniquePairs.set(key, {
+                dayOfWeek: entry.dayOfWeek,
+                timeSlotId: entry.timeSlotId,
+            });
+        }
+    });
+
+    const conflicts = await TimetableEntry.find({
+        schoolId,
+        teacherId: replacementTeacherId,
+        $or: [...uniquePairs.values()],
+    })
+        .populate("timetableId", "standard section")
+        .populate("timeSlotId", "slotNumber")
+        .lean();
+
+    if (conflicts.length === 0) {
+        return;
+    }
+
+    const firstConflict = conflicts[0];
+    const classLabel = firstConflict.timetableId
+        ? formatClassSectionLabel(firstConflict.timetableId)
+        : "another class";
+    const slotLabel = firstConflict.timeSlotId?.slotNumber
+        ? `slot ${firstConflict.timeSlotId.slotNumber}`
+        : "the same time slot";
+
+    throw new ConflictError(
+        `Replacement teacher is already busy on ${firstConflict.dayOfWeek} in ${classLabel} (${slotLabel})`,
+        "REPLACEMENT_TEACHER_TIMETABLE_CONFLICT",
+        {
+            conflicts: conflicts.map((entry) => ({
+                dayOfWeek: entry.dayOfWeek,
+                slotNumber: entry.timeSlotId?.slotNumber || null,
+                standard: entry.timetableId?.standard || null,
+                section: entry.timetableId?.section || null,
+            })),
+        }
+    );
+};
+
+const transferTeacherResponsibilities = async (
+    schoolId,
+    sourceProfiles = [],
+    replacementProfile = null
+) => {
+    const teacherIds = sourceProfiles.map((profile) => profile.userId);
+    if (teacherIds.length === 0 || !replacementProfile) {
+        return {
+            classesTransferred: 0,
+            timetableEntriesTransferred: 0,
+            assignmentsTransferred: 0,
+            examsTransferred: 0,
+            invigilationAssignmentsTransferred: 0,
+        };
+    }
+
+    const incomingClasses = sourceProfiles.flatMap((profile) => profile.assignedClasses || []);
+    replacementProfile.assignedClasses = mergeTeacherAssignedClasses(
+        replacementProfile.assignedClasses || [],
+        incomingClasses
+    );
+    await replacementProfile.save();
+
+    const [
+        timetableTransferResult,
+        assignmentTransferResult,
+        ownedExamTransferResult,
+        invigilationTransferResult,
+    ] = await Promise.all([
+        TimetableEntry.updateMany(
+            { schoolId, teacherId: { $in: teacherIds } },
+            { $set: { teacherId: replacementProfile.userId } }
+        ),
+        Assignment.updateMany(
+            { schoolId, createdBy: { $in: teacherIds }, status: "active" },
+            { $set: { createdBy: replacementProfile.userId } }
+        ),
+        Exam.updateMany(
+            {
+                schoolId,
+                createdBy: { $in: teacherIds },
+                isActive: true,
+                status: { $in: ["DRAFT", "PUBLISHED"] },
+            },
+            { $set: { createdBy: replacementProfile.userId, createdByRole: USER_ROLES.TEACHER } }
+        ),
+        Exam.updateMany(
+            {
+                schoolId,
+                isActive: true,
+                status: { $in: ["DRAFT", "PUBLISHED"] },
+                "schedule.assignedTeacher": { $in: teacherIds },
+            },
+            {
+                $set: {
+                    "schedule.$[slot].assignedTeacher": replacementProfile.userId,
+                },
+            },
+            {
+                arrayFilters: [{ "slot.assignedTeacher": { $in: teacherIds } }],
+            }
+        ),
+    ]);
+
+    return {
+        classesTransferred: normalizeTeacherAssignedClasses(incomingClasses).length,
+        timetableEntriesTransferred: timetableTransferResult.modifiedCount || 0,
+        assignmentsTransferred: assignmentTransferResult.modifiedCount || 0,
+        examsTransferred: ownedExamTransferResult.modifiedCount || 0,
+        invigilationAssignmentsTransferred: invigilationTransferResult.modifiedCount || 0,
+    };
 };
 
 
@@ -305,8 +567,9 @@ export const getMyProfile = async (userId) => {
 };
 
 // TOGGLE ARCHIVE STATUS (soft delete / restore)
-export const toggleArchive = async (creator, userIds, isArchived) => {
+export const toggleArchive = async (creator, userIds, isArchived, options = {}) => {
     const ids = Array.isArray(userIds) ? userIds : [userIds];
+    const replacementTeacherId = options.replacementTeacherId || null;
 
     // 2. BUILD QUERY WITH ACCESS CONTROL
     const query = buildAccessQuery(creator, {
@@ -315,7 +578,7 @@ export const toggleArchive = async (creator, userIds, isArchived) => {
     });
 
     // 3. FETCH AND VALIDATE TARGET USERS
-    const targetUsers = await User.find(query).select("_id role").lean();
+    const targetUsers = await User.find(query).select("_id role name").lean();
 
     if (targetUsers.length === 0) {
         throw new NotFoundError(
@@ -338,6 +601,120 @@ export const toggleArchive = async (creator, userIds, isArchived) => {
     const isSelfArchiving = targetUsers.some(u => u._id.toString() === creator._id.toString());
     if (isSelfArchiving && isArchived) {
         throw new ForbiddenError("You cannot archive your own account");
+    }
+
+    const teacherTargetIds = targetUsers
+        .filter((user) => user.role === USER_ROLES.TEACHER)
+        .map((user) => user._id);
+
+    let replacementTeacher = null;
+    let replacementProfile = null;
+    let teacherTransferSummary = {
+        classesTransferred: 0,
+        timetableEntriesTransferred: 0,
+        assignmentsTransferred: 0,
+        examsTransferred: 0,
+        invigilationAssignmentsTransferred: 0,
+    };
+
+    if (isArchived && teacherTargetIds.length > 0) {
+        const archiveSummary = await buildTeacherArchiveSummary(creator.schoolId, teacherTargetIds);
+
+        if (archiveSummary.requiresReplacement && !replacementTeacherId) {
+            throw new BadRequestError(
+                "This teacher still has active classes or academic work. Please assign a temporary replacement teacher before archiving.",
+                "TEACHER_REPLACEMENT_REQUIRED",
+                archiveSummary
+            );
+        }
+
+        if (replacementTeacherId) {
+            if (teacherTargetIds.some((id) => String(id) === String(replacementTeacherId))) {
+                throw new BadRequestError("Replacement teacher must be different from the archived teacher");
+            }
+
+            replacementTeacher = await ensureActiveTeacher(creator.schoolId, replacementTeacherId, {
+                message: "Replacement teacher not found or is inactive",
+            });
+
+            await assertReplacementTeacherCanTakeClasses(
+                creator.schoolId,
+                replacementTeacher._id,
+                archiveSummary.uniqueAssignedClasses,
+                teacherTargetIds
+            );
+            await assertReplacementTeacherHasNoTimetableConflicts(
+                creator.schoolId,
+                teacherTargetIds,
+                replacementTeacher._id
+            );
+
+            replacementProfile =
+                await TeacherProfile.findOne({
+                    userId: replacementTeacher._id,
+                    schoolId: creator.schoolId,
+                }) ||
+                await TeacherProfile.create({
+                    userId: replacementTeacher._id,
+                    schoolId: creator.schoolId,
+                    assignedClasses: [],
+                });
+
+            teacherTransferSummary = await transferTeacherResponsibilities(
+                creator.schoolId,
+                archiveSummary.profiles,
+                replacementProfile
+            );
+        }
+    }
+
+    if (!isArchived && teacherTargetIds.length > 0) {
+        const restoringProfiles = await TeacherProfile.find({
+            schoolId: creator.schoolId,
+            userId: { $in: teacherTargetIds },
+        })
+            .select("userId assignedClasses")
+            .lean();
+
+        const duplicateAssignments = new Map();
+        restoringProfiles.forEach((profile) => {
+            normalizeTeacherAssignedClasses(profile.assignedClasses || []).forEach((assignedClass) => {
+                const classKey = `${assignedClass.standard}::${assignedClass.section}`;
+                if (!duplicateAssignments.has(classKey)) {
+                    duplicateAssignments.set(classKey, []);
+                }
+
+                duplicateAssignments.get(classKey).push(String(profile.userId));
+            });
+        });
+
+        const duplicateRestoreClass = [...duplicateAssignments.entries()].find(
+            ([, teacherIds]) => teacherIds.length > 1
+        );
+
+        if (duplicateRestoreClass) {
+            const [classKey] = duplicateRestoreClass;
+            const [standard, section] = classKey.split("::");
+            throw new ConflictError(
+                `Cannot restore multiple teachers because class ${formatClassSectionLabel({ standard, section })} would end up with more than one class teacher`,
+                "CLASS_TEACHER_ALREADY_ASSIGNED"
+            );
+        }
+
+        const conflicts = await findTeacherClassConflicts(
+            creator.schoolId,
+            restoringProfiles.flatMap((profile) => profile.assignedClasses || []),
+            { excludeUserIds: teacherTargetIds }
+        );
+
+        if (conflicts.length > 0) {
+            const firstConflict = conflicts[0];
+            throw new ConflictError(
+                `Cannot restore teacher because class ${firstConflict.classLabel} is already assigned to ${firstConflict.teacherName}`,
+                "CLASS_TEACHER_ALREADY_ASSIGNED",
+                { conflicts }
+            );
+        }
     }
 
     // 6. PERFORM UPDATE
@@ -378,7 +755,9 @@ export const toggleArchive = async (creator, userIds, isArchived) => {
     return {
         modifiedCount: result.modifiedCount,
         requestedCount: ids.length,
-        notFoundCount: ids.length - targetUsers.length
+        notFoundCount: ids.length - targetUsers.length,
+        replacementTeacherId: replacementTeacher?._id || null,
+        teacherTransferSummary,
     };
 };
 
@@ -449,7 +828,9 @@ export const updateUser = async (creator, userId, payload = {}) => {
         }
 
         if (Object.keys(classPayload).length > 0) {
-            await normalizeUserClassAssignments(creator.schoolId, user.role, classPayload);
+            await normalizeUserClassAssignments(creator.schoolId, user.role, classPayload, {
+                excludeUserId: user._id,
+            });
         }
 
         const profileUpdates = {};

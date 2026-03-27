@@ -13,6 +13,7 @@ import {
     normalizeClassSection,
     sortClassSections,
 } from "../../utils/classSection.util.js";
+import { findTeacherClassConflicts } from "../../utils/teacher.util.js";
 
 const escapeRegex = (value = "") => String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const REMOVED_CLASS_MARKER_REGEX = /\(removed\b/i;
@@ -399,6 +400,28 @@ export const removeSchoolClassSection = async (schoolId, data) => {
             throw new BadRequestError(
                 "Selected teacher reassignment class-section is not configured in Settings",
                 "INVALID_TEACHER_TRANSFER_CLASS"
+            );
+        }
+
+        const teacherProfilesToMove = await TeacherProfile.find({
+            schoolId,
+            assignedClasses: { $elemMatch: { standard: standardRegex, section: sectionRegex } },
+        })
+            .select("userId")
+            .lean();
+
+        const conflicts = await findTeacherClassConflicts(
+            schoolId,
+            [teacherTransferTo],
+            { excludeUserIds: teacherProfilesToMove.map((profile) => profile.userId) }
+        );
+
+        if (conflicts.length > 0) {
+            const firstConflict = conflicts[0];
+            throw new BadRequestError(
+                `Class ${firstConflict.classLabel} is already assigned to ${firstConflict.teacherName}`,
+                "CLASS_TEACHER_ALREADY_ASSIGNED",
+                { conflicts }
             );
         }
     }
