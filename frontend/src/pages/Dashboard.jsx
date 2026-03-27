@@ -15,7 +15,8 @@ import {
   ChevronRight,
   Calendar,
   Megaphone,
-  Bell
+  Bell,
+  UserPlus
 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useQueryClient } from '@tanstack/react-query';
@@ -23,6 +24,7 @@ import { attendanceKeys } from '../features/attendance/api/queries';
 import { CircularProgress, Sparkline } from '../components/dashboard/SvgCharts';
 import { useMySchedule, DAY_MAP } from '../features/timetable';
 import { useNotices } from '../features/notices';
+import { useUsers } from '../features/users';
 
 const Dashboard = () => {
   const { user, accessToken } = useAuth();
@@ -45,6 +47,11 @@ const Dashboard = () => {
   const { data: profileRes } = useProfile();
   const { data: scheduleRes } = useMySchedule(isTeacher);
   const { data: noticesRes } = useNotices(!isTeacher);
+  const { data: usersRes } = useUsers({ 
+    role: 'all', 
+    pageSize: 3, 
+    enabled: !isTeacher
+  });
   const { classSections: configuredClassSections } = useSchoolClasses({ enabled: isAdmin || isSuperAdmin });
 
   const [selectedClass, setSelectedClass] = useState('all');
@@ -324,10 +331,12 @@ const Dashboard = () => {
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-            <div className="flex items-center gap-2 px-4 py-2 bg-emerald-50 border border-emerald-100 rounded-full text-emerald-600 shadow-sm">
-              <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span className="text-[10px] font-black uppercase tracking-wider">Live Status: Active</span>
-            </div>
+            {(!isAdmin && !isSuperAdmin) && (
+              <div className="flex items-center gap-2 px-4 py-2 bg-emerald-50 border border-emerald-100 rounded-full text-emerald-600 shadow-sm">
+                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="text-[10px] font-black uppercase tracking-wider">Live Status: Active</span>
+              </div>
+            )}
             {(isAdmin || isSuperAdmin) && (
               <Select value={selectedClass} onValueChange={setSelectedClass}>
                 <SelectTrigger className="h-10 rounded-full bg-white border-gray-100 shadow-sm text-gray-700 hover:bg-gray-50 transition-all font-bold text-xs px-6 min-w-[160px]">
@@ -513,22 +522,42 @@ const Dashboard = () => {
                 </div>
 
                 <div className="flex-1 space-y-4">
-                  {noticesRes?.data?.notices?.length > 0 ? (
-                    noticesRes.data.notices.slice(0, 3).map((notice, i) => (
-                      <div key={i} className="p-5 rounded-[1.5rem] border border-gray-50 bg-white hover:border-primary/20 hover:shadow-sm transition-all flex items-start gap-4 group/notice cursor-pointer" onClick={() => navigate(`/${user?.role}/notice`)}>
+                  {/* Priority 1: Formal Notices */}
+                  {noticesRes?.data?.data?.length > 0 ? (
+                    noticesRes.data.data.slice(0, 3).map((notice, i) => (
+                      <div key={notice._id || i} className="p-5 rounded-[1.5rem] border border-gray-50 bg-white hover:border-primary/20 hover:shadow-sm transition-all flex items-start gap-4 group/notice cursor-pointer" onClick={() => navigate(`/${user?.role}/notice`)}>
                         <div className={`w-10 h-10 rounded-xl flex items-center justify-center bg-gray-50 text-gray-400 group-hover/notice:bg-primary group-hover/notice:text-white transition-colors`}>
                           <Megaphone size={18} />
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex justify-between items-start">
-                            <p className="text-sm font-black text-gray-900 truncate tracking-tight group-hover/notice:text-primary transition-colors">{notice.title}</p>
+                            <p className="text-sm font-black text-gray-900 truncate tracking-tight group-hover/notice:text-primary transition-colors">{notice.title || 'Notice'}</p>
                             <span className="text-[8px] bg-gray-50 text-gray-400 font-bold px-2 py-0.5 rounded-full uppercase">{new Date(notice.createdAt).toLocaleDateString()}</span>
                           </div>
-                          <p className="text-[10px] text-gray-500 line-clamp-1 mt-1 font-medium">{notice.content}</p>
+                          <p className="text-[10px] text-gray-500 line-clamp-1 mt-1 font-medium">{notice.content || notice.message}</p>
+                        </div>
+                      </div>
+                    ))
+                  ) : (usersRes?.data?.data?.users?.length > 0 || usersRes?.data?.users?.length > 0) ? (
+                    /* Priority 2: Recent Activity (New Registrations) */
+                    (usersRes?.data?.data?.users || usersRes?.data?.users || []).slice(0, 3).map((userItem, i) => (
+                      <div key={userItem._id || i} className="p-5 rounded-[1.5rem] border border-gray-50 bg-white hover:border-emerald-100 hover:shadow-sm transition-all flex items-start gap-4 group/user-alert cursor-pointer" onClick={() => navigate(`/${rolePrefix}/users`)}>
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center bg-emerald-50 text-emerald-500 group-hover/user-alert:bg-emerald-500 group-hover/user-alert:text-white transition-colors`}>
+                          <UserPlus size={18} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex justify-between items-start">
+                            <p className="text-sm font-black text-gray-900 truncate tracking-tight group-hover/user-alert:text-emerald-600 transition-colors">New Registration</p>
+                            <span className="text-[8px] bg-emerald-50 text-emerald-600 font-bold px-2 py-0.5 rounded-full uppercase">{new Date(userItem.createdAt).toLocaleDateString()}</span>
+                          </div>
+                          <p className="text-[10px] text-gray-500 line-clamp-1 mt-1 font-medium">
+                            {userItem.name} joined as <span className="capitalize">{userItem.role}</span>
+                          </p>
                         </div>
                       </div>
                     ))
                   ) : (
+                    /* Fallback: Empty State */
                     <div className="h-full flex flex-col items-center justify-center p-10 bg-gray-50/50 rounded-[2rem] border border-dashed border-gray-200">
                       <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest text-center">No recent bulletins</p>
                     </div>
@@ -558,12 +587,14 @@ const Dashboard = () => {
           >
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-lg font-black text-gray-900 tracking-tight uppercase">Rate Overview</h2>
-              <button
-                className="p-2 hover:bg-gray-50 rounded-xl transition-colors text-gray-400"
-                onClick={(e) => { e.stopPropagation(); }}
-              >
-                <MoreHorizontal size={20} />
-              </button>
+              {(!isAdmin && !isSuperAdmin) && (
+                <button
+                  className="p-2 hover:bg-gray-50 rounded-xl transition-colors text-gray-400"
+                  onClick={(e) => { e.stopPropagation(); }}
+                >
+                  <MoreHorizontal size={20} />
+                </button>
+              )}
             </div>
 
             <div className="flex-1 flex flex-col items-center justify-center space-y-8">
@@ -580,7 +611,8 @@ const Dashboard = () => {
                   { label: 'Present', value: filteredStats.present, percentage: filteredStats.total > 0 ? ((filteredStats.present / filteredStats.total) * 100).toFixed(0) : 0, color: 'emerald' },
                   { label: 'Absent', value: filteredStats.absent, percentage: filteredStats.total > 0 ? ((filteredStats.absent / filteredStats.total) * 100).toFixed(0) : 0, color: 'red' },
                   { label: 'Late', value: filteredStats.late, percentage: filteredStats.total > 0 ? ((filteredStats.late / filteredStats.total) * 100).toFixed(0) : 0, color: 'amber' },
-                ].map((row, i) => (
+                ].filter(row => !((isAdmin || isSuperAdmin) && row.label === 'Late'))
+                .map((row, i) => (
                   <div key={i} className="space-y-1.5">
                     <div className="flex justify-between text-[10px] font-bold uppercase tracking-tighter">
                       <span className="text-gray-500">{row.label}</span>
