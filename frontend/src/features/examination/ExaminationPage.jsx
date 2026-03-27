@@ -336,17 +336,25 @@ const ExaminationPage = () => {
               ))}
             </div>
           ) : filteredExams.length > 0 ? (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
+              <table className="w-full text-left border-collapse table-fixed">
+                <colgroup>
+                  <col style={{ width: '14.28%' }} />
+                  <col style={{ width: '14.28%' }} />
+                  <col style={{ width: '16%' }} />
+                  <col style={{ width: '12.6%' }} />
+                  <col style={{ width: '14.28%' }} />
+                  <col style={{ width: '14.28%' }} />
+                  <col style={{ width: '14.28%' }} />
+                </colgroup>
                 <thead>
                   <tr className="bg-slate-50/50 border-b border-slate-100">
-                    <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Exam Name & ID</th>
-                    <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Subject</th>
-                    <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Date & Time</th>
-                    <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Duration</th>
-                    <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Candidates</th>
-                    <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</th>
-                    <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Actions</th>
+                    <th className="px-4 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Exam Name & ID</th>
+                    <th className="px-4 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Subject</th>
+                    <th className="px-4 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Date & Time</th>
+                    <th className="px-3 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Duration</th>
+                    <th className="px-3 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Candidates</th>
+                    <th className="px-3 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</th>
+                    <th className="px-3 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -372,50 +380,52 @@ const ExaminationPage = () => {
 
                     return (
                       <tr key={exam._id} className="group hover:bg-slate-50/80 transition-all duration-200">
-                        <td className="px-6 py-5">
-                          <div>
-                            <div className="font-bold text-slate-900 leading-tight mb-0.5">{exam.name}</div>
-                            <div className="text-[11px] font-bold text-slate-500">Class {exam.standard} - {exam.section || 'All Sections'}</div>
+                        <td className="px-4 py-5">
+                          <div className="min-w-0">
+                            <div className="font-bold text-slate-900 text-sm leading-snug truncate" title={exam.name}>{exam.name}</div>
+                            <div className="text-[11px] font-bold text-slate-500 mt-0.5">Class {exam.standard} - {exam.section || 'All'}</div>
                           </div>
                         </td>
-                        <td className="px-6 py-5 text-center">
-                          <div className="flex flex-wrap gap-1 justify-center max-w-[150px] mx-auto text-center">
-                            {subjects.length > 0 ? (
-                              <>
-                                {subjects.slice(0, 2).map((sub, i) => (
-                                  <span key={i} className="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest bg-primary/10 text-primary border border-primary/20 shadow-sm whitespace-nowrap">
-                                    {sub}
-                                  </span>
-                                ))}
-                                {subjects.length > 2 && (
-                                  <span className="text-[9px] font-bold text-slate-400 ml-1">+{subjects.length - 2}</span>
-                                )}
-                              </>
-                            ) : (
-                                <span className="text-slate-400 text-xs italic">No subjects</span>
+                        <td className="px-4 py-5">
+                          <div className="flex flex-col items-start gap-1">
+                            <div className="flex flex-wrap gap-1">
+                              {subjects.length > 0 ? (
+                                <>
+                                  {subjects.slice(0, 2).map((sub, i) => (
+                                    <span key={i} className="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-primary/10 text-primary border border-primary/20 shadow-sm whitespace-nowrap">
+                                      {sub}
+                                    </span>
+                                  ))}
+                                </>
+                              ) : (
+                                  <span className="text-slate-400 text-xs italic">—</span>
+                              )}
+                            </div>
+                            {subjects.length > 2 && (
+                               <span className="text-[9px] font-bold text-slate-400">+{subjects.length - 2}</span>
                             )}
                           </div>
                         </td>
-                        <td className="px-6 py-5">
+                        <td className="px-4 py-5">
                           <div className="flex flex-col gap-0.5">
-                            <div className="text-sm font-bold text-slate-700">
+                            <div className="text-sm font-bold text-slate-700 whitespace-nowrap">
                               {minDate ? (
                                 minDate.toDateString() === maxDate.toDateString() 
-                                  ? minDate.toLocaleDateString()
-                                  : `${minDate.getDate()}/${minDate.getMonth() + 1} - ${maxDate.toLocaleDateString()}`
+                                  ? minDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                                  : `${minDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${maxDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`
                               ) : 'N/A'}
                             </div>
-                            <div className="text-[11px] font-medium text-slate-500">
+                            <div className="text-[11px] font-medium text-slate-500 whitespace-nowrap">
                               {exam.schedule?.length > 1 
                                 ? (allSameTime ? `${exam.schedule[0].startTime} - ${exam.schedule[0].endTime}` : `${exam.schedule.length} Sessions`)
                                 : (firstSchedule ? `${firstSchedule.startTime} - ${firstSchedule.endTime || 'N/A'}` : 'No schedule')}
                             </div>
                           </div>
                         </td>
-                        <td className="px-6 py-5">
-                          <div className="text-sm font-bold text-slate-700">{durationInMins > 0 ? `${durationInMins} mins` : 'N/A'}</div>
+                        <td className="px-3 py-5">
+                          <div className="text-sm font-bold text-slate-700 whitespace-nowrap">{durationInMins > 0 ? (durationInMins >= 60 ? (durationInMins % 60 === 0 ? `${durationInMins / 60}hr${durationInMins / 60 > 1 ? 's' : ''}` : `${(durationInMins / 60).toFixed(1)}hrs`) : `${durationInMins}min`) : 'N/A'}</div>
                         </td>
-                        <td className="px-6 py-5 text-center">
+                        <td className="px-3 py-5">
                           <div className="relative inline-block">
                             <span className="text-sm font-black text-slate-800 tracking-tight">
                               {getCandidateCount(exam.standard, exam.section)}
@@ -423,15 +433,15 @@ const ExaminationPage = () => {
                             <div className="w-full h-1 bg-orange-500 rounded-full mt-1"></div>
                           </div>
                         </td>
-                        <td className="px-6 py-5">
+                        <td className="px-3 py-5">
                           <div className="flex items-center gap-2">
-                            <div className={`w-2 h-2 rounded-full ${exam.status === 'PUBLISHED' ? 'bg-orange-500 animate-pulse' : exam.status === 'COMPLETED' ? 'bg-slate-400' : 'bg-primary'}`}></div>
-                            <span className={`text-[11px] font-black uppercase tracking-widest ${exam.status === 'PUBLISHED' ? 'text-orange-600' : exam.status === 'COMPLETED' ? 'text-slate-500' : 'text-primary'}`}>
+                            <div className={`w-2 h-2 rounded-full flex-shrink-0 ${exam.status === 'PUBLISHED' ? 'bg-orange-500 animate-pulse' : exam.status === 'COMPLETED' ? 'bg-slate-400' : 'bg-primary'}`}></div>
+                            <span className={`text-[11px] font-black uppercase tracking-widest whitespace-nowrap ${exam.status === 'PUBLISHED' ? 'text-orange-600' : exam.status === 'COMPLETED' ? 'text-slate-500' : 'text-primary'}`}>
                               {exam.status === 'PUBLISHED' ? 'Upcoming' : exam.status === 'COMPLETED' ? 'Completed' : exam.status === 'DRAFT' ? 'Draft' : exam.status}
                             </span>
                           </div>
                         </td>
-                        <td className="px-6 py-5">
+                        <td className="px-3 py-5">
                           <div className="flex items-center justify-center gap-3">
                             <button
                               onClick={() => setSelectedExam(exam)}
@@ -474,7 +484,6 @@ const ExaminationPage = () => {
                   })}
                 </tbody>
               </table>
-            </div>
           ) : (
             <EmptyState
               icon={FaCalendarAlt}

@@ -24,7 +24,12 @@ const Header = () => {
     const navigate = useNavigate();
     const dispatch = useDispatch();
     const queryClient = useQueryClient();
-    const [schoolBranding, setSchoolBranding] = useState(null);
+    const [schoolBranding, setSchoolBranding] = useState(() => {
+        try {
+            const cached = sessionStorage.getItem('schoolBranding');
+            return cached ? JSON.parse(cached) : null;
+        } catch { return null; }
+    });
     const [refreshKey, setRefreshKey] = useState(() => Date.now());
     const [dropdownOpen, setDropdownOpen] = useState(false);
     const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
@@ -60,6 +65,7 @@ const Header = () => {
                 const response = await api.get('/school');
                 if (response.data.success && response.data.data) {
                     setSchoolBranding(response.data.data);
+                    sessionStorage.setItem('schoolBranding', JSON.stringify(response.data.data));
                     setRefreshKey(Date.now());
                 }
             } catch (error) {
@@ -100,18 +106,20 @@ const Header = () => {
                     <img src="/menus.png" alt="Menu" className="w-5 h-5" />
                 </button>
                 <div className="flex items-center gap-3">
-                    {(logo || headerContent.logo) ? (
-                        <img
-                            src={logo ? `${logo}${logo.includes('?') ? '&' : '?'}t=${refreshKey}` : headerContent.logo}
-                            alt="Logo"
-                            className="h-10 w-auto object-contain"
-                            onError={(e) => { e.target.style.display = 'none'; }}
-                        />
-                    ) : (
-                        <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white shadow-sm">
-                            <span className="font-bold text-lg">{(title || 'SM').substring(0, 2).toUpperCase()}</span>
-                        </div>
-                    )}
+                    <div className="w-10 h-10 shrink-0 flex items-center justify-center">
+                        {(logo || headerContent.logo) ? (
+                            <img
+                                src={logo ? `${logo}${logo.includes('?') ? '&' : '?'}t=${refreshKey}` : headerContent.logo}
+                                alt="Logo"
+                                className="max-h-10 max-w-10 w-auto h-auto object-contain"
+                                onError={(e) => { e.target.style.display = 'none'; }}
+                            />
+                        ) : (
+                            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white shadow-sm">
+                                <span className="font-bold text-lg">{(title || 'SM').substring(0, 2).toUpperCase()}</span>
+                            </div>
+                        )}
+                    </div>
                     <span className="font-bold text-gray-800 text-lg hidden md:block">{title}</span>
                 </div>
             </div>
