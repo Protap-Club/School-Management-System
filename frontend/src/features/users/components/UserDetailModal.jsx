@@ -179,7 +179,7 @@ const UserDetailModal = ({ user, onClose, initialMode = 'view', onSuccess }) => 
       return;
     }
 
-    const next = [...current, { standard, section, subjects: [] }];
+    const next = [{ standard, section, subjects: [] }];
     setFormData((prev) => ({
       ...prev,
       profile: { ...prev.profile, assignedClasses: next }
@@ -436,7 +436,7 @@ const UserDetailModal = ({ user, onClose, initialMode = 'view', onSuccess }) => 
 
                     {isEditing && (
                       <p className="mb-3 text-[11px] text-slate-500">
-                        Only classes without another active class teacher can be added here.
+                        Teacher can own only one class as class teacher. Choosing a new class replaces the current one.
                       </p>
                     )}
 

@@ -5,7 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { FaChevronDown, FaUserTie, FaSearch, FaArrowLeft, FaExchangeAlt, FaTimesCircle } from 'react-icons/fa';
+import { FaUserTie, FaSearch, FaArrowLeft, FaExchangeAlt } from 'react-icons/fa';
 import { Switch } from "@/components/ui/switch";
 import { useAuth } from '../../auth';
 import { PaginationControls } from '../../../components/ui/PaginationControls';
@@ -37,26 +37,45 @@ const AdminClassList = ({
     const [studentSearchQuery, setStudentSearchQuery] = React.useState("");
     const [replaceModalClass, setReplaceModalClass] = React.useState(null);
     const [replacementTeacherId, setReplacementTeacherId] = React.useState("");
+    const [replaceMode, setReplaceMode] = React.useState("replace");
+    const [reassignTeacherId, setReassignTeacherId] = React.useState("");
     const [replaceError, setReplaceError] = React.useState("");
     const replacementCandidates = React.useMemo(() => {
         if (!replaceModalClass) return [];
         return (teachers || []).filter((teacher) => String(teacher._id) !== String(replaceModalClass.teacher?._id));
     }, [replaceModalClass, teachers]);
+    const selectedReplacementTeacher = React.useMemo(
+        () => replacementCandidates.find((teacher) => String(teacher._id) === String(replacementTeacherId)) || null,
+        [replacementCandidates, replacementTeacherId]
+    );
+    const selectedReplacementPrimaryClass = selectedReplacementTeacher?.profile?.assignedClasses?.[0] || null;
+    const reassignCandidates = React.useMemo(
+        () => (teachers || []).filter((teacher) => String(teacher._id) !== String(replacementTeacherId)),
+        [teachers, replacementTeacherId]
+    );
 
     const openReplaceModal = (group) => {
         setReplaceModalClass(group);
         setReplacementTeacherId("");
+        setReplaceMode("replace");
+        setReassignTeacherId("");
         setReplaceError("");
     };
 
     const closeReplaceModal = () => {
         setReplaceModalClass(null);
         setReplacementTeacherId("");
+        setReplaceMode("replace");
+        setReassignTeacherId("");
         setReplaceError("");
     };
 
     const handleReplaceTeacher = async () => {
         if (!replaceModalClass || !replacementTeacherId || !onReplaceClassTeacher) return;
+        if (replaceMode === "reassign" && !reassignTeacherId) {
+            setReplaceError("Please select a teacher to reassign the previous class.");
+            return;
+        }
 
         try {
             setReplaceError("");
@@ -64,6 +83,8 @@ const AdminClassList = ({
                 standard: replaceModalClass.standard,
                 section: replaceModalClass.section,
                 replacementTeacherId,
+                mode: replaceMode,
+                ...(replaceMode === "reassign" ? { reassignTeacherId } : {}),
             });
             closeReplaceModal();
         } catch (error) {
@@ -316,6 +337,50 @@ const AdminClassList = ({
                                 </p>
                             )}
                         </div>
+                        {selectedReplacementPrimaryClass && (
+                            <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+                                Selected teacher currently owns class {selectedReplacementPrimaryClass.standard}-{selectedReplacementPrimaryClass.section}. Choose how to handle that class.
+                            </div>
+                        )}
+                        {selectedReplacementPrimaryClass && (
+                            <div className="mt-4">
+                                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
+                                    Action
+                                </label>
+                                <select
+                                    value={replaceMode}
+                                    onChange={(event) => setReplaceMode(event.target.value)}
+                                    className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800"
+                                    style={{ colorScheme: 'light' }}
+                                >
+                                    <option value="replace">Replace (old class becomes unassigned)</option>
+                                    {replaceModalClass?.teacher && (
+                                        <option value="swap">Swap with current class teacher</option>
+                                    )}
+                                    <option value="reassign">Reassign old class to another teacher</option>
+                                </select>
+                            </div>
+                        )}
+                        {selectedReplacementPrimaryClass && replaceMode === "reassign" && (
+                            <div className="mt-4">
+                                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
+                                    Reassign Previous Class To
+                                </label>
+                                <select
+                                    value={reassignTeacherId}
+                                    onChange={(event) => setReassignTeacherId(event.target.value)}
+                                    className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800"
+                                    style={{ colorScheme: 'light' }}
+                                >
+                                    <option value="">Select teacher</option>
+                                    {reassignCandidates.map((teacher) => (
+                                        <option key={teacher._id} value={teacher._id}>
+                                            {teacher.name}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
                         <div className="mt-5 flex items-center justify-end gap-2">
                             <Button type="button" variant="outline" onClick={closeReplaceModal}>
                                 Cancel

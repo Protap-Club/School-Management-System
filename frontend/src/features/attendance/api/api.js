@@ -47,11 +47,13 @@ export const attendanceApi = {
         return response.data;
     },
 
-    replaceClassTeacher: async ({ standard, section, replacementTeacherId }) => {
+    replaceClassTeacher: async ({ standard, section, replacementTeacherId, mode = 'replace', reassignTeacherId } = {}) => {
         const response = await api.patch('/users/class-teacher/replace', {
             standard,
             section,
             replacementTeacherId,
+            mode,
+            ...(reassignTeacherId ? { reassignTeacherId } : {}),
         });
         return response.data;
     },

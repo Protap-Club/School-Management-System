@@ -342,7 +342,7 @@ const UsersPage = () => {
                                             ))}
                                         </select>
                                         <p className="mt-2 text-xs text-slate-500 leading-relaxed">
-                                            Use this when the archived teacher still owns active classes, timetable entries, assignments, or ongoing exams.
+                                            Use this when the archived teacher still owns active classes, timetable entries, assignments, or ongoing exams. This replacement is treated as temporary ownership transfer for active work.
                                         </p>
                                         {replacementTeacherOptions.length === 0 && (
                                             <p className="mt-2 text-xs text-amber-600">
