@@ -73,6 +73,8 @@ const UsersPage = () => {
     const [modalMode, setModalMode] = useState('view');
     const [deleteConfirm, setDeleteConfirm] = useState({ open: false, users: [], isBulk: false });
     const [archiveReplacementTeacherId, setArchiveReplacementTeacherId] = useState('');
+    const [archiveError, setArchiveError] = useState('');
+    const [archiveErrorDetails, setArchiveErrorDetails] = useState(null);
     const { message, showMessage } = useToastMessage();
 
     const allowedRoles = ROLE_PERMISSIONS[currentUser?.role] || [];
@@ -118,10 +120,14 @@ const UsersPage = () => {
 
     const handleDeleteClick = (user) => {
         setArchiveReplacementTeacherId('');
+        setArchiveError('');
+        setArchiveErrorDetails(null);
         setDeleteConfirm({ open: true, users: [user], isBulk: false });
     };
     const handleBulkDeleteClick = () => {
         setArchiveReplacementTeacherId('');
+        setArchiveError('');
+        setArchiveErrorDetails(null);
         setDeleteConfirm({ open: true, users: filteredUsers.filter(u => selectedUsers.includes(u._id)), isBulk: true });
     };
 
@@ -136,7 +142,27 @@ const UsersPage = () => {
         [activeTeachersData?.data?.users, deleteConfirm.users]
     );
 
+    const closeArchiveModal = useCallback(() => {
+        setArchiveReplacementTeacherId('');
+        setArchiveError('');
+        setArchiveErrorDetails(null);
+        setDeleteConfirm({ open: false, users: [], isBulk: false });
+    }, []);
+
+    const getArchiveErrorPayload = useCallback((error) => {
+        const response = error?.response?.data || {};
+        const nestedError = response?.error || {};
+
+        return {
+            message: nestedError.message || response.message || 'Operation failed',
+            code: nestedError.code || response.code || null,
+            details: nestedError.details || response.details || null,
+        };
+    }, []);
+
     const confirmDelete = async () => {
+        setArchiveError('');
+        setArchiveErrorDetails(null);
         try {
             const userIdsToProcess = deleteConfirm.isBulk ? selectedUsers : [deleteConfirm.users[0]._id];
             await toggleStatusMutation.mutateAsync({
@@ -148,12 +174,13 @@ const UsersPage = () => {
             });
             showMessage('success', showArchived ? 'User(s) restored successfully' : 'User(s) archived successfully');
             exitSelectionMode();
+            closeArchiveModal();
         } catch (error) {
             console.error('Delete failed', error);
-            showMessage('error', error.response?.data?.message || 'Operation failed');
-        } finally {
-            setArchiveReplacementTeacherId('');
-            setDeleteConfirm({ open: false, users: [], isBulk: false });
+            const archiveFailure = getArchiveErrorPayload(error);
+            setArchiveError(archiveFailure.message);
+            setArchiveErrorDetails(archiveFailure.details);
+            showMessage('error', archiveFailure.message);
         }
     };
 
@@ -273,6 +300,30 @@ const UsersPage = () => {
                                         ? 'Selected users will be moved back to active users.'
                                         : 'Selected users will be moved to archived users.'}
                                 </p>
+                                {archiveError && (
+                                    <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-left text-sm text-red-700">
+                                        <p className="font-semibold">{archiveError}</p>
+                                        {archiveErrorDetails && (
+                                            <div className="mt-2 space-y-1 text-xs text-red-600">
+                                                {Array.isArray(archiveErrorDetails.assignedClassLabels) && archiveErrorDetails.assignedClassLabels.length > 0 && (
+                                                    <p>Assigned classes: {archiveErrorDetails.assignedClassLabels.join(', ')}</p>
+                                                )}
+                                                {Number(archiveErrorDetails.timetableEntryCount) > 0 && (
+                                                    <p>Active timetable entries: {archiveErrorDetails.timetableEntryCount}</p>
+                                                )}
+                                                {Number(archiveErrorDetails.activeAssignmentCount) > 0 && (
+                                                    <p>Active assignments: {archiveErrorDetails.activeAssignmentCount}</p>
+                                                )}
+                                                {Number(archiveErrorDetails.activeOwnedExamCount) > 0 && (
+                                                    <p>Active exams created by teacher: {archiveErrorDetails.activeOwnedExamCount}</p>
+                                                )}
+                                                {Number(archiveErrorDetails.activeInvigilationCount) > 0 && (
+                                                    <p>Active invigilation slots: {archiveErrorDetails.activeInvigilationCount}</p>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
                                 {isTeacherArchiveFlow && (
                                     <div className="mb-5 rounded-xl border border-slate-200 bg-slate-50 p-4 text-left">
                                         <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500 mb-2">
@@ -301,8 +352,14 @@ const UsersPage = () => {
                                     </div>
                                 )}
                                 <div className="flex gap-2.5">
-                                    <button onClick={() => { setArchiveReplacementTeacherId(''); setDeleteConfirm({ open: false, users: [], isBulk: false }); }} className="flex-1 px-4 py-2 border border-gray-200 text-gray-700 rounded-lg">Cancel</button>
-                                    <button onClick={confirmDelete} className={`flex-1 px-4 py-2 rounded-lg text-white ${showArchived ? 'bg-emerald-600' : 'bg-amber-600'}`}>{showArchived ? 'Restore' : 'Archive'}</button>
+                                    <button onClick={closeArchiveModal} className="flex-1 px-4 py-2 border border-gray-200 text-gray-700 rounded-lg">Cancel</button>
+                                    <button
+                                        onClick={confirmDelete}
+                                        disabled={toggleStatusMutation.isPending}
+                                        className={`flex-1 px-4 py-2 rounded-lg text-white disabled:opacity-70 disabled:cursor-not-allowed ${showArchived ? 'bg-emerald-600' : 'bg-amber-600'}`}
+                                    >
+                                        {toggleStatusMutation.isPending ? 'Processing...' : (showArchived ? 'Restore' : 'Archive')}
+                                    </button>
                                 </div>
                             </div>
                     </div>
