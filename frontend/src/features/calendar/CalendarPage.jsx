@@ -2,10 +2,11 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import { useAuth } from '../auth';
-import { FaChevronLeft, FaChevronRight, FaCalendarAlt, FaPlus, FaTrash, FaTimes, FaClock, FaTag, FaUmbrellaBeach, FaUsers, FaEdit } from 'react-icons/fa';
+import { FaChevronLeft, FaChevronRight, FaCalendarAlt, FaPlus, FaTrash, FaTimes, FaClock, FaUmbrellaBeach, FaUsers, FaEdit } from 'react-icons/fa';
 import api from '../../lib/axios';
 import { ButtonSpinner } from '../../components/ui/Spinner';
 import { useToastMessage } from '../../hooks/useToastMessage';
+import { useSchoolClasses } from '../../hooks/useSchoolClasses';
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const TYPE_CONFIG = {
@@ -40,8 +41,6 @@ const loadFormFromEvent = (event) => {
   };
 };
 
-const INPUT_CLASS = 'w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-sm';
-
 const CalendarPage = () => {
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin' || user?.role === 'super_admin';
@@ -61,18 +60,19 @@ const CalendarPage = () => {
 
   const [tooltip, setTooltip] = useState({ event: null, position: { x: 0, y: 0 }, placement: 'bottom', expanded: false });
   const [formData, setFormData] = useState(resetFormForDate(''));
+  const [deleteConfirm, setDeleteConfirm] = useState({ open: false, type: 'single', id: null, dateStr: null, hasExams: false });
   
   // Class list for target audience picker
   const [classes, setClasses] = useState([]);
   const [availableClasses, setAvailableClasses] = useState({ standards: [], sections: [], classSections: [] });
   const [adminClassInput, setAdminClassInput] = useState({ standard: '', section: '' });
+  const { payload: adminSchoolClasses } = useSchoolClasses({ enabled: canEdit && isAdmin });
 
   // Fetch classes for dropdown based on role
   useEffect(() => {
     if (!canEdit) return;
     
-    // Teachers fetch ONLY their assigned classes from their profile
-    // Admins fetch ALL school classes from timetables API
+    // Teachers fetch ONLY their assigned classes from their profile.
     if (isTeacher) {
       api.get('/users/me/profile')
         .then(res => {
@@ -87,22 +87,21 @@ const CalendarPage = () => {
           );
         })
         .catch(() => {});
-    } else {
-      api.get('/school/classes')
-        .then(res => {
-          const data = res.data?.data || { standards: [], sections: [], classSections: [] };
-          setAvailableClasses({
-            standards: (data.standards || []).map(v => String(v)),
-            sections: (data.sections || []).map(v => String(v).toUpperCase()),
-            classSections: (data.classSections || []).map(c => ({
-              standard: String(c.standard),
-              section: String(c.section).toUpperCase(),
-            })),
-          });
-        })
-        .catch(() => {});
     }
   }, [canEdit, isTeacher]);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+
+    setAvailableClasses({
+      standards: (adminSchoolClasses?.standards || []).map(v => String(v)),
+      sections: (adminSchoolClasses?.sections || []).map(v => String(v).toUpperCase()),
+      classSections: (adminSchoolClasses?.classSections || []).map(c => ({
+        standard: String(c.standard),
+        section: String(c.section).toUpperCase(),
+      })),
+    });
+  }, [adminSchoolClasses, isAdmin]);
 
   const normalizedStandard = adminClassInput.standard.trim();
   const normalizedSection = adminClassInput.section.trim().toUpperCase();
@@ -355,20 +354,35 @@ const CalendarPage = () => {
 
   const handleDeleteEvent = useCallback(async (idToUse = formData._id) => {
     if (!idToUse) return;
-    try { setSaving(true); await api.delete(`/calendar/${idToUse}`); showMessage('success', 'Event deleted!'); setShowEditModal(false); fetchEvents(); }
+    try { 
+      setSaving(true); 
+      await api.delete(`/calendar/${idToUse}`); 
+      showMessage('success', 'Event deleted!'); 
+      setShowEditModal(false); 
+      setDeleteConfirm({ open: false, type: 'single', id: null, dateStr: null, hasExams: false });
+      fetchEvents(); 
+    }
     catch (error) { showMessage('error', error.response?.data?.message || 'Failed to delete event'); }
     finally { setSaving(false); }
-  }, [formData._id, fetchEvents]);
+  }, [formData._id, fetchEvents, showMessage]);
 
   const handleClearDayEvents = async (dateStr, containsExamManagedEvents = false) => {
-    const confirmationMessage = containsExamManagedEvents
-      ? `Are you sure you want to clear non-exam events on ${dateStr}? Exam events managed by Examination will be kept.`
-      : `Are you sure you want to clear all your events on ${dateStr}?`;
-    if (!window.confirm(confirmationMessage)) return;
+    setDeleteConfirm({
+      open: true,
+      type: 'clear',
+      dateStr: dateStr,
+      hasExams: containsExamManagedEvents
+    });
+  };
+
+  const executeClearDayEvents = async () => {
+    const { dateStr } = deleteConfirm;
+    if (!dateStr) return;
     try {
       setSaving(true);
       const res = await api.delete(`/calendar/date/${dateStr}`);
       showMessage('success', res.data?.message || 'Events cleared!');
+      setDeleteConfirm({ open: false, type: 'single', id: null, dateStr: null, hasExams: false });
       fetchEvents();
     } catch (error) {
        showMessage('error', error.response?.data?.message || 'Failed to clear events');
@@ -539,9 +553,21 @@ const renderFormField = (label, children) => (
                            <div className="flex justify-between items-start mb-2 gap-3">
                               <h4 className="font-bold text-gray-900 leading-tight">{event.title}</h4>
                               {canEditEvent && (
-                                <div className="flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                                  <button onClick={() => openEditEventModal(event)} className="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded bg-white border border-transparent hover:border-indigo-100 transition-colors"><FaEdit size={12}/></button>
-                                  <button onClick={() => { if(window.confirm('Delete this event?')) handleDeleteEvent(event._id); }} className="p-1.5 text-red-600 hover:bg-red-50 rounded bg-white border border-transparent hover:border-red-100 transition-colors"><FaTrash size={12}/></button>
+                                <div className="flex gap-2 transition-opacity">
+                                  <button 
+                                    onClick={() => openEditEventModal(event)} 
+                                    className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-xl bg-white border border-gray-100 hover:border-indigo-200 transition-all shadow-sm active:scale-90"
+                                    title="Edit Event"
+                                  >
+                                    <FaEdit size={14}/>
+                                  </button>
+                                  <button 
+                                    onClick={() => setDeleteConfirm({ open: true, type: 'single', id: event._id })} 
+                                    className="p-2 text-red-600 hover:bg-red-50 rounded-xl bg-white border border-gray-100 hover:border-red-200 transition-all shadow-sm active:scale-90"
+                                    title="Delete Event"
+                                  >
+                                    <FaTrash size={14}/>
+                                  </button>
                                 </div>
                               )}
                            </div>
@@ -773,6 +799,46 @@ const renderFormField = (label, children) => (
                     : (formData._id ? 'Update Event' : 'Create Event')}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* ── Delete Confirmation Modal ── */}
+      {deleteConfirm.open && (
+        <div className="modal-overlay fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4 animate-in fade-in duration-300">
+          <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl p-8 animate-in zoom-in-95 duration-300">
+            <div className="w-16 h-16 bg-rose-50 rounded-2xl flex items-center justify-center text-rose-500 mb-6 mx-auto border border-rose-100">
+              <FaTrash size={24} />
+            </div>
+            <h3 className="text-xl font-bold text-slate-900 text-center mb-2">
+              {deleteConfirm.type === 'clear' ? 'Clear Day Events' : 'Confirm Deletion'}
+            </h3>
+            <p className="text-slate-500 text-center mb-8">
+              {deleteConfirm.type === 'clear' 
+                ? (deleteConfirm.hasExams 
+                    ? `Are you sure you want to clear non-exam events on ${new Date(deleteConfirm.dateStr).toLocaleDateString()}? Exam events will be preserved.`
+                    : `Are you sure you want to clear all events on ${new Date(deleteConfirm.dateStr).toLocaleDateString()}?`)
+                : 'Are you sure you want to delete this event? This action is permanent and cannot be undone.'}
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setDeleteConfirm({ open: false, type: 'single', id: null, dateStr: null, hasExams: false })}
+                className="flex-1 px-6 py-3 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200 transition-all font-sans"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={deleteConfirm.type === 'clear' ? executeClearDayEvents : () => handleDeleteEvent(deleteConfirm.id)}
+                disabled={saving}
+                className="flex-1 px-6 py-3 bg-rose-500 text-white rounded-xl font-bold hover:bg-rose-600 transition-all shadow-lg shadow-rose-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 font-sans"
+              >
+                {saving ? (
+                  <ButtonSpinner className="w-4 h-4" />
+                ) : (
+                  <FaTrash size={14} />
+                )}
+                <span>{deleteConfirm.type === 'clear' ? 'Clear All' : 'Delete'}</span>
+              </button>
             </div>
           </div>
         </div>

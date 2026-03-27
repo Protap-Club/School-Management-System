@@ -1,10 +1,20 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import DashboardLayout from '../layouts/DashboardLayout';
 import { useAuth } from '../features/auth';
 import { useTheme, useFeatures } from '../state';
 import api from '../lib/axios';
 import { ButtonSpinner, PageSpinner } from '../components/ui/Spinner';
 import { useToastMessage } from '../hooks/useToastMessage';
+import {
+    getSchoolClassesQueryKey,
+    makeSchoolClassesQueryData,
+    useSchoolClasses,
+} from '../hooks/useSchoolClasses';
+import {
+    makeClassKey,
+    normalizeClassSection,
+} from '../utils/classSection';
 import {
     FaPalette,
     FaImage,
@@ -41,25 +51,13 @@ const FEATURE_META = {
     result: { label: 'Result', description: 'Manage and publish student exam results', color: 'from-emerald-100 to-teal-100', iconColor: 'text-emerald-600' },
 };
 
-const normalizeClassSection = (standard, section) => ({
-    standard: String(standard || '').trim(),
-    section: String(section || '').trim().toUpperCase()
-});
-
-const makeClassKey = ({ standard, section }) =>
-    `${String(standard || '').trim().toLowerCase()}::${String(section || '').trim().toUpperCase()}`;
-
-const sortClassSections = (items = []) =>
-    [...items].sort((a, b) => {
-        const numA = Number.parseInt(a.standard, 10);
-        const numB = Number.parseInt(b.standard, 10);
-        if (!Number.isNaN(numA) && !Number.isNaN(numB) && numA !== numB) return numA - numB;
-        const stdCmp = String(a.standard).localeCompare(String(b.standard), undefined, { numeric: true, sensitivity: 'base' });
-        if (stdCmp !== 0) return stdCmp;
-        return String(a.section).localeCompare(String(b.section), undefined, { sensitivity: 'base' });
-    });
-
+const CLASS_STANDARD_REGEX = /^[A-Za-z0-9_]+$/;
+const CLASS_SECTION_REGEX =  /^[A-Za-z0-9_]+$/;
+const sanitizeStandardInput = (value) => value.replace(/[^A-Za-z0-9_]/g, '');
+const sanitizeSectionInput = (value) => value.replace(/[^A-Za-z0-9_]/g, '');
+    
 const Settings = () => {
+    const queryClient = useQueryClient();
     const { user: currentUser } = useAuth();
     const { updateTheme, fetchBranding } = useTheme();
     const { refreshFeatures } = useFeatures();
@@ -78,30 +76,17 @@ const Settings = () => {
     const [featuresLoading, setFeaturesLoading] = useState(false);
     const [togglingFeature, setTogglingFeature] = useState(null);
 
-    const [classSections, setClassSections] = useState([]);
-    const [classesLoading, setClassesLoading] = useState(false);
     const [savingClass, setSavingClass] = useState(false);
     const [newStandard, setNewStandard] = useState('');
     const [newSection, setNewSection] = useState('');
+    const [newlyCreatedKeys, setNewlyCreatedKeys] = useState(() => new Set());
+    const [deletePrompt, setDeletePrompt] = useState(null);
+    const [transferTarget, setTransferTarget] = useState({ standard: '', section: '' });
+    const [teacherTransferTarget, setTeacherTransferTarget] = useState({ standard: '', section: '' });
+    const [teacherAction, setTeacherAction] = useState('unassign');
 
-
-    const fetchAcademicClasses = useCallback(async () => {
-        if (!canManageAcademic) return;
-        setClassesLoading(true);
-        try {
-            const response = await api.get('/school/classes');
-            const pairs = response?.data?.data?.classSections || [];
-            const normalized = pairs
-                .map((pair) => normalizeClassSection(pair.standard, pair.section))
-                .filter((pair) => pair.standard && pair.section);
-            setClassSections(sortClassSections(normalized));
-        } catch (error) {
-            console.error('Failed to fetch school classes', error);
-            showMessage('error', error?.response?.data?.message || 'Failed to fetch class-section list');
-        } finally {
-            setClassesLoading(false);
-        }
-    }, [canManageAcademic, showMessage]);
+    // Shared hook — provides classSections + real-time socket sync
+    const { classSections, loading: classesLoading } = useSchoolClasses({ enabled: canManageAcademic });
 
     useEffect(() => {
         const fetchSchoolData = async () => {
@@ -125,8 +110,7 @@ const Settings = () => {
         };
 
         fetchSchoolData();
-        if (canManageAcademic) fetchAcademicClasses();
-    }, [currentSchoolId, isSuperAdmin, canManageAcademic, fetchAcademicClasses]);
+    }, [currentSchoolId, isSuperAdmin]);
 
     const handleToggleFeature = useCallback(async (featureKey) => {
         if (!currentSchoolId || togglingFeature) return;
@@ -205,9 +189,17 @@ const Settings = () => {
     const handleCreateClassSection = async () => {
         if (savingClass) return;
 
-        const normalized = normalizeClassSection(newStandard, newSection);
+        const normalized = normalizeClassSection({ standard: newStandard, section: newSection });
         if (!normalized.standard || !normalized.section) {
             showMessage('error', 'Please enter both class and section');
+            return;
+        }
+        if (!CLASS_STANDARD_REGEX.test(normalized.standard)) {
+            showMessage('error', 'Class can contain only letters, numbers, and underscore');
+            return;
+        }
+        if (!CLASS_SECTION_REGEX.test(normalized.section)) {
+            showMessage('error', 'Section can contain only letters, numbers, and underscore');
             return;
         }
 
@@ -220,20 +212,24 @@ const Settings = () => {
         setSavingClass(true);
         try {
             const response = await api.post('/school/classes', normalized);
-            const updatedPairs = response?.data?.data?.classSections;
-            if (Array.isArray(updatedPairs)) {
-                const parsed = updatedPairs
-                    .map((pair) => normalizeClassSection(pair.standard, pair.section))
-                    .filter((pair) => pair.standard && pair.section);
-                setClassSections(sortClassSections(parsed));
-            } else {
-                await fetchAcademicClasses();
+            const snapshot = response.data?.data;
+
+            if (snapshot) {
+                queryClient.setQueryData(
+                    getSchoolClassesQueryKey(currentSchoolId),
+                    makeSchoolClassesQueryData(snapshot)
+                );
             }
 
+            setNewlyCreatedKeys((current) => {
+                const next = new Set(current);
+                next.add(makeClassKey(normalized));
+                return next;
+            });
             setNewStandard('');
             setNewSection('');
             showMessage('success', `Class ${normalized.standard} - ${normalized.section} added successfully`);
-            window.dispatchEvent(new Event('customClassesUpdated'));
+            window.dispatchEvent(new CustomEvent('customClassesUpdated', { detail: snapshot }));
         } catch (error) {
             showMessage('error', error?.response?.data?.message || 'Failed to add class-section');
         } finally {
@@ -243,28 +239,113 @@ const Settings = () => {
 
     const handleRemoveClassSection = async (pair) => {
         if (savingClass) return;
-        const normalized = normalizeClassSection(pair.standard, pair.section);
+        const normalized = normalizeClassSection(pair);
         setSavingClass(true);
         try {
             const response = await api.delete('/school/classes', { data: normalized });
-            const updatedPairs = response?.data?.data?.classSections;
-            if (Array.isArray(updatedPairs)) {
-                const parsed = updatedPairs
-                    .map((item) => normalizeClassSection(item.standard, item.section))
-                    .filter((item) => item.standard && item.section);
-                setClassSections(sortClassSections(parsed));
-            } else {
-                await fetchAcademicClasses();
+            const snapshot = response.data?.data;
+
+            if (snapshot) {
+                queryClient.setQueryData(
+                    getSchoolClassesQueryKey(currentSchoolId),
+                    makeSchoolClassesQueryData(snapshot)
+                );
             }
 
+            setNewlyCreatedKeys((current) => {
+                const next = new Set(current);
+                next.delete(makeClassKey(normalized));
+                return next;
+            });
+            queryClient.invalidateQueries({ queryKey: ['users'] });
+            queryClient.invalidateQueries({ queryKey: ['attendance'] });
             showMessage('success', `Class ${normalized.standard} - ${normalized.section} removed`);
-            window.dispatchEvent(new Event('customClassesUpdated'));
+            window.dispatchEvent(new CustomEvent('customClassesUpdated', { detail: snapshot }));
+        } catch (error) {
+            const errorCode = error?.response?.data?.error?.code;
+            if (errorCode === 'CLASS_NOT_EMPTY' || errorCode === 'CLASS_HAS_TEACHERS') {
+                const studentCount = error?.response?.data?.error?.details?.studentCount || 0;
+                const teacherCount = error?.response?.data?.error?.details?.teacherCount || 0;
+                const otherClasses = classSections.filter(
+                    (item) => makeClassKey(item) !== makeClassKey(normalized)
+                );
+                const defaultTarget = otherClasses[0] ? normalizeClassSection(otherClasses[0]) : { standard: '', section: '' };
+                setDeletePrompt({ pair: normalized, studentCount, teacherCount });
+                setTransferTarget(defaultTarget);
+                setTeacherTransferTarget(defaultTarget);
+                setTeacherAction('unassign');
+                return;
+            }
+            showMessage('error', error?.response?.data?.message || 'Failed to remove class-section');
+        } finally {
+            setSavingClass(false);
+        }
+    };
+
+    const handleConfirmTransferDelete = async () => {
+        if (savingClass || !deletePrompt?.pair) return;
+        const hasStudents = (deletePrompt?.studentCount || 0) > 0;
+        const hasTeachers = (deletePrompt?.teacherCount || 0) > 0;
+
+        if (hasStudents && (!transferTarget.standard || !transferTarget.section)) {
+            showMessage('error', 'Please select a temporary class-section');
+            return;
+        }
+        if (hasTeachers && teacherAction === 'transfer' && (!teacherTransferTarget.standard || !teacherTransferTarget.section)) {
+            showMessage('error', 'Please select a teacher reassignment class-section');
+            return;
+        }
+
+        setSavingClass(true);
+        try {
+            const payload = { ...deletePrompt.pair };
+            if (hasStudents) {
+                payload.transferTo = transferTarget;
+            }
+            if (hasTeachers) {
+                if (teacherAction === 'transfer') {
+                    payload.teacherTransferTo = teacherTransferTarget;
+                } else {
+                    payload.teacherAction = 'unassign';
+                }
+            }
+
+            const response = await api.delete('/school/classes', {
+                data: payload
+            });
+            const snapshot = response.data?.data;
+
+            if (snapshot) {
+                queryClient.setQueryData(
+                    getSchoolClassesQueryKey(currentSchoolId),
+                    makeSchoolClassesQueryData(snapshot)
+                );
+            }
+
+            setNewlyCreatedKeys((current) => {
+                const next = new Set(current);
+                next.delete(makeClassKey(deletePrompt.pair));
+                return next;
+            });
+            queryClient.invalidateQueries({ queryKey: ['users'] });
+            queryClient.invalidateQueries({ queryKey: ['attendance'] });
+            showMessage('success', `Class ${deletePrompt.pair.standard} - ${deletePrompt.pair.section} removed`);
+            window.dispatchEvent(new CustomEvent('customClassesUpdated', { detail: snapshot }));
+            clearDeletePrompt();
         } catch (error) {
             showMessage('error', error?.response?.data?.message || 'Failed to remove class-section');
         } finally {
             setSavingClass(false);
         }
     };
+
+    const clearDeletePrompt = () => {
+        setDeletePrompt(null);
+        setTransferTarget({ standard: '', section: '' });
+        setTeacherTransferTarget({ standard: '', section: '' });
+        setTeacherAction('unassign');
+    };
+
 
     if (loading) {
         return (
@@ -277,6 +358,40 @@ const Settings = () => {
     }
 
     const accentColor = settings.theme?.accentColor || '#2563eb';
+    const hasStudentsToMove = (deletePrompt?.studentCount || 0) > 0;
+    const hasTeachersToMove = (deletePrompt?.teacherCount || 0) > 0;
+    const deleteActionLabel = hasStudentsToMove
+        ? 'Reassign Students & Delete'
+        : hasTeachersToMove && teacherAction === 'transfer'
+            ? 'Reassign Teachers & Delete'
+            : hasTeachersToMove
+                ? 'Delete & Unassign'
+                : 'Delete Class';
+    const transferSelectionKey = transferTarget.standard && transferTarget.section
+        ? makeClassKey(transferTarget)
+        : '';
+    const teacherTransferSelectionKey = teacherTransferTarget.standard && teacherTransferTarget.section
+        ? makeClassKey(teacherTransferTarget)
+        : '';
+    const deletePromptTitle = hasStudentsToMove
+        ? 'Reassign Students Before Deleting'
+        : hasTeachersToMove
+            ? 'Update Teacher Assignments Before Deleting'
+            : 'Delete Class';
+    const deletePromptDescription = hasStudentsToMove
+        ? 'Keep every student safely assigned to a class'
+        : hasTeachersToMove
+            ? 'Choose how assigned teachers should be handled'
+            : 'Confirm class deletion';
+    const transferOptions = deletePrompt
+        ? classSections
+            .filter((item) => makeClassKey(item) !== makeClassKey(deletePrompt.pair))
+            .map((item) => ({
+                key: makeClassKey(item),
+                label: `${item.standard} - ${item.section}`,
+                pair: normalizeClassSection(item),
+            }))
+        : [];
 
     const renderFeatureToggle = (key, meta) => (
         <div key={key} className={`flex items-center justify-between p-4 rounded-2xl border transition-colors ${features[key] ? 'bg-gray-50 border-gray-200' : 'bg-white border-gray-100 hover:bg-gray-50'}`}>
@@ -307,6 +422,135 @@ const Settings = () => {
                         {message.type === 'success' ? <FaCheck size={12} /> : <FaTimes size={12} />}
                     </div>
                     <span className="font-medium">{message.text}</span>
+                </div>
+            )}
+
+            {deletePrompt && (
+                <div className="fixed inset-0 z-[110] flex items-center justify-center px-4">
+                    <div
+                        className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
+                        onClick={clearDeletePrompt}
+                    />
+                    <div className="relative w-full max-w-lg rounded-3xl border border-slate-200 bg-white shadow-2xl p-6 md:p-7">
+                        <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ backgroundColor: `${accentColor}1A` }}>
+                                <FaGraduationCap style={{ color: accentColor }} size={18} />
+                            </div>
+                            <div>
+                                <h3 className="text-lg font-semibold text-gray-900">{deletePromptTitle}</h3>
+                                <p className="text-sm text-gray-500">{deletePromptDescription}</p>
+                            </div>
+                        </div>
+
+                        {hasStudentsToMove && (
+                            <>
+                                <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                                    {deletePrompt.studentCount
+                                        ? `This class currently has ${deletePrompt.studentCount} student${deletePrompt.studentCount === 1 ? '' : 's'}.`
+                                        : 'This class still has students.'}
+                                    {' '}Before deleting, please choose a temporary class for them.
+                                </div>
+
+                                <div className="mt-5">
+                                    <label className="text-xs font-semibold uppercase tracking-wider text-gray-500">Temporary Class</label>
+                                    <select
+                                        value={transferSelectionKey}
+                                        onChange={(e) => {
+                                            const key = e.target.value;
+                                            const selected = transferOptions.find((option) => option.key === key);
+                                            setTransferTarget(selected?.pair || { standard: '', section: '' });
+                                        }}
+                                        className="mt-2 w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                                    >
+                                        <option value="">Select a temporary class</option>
+                                        {transferOptions.map((option) => (
+                                            <option key={option.key} value={option.key}>{option.label}</option>
+                                        ))}
+                                    </select>
+                                    {transferOptions.length === 0 && (
+                                        <p className="mt-2 text-xs text-gray-500">No other classes are available. Please create a class first.</p>
+                                    )}
+                                </div>
+                            </>
+                        )}
+
+                        {hasTeachersToMove && (
+                            <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
+                                <p className="text-sm text-slate-700 font-semibold">
+                                    {deletePrompt.teacherCount
+                                        ? `This class has ${deletePrompt.teacherCount} assigned teacher${deletePrompt.teacherCount === 1 ? '' : 's'}.`
+                                        : 'This class has assigned teachers.'}
+                                </p>
+                                <p className="text-xs text-slate-500 mt-1">
+                                    You can reassign them to another class or continue to mark them as unassigned.
+                                </p>
+
+                                <div className="mt-3 flex flex-wrap gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => setTeacherAction('transfer')}
+                                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${teacherAction === 'transfer'
+                                            ? 'border-primary text-primary bg-primary/10'
+                                            : 'border-gray-200 text-gray-600 bg-white hover:bg-gray-50'}`}
+                                    >
+                                        Reassign Teachers
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setTeacherAction('unassign')}
+                                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${teacherAction === 'unassign'
+                                            ? 'border-amber-300 text-amber-700 bg-amber-50'
+                                            : 'border-gray-200 text-gray-600 bg-white hover:bg-gray-50'}`}
+                                    >
+                                        Mark Unassigned
+                                    </button>
+                                </div>
+
+                                {teacherAction === 'transfer' && (
+                                    <div className="mt-4">
+                                        <label className="text-xs font-semibold uppercase tracking-wider text-gray-500">Teacher Reassignment Class</label>
+                                        <select
+                                            value={teacherTransferSelectionKey}
+                                            onChange={(e) => {
+                                                const key = e.target.value;
+                                                const selected = transferOptions.find((option) => option.key === key);
+                                                setTeacherTransferTarget(selected?.pair || { standard: '', section: '' });
+                                            }}
+                                            className="mt-2 w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                                        >
+                                            <option value="">Select a class for teachers</option>
+                                            {transferOptions.map((option) => (
+                                                <option key={option.key} value={option.key}>{option.label}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                            <button
+                                type="button"
+                                onClick={clearDeletePrompt}
+                                className="px-4 py-2.5 rounded-xl text-sm font-semibold text-gray-700 border border-gray-200 hover:bg-gray-50"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleConfirmTransferDelete}
+                                disabled={
+                                    savingClass ||
+                                    (hasStudentsToMove && (transferOptions.length === 0 || !transferSelectionKey)) ||
+                                    (hasTeachersToMove && teacherAction === 'transfer' && (transferOptions.length === 0 || !teacherTransferSelectionKey))
+                                }
+                                className="px-4 py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-60 disabled:cursor-not-allowed"
+                                style={{ backgroundColor: accentColor }}
+                            >
+                                {savingClass ? <ButtonSpinner /> : deleteActionLabel}
+                            </button>
+                        </div>
+                    </div>
                 </div>
             )}
 
@@ -473,7 +717,7 @@ const Settings = () => {
                                             <input
                                                 type="text"
                                                 value={newStandard}
-                                                onChange={(e) => setNewStandard(e.target.value)}
+                                                onChange={(e) => setNewStandard(sanitizeStandardInput(e.target.value))}
                                                 onKeyDown={(e) => e.key === 'Enter' && handleCreateClassSection()}
                                                 placeholder="Class (e.g. 10)"
                                                 className="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
@@ -482,10 +726,10 @@ const Settings = () => {
                                             <input
                                                 type="text"
                                                 value={newSection}
-                                                onChange={(e) => setNewSection(e.target.value.toUpperCase())}
+                                                onChange={(e) => setNewSection(sanitizeSectionInput(e.target.value))}
                                                 onKeyDown={(e) => e.key === 'Enter' && handleCreateClassSection()}
                                                 placeholder="Section (e.g. A)"
-                                                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-white uppercase focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                                                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                                             />
                                             <div className="px-3 py-2.5 rounded-xl bg-white border border-gray-200 text-xs font-bold text-gray-600 text-center">
                                                 Preview: <span className="text-gray-900">{newStandard.trim() || '--'} - {(newSection.trim() || '--').toUpperCase()}</span>
@@ -528,6 +772,9 @@ const Settings = () => {
                                                         <div className="flex items-center gap-3">
                                                             <span className="w-2 h-2 rounded-full" style={{ backgroundColor: accentColor }}></span>
                                                             <span className="font-semibold text-gray-900">{pair.standard} - {pair.section}</span>
+                                                            {newlyCreatedKeys.has(makeClassKey(pair)) && (
+                                                                <span className="px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-full bg-emerald-100 text-emerald-700">New</span>
+                                                            )}
                                                         </div>
                                                         <button
                                                             type="button"

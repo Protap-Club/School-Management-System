@@ -1,24 +1,19 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { useAuth } from '../features/auth';
 import { useStudents, useTodayAttendance, useProfile } from '../features/attendance';
 import DashboardLayout from '../layouts/DashboardLayout';
 import { connectSocket, disconnectSocket } from '../api/socket';
 import api from '../lib/axios';
+import { useSchoolClasses } from '../hooks/useSchoolClasses';
 import {
   Users,
   UserCheck,
-  ShieldCheck,
-  Activity,
-  ArrowUpRight,
-  LayoutGrid,
   Clock,
   MoreHorizontal,
   ChevronRight,
-  Sparkle,
   Calendar,
-  BookOpen,
   Megaphone,
   Bell,
   UserPlus
@@ -26,8 +21,8 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useQueryClient } from '@tanstack/react-query';
 import { attendanceKeys } from '../features/attendance/api/queries';
-import { CircularProgress, Sparkline, MiniBarChart } from '../components/dashboard/SvgCharts';
-import { useMySchedule, DAY_MAP, DAYS_OF_WEEK } from '../features/timetable';
+import { CircularProgress, Sparkline } from '../components/dashboard/SvgCharts';
+import { useMySchedule, DAY_MAP } from '../features/timetable';
 import { useNotices } from '../features/notices';
 import { useUsers } from '../features/users';
 
@@ -47,8 +42,8 @@ const Dashboard = () => {
   const CACHE_KEY = `dashboard_cache_${user?._id}`;
 
   // Queries
-  const { data: studentsRes, isLoading: studentsLoading, isError: studentsError } = useStudents();
-  const { data: attendanceRes, isLoading: attendanceLoading, isError: attendanceError } = useTodayAttendance();
+  const { data: studentsRes, isLoading: studentsLoading } = useStudents();
+  const { data: attendanceRes, isLoading: attendanceLoading } = useTodayAttendance();
   const { data: profileRes } = useProfile();
   const { data: scheduleRes } = useMySchedule(isTeacher);
   const { data: noticesRes } = useNotices(!isTeacher);
@@ -57,6 +52,7 @@ const Dashboard = () => {
     pageSize: 3, 
     enabled: !isTeacher
   });
+  const { classSections: configuredClassSections } = useSchoolClasses({ enabled: isAdmin || isSuperAdmin });
 
   const [selectedClass, setSelectedClass] = useState('all');
   const [attendanceData, setAttendanceData] = useState([]);
@@ -184,21 +180,9 @@ const Dashboard = () => {
     return raw?.data || raw;
   }, [profileRes, persistedData]);
 
-  const teacherProfile = useMemo(() => {
-    if (!isTeacher || !currentProfile) return null;
-    const profile = currentProfile;
-    if (profile.assignedClasses?.length > 0) {
-      return { standard: profile.assignedClasses[0].standard, section: profile.assignedClasses[0].section };
-    } else if (profile.profile?.standard) {
-      return { standard: profile.profile.standard, section: profile.profile.section };
-    }
-    return null;
-  }, [isTeacher, currentProfile]);
-
   const loading = (studentsLoading || attendanceLoading) && !persistedData;
 
   const stats = useMemo(() => {
-    let students = allStudents;
     const rawAtt = attendanceRes?.data || attendanceData || persistedData?.attendance || [];
     const currentAttendance = Array.isArray(rawAtt) ? rawAtt : (rawAtt?.data || []);
     const attendanceMap = new Map(currentAttendance.map(a => [a.studentId, a.status]));
@@ -222,15 +206,22 @@ const Dashboard = () => {
     const overall = calculateForGroup(allStudents);
 
     // Classroom Matrix Data
-    const classGroups = {};
+    const classGroups = new Map();
     allStudents.forEach(s => {
       const cls = `${s.profile?.standard} ${s.profile?.section}`;
       if (!s.profile?.standard) return;
-      if (!classGroups[cls]) classGroups[cls] = [];
-      classGroups[cls].push(s);
+      if (!classGroups.has(cls)) classGroups.set(cls, []);
+      classGroups.get(cls).push(s);
     });
 
-    const matrix = Object.entries(classGroups).map(([name, students]) => ({
+    const matrixSource = (isAdmin || isSuperAdmin) && configuredClassSections.length > 0
+      ? configuredClassSections.map((pair) => {
+          const name = `${pair.standard} ${pair.section}`;
+          return [name, classGroups.get(name) || []];
+        })
+      : Array.from(classGroups.entries());
+
+    const matrix = matrixSource.map(([name, students]) => ({
       name,
       ...calculateForGroup(students)
     })).sort((a, b) => {
@@ -243,7 +234,19 @@ const Dashboard = () => {
     const trend = [30, 45, overall.rate * 0.8, overall.rate * 0.9, overall.rate].map(v => Math.max(10, v));
 
     return { overall, matrix, trend };
-  }, [allStudents, attendanceRes, attendanceData, persistedData]);
+  }, [allStudents, attendanceRes, attendanceData, configuredClassSections, isAdmin, isSuperAdmin, persistedData]);
+
+  useEffect(() => {
+    if (!(isAdmin || isSuperAdmin) || selectedClass === 'all') return;
+
+    const isStillValid = configuredClassSections.some(
+      (pair) => `${pair.standard} ${pair.section}` === selectedClass
+    );
+
+    if (!isStillValid) {
+      setSelectedClass('all');
+    }
+  }, [configuredClassSections, isAdmin, isSuperAdmin, selectedClass]);
 
   const filteredStats = useMemo(() => {
     if (isTeacher && currentProfile?.assignedClasses?.length > 0) {
@@ -266,7 +269,7 @@ const Dashboard = () => {
       return stats.matrix.find(m => m.name === selectedClass) || stats.overall;
     }
     return stats.overall;
-  }, [stats, selectedClass, isAdmin, isSuperAdmin, isTeacher, teacherProfile]);
+  }, [stats, selectedClass, isAdmin, isSuperAdmin, isTeacher, currentProfile]);
 
   useEffect(() => {
     if (!isAdmin && !isSuperAdmin && !isTeacher) return;

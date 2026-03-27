@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { usersApi } from "./api";
+import { attendanceKeys } from "../../attendance/api/queries";
 
 export const userKeys = {
     all: ["users"],
@@ -8,49 +9,10 @@ export const userKeys = {
     detail: (id) => [...userKeys.all, "detail", id],
 };
 
-const OVERRIDES_KEY = 'user_overrides';
-
-const getOverrides = () => {
-    try {
-        return JSON.parse(localStorage.getItem(OVERRIDES_KEY)) || {};
-    } catch {
-        return {};
-    }
-};
-
-const saveOverride = (user) => {
-    if (!user?._id) return;
-    const overrides = getOverrides();
-    // Ensure ID is a string for consistent hashing in localStorage
-    overrides[String(user._id)] = user;
-    localStorage.setItem(OVERRIDES_KEY, JSON.stringify(overrides));
-};
-
-export const removeOverride = (userId) => {
-    if (!userId) return;
-    const overrides = getOverrides();
-    delete overrides[String(userId)];
-    localStorage.setItem(OVERRIDES_KEY, JSON.stringify(overrides));
-};
-
-const mergeOverrides = (users) => {
-    const overrides = getOverrides();
-    return users.map(u => {
-        const idStr = String(u._id);
-        return overrides[idStr] ? { ...u, ...overrides[idStr] } : u;
-    });
-};
-
 export const useUsers = ({ role = "all", page = 0, pageSize = 25, name, enabled = true } = {}) => {
     return useQuery({
         queryKey: userKeys.list({ role, page, pageSize, name, isArchived: false }),
-        queryFn: async () => {
-            const response = await usersApi.getUsers({ role, page, pageSize, name, isArchived: false });
-            if (response?.data?.users) {
-                response.data.users = mergeOverrides(response.data.users);
-            }
-            return response;
-        },
+        queryFn: () => usersApi.getUsers({ role, page, pageSize, name, isArchived: false }),
         enabled
     });
 };
@@ -58,30 +20,8 @@ export const useUsers = ({ role = "all", page = 0, pageSize = 25, name, enabled 
 export const useArchivedUsers = ({ role = "all", page = 0, pageSize = 25, name, enabled = true } = {}) => {
     return useQuery({
         queryKey: userKeys.list({ role, page, pageSize, name, isArchived: true }),
-        queryFn: async () => {
-            const response = await usersApi.getUsers({ role, page, pageSize, name, isArchived: true });
-            if (response?.data?.users) {
-                response.data.users = mergeOverrides(response.data.users);
-            }
-            return response;
-        },
+        queryFn: () => usersApi.getUsers({ role, page, pageSize, name, isArchived: true }),
         enabled
-    });
-};
-
-export const useUserById = (id) => {
-    return useQuery({
-        queryKey: userKeys.detail(id),
-        queryFn: async () => {
-            const response = await usersApi.getUserById(id);
-            const overrides = getOverrides();
-            const idStr = String(id);
-            if (response?.data && overrides[idStr]) {
-                response.data = { ...response.data, ...overrides[idStr] };
-            }
-            return response;
-        },
-        enabled: Boolean(id),
     });
 };
 
@@ -92,6 +32,7 @@ export const useCreateUser = () => {
         onSuccess: () => {
             // Invalidate the entire users cache so every list (by role, page, etc.) refreshes
             queryClient.invalidateQueries({ queryKey: userKeys.all });
+            queryClient.invalidateQueries({ queryKey: attendanceKeys.all });
         },
     });
 };
@@ -102,6 +43,7 @@ export const useToggleUserStatus = () => {
         mutationFn: ({ userId, isArchived }) => usersApi.toggleArchive({ userIds: [userId], isArchived }),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: userKeys.all });
+            queryClient.invalidateQueries({ queryKey: attendanceKeys.all });
         },
     });
 };
@@ -112,6 +54,7 @@ export const useToggleUsersStatus = () => {
         mutationFn: usersApi.toggleArchive,
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: userKeys.all });
+            queryClient.invalidateQueries({ queryKey: attendanceKeys.all });
         },
     });
 };
@@ -119,15 +62,10 @@ export const useToggleUsersStatus = () => {
 export const useUpdateUser = () => {
     const queryClient = useQueryClient();
     return useMutation({
-        // Mock mutation since backend lacks update endpoint
-        mutationFn: async (payload) => {
-            // Persist to localStorage
-            saveOverride(payload);
-            // Simulate API delay
-            await new Promise(resolve => setTimeout(resolve, 500));
-            return payload;
-        },
-        onSuccess: (updatedUser) => {
+        mutationFn: ({ id, payload }) => usersApi.updateUser(id, payload),
+        onSuccess: (response) => {
+            const updatedUser = response?.data?.user;
+            if (!updatedUser?._id) return;
             const idStr = String(updatedUser._id);
             // Update the main user list cache
             queryClient.setQueriesData({ queryKey: userKeys.lists() }, (oldData) => {
@@ -150,6 +88,7 @@ export const useUpdateUser = () => {
                     data: { ...oldUser.data, ...updatedUser }
                 };
             });
+            queryClient.invalidateQueries({ queryKey: attendanceKeys.all });
         },
     });
 };

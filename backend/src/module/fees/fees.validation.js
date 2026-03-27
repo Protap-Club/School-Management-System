@@ -137,13 +137,6 @@ export const studentFeeHistorySchema = z.object({
     }).optional(),
 });
 
-export const myClassFeesSchema = z.object({
-    query: z.object({
-        academicYear: z.union([z.string(), z.number()]).transform((val) => Number(val)),
-        month: z.union([z.string(), z.number()]).transform((val) => Number(val)),
-    }),
-});
-
 export const myFeesSchema = z.object({
     query: z.object({
         academicYear: z.union([z.string(), z.number()]).optional().transform((val) => (val ? Number(val) : undefined)),

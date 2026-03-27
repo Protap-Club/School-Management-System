@@ -11,6 +11,53 @@ import { BadRequestError, NotFoundError, ConflictError, ForbiddenError } from ".
 import { deleteFromCloudinary } from "../../middlewares/upload.middleware.js";
 import logger from "../../config/logger.js";
 import { generatePassword } from "../../utils/password.util.js";
+import {
+    assertClassSectionExists,
+    assertClassSectionListExists,
+} from "../../utils/classSection.util.js";
+
+const normalizeUserClassAssignments = async (schoolId, role, userData) => {
+    if (role === USER_ROLES.STUDENT && (userData.standard || userData.section)) {
+        const normalizedStudentClass = await assertClassSectionExists(
+            schoolId,
+            userData.standard,
+            userData.section,
+            { message: "Student class-section is not configured in Settings" }
+        );
+
+        userData.standard = normalizedStudentClass.standard;
+        userData.section = normalizedStudentClass.section;
+    }
+
+    if (role !== USER_ROLES.TEACHER) {
+        return;
+    }
+
+    const requestedAssignedClasses = Array.isArray(userData.assignedClasses)
+        ? userData.assignedClasses
+        : [];
+
+    if (requestedAssignedClasses.length > 0) {
+        userData.assignedClasses = await assertClassSectionListExists(
+            schoolId,
+            requestedAssignedClasses,
+            { message: "One or more teacher assigned classes are not configured in Settings" }
+        );
+        return;
+    }
+
+    if (userData.standard || userData.section) {
+        const normalizedTeacherClass = await assertClassSectionExists(
+            schoolId,
+            userData.standard,
+            userData.section,
+            { message: "Teacher class-section is not configured in Settings" }
+        );
+
+        userData.standard = normalizedTeacherClass.standard;
+        userData.section = normalizedTeacherClass.section;
+    }
+};
 
 
 // CREATE USER
@@ -25,6 +72,8 @@ export const createUser = async (creator, userData) => {
 
     // School context — always scoped to creator's school
     const targetSchoolId = userData.schoolId || creator.schoolId;
+
+    await normalizeUserClassAssignments(targetSchoolId, role, userData);
 
     // Check for duplicate email
     const existing = await User.findOne({ email });
@@ -333,88 +382,6 @@ export const toggleArchive = async (creator, userIds, isArchived) => {
     };
 };
 
-// PERMANENT DELETE (with proper cleanup)
-export const hardDeleteUsers = async (creator, userIds) => {
-    const ids = Array.isArray(userIds) ? userIds : [userIds];
-
-    // 2. BUILD QUERY - MUST BE ARCHIVED
-    const query = buildAccessQuery(creator, {
-        userIds: ids,
-        isArchived: true
-    });
-
-    const usersToDelete = await User.find(query).select("_id role avatarPublicId").lean();
-
-    if (usersToDelete.length === 0) {
-        throw new BadRequestError(
-            "No archived users found. Users must be archived before permanent deletion."
-        );
-    }
-
-    // 3. ROLE HIERARCHY VERIFICATION
-    const forbiddenUsers = usersToDelete.filter(u => !canManageRole(creator.role, u.role));
-
-    if (forbiddenUsers.length > 0) {
-        const forbiddenRoles = [...new Set(forbiddenUsers.map(u => u.role))];
-        throw new ForbiddenError(
-            `You cannot delete users with roles: ${forbiddenRoles.join(', ')}`
-        );
-    }
-
-    // 4. PREVENT SELF-DELETION
-    const isSelfDeleting = usersToDelete.some(u => u._id.toString() === creator._id.toString());
-    if (isSelfDeleting) {
-        throw new ForbiddenError("You cannot permanently delete your own account");
-    }
-
-    const deleteIds = usersToDelete.map(u => u._id);
-
-    // 5. DELETE PROFILES
-    for (const user of usersToDelete) {
-        const config = PROFILE_CONFIG[user.role];
-        if (config) {
-            try {
-                await config.model.deleteMany({ userId: user._id });
-            } catch (error) {
-                logger.error({
-                    error,
-                    userId: user._id,
-                    role: user.role
-                }, "Failed to delete user profile");
-                // Continue with deletion - log but don't fail
-            }
-        }
-    }
-
-    // 6. DELETE USERS
-    const result = await User.deleteMany({ _id: { $in: deleteIds } });
-
-    // 7. CLEANUP AVATARS FROM CLOUDINARY
-    for (const user of usersToDelete) {
-        if (user.avatarPublicId) {
-            deleteFromCloudinary(user.avatarPublicId)
-                .catch(err => logger.warn({
-                    err,
-                    publicId: user.avatarPublicId,
-                    userId: user._id
-                }, "Failed to delete avatar from Cloudinary"));
-        }
-    }
-
-    // 8. LOG AND RETURN
-    logger.info({
-        deletedCount: result.deletedCount,
-        performedBy: creator._id,
-        deletedIds: deleteIds
-    }, "Users permanently deleted");
-
-    return {
-        deletedCount: result.deletedCount,
-        requestedCount: ids.length,
-        notFoundCount: ids.length - usersToDelete.length
-    };
-};
-
 // UPDATE TEACHER PROFILE (e.g. expectedSalary)
 export const updateTeacherProfile = async (creator, userId, data) => {
     // Only admins can update profiles in this way
@@ -436,6 +403,119 @@ export const updateTeacherProfile = async (creator, userId, data) => {
 
     logger.info(`Teacher profile updated for user ${userId} by ${creator._id}`);
     return updatedProfile;
+};
+
+// UPDATE USER (admin/super admin)
+export const updateUser = async (creator, userId, payload = {}) => {
+    if (![USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN].includes(creator.role)) {
+        throw new ForbiddenError("Only admins can update users");
+    }
+
+    const user = await User.findOne({ _id: userId, schoolId: creator.schoolId });
+    if (!user) throw new NotFoundError("User not found");
+
+    if (!canManageRole(creator.role, user.role)) {
+        throw new ForbiddenError(`You cannot update a user with role '${user.role}'.`);
+    }
+
+    const updates = {};
+    if (payload.name !== undefined) updates.name = payload.name;
+    if (payload.email !== undefined) updates.email = payload.email;
+    if (payload.contactNo !== undefined) updates.contactNo = payload.contactNo;
+
+    if (updates.email && updates.email !== user.email) {
+        const existing = await User.exists({ email: updates.email, _id: { $ne: userId } });
+        if (existing) throw new ConflictError("Email already registered");
+    }
+
+    if (Object.keys(updates).length > 0) {
+        Object.assign(user, updates);
+        await user.save();
+    }
+
+    const profileInput = payload.profile || null;
+    const profileConfig = PROFILE_CONFIG[user.role];
+
+    if (profileInput && profileConfig) {
+        const classPayload = {};
+        if (Object.prototype.hasOwnProperty.call(profileInput, "standard")) {
+            classPayload.standard = profileInput.standard;
+        }
+        if (Object.prototype.hasOwnProperty.call(profileInput, "section")) {
+            classPayload.section = profileInput.section;
+        }
+        if (Object.prototype.hasOwnProperty.call(profileInput, "assignedClasses")) {
+            classPayload.assignedClasses = profileInput.assignedClasses;
+        }
+
+        if (Object.keys(classPayload).length > 0) {
+            await normalizeUserClassAssignments(creator.schoolId, user.role, classPayload);
+        }
+
+        const profileUpdates = {};
+        const applyUpdate = (key, value) => {
+            if (value !== undefined) profileUpdates[key] = value;
+        };
+
+        if (user.role === USER_ROLES.STUDENT) {
+            applyUpdate("rollNumber", profileInput.rollNumber);
+            applyUpdate("year", profileInput.year);
+            applyUpdate("admissionDate", profileInput.admissionDate);
+            applyUpdate("fatherName", profileInput.fatherName);
+            applyUpdate("fatherContact", profileInput.fatherContact);
+            applyUpdate("motherName", profileInput.motherName);
+            applyUpdate("motherContact", profileInput.motherContact);
+            applyUpdate("address", profileInput.address);
+
+            if (Object.prototype.hasOwnProperty.call(classPayload, "standard")) {
+                applyUpdate("standard", classPayload.standard);
+            }
+            if (Object.prototype.hasOwnProperty.call(classPayload, "section")) {
+                applyUpdate("section", classPayload.section);
+            }
+        }
+
+        if (user.role === USER_ROLES.TEACHER) {
+            applyUpdate("employeeId", profileInput.employeeId);
+            applyUpdate("qualification", profileInput.qualification);
+            applyUpdate("joiningDate", profileInput.joiningDate);
+            applyUpdate("expectedSalary", profileInput.expectedSalary);
+
+            if (Object.prototype.hasOwnProperty.call(profileInput, "assignedClasses")) {
+                applyUpdate("assignedClasses", classPayload.assignedClasses || []);
+            } else if (classPayload.standard && classPayload.section) {
+                applyUpdate("assignedClasses", [{
+                    standard: classPayload.standard,
+                    section: classPayload.section,
+                    subjects: [],
+                }]);
+            }
+        }
+
+        if (user.role === USER_ROLES.ADMIN) {
+            applyUpdate("department", profileInput.department);
+            applyUpdate("employeeId", profileInput.employeeId);
+            applyUpdate("permissions", profileInput.permissions);
+        }
+
+        if (Object.keys(profileUpdates).length > 0) {
+            await profileConfig.model.findOneAndUpdate(
+                { userId: user._id, schoolId: creator.schoolId },
+                { $set: profileUpdates },
+                { new: true, runValidators: true, upsert: true }
+            );
+        }
+    }
+
+    const refreshed = await User.findById(user._id)
+        .select("-password -__v")
+        .populate("schoolId", "name code")
+        .populate("studentProfile")
+        .populate("teacherProfile")
+        .populate("adminProfile")
+        .lean();
+
+    return formatUserResponse(refreshed);
 };
 
 // UPDATE AVATAR

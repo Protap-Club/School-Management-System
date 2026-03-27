@@ -9,7 +9,6 @@ export const feeKeys = {
     allClassesOverview: (academicYear, month) => [...feeKeys.all, 'allClassesOverview', academicYear, month],
     classOverview: (standard, section, academicYear, month) => [...feeKeys.all, 'classOverview', standard, section, academicYear, month],
     yearlySummary: (academicYear) => [...feeKeys.all, 'yearlySummary', academicYear],
-    myClasses: (academicYear, month) => [...feeKeys.all, 'myClasses', academicYear, month],
     studentHistory: (studentId, academicYear) => [...feeKeys.all, 'studentHistory', studentId, academicYear],
     salaries: () => [...feeKeys.all, 'salaries'],
     salaryList: (filters) => [...feeKeys.salaries(), filters],
@@ -148,14 +147,6 @@ export const useStudentFeeHistory = (studentId, academicYear) => {
     });
 };
 
-export const useMyClassFees = (academicYear, month, isTeacher = false) => {
-    return useQuery({
-        queryKey: feeKeys.myClasses(academicYear, month),
-        queryFn: () => feesApi.getMyClassFees({ academicYear, month }),
-        enabled: !!academicYear && !!month && isTeacher,
-    });
-};
-
 export const useMyFees = (filters = {}, isStudent = false) => {
     return useQuery({
         queryKey: feeKeys.myFees(filters),
@@ -167,7 +158,6 @@ export const useMyFees = (filters = {}, isStudent = false) => {
 // ── Salary Hooks ──────────────────────────────────────────────
 
 import { salaryApi } from './salary-api';
-import { removeOverride } from '../../users/api/queries';
 
 export const useCreateSalary = () => {
     const queryClient = useQueryClient();
@@ -211,11 +201,7 @@ export const useUpdateTeacherProfile = () => {
     const queryClient = useQueryClient();
     return useMutation({
         mutationFn: salaryApi.updateTeacherProfile,
-        onSuccess: (updatedProfile, variables) => {
-            // Clear stale localStorage overrides if they exist
-            if (variables?.id) {
-                removeOverride(variables.id);
-            }
+        onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['users'] });
         },
     });

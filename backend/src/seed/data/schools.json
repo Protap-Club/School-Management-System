@@ -1,0 +1,113 @@
+{
+  "defaultPassword": "Demo@123",
+  "schools": [
+    {
+      "name": "Jawahar Navodaya Vidyalaya",
+      "code": "JNV",
+      "address": "Navodaya Nagar, Gandhinagar, Gujarat 382010",
+      "contactEmail": "admin@jnv.com",
+      "contactPhone": "+91-79-2322-1100",
+      "theme": { "accentColor": "#1e40af" },
+      "features": {
+        "attendance": true,
+        "fees": true,
+        "timetable": true,
+        "library": true,
+        "transport": true,
+        "notice": true,
+        "calendar": true,
+        "examination": true,
+        "assignment": true,
+        "result": true
+      },
+      "academic": {
+        "classSections": [
+          { "standard": "1", "section": "A" }, { "standard": "1", "section": "B" }, { "standard": "1", "section": "C" }, { "standard": "1", "section": "D" },
+          { "standard": "2", "section": "A" }, { "standard": "2", "section": "B" }, { "standard": "2", "section": "C" }, { "standard": "2", "section": "D" },
+          { "standard": "3", "section": "A" }, { "standard": "3", "section": "B" }, { "standard": "3", "section": "C" }, { "standard": "3", "section": "D" },
+          { "standard": "4", "section": "A" }, { "standard": "4", "section": "B" }, { "standard": "4", "section": "C" }, { "standard": "4", "section": "D" },
+          { "standard": "5", "section": "A" }, { "standard": "5", "section": "B" }, { "standard": "5", "section": "C" }, { "standard": "5", "section": "D" },
+          { "standard": "6", "section": "A" }, { "standard": "6", "section": "B" }, { "standard": "6", "section": "C" }, { "standard": "6", "section": "D" },
+          { "standard": "7", "section": "A" }, { "standard": "7", "section": "B" }, { "standard": "7", "section": "C" }, { "standard": "7", "section": "D" },
+          { "standard": "8", "section": "A" }, { "standard": "8", "section": "B" }, { "standard": "8", "section": "C" }, { "standard": "8", "section": "D" },
+          { "standard": "9", "section": "A" }, { "standard": "9", "section": "B" }, { "standard": "9", "section": "C" }, { "standard": "9", "section": "D" },
+          { "standard": "10", "section": "A" }, { "standard": "10", "section": "B" }, { "standard": "10", "section": "C" }, { "standard": "10", "section": "D" },
+          { "standard": "11", "section": "A" }, { "standard": "11", "section": "B" }, { "standard": "11", "section": "C" }, { "standard": "11", "section": "D" },
+          { "standard": "12", "section": "A" }, { "standard": "12", "section": "B" }, { "standard": "12", "section": "C" }, { "standard": "12", "section": "D" }
+        ]
+      }
+    },
+    {
+      "name": "Navrachna International School",
+      "code": "NV",
+      "address": "Vasna-Bhayli Road, Vadodara, Gujarat 391410",
+      "contactEmail": "admin@nv.com",
+      "contactPhone": "+91-265-2680-500",
+      "theme": { "accentColor": "#059669" },
+      "features": {
+        "attendance": true,
+        "fees": true,
+        "timetable": true,
+        "library": true,
+        "transport": true,
+        "notice": true,
+        "calendar": true,
+        "examination": true,
+        "assignment": true,
+        "result": true
+      },
+      "academic": {
+        "classSections": [
+          { "standard": "1", "section": "A" }, { "standard": "1", "section": "B" }, { "standard": "1", "section": "C" }, { "standard": "1", "section": "D" },
+          { "standard": "2", "section": "A" }, { "standard": "2", "section": "B" }, { "standard": "2", "section": "C" }, { "standard": "2", "section": "D" },
+          { "standard": "3", "section": "A" }, { "standard": "3", "section": "B" }, { "standard": "3", "section": "C" }, { "standard": "3", "section": "D" },
+          { "standard": "4", "section": "A" }, { "standard": "4", "section": "B" }, { "standard": "4", "section": "C" }, { "standard": "4", "section": "D" },
+          { "standard": "5", "section": "A" }, { "standard": "5", "section": "B" }, { "standard": "5", "section": "C" }, { "standard": "5", "section": "D" },
+          { "standard": "6", "section": "A" }, { "standard": "6", "section": "B" }, { "standard": "6", "section": "C" }, { "standard": "6", "section": "D" },
+          { "standard": "7", "section": "A" }, { "standard": "7", "section": "B" }, { "standard": "7", "section": "C" }, { "standard": "7", "section": "D" },
+          { "standard": "8", "section": "A" }, { "standard": "8", "section": "B" }, { "standard": "8", "section": "C" }, { "standard": "8", "section": "D" },
+          { "standard": "9", "section": "A" }, { "standard": "9", "section": "B" }, { "standard": "9", "section": "C" }, { "standard": "9", "section": "D" },
+          { "standard": "10", "section": "A" }, { "standard": "10", "section": "B" }, { "standard": "10", "section": "C" }, { "standard": "10", "section": "D" },
+          { "standard": "11", "section": "A" }, { "standard": "11", "section": "B" }, { "standard": "11", "section": "C" }, { "standard": "11", "section": "D" },
+          { "standard": "12", "section": "A" }, { "standard": "12", "section": "B" }, { "standard": "12", "section": "C" }, { "standard": "12", "section": "D" }
+        ]
+      }
+    },
+    {
+      "name": "Ambe Vidyalaya",
+      "code": "AV",
+      "address": "Satellite Road, Ahmedabad, Gujarat 380015",
+      "contactEmail": "admin@av.com",
+      "contactPhone": "+91-79-2692-3300",
+      "theme": { "accentColor": "#d97706" },
+      "features": {
+        "attendance": true,
+        "fees": true,
+        "timetable": true,
+        "library": true,
+        "transport": true,
+        "notice": true,
+        "calendar": true,
+        "examination": true,
+        "assignment": true,
+        "result": true
+      },
+      "academic": {
+        "classSections": [
+          { "standard": "1", "section": "A" }, { "standard": "1", "section": "B" }, { "standard": "1", "section": "C" }, { "standard": "1", "section": "D" },
+          { "standard": "2", "section": "A" }, { "standard": "2", "section": "B" }, { "standard": "2", "section": "C" }, { "standard": "2", "section": "D" },
+          { "standard": "3", "section": "A" }, { "standard": "3", "section": "B" }, { "standard": "3", "section": "C" }, { "standard": "3", "section": "D" },
+          { "standard": "4", "section": "A" }, { "standard": "4", "section": "B" }, { "standard": "4", "section": "C" }, { "standard": "4", "section": "D" },
+          { "standard": "5", "section": "A" }, { "standard": "5", "section": "B" }, { "standard": "5", "section": "C" }, { "standard": "5", "section": "D" },
+          { "standard": "6", "section": "A" }, { "standard": "6", "section": "B" }, { "standard": "6", "section": "C" }, { "standard": "6", "section": "D" },
+          { "standard": "7", "section": "A" }, { "standard": "7", "section": "B" }, { "standard": "7", "section": "C" }, { "standard": "7", "section": "D" },
+          { "standard": "8", "section": "A" }, { "standard": "8", "section": "B" }, { "standard": "8", "section": "C" }, { "standard": "8", "section": "D" },
+          { "standard": "9", "section": "A" }, { "standard": "9", "section": "B" }, { "standard": "9", "section": "C" }, { "standard": "9", "section": "D" },
+          { "standard": "10", "section": "A" }, { "standard": "10", "section": "B" }, { "standard": "10", "section": "C" }, { "standard": "10", "section": "D" },
+          { "standard": "11", "section": "A" }, { "standard": "11", "section": "B" }, { "standard": "11", "section": "C" }, { "standard": "11", "section": "D" },
+          { "standard": "12", "section": "A" }, { "standard": "12", "section": "B" }, { "standard": "12", "section": "C" }, { "standard": "12", "section": "D" }
+        ]
+      }
+    }
+  ]
+}

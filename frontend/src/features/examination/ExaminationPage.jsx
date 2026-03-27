@@ -8,7 +8,7 @@ import { useProfile, useStudents } from '../attendance';
 import { useSchoolClasses } from '../../hooks/useSchoolClasses';
 import ExamModal from '../../components/examination/ExamModal';
 import { FaPlus, FaEdit, FaTrash, FaEye, FaCalendarAlt, FaClock,
-  FaChalkboardTeacher, FaCheckCircle, FaExclamationTriangle, FaBan, FaFilter, FaSearch, FaTimes, FaInfoCircle, FaUserGraduate, FaLayerGroup, FaBolt, FaCalendarCheck } from 'react-icons/fa';
+  FaChalkboardTeacher, FaCheckCircle, FaExclamationTriangle, FaBan, FaSearch, FaTimes, FaInfoCircle, FaLayerGroup, FaCalendarCheck } from 'react-icons/fa';
 import { TabButton } from '../../components/ui/NoticeUIComponents';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { ButtonSpinner } from '../../components/ui/Spinner';
@@ -26,8 +26,6 @@ const STATUS_STYLES = {
   COMPLETED: { label: 'Completed', color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-200', icon: null },
   CANCELLED: { label: 'Cancelled', color: 'text-rose-600', bg: 'bg-rose-50', border: 'border-rose-200', icon: null },
 };
-
-const currentYear = new Date().getFullYear();
 
 // Dynamic options for standards and sections are handled by useSchoolClasses
 
@@ -132,6 +130,18 @@ const ExaminationPage = () => {
     }
     return allUniqueSections;
   }, [isTeacher, teacherProfile, filters.standard, getSectionsForStandard, allUniqueSections]);
+
+  useEffect(() => {
+    if (filters.standard && !availableStandards.includes(filters.standard)) {
+      setFilters((current) => ({ ...current, standard: '', section: '' }));
+      return;
+    }
+
+    const sectionOptions = filters.standard ? availableSections : allUniqueSections;
+    if (filters.section && !sectionOptions.includes(filters.section)) {
+      setFilters((current) => ({ ...current, section: '' }));
+    }
+  }, [allUniqueSections, availableSections, availableStandards, filters.section, filters.standard]);
 
   const { message, showMessage } = useToastMessage();
 
@@ -469,18 +479,7 @@ const ExaminationPage = () => {
             <EmptyState
               icon={FaCalendarAlt}
               title="No examinations found"
-              subtitle={searchTerm ? `We couldn't find any exams matching "${searchTerm}". Try different keywords.` : "Get started by creating your first examination schedule for the current academic year."}
-              action={
-                isAdmin && (
-                  <button
-                    onClick={() => setShowModal({ type: 'create', open: true, data: null })}
-                    className="flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-xl font-bold shadow-lg shadow-primary/20"
-                  >
-                    <FaPlus size={14} />
-                    <span>Create Your First Exam</span>
-                  </button>
-                )
-              }
+              subtitle={searchTerm ? `We couldn't find any exams matching "${searchTerm}". Try different keywords.` : "No examination schedules have been created yet for the current academic year."}
             />
           )}
         </div>

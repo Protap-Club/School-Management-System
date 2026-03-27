@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { FaBook, FaPaperclip, FaSave, FaTimes, FaTrash } from 'react-icons/fa';
 import { useAssignmentOptions } from '../hooks/useAssignmentOptions';
 import { useAssignmentById, useCreateAssignment, useRemoveAssignmentAttachment, useUpdateAssignment } from '../api/queries';
@@ -103,6 +103,30 @@ export const AssignmentModal = ({ isOpen, onClose, assignmentToEdit = null }) =>
     const sections = getSectionsForStandard(formData.standard);
     const subjects = getSubjectsForClass(formData.standard, formData.section);
     const detailedAssignment = detailResponse?.data;
+
+    useEffect(() => {
+        if (!isOpen) return;
+
+        setFormData((current) => {
+            let next = current;
+
+            if (current.standard && !availableStandards.includes(current.standard)) {
+                next = { ...next, standard: '', section: '', subject: '' };
+                return next;
+            }
+
+            if (current.section && !sections.includes(current.section)) {
+                next = { ...next, section: '', subject: '' };
+                return next;
+            }
+
+            if (current.subject && !subjects.includes(current.subject)) {
+                next = { ...next, subject: '' };
+            }
+
+            return next;
+        });
+    }, [availableStandards, isOpen, sections, subjects]);
 
     useEffect(() => {
         if (!isOpen) return;

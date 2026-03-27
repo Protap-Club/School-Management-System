@@ -13,7 +13,6 @@ export {
     useAllClassesOverview,
     useClassOverview,
     useYearlySummary,
-    useMyClassFees,
     useStudentFeeHistory,
     useCreateSalary,
     useSalaries,

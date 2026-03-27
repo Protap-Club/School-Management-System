@@ -1,79 +1,183 @@
 import { useCallback, useEffect, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getSchoolClasses } from '../api/school';
+import { connectSocket } from '../api/socket';
+import { useAuth } from '../features/auth';
+import {
+    normalizeClassSection,
+    sortClassSections,
+} from '../utils/classSection';
 
-const SCHOOL_CLASSES_KEY = ['school', 'classes'];
+export const getSchoolClassesQueryKey = (schoolId) => ['school', schoolId || 'unknown', 'classes'];
+
+const sortStrings = (items = []) =>
+    [...items].sort((a, b) =>
+        String(a || '').localeCompare(String(b || ''), undefined, {
+            numeric: true,
+            sensitivity: 'base',
+        })
+    );
+
+export const normalizeSchoolClassesPayload = (payload = {}) => {
+    const normalizedPairs = sortClassSections(
+        (Array.isArray(payload?.classSections) ? payload.classSections : [])
+            .map((item) => normalizeClassSection(item))
+            .filter((item) => item.standard && item.section)
+    );
+
+    const derivedStandards = [...new Set(normalizedPairs.map((item) => item.standard))];
+    const derivedSections = [...new Set(normalizedPairs.map((item) => item.section))];
+
+    return {
+        ...payload,
+        classSections: normalizedPairs,
+        standards: sortStrings(
+            (Array.isArray(payload?.standards) ? payload.standards : derivedStandards)
+                .map((item) => String(item || '').trim())
+                .filter(Boolean)
+        ),
+        sections: sortStrings(
+            (Array.isArray(payload?.sections) ? payload.sections : derivedSections)
+                .map((item) => String(item || '').trim().toUpperCase())
+                .filter(Boolean)
+        ),
+        subjects: sortStrings(
+            (Array.isArray(payload?.subjects) ? payload.subjects : [])
+                .map((item) => String(item || '').trim())
+                .filter(Boolean)
+        ),
+        rooms: sortStrings(
+            (Array.isArray(payload?.rooms) ? payload.rooms : [])
+                .map((item) => String(item || '').trim())
+                .filter(Boolean)
+        ),
+    };
+};
+
+export const makeSchoolClassesQueryData = (payload = {}) => ({
+    success: true,
+    data: normalizeSchoolClassesPayload(payload),
+});
 
 export const useSchoolClasses = (options = {}) => {
     const { enabled = true } = options;
-    const { data: responseData, isLoading: loading, error, refetch } = useQuery({
-        queryKey: SCHOOL_CLASSES_KEY,
+    const queryClient = useQueryClient();
+    const { user } = useAuth();
+    const schoolId = user?.schoolId?._id || user?.schoolId;
+    const queryKey = useMemo(() => getSchoolClassesQueryKey(schoolId), [schoolId]);
+
+    const {
+        data: responseData,
+        isLoading: loading,
+        error,
+    } = useQuery({
+        queryKey,
         queryFn: getSchoolClasses,
-        staleTime: 5 * 60 * 1000, // 5 minutes cache
-        enabled,
+        staleTime: 5 * 60 * 1000,
+        enabled: enabled && Boolean(schoolId),
     });
 
+    const payload = useMemo(
+        () => normalizeSchoolClassesPayload(responseData?.data || {}),
+        [responseData?.data]
+    );
+
+    const applySnapshot = useCallback(
+        (snapshot) => {
+            if (!schoolId || !snapshot) return;
+
+            queryClient.setQueryData(
+                getSchoolClassesQueryKey(schoolId),
+                makeSchoolClassesQueryData(snapshot)
+            );
+        },
+        [queryClient, schoolId]
+    );
+
     useEffect(() => {
-        const handleCustomClassesUpdate = () => {
-            refetch();
+        if (!schoolId) return undefined;
+
+        const socket = connectSocket(schoolId);
+
+        const handleClassSnapshot = (eventPayload) => {
+            if (eventPayload?.schoolId && String(eventPayload.schoolId) !== String(schoolId)) {
+                return;
+            }
+
+            if (Array.isArray(eventPayload?.classSections)) {
+                applySnapshot(eventPayload);
+                return;
+            }
+
+            queryClient.invalidateQueries({ queryKey: getSchoolClassesQueryKey(schoolId) });
+        };
+
+        socket.on('school:classes:changed', handleClassSnapshot);
+        socket.on('class:created', handleClassSnapshot);
+        socket.on('class:deleted', handleClassSnapshot);
+
+        return () => {
+            socket.off('school:classes:changed', handleClassSnapshot);
+            socket.off('class:created', handleClassSnapshot);
+            socket.off('class:deleted', handleClassSnapshot);
+        };
+    }, [applySnapshot, queryClient, schoolId]);
+
+    useEffect(() => {
+        if (!schoolId) return undefined;
+
+        const handleCustomClassesUpdate = (event) => {
+            if (Array.isArray(event?.detail?.classSections)) {
+                applySnapshot(event.detail);
+                return;
+            }
+
+            queryClient.invalidateQueries({ queryKey: getSchoolClassesQueryKey(schoolId) });
         };
 
         window.addEventListener('customClassesUpdated', handleCustomClassesUpdate);
         return () => {
             window.removeEventListener('customClassesUpdated', handleCustomClassesUpdate);
         };
-    }, [refetch]);
-
-    const dataPayload = responseData?.data || {};
-    
-    // Provide an empty array for backward compatibility if any component destructured it
-    const classesData = [];
-
-    // The backend provides distinct lists of standards and sections across the school
-    const availableStandards = useMemo(() => {
-        const stds = dataPayload.standards || [];
-        return [...stds].sort((a, b) => {
-            const numA = parseInt(a) || 0;
-            const numB = parseInt(b) || 0;
-            return numA - numB;
-        });
-    }, [dataPayload.standards]);
-
-    const allUniqueSections = useMemo(() => {
-        const secs = dataPayload.sections || [];
-        return [...secs].sort((a, b) => a.localeCompare(b));
-    }, [dataPayload.sections]);
+    }, [applySnapshot, queryClient, schoolId]);
 
     const classSectionsMap = useMemo(() => {
         const map = new Map();
-        const pairs = Array.isArray(dataPayload.classSections) ? dataPayload.classSections : [];
-        for (const pair of pairs) {
-            const standard = String(pair?.standard || '').trim();
-            const section = String(pair?.section || '').trim();
-            if (!standard || !section) continue;
-            if (!map.has(standard)) map.set(standard, new Set());
-            map.get(standard).add(section);
-        }
-        return map;
-    }, [dataPayload.classSections]);
 
-    // Prefer exact sections configured for a standard. Fallback to global sections.
-    const getSectionsForStandard = useCallback((standard) => {
-        if (!standard) return allUniqueSections;
-        const byStandard = classSectionsMap.get(String(standard).trim());
-        if (byStandard && byStandard.size > 0) {
-            return [...byStandard].sort((a, b) => a.localeCompare(b));
+        for (const pair of payload.classSections) {
+            if (!map.has(pair.standard)) {
+                map.set(pair.standard, new Set());
+            }
+            map.get(pair.standard).add(pair.section);
         }
-        return allUniqueSections;
-    }, [allUniqueSections, classSectionsMap]);
+
+        return map;
+    }, [payload.classSections]);
+
+    const getSectionsForStandard = useCallback(
+        (standard) => {
+            const normalizedStandard = String(standard || '').trim();
+            if (!normalizedStandard) return payload.sections;
+
+            const byStandard = classSectionsMap.get(normalizedStandard);
+            if (!byStandard || byStandard.size === 0) {
+                return [];
+            }
+
+            return sortStrings([...byStandard]);
+        },
+        [classSectionsMap, payload.sections]
+    );
 
     return {
-        classesData,
+        payload,
+        classSections: payload.classSections,
+        availableStandards: payload.standards,
+        allUniqueSections: payload.sections,
+        getSectionsForStandard,
+        subjects: payload.subjects,
+        rooms: payload.rooms,
         loading,
         error,
-        availableStandards,
-        getSectionsForStandard,
-        allUniqueSections,
-        refetch
     };
 };

@@ -8,6 +8,7 @@ import cloudinary from "../../config/cloudinary.js";
 import StudentProfile from "../user/model/StudentProfile.model.js";
 import TeacherProfile from "../user/model/TeacherProfile.model.js";
 import User from "../user/model/User.model.js";
+import { getConfiguredClassSections } from "../../utils/classSection.util.js";
 
 /**
  * Generates a download URL for a Cloudinary attachment.
@@ -96,14 +97,52 @@ const enrichWithSignedUrls = (notices) => {
     return notices;
 };
 
+const normalizeClassRecipient = (recipient) => {
+    if (typeof recipient !== "string") return null;
+
+    const trimmed = recipient.trim();
+    if (!trimmed) return null;
+
+    const separatorIndex = trimmed.lastIndexOf("-");
+    if (separatorIndex <= 0 || separatorIndex === trimmed.length - 1) return null;
+
+    const standard = trimmed.slice(0, separatorIndex).trim();
+    const section = trimmed.slice(separatorIndex + 1).trim().toUpperCase();
+    if (!standard || !section) return null;
+
+    return `${standard}-${section}`;
+};
+
 // NOTICE SERVICES
 
 // Create a new notice
 export const createNotice = async (schoolId, userId, data, file) => {
     // Parse recipients (sent as JSON string from FormData)
-    const recipients = typeof data.recipients === 'string'
+    let recipients = typeof data.recipients === 'string'
         ? JSON.parse(data.recipients)
         : (data.recipients || []);
+
+    if (data.recipientType === "classes") {
+        const { classSections } = await getConfiguredClassSections(schoolId);
+        const configuredClassSet = new Set(
+            classSections.map((item) => normalizeClassRecipient(`${item.standard}-${item.section}`)).filter(Boolean)
+        );
+
+        const normalizedRecipients = Array.isArray(recipients)
+            ? recipients.map((item) => normalizeClassRecipient(item)).filter(Boolean)
+            : [];
+
+        if (!normalizedRecipients.length) {
+            throw new BadRequestError("Please select at least one valid class");
+        }
+
+        const invalidRecipients = normalizedRecipients.filter((item) => !configuredClassSet.has(item));
+        if (invalidRecipients.length) {
+            throw new BadRequestError(`Some selected classes are no longer available: ${invalidRecipients.join(", ")}`);
+        }
+
+        recipients = [...new Set(normalizedRecipients)];
+    }
 
     // Build attachment if file exists
     // Cloudinary returns the full URL in file.path/secure_url and public_id in file.filename/public_id

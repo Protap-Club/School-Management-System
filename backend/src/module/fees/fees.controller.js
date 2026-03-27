@@ -1,9 +1,6 @@
 import * as feesService from "./fees.service.js";
 import asyncHandler from "../../utils/asyncHandler.js";
 import logger from "../../config/logger.js";
-import { USER_ROLES } from "../../constants/userRoles.js";
-import { ForbiddenError } from "../../utils/customError.js";
-import StudentProfile from "../user/model/StudentProfile.model.js";
 
 // ═══════════════════════════════════════════════════════════════
 // ADMIN — Fee Structure CRUD

@@ -1,14 +1,14 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import {
     feeKeys,
     useFeeStructures, useCreateFeeStructure, useUpdateFeeStructure, useDeleteFeeStructure,
     useGenerateAssignments, useAllClassesOverview, useClassOverview, useYearlySummary,
-    useMyClassFees, useStudentFeeHistory, useRecordPayment, useUpdateAssignment,
+    useStudentFeeHistory, useRecordPayment, useUpdateAssignment,
     useCreateSalary, useSalaries, useUpdateSalaryStatus, useMySalary, useUpdateTeacherProfile,
     useMyFees, useFeeTypes,
-    FEE_TYPES, FEE_TYPE_LABELS, FREQUENCY_LABELS, STATUS_COLORS, MONTH_LABELS,
+    FEE_TYPES, FEE_TYPE_LABELS, FREQUENCY_LABELS, MONTH_LABELS,
 } from './index';
 import { useAuth } from '../auth';
 import { useUsers } from '../users/api/queries';
@@ -35,6 +35,7 @@ import { EmptyState } from '../../components/ui/EmptyState';
 import { ButtonSpinner } from '../../components/ui/Spinner';
 import { useToastMessage } from '../../hooks/useToastMessage';
 import { useSchoolClasses } from '../../hooks/useSchoolClasses';
+import { makeClassKey } from '../../utils/classSection';
 
 const MODAL_OVERLAY = 'modal-overlay fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4';
 const currentYear = new Date().getFullYear();
@@ -102,7 +103,7 @@ const FeesPage = () => {
         setStaffDashboardPage(1);
     }, [staffSearch]);
 
-    const { availableStandards, allUniqueSections, getSectionsForStandard } = useSchoolClasses({ enabled: isAdmin });
+    const { availableStandards, allUniqueSections, getSectionsForStandard, classSections } = useSchoolClasses({ enabled: isAdmin });
 
     const standardFilterOptions = useMemo(() => {
         const merged = new Set((availableStandards || []).map((value) => String(value || '').trim()).filter(Boolean));
@@ -169,9 +170,22 @@ const FeesPage = () => {
     const structures = structData?.data || [];
 
     const overviewClasses = useMemo(() => {
-        if (isAdmin) return overviewData?.data?.classes || [];
-        return [];
-    }, [isAdmin, overviewData]);
+        if (!isAdmin) return [];
+
+        const configuredClassKeys = new Set(classSections.map((item) => makeClassKey(item)));
+        return (overviewData?.data?.classes || []).filter((item) =>
+            configuredClassKeys.has(makeClassKey(item))
+        );
+    }, [classSections, isAdmin, overviewData]);
+
+    useEffect(() => {
+        if (!selectedClass) return;
+
+        const isStillAvailable = classSections.some((item) => makeClassKey(item) === makeClassKey(selectedClass));
+        if (!isStillAvailable) {
+            setSelectedClass(null);
+        }
+    }, [classSections, selectedClass]);
 
     const isLoadingOverview = overviewLoading;
     const classStudents = classData?.data?.students || [];
