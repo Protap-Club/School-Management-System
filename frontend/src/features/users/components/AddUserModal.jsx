@@ -143,6 +143,24 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
                 }
                 // Note: assignedClasses will be constructed on backend from standard/section if provided
             } else if (roleToAdd === 'student') {
+                // Validation: Roll number must be positive
+                const rollNum = Number(formData.rollNumber);
+                if (!rollNum || rollNum <= 0) {
+                    setError('Roll Number must be a positive number (greater than 0)');
+                    setLoading(false);
+                    return;
+                }
+
+                // Validation: At least one parent or guardian name is required
+                const hasParentInfo = formData.fatherName?.trim() || formData.motherName?.trim();
+                const hasGuardianInfo = formData.guardianName?.trim();
+
+                if (!hasParentInfo && !hasGuardianInfo) {
+                    setError('A student must have at least one parent or guardian detail provided');
+                    setLoading(false);
+                    return;
+                }
+
                 const studentFields = [
                     'rollNumber', 'standard', 'section',
                     'fatherName', 'fatherContact', 'motherName', 'motherContact',
