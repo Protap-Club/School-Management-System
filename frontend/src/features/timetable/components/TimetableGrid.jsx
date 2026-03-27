@@ -27,13 +27,13 @@ const TimetableGrid = ({
     if (!teacherId) return 'No Assigned Teacher';
     // If teacherId has embedded name (from populated response), check archive status
     if (teacherId?.name) {
-      return teacherId.isArchived ? 'No Assigned Teacher' : teacherId.name;
+      return teacherId.isArchived ? `${teacherId.name} (Archived)` : teacherId.name;
     }
     // Fallback: lookup in teachers array
     const id = teacherId?._id || teacherId;
     const teacher = teachers.find((t) => t._id === id);
     if (!teacher) return 'No Assigned Teacher';
-    return teacher.isArchived ? 'No Assigned Teacher' : teacher.name;
+    return teacher.isArchived ? `${teacher.name} (Archived)` : teacher.name;
   };
   const getClassDisplay = (entry) => {
     if (entry.timetableId) {

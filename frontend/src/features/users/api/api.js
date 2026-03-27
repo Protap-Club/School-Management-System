@@ -25,8 +25,12 @@ export const usersApi = {
         return response.data;
     },
 
-    toggleArchive: async ({ userIds, isArchived }) => {
-        const response = await api.patch("/users/archive", { userIds, isArchived });
+    toggleArchive: async ({ userIds, isArchived, replacementTeacherId } = {}) => {
+        const response = await api.patch("/users/archive", {
+            userIds,
+            isArchived,
+            ...(replacementTeacherId ? { replacementTeacherId } : {}),
+        });
         return response.data;
     },
 };

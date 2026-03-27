@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { FaTimes, FaUserPlus, FaBuilding } from 'react-icons/fa';
 import api from '../../../lib/axios';
 import { useAuth } from '../../../features/auth';
-import { useCreateUser } from '../api/queries';
+import { useCreateUser, useUsers } from '../api/queries';
 import { useSchoolClasses } from '../../../hooks/useSchoolClasses';
 
 const InputField = ({ label, name, value, onChange, type = "text", required = false, isNumeric = false, ...props }) => (
@@ -67,9 +67,13 @@ const INITIAL_FORM = {
     expectedSalary: ''
 };
 
+const buildClassKey = ({ standard, section } = {}) =>
+    `${String(standard || '').trim()}::${String(section || '').trim().toUpperCase()}`;
+
 const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
     const { user } = useAuth();
     const createUserMutation = useCreateUser();
+    const teachersQuery = useUsers({ role: 'teacher', pageSize: 5000, enabled: isOpen && roleToAdd === 'teacher' });
     const [formData, setFormData] = useState({ ...INITIAL_FORM });
     const [schoolName, setSchoolName] = useState('');
     const [loading, setLoading] = useState(false);
@@ -77,8 +81,36 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
     const [activeGuardianTab, setActiveGuardianTab] = useState('parents'); // 'parents' | 'guardian'
 
     // Classes / sections fetched from backend via global hook
-    const { loading: classesLoading, availableStandards: standards, getSectionsForStandard, allUniqueSections } = useSchoolClasses();
-    const sections = formData.standard ? getSectionsForStandard(formData.standard) : allUniqueSections;
+    const { loading: classesLoading, classSections, availableStandards: standards, getSectionsForStandard, allUniqueSections } = useSchoolClasses();
+    const occupiedTeacherClassKeys = useMemo(() => {
+        return new Set(
+            (teachersQuery.data?.data?.users || []).flatMap((teacher) =>
+                (teacher.profile?.assignedClasses || []).map((assignedClass) => buildClassKey(assignedClass))
+            )
+        );
+    }, [teachersQuery.data?.data?.users]);
+    const availableTeacherClassSections = useMemo(
+        () => classSections.filter((item) => !occupiedTeacherClassKeys.has(buildClassKey(item))),
+        [classSections, occupiedTeacherClassKeys]
+    );
+    const teacherAvailableStandards = useMemo(
+        () => [...new Set(availableTeacherClassSections.map((item) => String(item.standard)))],
+        [availableTeacherClassSections]
+    );
+    const teacherAvailableSections = useMemo(() => {
+        if (!formData.standard) {
+            return [...new Set(availableTeacherClassSections.map((item) => String(item.section)))];
+        }
+
+        return availableTeacherClassSections
+            .filter((item) => String(item.standard) === String(formData.standard))
+            .map((item) => String(item.section));
+    }, [availableTeacherClassSections, formData.standard]);
+    const sections = roleToAdd === 'teacher'
+        ? teacherAvailableSections
+        : (formData.standard ? getSectionsForStandard(formData.standard) : allUniqueSections);
+    const activeStandards = roleToAdd === 'teacher' ? teacherAvailableStandards : standards;
+    const teacherAssignmentLoading = classesLoading || teachersQuery.isLoading;
 
     const roleLabel = roleToAdd?.charAt(0).toUpperCase() + roleToAdd?.slice(1);
 
@@ -108,6 +140,19 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
 
         fetchSchoolDetails();
     }, [isOpen, user, roleToAdd]);
+
+    useEffect(() => {
+        if (roleToAdd !== 'teacher') return;
+
+        if (formData.standard && !teacherAvailableStandards.includes(formData.standard)) {
+            setFormData((current) => ({ ...current, standard: '', section: '' }));
+            return;
+        }
+
+        if (formData.section && !teacherAvailableSections.includes(formData.section)) {
+            setFormData((current) => ({ ...current, section: '' }));
+        }
+    }, [formData.section, formData.standard, roleToAdd, teacherAvailableSections, teacherAvailableStandards]);
 
     if (!isOpen) return null;
 
@@ -226,20 +271,27 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
                                     <SelectField
                                         label="Primary Standard" name="standard" value={formData.standard}
                                         onChange={handleChange} required
-                                        options={standards} placeholder="Choose Class"
-                                        loading={classesLoading}
+                                        options={activeStandards} placeholder="Choose Class"
+                                        loading={teacherAssignmentLoading}
                                     />
                                     <SelectField
                                         label="Primary Section" name="section" value={formData.section}
                                         onChange={handleChange} required
                                         options={sections} placeholder="Choose Section"
-                                        loading={classesLoading}
+                                        loading={teacherAssignmentLoading}
                                     />
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <InputField label="Expected / Desired Salary" name="expectedSalary" type="text"
                                         value={formData.expectedSalary} onChange={handleChange}
                                         placeholder="e.g. 45000" isNumeric />
+                                </div>
+                                <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                                    {teacherAssignmentLoading
+                                        ? 'Checking which classes already have a class teacher...'
+                                        : availableTeacherClassSections.length === 0
+                                            ? 'Every configured class already has a class teacher. Remove or replace an existing class teacher before creating a new one.'
+                                            : 'Only classes without an active class teacher are selectable here.'}
                                 </div>
                             </div>
                         )}

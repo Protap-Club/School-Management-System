@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import {
   FaTimes, FaIdCard, FaBuilding, FaLayerGroup, FaEnvelope, FaPhone, FaSave, FaChalkboardTeacher
 } from 'react-icons/fa';
-import { useUpdateUser } from '../api/queries';
+import { useUpdateUser, useUsers } from '../api/queries';
 import { useSchoolClasses } from '../../../hooks/useSchoolClasses';
 
 const naturalSort = (arr) => {
@@ -11,12 +11,17 @@ const naturalSort = (arr) => {
   });
 };
 
+const buildClassKey = ({ standard, section } = {}) =>
+  `${String(standard || '').trim()}::${String(section || '').trim().toUpperCase()}`;
+
 const UserDetailModal = ({ user, onClose, initialMode = 'view', onSuccess }) => {
   const updateUserMutation = useUpdateUser();
+  const teachersQuery = useUsers({ role: 'teacher', pageSize: 5000, enabled: initialMode === 'edit' && user?.role === 'teacher' });
   const [mode, setMode] = useState(initialMode);
   const [formData, setFormData] = useState({});
   const [guardianTab, setGuardianTab] = useState('parents');
   const [teacherClassDraft, setTeacherClassDraft] = useState({ standard: '', section: '' });
+  const [saveError, setSaveError] = useState('');
 
   useEffect(() => {
     if (user) {
@@ -41,6 +46,7 @@ const UserDetailModal = ({ user, onClose, initialMode = 'view', onSuccess }) => 
       });
       setMode(initialMode);
       setTeacherClassDraft({ standard: '', section: '' });
+      setSaveError('');
     }
   }, [user, initialMode]);
 
@@ -51,11 +57,27 @@ const UserDetailModal = ({ user, onClose, initialMode = 'view', onSuccess }) => 
   const isArchivedUser = Boolean(user?.isArchived);
   const isActiveUser = Boolean(user?.isActive);
   const { classSections } = useSchoolClasses({ enabled: isEditing && (isStudent || isTeacher) });
+  const currentTeacherClassKeys = useMemo(
+    () => new Set((formData.profile?.assignedClasses || []).map((item) => buildClassKey(item))),
+    [formData.profile?.assignedClasses]
+  );
+  const occupiedTeacherClassKeys = useMemo(() => {
+    return new Set(
+      (teachersQuery.data?.data?.users || [])
+        .filter((teacher) => String(teacher._id) !== String(user?._id))
+        .flatMap((teacher) => (teacher.profile?.assignedClasses || []).map((item) => buildClassKey(item)))
+    );
+  }, [teachersQuery.data?.data?.users, user?._id]);
+  const teacherAssignableClassSections = useMemo(
+    () => classSections.filter((pair) => !occupiedTeacherClassKeys.has(buildClassKey(pair)) || currentTeacherClassKeys.has(buildClassKey(pair))),
+    [classSections, currentTeacherClassKeys, occupiedTeacherClassKeys]
+  );
 
   const classSectionsMap = useMemo(() => {
     const map = {};
 
-    classSections.forEach((pair) => {
+    const sourcePairs = isTeacher ? teacherAssignableClassSections : classSections;
+    sourcePairs.forEach((pair) => {
       const standard = String(pair?.standard || '').trim();
       const section = String(pair?.section || '').trim().toUpperCase();
       if (!standard || !section) return;
@@ -66,7 +88,7 @@ const UserDetailModal = ({ user, onClose, initialMode = 'view', onSuccess }) => 
     return Object.fromEntries(
       Object.entries(map).map(([standard, sections]) => [standard, naturalSort(Array.from(sections))])
     );
-  }, [classSections]);
+  }, [classSections, isTeacher, teacherAssignableClassSections]);
 
   const standards = useMemo(
     () => naturalSort(Object.keys(classSectionsMap)),
@@ -123,6 +145,7 @@ const UserDetailModal = ({ user, onClose, initialMode = 'view', onSuccess }) => 
 
   const handleSave = async () => {
     try {
+      setSaveError('');
       await updateUserMutation.mutateAsync({
         id: user._id,
         payload: {
@@ -135,7 +158,7 @@ const UserDetailModal = ({ user, onClose, initialMode = 'view', onSuccess }) => 
       if (onSuccess) onSuccess('User updated successfully');
       setMode('view');
     } catch (error) {
-      console.error('Update failed', error);
+      setSaveError(error?.response?.data?.message || 'Failed to update user');
     }
   };
   const handleAddTeacherClass = () => {
@@ -152,11 +175,18 @@ const UserDetailModal = ({ user, onClose, initialMode = 'view', onSuccess }) => 
     );
     if (exists) return;
 
+    const nextClassKey = buildClassKey({ standard, section });
+    if (occupiedTeacherClassKeys.has(nextClassKey)) {
+      setSaveError('This class already has a class teacher assigned.');
+      return;
+    }
+
     const next = [...current, { standard, section, subjects: [] }];
     setFormData((prev) => ({
       ...prev,
       profile: { ...prev.profile, assignedClasses: next }
     }));
+    setSaveError('');
   };
 
   const handleRemoveTeacherClass = (target) => {
@@ -238,6 +268,11 @@ const UserDetailModal = ({ user, onClose, initialMode = 'view', onSuccess }) => 
 
         {/* Content Area */}
         <div className="flex-1 overflow-y-auto p-8 custom-scrollbar bg-gray-50/30">
+          {saveError && (
+            <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+              {saveError}
+            </div>
+          )}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* Left Column: Basic Info & Badges */}
             <div className="lg:col-span-1 space-y-6">
@@ -389,11 +424,18 @@ const UserDetailModal = ({ user, onClose, initialMode = 'view', onSuccess }) => 
                         <button
                           type="button"
                           onClick={handleAddTeacherClass}
+                          disabled={!teacherClassDraft.standard || !teacherClassDraft.section}
                           className="px-3 py-1.5 rounded-lg text-xs font-bold bg-blue-600 text-white hover:bg-blue-700 transition-colors"
                         >
                           Add
                         </button>
                       </div>
+                    )}
+
+                    {isEditing && (
+                      <p className="mb-3 text-[11px] text-slate-500">
+                        Only classes without another active class teacher can be added here.
+                      </p>
                     )}
 
                     <div className="flex flex-wrap gap-2">

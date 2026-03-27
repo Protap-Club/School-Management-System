@@ -72,6 +72,7 @@ const UsersPage = () => {
     const [selectedUser, setSelectedUser] = useState(null);
     const [modalMode, setModalMode] = useState('view');
     const [deleteConfirm, setDeleteConfirm] = useState({ open: false, users: [], isBulk: false });
+    const [archiveReplacementTeacherId, setArchiveReplacementTeacherId] = useState('');
     const { message, showMessage } = useToastMessage();
 
     const allowedRoles = ROLE_PERMISSIONS[currentUser?.role] || [];
@@ -81,6 +82,12 @@ const UsersPage = () => {
     const queryParams = { role: selectedRole, page, pageSize, name: searchQuery };
     const { data: usersData, isLoading: usersLoading } = useUsers(queryParams);
     const { data: archivedData, isLoading: archivedLoading } = useArchivedUsers(queryParams);
+    const { data: activeTeachersData } = useUsers({
+        role: 'teacher',
+        page: 0,
+        pageSize: 5000,
+        enabled: isAdminOrAbove && !showArchived,
+    });
 
     const toggleStatusMutation = useToggleUsersStatus();
     const currentData = showArchived ? archivedData?.data : usersData?.data;
@@ -109,19 +116,43 @@ const UsersPage = () => {
     const toggleUserSelection = (userId) => setSelectedUsers(prev => prev.includes(userId) ? prev.filter(id => id !== userId) : [...prev, userId]);
     const toggleSelectAll = () => setSelectedUsers(selectedUsers.length === filteredUsers.length ? [] : filteredUsers.map(u => u._id));
 
-    const handleDeleteClick = (user) => { setDeleteConfirm({ open: true, users: [user], isBulk: false }); };
-    const handleBulkDeleteClick = () => setDeleteConfirm({ open: true, users: filteredUsers.filter(u => selectedUsers.includes(u._id)), isBulk: true });
+    const handleDeleteClick = (user) => {
+        setArchiveReplacementTeacherId('');
+        setDeleteConfirm({ open: true, users: [user], isBulk: false });
+    };
+    const handleBulkDeleteClick = () => {
+        setArchiveReplacementTeacherId('');
+        setDeleteConfirm({ open: true, users: filteredUsers.filter(u => selectedUsers.includes(u._id)), isBulk: true });
+    };
+
+    const isTeacherArchiveFlow = !showArchived
+        && deleteConfirm.open
+        && deleteConfirm.users.length === 1
+        && deleteConfirm.users[0]?.role === 'teacher';
+    const replacementTeacherOptions = useMemo(
+        () => (activeTeachersData?.data?.users || []).filter(
+            (teacher) => String(teacher._id) !== String(deleteConfirm.users[0]?._id)
+        ),
+        [activeTeachersData?.data?.users, deleteConfirm.users]
+    );
 
     const confirmDelete = async () => {
         try {
             const userIdsToProcess = deleteConfirm.isBulk ? selectedUsers : [deleteConfirm.users[0]._id];
-            await toggleStatusMutation.mutateAsync({ userIds: userIdsToProcess, isArchived: !showArchived });
+            await toggleStatusMutation.mutateAsync({
+                userIds: userIdsToProcess,
+                isArchived: !showArchived,
+                ...(isTeacherArchiveFlow && archiveReplacementTeacherId
+                    ? { replacementTeacherId: archiveReplacementTeacherId }
+                    : {}),
+            });
             showMessage('success', showArchived ? 'User(s) restored successfully' : 'User(s) archived successfully');
             exitSelectionMode();
         } catch (error) {
             console.error('Delete failed', error);
             showMessage('error', error.response?.data?.message || 'Operation failed');
         } finally {
+            setArchiveReplacementTeacherId('');
             setDeleteConfirm({ open: false, users: [], isBulk: false });
         }
     };
@@ -237,16 +268,43 @@ const UsersPage = () => {
                                     ? (deleteConfirm.isBulk ? `Restore ${deleteConfirm.users.length} users?` : 'Restore user?')
                                     : (deleteConfirm.isBulk ? `Archive ${deleteConfirm.users.length} users?` : 'Archive user?')}
                             </h3>
-                            <p className="text-gray-500 text-sm text-center mb-5 leading-relaxed">
-                                {showArchived
-                                    ? 'Selected users will be moved back to active users.'
-                                    : 'Selected users will be moved to archived users.'}
-                            </p>
-                            <div className="flex gap-2.5">
-                                <button onClick={() => setDeleteConfirm({ open: false, users: [], isBulk: false })} className="flex-1 px-4 py-2 border border-gray-200 text-gray-700 rounded-lg">Cancel</button>
-                                <button onClick={confirmDelete} className={`flex-1 px-4 py-2 rounded-lg text-white ${showArchived ? 'bg-emerald-600' : 'bg-amber-600'}`}>{showArchived ? 'Restore' : 'Archive'}</button>
+                                <p className="text-gray-500 text-sm text-center mb-5 leading-relaxed">
+                                    {showArchived
+                                        ? 'Selected users will be moved back to active users.'
+                                        : 'Selected users will be moved to archived users.'}
+                                </p>
+                                {isTeacherArchiveFlow && (
+                                    <div className="mb-5 rounded-xl border border-slate-200 bg-slate-50 p-4 text-left">
+                                        <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500 mb-2">
+                                            Temporary Replacement Teacher
+                                        </label>
+                                        <select
+                                            value={archiveReplacementTeacherId}
+                                            onChange={(event) => setArchiveReplacementTeacherId(event.target.value)}
+                                            className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700"
+                                        >
+                                            <option value="">Select replacement later</option>
+                                            {replacementTeacherOptions.map((teacher) => (
+                                                <option key={teacher._id} value={teacher._id}>
+                                                    {teacher.name}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        <p className="mt-2 text-xs text-slate-500 leading-relaxed">
+                                            Use this when the archived teacher still owns active classes, timetable entries, assignments, or ongoing exams.
+                                        </p>
+                                        {replacementTeacherOptions.length === 0 && (
+                                            <p className="mt-2 text-xs text-amber-600">
+                                                No other active teacher is available right now. Create or restore one before archiving if replacement is required.
+                                            </p>
+                                        )}
+                                    </div>
+                                )}
+                                <div className="flex gap-2.5">
+                                    <button onClick={() => { setArchiveReplacementTeacherId(''); setDeleteConfirm({ open: false, users: [], isBulk: false }); }} className="flex-1 px-4 py-2 border border-gray-200 text-gray-700 rounded-lg">Cancel</button>
+                                    <button onClick={confirmDelete} className={`flex-1 px-4 py-2 rounded-lg text-white ${showArchived ? 'bg-emerald-600' : 'bg-amber-600'}`}>{showArchived ? 'Restore' : 'Archive'}</button>
+                                </div>
                             </div>
-                        </div>
                     </div>
                 </div>
             )}
