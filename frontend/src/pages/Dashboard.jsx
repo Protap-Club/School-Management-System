@@ -331,7 +331,7 @@ const Dashboard = () => {
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-            {(!isAdmin && !isSuperAdmin) && (
+            {(!isAdmin && !isSuperAdmin && !isTeacher) && (
               <div className="flex items-center gap-2 px-4 py-2 bg-emerald-50 border border-emerald-100 rounded-full text-emerald-600 shadow-sm">
                 <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                 <span className="text-[10px] font-black uppercase tracking-wider">Live Status: Active</span>
@@ -464,21 +464,19 @@ const Dashboard = () => {
                 <div className="flex-1 space-y-4">
                   {todaySchedule.length > 0 ? (
                     todaySchedule.slice(0, 3).map((session, i) => {
-                      const isActive = i === activeSessionInfo.index;
                       return (
-                        <div key={i} className={`p-5 rounded-[1.5rem] border transition-all flex items-center justify-between ${isActive ? 'bg-primary/5 border-primary/20 shadow-sm' : 'border-gray-50 bg-white hover:border-gray-200'}`}>
+                        <div key={i} className="p-5 rounded-[1.5rem] border border-gray-50 bg-white hover:border-primary/20 hover:bg-primary/5 hover:shadow-sm transition-all flex items-center justify-between group/timetable-item">
                           <div className="flex items-center gap-5">
-                            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-sm ${isActive ? 'bg-primary text-white shadow-lg' : 'bg-gray-50 text-gray-400'}`}>
+                            <div className="w-12 h-12 rounded-2xl flex items-center justify-center font-black text-sm bg-gray-50 text-gray-400 group-hover/timetable-item:bg-primary group-hover/timetable-item:text-white transition-colors duration-300">
                               {`${session.timetableId?.standard || ''}${session.timetableId?.section || ''}`}
                             </div>
                             <div className="space-y-1">
-                              <p className={`text-base font-black tracking-tight ${isActive ? 'text-primary' : 'text-gray-900'}`}>{session.subject || 'Subject'}</p>
+                              <p className="text-base font-black tracking-tight text-gray-900 group-hover/timetable-item:text-primary transition-colors duration-300">{session.subject || 'Subject'}</p>
                               <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Room {session.roomNumber || 'N/A'}</p>
                             </div>
                           </div>
                           <div className="text-right">
-                            <p className={`text-xs font-black ${isActive ? 'text-primary' : 'text-gray-400'}`}>{session.timeSlotId?.startTime} - {session.timeSlotId?.endTime}</p>
-                            {isActive && <span className="text-[8px] font-black uppercase tracking-widest text-emerald-500 animate-pulse">{activeSessionInfo.status}</span>}
+                            <p className="text-xs font-black text-gray-400 group-hover/timetable-item:text-primary transition-colors duration-300">{session.timeSlotId?.startTime} - {session.timeSlotId?.endTime}</p>
                           </div>
                         </div>
                       );
@@ -525,7 +523,7 @@ const Dashboard = () => {
                   {/* Priority 1: Formal Notices */}
                   {noticesRes?.data?.data?.length > 0 ? (
                     noticesRes.data.data.slice(0, 3).map((notice, i) => (
-                      <div key={notice._id || i} className="p-5 rounded-[1.5rem] border border-gray-50 bg-white hover:border-primary/20 hover:shadow-sm transition-all flex items-start gap-4 group/notice cursor-pointer" onClick={() => navigate(`/${user?.role}/notice`)}>
+                      <div key={notice._id || i} className="p-5 rounded-[1.5rem] border border-gray-50 bg-white hover:border-primary/20 hover:shadow-sm transition-all flex items-start gap-4 group/notice cursor-pointer" onClick={() => navigate(`/${rolePrefix}/notice`)}>
                         <div className={`w-10 h-10 rounded-xl flex items-center justify-center bg-gray-50 text-gray-400 group-hover/notice:bg-primary group-hover/notice:text-white transition-colors`}>
                           <Megaphone size={18} />
                         </div>
@@ -566,7 +564,7 @@ const Dashboard = () => {
 
                 <div className="mt-8 pt-6 border-t border-gray-50 flex items-center justify-between">
                   <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Showing latest developments</p>
-                  <button onClick={() => navigate(`/${user?.role}/notice`)} className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-primary hover:gap-3 transition-all">
+                  <button onClick={() => navigate(`/${rolePrefix}/notice`)} className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-primary hover:gap-3 transition-all">
                     View All Notices <ChevronRight size={14} />
                   </button>
                 </div>
@@ -587,14 +585,7 @@ const Dashboard = () => {
           >
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-lg font-black text-gray-900 tracking-tight uppercase">Rate Overview</h2>
-              {(!isAdmin && !isSuperAdmin) && (
-                <button
-                  className="p-2 hover:bg-gray-50 rounded-xl transition-colors text-gray-400"
-                  onClick={(e) => { e.stopPropagation(); }}
-                >
-                  <MoreHorizontal size={20} />
-                </button>
-              )}
+  
             </div>
 
             <div className="flex-1 flex flex-col items-center justify-center space-y-8">
@@ -611,7 +602,7 @@ const Dashboard = () => {
                   { label: 'Present', value: filteredStats.present, percentage: filteredStats.total > 0 ? ((filteredStats.present / filteredStats.total) * 100).toFixed(0) : 0, color: 'emerald' },
                   { label: 'Absent', value: filteredStats.absent, percentage: filteredStats.total > 0 ? ((filteredStats.absent / filteredStats.total) * 100).toFixed(0) : 0, color: 'red' },
                   { label: 'Late', value: filteredStats.late, percentage: filteredStats.total > 0 ? ((filteredStats.late / filteredStats.total) * 100).toFixed(0) : 0, color: 'amber' },
-                ].filter(row => !((isAdmin || isSuperAdmin) && row.label === 'Late'))
+                ].filter(row => row.label !== 'Late')
                 .map((row, i) => (
                   <div key={i} className="space-y-1.5">
                     <div className="flex justify-between text-[10px] font-bold uppercase tracking-tighter">

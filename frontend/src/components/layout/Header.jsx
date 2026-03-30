@@ -11,6 +11,7 @@ import { useReceivedNotices } from '../../features/notices';
 import { useQueryClient } from '@tanstack/react-query';
 import { authKeys } from '../../features/auth/api/api';
 import { useSchoolProfile } from '../../features/settings/api/queries';
+import api from '../../lib/axios';
 
 const ROLE_GRADIENTS = {
     super_admin: 'from-purple-600 to-blue-600',
@@ -19,15 +20,15 @@ const ROLE_GRADIENTS = {
 };
 
 const Header = () => {
-    const { user, logout } = useAuth();
+    const { user, logout, accessToken } = useAuth();
     const { toggleSidebar } = useSidebar();
     const navigate = useNavigate();
     const dispatch = useDispatch();
     const queryClient = useQueryClient();
-    const [schoolBranding, setSchoolBranding] = useState(() => {
+    const [school, setSchool] = useState(() => {
         try {
-            const cached = sessionStorage.getItem('schoolBranding');
-            return cached ? JSON.parse(cached) : null;
+            const cached = JSON.parse(sessionStorage.getItem('schoolBranding'));
+            return (cached?.school || cached) || null;
         } catch { return null; }
     });
     const [refreshKey, setRefreshKey] = useState(() => Date.now());
@@ -64,8 +65,9 @@ const Header = () => {
             try {
                 const response = await api.get('/school');
                 if (response.data.success && response.data.data) {
-                    setSchoolBranding(response.data.data);
-                    sessionStorage.setItem('schoolBranding', JSON.stringify(response.data.data));
+                    const schoolData = response.data.data.school || response.data.data;
+                    setSchool(schoolData);
+                    sessionStorage.setItem('schoolBranding', JSON.stringify(schoolData));
                     setRefreshKey(Date.now());
                 }
             } catch (error) {
