@@ -21,6 +21,7 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = conf.PORT;
+const isProduction = conf.NODE_ENV === 'production';
 const missingEnv = [
     !conf.PORT && 'PORT',
     !conf.MONGO_URI && 'MONGO_URI',
@@ -55,7 +56,16 @@ app.set('io', io);
 
 
 // Core Middleware 
-app.use(helmet());
+app.use(helmet({
+    hsts: isProduction
+        ? {
+            // Start conservatively in production; increase after HTTPS validation.
+            maxAge: 300,
+            includeSubDomains: false,
+            preload: false
+        }
+        : false
+}));
 app.use(cors(corsOptions)); // Enable Cross-Origin Resource Sharing
 app.use(cookieParser());     // Parse cookies (needed for refresh tokens)
 app.use(express.json({ limit: conf.JSON_BODY_LIMIT })); // Parses incoming JSON payloads

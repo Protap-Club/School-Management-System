@@ -7,6 +7,18 @@ let io;
 
 export const initSocket = (server, corsOptions) => {
     io = new Server(server, { cors: corsOptions });
+    const isProduction = conf.NODE_ENV === 'production';
+
+    // Socket.io responses can bypass Express middleware headers.
+    if (isProduction) {
+        const hstsValue = 'max-age=300';
+        io.engine.on('initial_headers', (headers) => {
+            headers['strict-transport-security'] = hstsValue;
+        });
+        io.engine.on('headers', (headers) => {
+            headers['strict-transport-security'] = hstsValue;
+        });
+    }
 
     // Authenticate every socket connection via JWT
     io.use((socket, next) => {
