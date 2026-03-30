@@ -13,6 +13,7 @@ import { TabButton } from '../../components/ui/NoticeUIComponents';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { ButtonSpinner } from '../../components/ui/Spinner';
 import { useToastMessage } from '../../hooks/useToastMessage';
+import { PaginationControls } from '../../components/ui/PaginationControls';
 
 // Constants
 const EXAM_TYPES = {
@@ -74,6 +75,8 @@ const ExaminationPage = () => {
   const [showModal, setShowModal] = useState({ type: '', open: false, data: null });
   const [deleteConfirm, setDeleteConfirm] = useState({ open: false, examId: null });
   const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(0);
+  const [pageSize, setPageSize] = useState(25);
   const {
     availableStandards: schoolAvailableStandards,
     getSectionsForStandard,
@@ -141,7 +144,8 @@ const ExaminationPage = () => {
     if (filters.section && !sectionOptions.includes(filters.section)) {
       setFilters((current) => ({ ...current, section: '' }));
     }
-  }, [allUniqueSections, availableSections, availableStandards, filters.section, filters.standard]);
+    setCurrentPage(0);
+  }, [allUniqueSections, availableSections, availableStandards, filters.section, filters.standard, searchTerm, activeTab]);
 
   const { message, showMessage } = useToastMessage();
 
@@ -162,6 +166,11 @@ const ExaminationPage = () => {
     if (activeTab === 'completed') result = result.filter(e => e.status === 'COMPLETED');
     return result;
   }, [exams, searchTerm, activeTab]);
+
+  const paginatedExams = useMemo(() => {
+    const startIndex = currentPage * pageSize;
+    return filteredExams.slice(startIndex, startIndex + pageSize);
+  }, [filteredExams, currentPage, pageSize]);
 
   const stats = useMemo(() => {
     const now = new Date();
@@ -358,7 +367,7 @@ const ExaminationPage = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {filteredExams.map((exam) => {
+                  {paginatedExams.map((exam) => {
                     const firstSchedule = exam.schedule?.[0];
                     const subjects = (exam.schedule || []).map(s => s.subject).filter(Boolean);
                     const dates = (exam.schedule || [])
@@ -489,6 +498,18 @@ const ExaminationPage = () => {
               icon={FaCalendarAlt}
               title="No examinations found"
               subtitle={searchTerm ? `We couldn't find any exams matching "${searchTerm}". Try different keywords.` : "No examination schedules have been created yet for the current academic year."}
+            />
+          )}
+          {filteredExams.length > 0 && (
+            <PaginationControls
+              currentPage={currentPage}
+              totalItems={filteredExams.length}
+              pageSize={pageSize}
+              onPageChange={setCurrentPage}
+              onPageSizeChange={(newSize) => {
+                setPageSize(newSize);
+                setCurrentPage(0);
+              }}
             />
           )}
         </div>
