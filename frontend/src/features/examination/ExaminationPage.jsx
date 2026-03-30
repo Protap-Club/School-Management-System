@@ -500,7 +500,7 @@ const ExaminationPage = () => {
               subtitle={searchTerm ? `We couldn't find any exams matching "${searchTerm}". Try different keywords.` : "No examination schedules have been created yet for the current academic year."}
             />
           )}
-          {filteredExams.length > 0 && (
+          {filteredExams.length > 25 && (
             <PaginationControls
               currentPage={currentPage}
               totalItems={filteredExams.length}
