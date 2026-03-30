@@ -662,6 +662,7 @@ const Settings = () => {
                             </div>
                         </div>
 
+
                         {canManageAcademic && (
                             <div className="bg-white rounded-3xl border border-gray-200 shadow-sm overflow-hidden">
                                 <div className="px-6 py-5 border-b border-gray-100 flex items-center gap-4">

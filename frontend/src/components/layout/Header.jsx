@@ -3,7 +3,7 @@ import { useAuth } from '../../features/auth';
 import { useSidebar } from '../../state';
 import { useNavigate } from 'react-router-dom';
 import { headerContent } from '../../config/headerContent.js';
-import { FaBars, FaUserCircle, FaSignOutAlt, FaBuilding, FaChevronDown, FaSearch, FaBell } from 'react-icons/fa';
+import { FaSignOutAlt, FaBell } from 'react-icons/fa';
 import AvatarUploadModal from './AvatarUploadModal';
 import { useDispatch } from 'react-redux';
 import { setUser } from '../../features/auth/authSlice';
@@ -95,19 +95,21 @@ const Header = () => {
                     <img src="/menus.png" alt="Menu" className="w-5 h-5" />
                 </button>
                 <div className="flex items-center gap-3">
-                    {logoSrc ? (
-                        <img
-                            src={logoSrc}
-                            alt="Logo"
-                            className="h-10 w-auto object-contain"
-                            loading="eager"
-                            onError={(e) => { e.target.style.display = 'none'; }}
-                        />
-                    ) : (
-                        <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white shadow-sm">
-                            <span className="font-bold text-lg">{(title || 'SM').substring(0, 2).toUpperCase()}</span>
-                        </div>
-                    )}
+                    <div className="w-10 h-10 shrink-0 flex items-center justify-center">
+                        {logoSrc ? (
+                            <img
+                                src={logoSrc}
+                                alt="Logo"
+                                className="max-h-10 max-w-10 w-auto h-auto object-contain"
+                                loading="eager"
+                                onError={(e) => { e.target.style.display = 'none'; }}
+                            />
+                        ) : (
+                            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white shadow-sm">
+                                <span className="font-bold text-lg">{(title || 'SM').substring(0, 2).toUpperCase()}</span>
+                            </div>
+                        )}
+                    </div>
                     <span className="font-bold text-gray-800 text-lg hidden md:block">{title}</span>
                 </div>
             </div>
@@ -125,7 +127,6 @@ const Header = () => {
                 )}
 
                 {/* User Profile */}
-                {/* User Profile */}
                 <div className="relative flex items-center gap-3 lg:gap-4 pl-2 lg:pl-4 border-l border-gray-200" ref={dropdownRef}>
                     <button
                         onClick={() => setDropdownOpen(!dropdownOpen)}
@@ -135,7 +136,7 @@ const Header = () => {
                         <div
                             className={`w-10 h-10 rounded-full bg-gradient-to-r ${roleGradient} flex items-center justify-center text-white font-bold shadow-sm overflow-hidden shrink-0 border-2 border-transparent`}
                         >
-                        {avatarSrc ? (
+                            {avatarSrc ? (
                                 <img src={avatarSrc} alt="Avatar" className="w-full h-full object-cover" loading="eager" />
                             ) : (
                                 user?.name?.charAt(0).toUpperCase() || 'U'
