@@ -3,7 +3,7 @@ import { useAuth } from '../../features/auth';
 import { useSidebar } from '../../state';
 import { useNavigate } from 'react-router-dom';
 import { headerContent } from '../../config/headerContent.js';
-import { FaSignOutAlt, FaBell } from 'react-icons/fa';
+import { FaBars, FaUserCircle, FaSignOutAlt, FaBuilding, FaChevronDown, FaSearch, FaBell } from 'react-icons/fa';
 import AvatarUploadModal from './AvatarUploadModal';
 import { useDispatch } from 'react-redux';
 import { setUser } from '../../features/auth/authSlice';
@@ -24,6 +24,13 @@ const Header = () => {
     const navigate = useNavigate();
     const dispatch = useDispatch();
     const queryClient = useQueryClient();
+    const [schoolBranding, setSchoolBranding] = useState(() => {
+        try {
+            const cached = sessionStorage.getItem('schoolBranding');
+            return cached ? JSON.parse(cached) : null;
+        } catch { return null; }
+    });
+    const [refreshKey, setRefreshKey] = useState(() => Date.now());
     const [dropdownOpen, setDropdownOpen] = useState(false);
     const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
     const dropdownRef = useRef(null);
@@ -50,8 +57,25 @@ const Header = () => {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    const { data: schoolProfile } = useSchoolProfile();
-    const school = schoolProfile?.data?.school || null;
+    useEffect(() => {
+        const fetchBranding = async () => {
+            if (!user || !accessToken) return;
+
+            try {
+                const response = await api.get('/school');
+                if (response.data.success && response.data.data) {
+                    setSchoolBranding(response.data.data);
+                    sessionStorage.setItem('schoolBranding', JSON.stringify(response.data.data));
+                    setRefreshKey(Date.now());
+                }
+            } catch (error) {
+                console.error('Failed to fetch branding', error);
+            }
+        };
+        fetchBranding();
+        window.addEventListener('settingsUpdated', fetchBranding);
+        return () => window.removeEventListener('settingsUpdated', fetchBranding);
+    }, [user, accessToken]);
 
     const handleUploadSuccess = (payload) => {
         if (user) {
@@ -95,21 +119,18 @@ const Header = () => {
                     <img src="/menus.png" alt="Menu" className="w-5 h-5" />
                 </button>
                 <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 shrink-0 flex items-center justify-center">
-                        {logoSrc ? (
-                            <img
-                                src={logoSrc}
-                                alt="Logo"
-                                className="max-h-10 max-w-10 w-auto h-auto object-contain"
-                                loading="eager"
-                                onError={(e) => { e.target.style.display = 'none'; }}
-                            />
-                        ) : (
-                            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white shadow-sm">
-                                <span className="font-bold text-lg">{(title || 'SM').substring(0, 2).toUpperCase()}</span>
-                            </div>
-                        )}
-                    </div>
+                    {(logo || headerContent.logo) ? (
+                        <img
+                            src={logo ? `${logo}${logo.includes('?') ? '&' : '?'}t=${refreshKey}` : headerContent.logo}
+                            alt="Logo"
+                            className="h-10 w-auto object-contain"
+                            onError={(e) => { e.target.style.display = 'none'; }}
+                        />
+                    ) : (
+                        <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white shadow-sm">
+                            <span className="font-bold text-lg">{(title || 'SM').substring(0, 2).toUpperCase()}</span>
+                        </div>
+                    )}
                     <span className="font-bold text-gray-800 text-lg hidden md:block">{title}</span>
                 </div>
             </div>
@@ -127,6 +148,7 @@ const Header = () => {
                 )}
 
                 {/* User Profile */}
+                {/* User Profile */}
                 <div className="relative flex items-center gap-3 lg:gap-4 pl-2 lg:pl-4 border-l border-gray-200" ref={dropdownRef}>
                     <button
                         onClick={() => setDropdownOpen(!dropdownOpen)}
@@ -136,7 +158,7 @@ const Header = () => {
                         <div
                             className={`w-10 h-10 rounded-full bg-gradient-to-r ${roleGradient} flex items-center justify-center text-white font-bold shadow-sm overflow-hidden shrink-0 border-2 border-transparent`}
                         >
-                            {avatarSrc ? (
+                        {avatarSrc ? (
                                 <img src={avatarSrc} alt="Avatar" className="w-full h-full object-cover" loading="eager" />
                             ) : (
                                 user?.name?.charAt(0).toUpperCase() || 'U'
