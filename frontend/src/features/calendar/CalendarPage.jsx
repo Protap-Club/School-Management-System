@@ -621,7 +621,7 @@ const renderFormField = (label, children) => (
           <div className="bg-[#fbfbfe] rounded-[28px] shadow-2xl border border-indigo-100/60 max-w-5xl w-full flex flex-col md:flex-row overflow-hidden relative z-10">
             
             {/* Close Button */}
-            <button onClick={() => setShowEditModal(false)} className="absolute top-6 right-6 z-30 w-10 h-10 flex items-center justify-center bg-white border border-gray-200 text-gray-500 rounded-full transition-colors hover:text-gray-800 hover:border-gray-300">
+            <button onClick={() => setShowEditModal(false)} className="absolute top-3 right-3 z-30 w-10 h-10 flex items-center justify-center bg-white border border-gray-200 text-gray-500 rounded-full transition-colors hover:text-gray-800 hover:border-gray-300">
               <FaTimes size={14} />
             </button>
 

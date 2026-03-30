@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import {
   useCompletedResultExams,
@@ -14,6 +14,7 @@ import { readError } from '../../utils';
 import { SkeletonRows } from '../../components/ui/SkeletonRows';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { useToastMessage } from '../../hooks/useToastMessage';
+import { PaginationControls } from '../../components/ui/PaginationControls';
 import { ButtonSpinner } from '../../components/ui/Spinner';
 import { StatusBadge, OutcomeBadge } from './components/ResultStatusBadge';
 import { useSchoolClasses } from '../../hooks/useSchoolClasses';
@@ -61,6 +62,8 @@ const ResultPage = () => {
   const [studentSearch, setStudentSearch] = useState('');
   const [resultSearch, setResultSearch] = useState('');
   const [filters, setFilters] = useState({ standard: '', section: '' });
+  const [currentPage, setCurrentPage] = useState(0);
+  const [pageSize, setPageSize] = useState(25);
   const { message: toast, showMessage } = useToastMessage(3200);
   const [entryModal, setEntryModal] = useState({ open: false, student: null, result: null });
   const [detailModal, setDetailModal] = useState({ open: false, result: null });
@@ -136,6 +139,25 @@ const ResultPage = () => {
       return source.toLowerCase().includes(resultSearch.toLowerCase());
     });
   }, [examResults, resultSearch]);
+
+  const paginatedExams = useMemo(() => {
+    const start = currentPage * pageSize;
+    return filteredExams.slice(start, start + pageSize);
+  }, [filteredExams, currentPage, pageSize]);
+
+  const paginatedStudents = useMemo(() => {
+    const start = currentPage * pageSize;
+    return filteredStudents.slice(start, start + pageSize);
+  }, [filteredStudents, currentPage, pageSize]);
+
+  const paginatedResults = useMemo(() => {
+    const start = currentPage * pageSize;
+    return filteredResults.slice(start, start + pageSize);
+  }, [filteredResults, currentPage, pageSize]);
+
+  useEffect(() => {
+    setCurrentPage(0);
+  }, [selectedExam?._id, examTab, searchTerm, studentSearch, resultSearch, filters.standard, filters.section]);
 
   const examOverview = useMemo(() => {
     return activeCompletedExams.reduce(
@@ -373,7 +395,7 @@ const ResultPage = () => {
                         </td>
                       </tr>
                     ) : (
-                      filteredExams.map((exam) => (
+                      paginatedExams.map((exam) => (
                         <tr key={exam._id} className="hover:bg-slate-50/70 transition-colors">
                           <td className="px-5 py-5">
                             <div>
@@ -422,6 +444,18 @@ const ResultPage = () => {
                   </tbody>
                 </table>
               </div>
+              {filteredExams.length > 25 && (
+                <PaginationControls
+                  currentPage={currentPage}
+                  totalItems={filteredExams.length}
+                  pageSize={pageSize}
+                  onPageChange={setCurrentPage}
+                  onPageSizeChange={(newSize) => {
+                    setPageSize(newSize);
+                    setCurrentPage(0);
+                  }}
+                />
+              )}
             </div>
           </>
         ) : (
@@ -527,7 +561,7 @@ const ResultPage = () => {
                           </td>
                         </tr>
                       ) : (
-                        filteredStudents.map((student) => {
+                        paginatedStudents.map((student) => {
                           return (
                             <tr key={student.studentId} className="hover:bg-slate-50/70 transition-colors">
                               <td className="px-5 py-4">
@@ -557,6 +591,18 @@ const ResultPage = () => {
                     </tbody>
                   </table>
                 </div>
+                {filteredStudents.length > pageSize && (
+                  <PaginationControls
+                    currentPage={currentPage}
+                    totalItems={filteredStudents.length}
+                    pageSize={pageSize}
+                    onPageChange={setCurrentPage}
+                    onPageSizeChange={(newSize) => {
+                      setPageSize(newSize);
+                      setCurrentPage(0);
+                    }}
+                  />
+                )}
               </div>
             )}
 
@@ -609,7 +655,7 @@ const ResultPage = () => {
                           </td>
                         </tr>
                       ) : (
-                        filteredResults.map((item) => (
+                        paginatedResults.map((item) => (
                           <tr key={item._id} className="hover:bg-slate-50/70 transition-colors">
                             <td className="px-5 py-4">
                               <div>
@@ -661,6 +707,18 @@ const ResultPage = () => {
                     </tbody>
                   </table>
                 </div>
+                {filteredResults.length > 25 && (
+                  <PaginationControls
+                    currentPage={currentPage}
+                    totalItems={filteredResults.length}
+                    pageSize={pageSize}
+                    onPageChange={setCurrentPage}
+                    onPageSizeChange={(newSize) => {
+                      setPageSize(newSize);
+                      setCurrentPage(0);
+                    }}
+                  />
+                )}
               </div>
             )}
           </>
