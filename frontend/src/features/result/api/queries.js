@@ -3,17 +3,25 @@ import { resultApi } from './api';
 
 export const RESULT_QUERY_KEYS = {
   all: ['results'],
-  completedExams: () => [...RESULT_QUERY_KEYS.all, 'completedExams'],
+  completedExams: (filters = {}) => [...RESULT_QUERY_KEYS.all, 'completedExams', filters],
   examStudents: (examId) => [...RESULT_QUERY_KEYS.all, 'examStudents', examId],
   examResults: (examId) => [...RESULT_QUERY_KEYS.all, 'examResults', examId],
   myResults: (filters = {}) => [...RESULT_QUERY_KEYS.all, 'myResults', filters],
 };
 
-export const useCompletedResultExams = () => {
+export const useCompletedResultExams = (filters = {}) => {
   return useQuery({
-    queryKey: RESULT_QUERY_KEYS.completedExams(),
-    queryFn: resultApi.getCompletedExams,
-    select: (response) => response?.data || [],
+    queryKey: RESULT_QUERY_KEYS.completedExams(filters),
+    queryFn: () => resultApi.getCompletedExams(filters),
+    select: (response) => {
+      if (response?.data?.exams || response?.data?.pagination) {
+        return {
+          exams: response.data.exams || [],
+          pagination: response.data.pagination || { page: 0, pageSize: 25, totalCount: 0, totalPages: 0 }
+        };
+      }
+      return { exams: Array.isArray(response?.data) ? response.data : [], pagination: null };
+    },
     staleTime: 5 * 60 * 1000,
   });
 };

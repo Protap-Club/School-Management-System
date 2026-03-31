@@ -92,6 +92,10 @@ export const getExamsQuerySchema = z.object({
             standard: z.string().optional(),
             section: z.string().optional(),
             status: z.enum(["DRAFT", "PUBLISHED", "COMPLETED", "CANCELLED"]).optional(),
+            page: z.union([z.string(), z.number()]).optional()
+                .transform((val) => (val !== undefined ? Number(val) : 0)),
+            pageSize: z.union([z.string(), z.number()]).optional()
+                .transform((val) => (val !== undefined ? Number(val) : 25)),
         })
         .optional(),
 });

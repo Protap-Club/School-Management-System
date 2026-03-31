@@ -436,7 +436,7 @@ const buildExamResultCountMap = async (schoolId, examIds) => {
     return new Map(rows.map((row) => [String(row._id), row]));
 };
 
-export const getCompletedExams = async (schoolId, user, platform) => {
+export const getCompletedExams = async (schoolId, user, platform, pageNum = 0, limit = 25) => {
     await lockExpiredResults({ schoolId });
 
     const query = {
@@ -445,18 +445,25 @@ export const getCompletedExams = async (schoolId, user, platform) => {
         isActive: true,
     };
 
-    const exams = await Exam.find(query)
+    const page = Math.max(0, Number(pageNum) || 0);
+    const pageSize = Math.min(100, Math.max(1, Number(limit) || 25));
+
+    const totalCount = await Exam.countDocuments(query);
+
+    const examsData = await Exam.find(query)
         .select("name examType category academicYear standard section status schedule createdAt")
         .sort({ createdAt: -1 })
+        .skip(page * pageSize)
+        .limit(pageSize)
         .lean();
 
-    const rosterCountMap = await buildRosterCountMap(schoolId, exams);
+    const rosterCountMap = await buildRosterCountMap(schoolId, examsData);
     const resultCountMap = await buildExamResultCountMap(
         schoolId,
-        exams.map((exam) => exam._id)
+        examsData.map((exam) => exam._id)
     );
 
-    return exams.map((exam) => {
+    const exams = examsData.map((exam) => {
         const classKey = `${exam.standard}::${exam.section}`;
         const totalStudents = rosterCountMap.get(classKey) || 0;
         const resultCounts = resultCountMap.get(String(exam._id)) || {};
@@ -497,6 +504,16 @@ export const getCompletedExams = async (schoolId, user, platform) => {
             })),
         };
     });
+
+    return {
+        exams,
+        pagination: {
+            page,
+            pageSize,
+            totalCount,
+            totalPages: Math.ceil(totalCount / pageSize),
+        },
+    };
 };
 
 export const getExamStudents = async (schoolId, examId, user, platform) => {

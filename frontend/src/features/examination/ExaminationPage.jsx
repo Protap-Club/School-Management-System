@@ -84,7 +84,26 @@ const ExaminationPage = () => {
   } = useSchoolClasses();
 
   // Queries & Mutations
-  const { data: exams = [], isLoading: examsLoading } = useExams(filters);
+  // Build query filters including pagination and active tab mapping
+  const activeTabStatusMap = {
+    'all': '',
+    'upcoming': 'PUBLISHED',
+    'drafts': 'DRAFT',
+    'completed': 'COMPLETED'
+  };
+
+  const queryFilters = useMemo(() => {
+    return {
+      ...filters,
+      status: activeTabStatusMap[activeTab] || filters.status,
+      page: currentPage,
+      pageSize: pageSize
+    };
+  }, [filters, activeTab, currentPage, pageSize]);
+
+  const { data: examsData = { exams: [], pagination: { totalCount: 0 } }, isLoading: examsLoading } = useExams(queryFilters);
+  const exams = examsData.exams || [];
+  const paginationInfo = examsData.pagination || { page: 0, pageSize: 25, totalCount: 0, totalPages: 0 };
   const createExamMutation = useCreateExam();
   const updateExamMutation = useUpdateExam();
   const deleteExamMutation = useDeleteExam();
@@ -152,25 +171,19 @@ const ExaminationPage = () => {
   const filteredExams = useMemo(() => {
     let result = exams;
     
+    // Frontend search within the current paginated results
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
       result = result.filter(e => 
         e.name.toLowerCase().includes(term) ||
-        e.standard.toLowerCase().includes(term) ||
+        (e.standard && e.standard.toLowerCase().includes(term)) ||
         (e.description && e.description.toLowerCase().includes(term))
       );
     }
-    // Admin can slice by status using tabs; teachers always see their full class list.
-    if (activeTab === 'upcoming') result = result.filter(e => e.status === 'PUBLISHED');
-    if (activeTab === 'drafts') result = result.filter(e => e.status === 'DRAFT');
-    if (activeTab === 'completed') result = result.filter(e => e.status === 'COMPLETED');
     return result;
-  }, [exams, searchTerm, activeTab]);
+  }, [exams, searchTerm]);
 
-  const paginatedExams = useMemo(() => {
-    const startIndex = currentPage * pageSize;
-    return filteredExams.slice(startIndex, startIndex + pageSize);
-  }, [filteredExams, currentPage, pageSize]);
+  const paginatedExams = filteredExams; // Server-side paginated
 
   const stats = useMemo(() => {
     const now = new Date();
@@ -235,7 +248,7 @@ const ExaminationPage = () => {
               </div>
               <div className="space-y-1">
                 <h1 className="page-title">Examination Schedules</h1>
-                <p className="page-subtitle">Manage and monitor {stats.total} scheduled examination sessions.</p>
+                <p className="page-subtitle">Manage and monitor your examination sessions.</p>
               </div>
             </div>
             {(isAdmin || isTeacher) && (
@@ -279,21 +292,21 @@ const ExaminationPage = () => {
           {/* Filters and Search */}
           <div className="bg-white p-2 rounded-[32px] border border-slate-100 shadow-sm mb-8">
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-2">
-              <div className="flex items-center gap-1 bg-slate-50 p-1.5 rounded-2xl border border-slate-100">
+              <div className="flex items-center gap-1 bg-slate-50 p-1.5 rounded-2xl border border-slate-100 items-stretch">
                 <TabButton 
-                  tab="all" activeTab={activeTab} setActiveTab={setActiveTab} label={`All Exams (${stats.total})`} 
+                  tab="all" activeTab={activeTab} setActiveTab={setActiveTab} label={`All Exams`} 
                   className={activeTab === 'all' ? 'bg-white shadow-sm' : ''}
                 />
                 <TabButton 
-                  tab="upcoming" activeTab={activeTab} setActiveTab={setActiveTab} label={`Schedule (${stats.upcoming})`}
+                  tab="upcoming" activeTab={activeTab} setActiveTab={setActiveTab} label={`Schedule`}
                   className={activeTab === 'upcoming' ? 'bg-white shadow-sm' : ''}
                 />
                 <TabButton 
-                  tab="drafts" activeTab={activeTab} setActiveTab={setActiveTab} label={`Drafts (${stats.drafts})`}
+                  tab="drafts" activeTab={activeTab} setActiveTab={setActiveTab} label={`Drafts`}
                   className={activeTab === 'drafts' ? 'bg-white shadow-sm' : ''}
                 />
                 <TabButton 
-                  tab="completed" activeTab={activeTab} setActiveTab={setActiveTab} label={`Completed (${stats.completed})`}
+                  tab="completed" activeTab={activeTab} setActiveTab={setActiveTab} label={`Completed`}
                   className={activeTab === 'completed' ? 'bg-white shadow-sm' : ''}
                 />
               </div>
@@ -500,10 +513,10 @@ const ExaminationPage = () => {
               subtitle={searchTerm ? `We couldn't find any exams matching "${searchTerm}". Try different keywords.` : "No examination schedules have been created yet for the current academic year."}
             />
           )}
-          {filteredExams.length > 25 && (
+          {paginationInfo.totalCount > 25 && (
             <PaginationControls
               currentPage={currentPage}
-              totalItems={filteredExams.length}
+              totalItems={paginationInfo.totalCount}
               pageSize={pageSize}
               onPageChange={setCurrentPage}
               onPageSizeChange={(newSize) => {

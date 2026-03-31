@@ -164,11 +164,28 @@ export const getExams = async (schoolId, filters = {}, user) => {
     if (filters.section) query.section = filters.section;
     if (filters.status) query.status = filters.status;
 
-    return await Exam.find(query)
+    const page = Math.max(0, Number(filters.page) || 0);
+    const pageSize = Math.min(100, Math.max(1, Number(filters.pageSize) || 25));
+
+    const totalCount = await Exam.countDocuments(query);
+
+    const exams = await Exam.find(query)
         .populate("createdBy", "name email isArchived")
         .populate("schedule.assignedTeacher", "name email isArchived")
         .sort({ createdAt: -1 })
+        .skip(page * pageSize)
+        .limit(pageSize)
         .lean();
+
+    return {
+        exams,
+        pagination: {
+            page,
+            pageSize,
+            totalCount,
+            totalPages: Math.ceil(totalCount / pageSize),
+        },
+    };
 };
 
 // ═══════════════════════════════════════════════════════════════

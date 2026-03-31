@@ -19,3 +19,4 @@ frontend/.env
 !.env.example
 !backend/.env.example
 !frontend/.env.example
+performance_scalability_report.md

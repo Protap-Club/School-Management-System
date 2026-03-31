@@ -3,7 +3,8 @@ import logger from "../../config/logger.js";
 import * as resultService from "./result.service.js";
 
 export const getCompletedExams = asyncHandler(async (req, res) => {
-    const result = await resultService.getCompletedExams(req.schoolId, req.user, req.platform);
+    const { page, pageSize } = req.query;
+    const result = await resultService.getCompletedExams(req.schoolId, req.user, req.platform, page, pageSize);
     res.status(200).json({
         success: true,
         data: result,

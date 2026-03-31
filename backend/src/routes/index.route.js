@@ -10,6 +10,7 @@ import feesRoutes from "../module/fees/fees.route.js";
 import examinationRoutes from "../module/examination/examination.route.js";
 import assignmentRoutes from "../module/assignment/assignment.route.js";
 import resultRoutes from "../module/result/result.route.js";
+import dashboardRoutes from "../module/dashboard/dashboard.route.js";
 import { checkAuth } from "../middlewares/auth.middleware.js";
 import extractSchoolId from "../middlewares/school.middleware.js";
 
@@ -34,6 +35,7 @@ router.use("/fees", feesRoutes);
 router.use("/examinations", examinationRoutes);
 router.use("/results", resultRoutes);
 router.use("/assignments", assignmentRoutes);
+router.use("/dashboard", dashboardRoutes);
 
 export default router;
 

@@ -285,23 +285,7 @@ export const recordPayment = async (schoolId, assignmentId, paymentData, recorde
 
 // Class-level fee overview for a specific month (Admin & Teacher view)
 export const getClassFeeOverview = async (schoolId, academicYear, month, standard, section) => {
-    // Get all assignments for this class/month
-    const assignments = await FeeAssignment.find({
-        schoolId,
-        academicYear: Number(academicYear),
-        month: Number(month),
-    })
-        .populate("studentId", "name email")
-        .populate("feeStructureId", "feeType name")
-        .lean();
-
-    // Filter by class — join through feeStructure
-    const filtered = assignments.filter((a) => {
-        const fs = a.feeStructureId;
-        return fs && fs.feeType; // only valid structures
-    });
-
-    // We need to also check that students belong to this class
+    // Step 1: Get student IDs for this class first
     const studentProfiles = await StudentProfile.find({
         schoolId,
         standard,
@@ -310,8 +294,25 @@ export const getClassFeeOverview = async (schoolId, academicYear, month, standar
         .select("userId")
         .lean();
 
-    const studentIdSet = new Set(studentProfiles.map((sp) => String(sp.userId)));
-    const classAssignments = filtered.filter((a) => studentIdSet.has(String(a.studentId?._id)));
+    const studentIds = studentProfiles.map((sp) => sp.userId);
+
+    if (studentIds.length === 0) {
+        return { summary: { totalStudents: 0, totalCollected: 0, totalPending: 0, totalOverdue: 0 }, students: [] };
+    }
+
+    // Step 2: Fetch ONLY assignments for these students (scoped query)
+    const assignments = await FeeAssignment.find({
+        schoolId,
+        academicYear: Number(academicYear),
+        month: Number(month),
+        studentId: { $in: studentIds },
+    })
+        .populate("studentId", "name email")
+        .populate("feeStructureId", "feeType name")
+        .lean();
+
+    // Filter valid fee structures
+    const classAssignments = assignments.filter((a) => a.feeStructureId && a.feeStructureId.feeType);
 
     // Group by student
     const studentMap = {};
@@ -354,55 +355,68 @@ export const getClassFeeOverview = async (schoolId, academicYear, month, standar
 // All-classes summary for a specific month (Admin only)
 export const getAllClassesFeeOverview = async (schoolId, academicYear, month) => {
     const { keySet } = await getConfiguredClassSections(schoolId);
-    const assignments = await FeeAssignment.find({
-        schoolId,
-        academicYear: Number(academicYear),
-        month: Number(month),
-    })
-        .populate("feeStructureId", "standard section feeType name")
-        .lean();
 
-    // Group by class (standard-section)
-    const classMap = {};
-    for (const a of assignments) {
-        const fs = a.feeStructureId;
-        if (!fs) continue;
-        if (!keySet.has(buildClassSectionKey(fs.standard, fs.section))) continue;
-        const key = `${fs.standard}-${fs.section}`;
-        if (!classMap[key]) {
-            classMap[key] = {
-                standard: fs.standard,
-                section: fs.section,
-                totalDue: 0,
-                totalCollected: 0,
-                totalPending: 0,
-                totalWaived: 0,
-                studentCount: new Set(),
-            };
-        }
+    const pipeline = [
+        {
+            $match: {
+                schoolId: new mongoose.Types.ObjectId(schoolId),
+                academicYear: Number(academicYear),
+                month: Number(month),
+            },
+        },
+        {
+            $lookup: {
+                from: "feestructures",
+                localField: "feeStructureId",
+                foreignField: "_id",
+                as: "structure",
+                pipeline: [{ $project: { standard: 1, section: 1, feeType: 1, name: 1 } }],
+            },
+        },
+        { $unwind: "$structure" },
+        {
+            $group: {
+                _id: { standard: "$structure.standard", section: "$structure.section" },
+                totalDue: { $sum: "$netAmount" },
+                totalCollected: { $sum: "$paidAmount" },
+                totalPending: {
+                    $sum: {
+                        $cond: [
+                            { $in: ["$status", ["PENDING", "PARTIAL", "OVERDUE"]] },
+                            { $max: [{ $subtract: ["$netAmount", "$paidAmount"] }, 0] },
+                            0,
+                        ],
+                    },
+                },
+                totalWaived: {
+                    $sum: {
+                        $cond: [
+                            { $in: ["$status", ["WAIVED", "PAID"]] },
+                            { $max: [{ $subtract: ["$netAmount", "$paidAmount"] }, 0] },
+                            0,
+                        ],
+                    },
+                },
+                studentCount: { $addToSet: "$studentId" },
+            },
+        },
+        {
+            $project: {
+                _id: 0,
+                standard: "$_id.standard",
+                section: "$_id.section",
+                totalDue: 1,
+                totalCollected: 1,
+                totalPending: 1,
+                totalWaived: 1,
+                studentCount: { $size: "$studentCount" },
+            },
+        },
+        { $sort: { standard: 1, section: 1 } },
+    ];
 
-        const status = (a.status || "PENDING").toUpperCase();
-        const netAmt = a.netAmount || 0;
-        const paidAmt = a.paidAmount || 0;
-        const remaining = Math.max(0, netAmt - paidAmt);
-
-        const waivedAmt = (status === "WAIVED" || status === "PAID") ? remaining : 0;
-        const pendingAmt = (status !== "PAID" && status !== "WAIVED") ? remaining : 0;
-
-        classMap[key].totalDue += netAmt;
-        classMap[key].totalCollected += paidAmt;
-        classMap[key].totalPending += pendingAmt;
-        classMap[key].totalWaived += waivedAmt;
-        classMap[key].studentCount.add(String(a.studentId));
-    }
-
-    // Convert Sets to counts
-    const classes = Object.values(classMap).map((c) => ({
-        ...c,
-        studentCount: c.studentCount.size,
-    }));
-
-    classes.sort((a, b) => a.standard.localeCompare(b.standard) || a.section.localeCompare(b.section));
+    const classes = (await FeeAssignment.aggregate(pipeline))
+        .filter((c) => keySet.has(buildClassSectionKey(c.standard, c.section)));
 
     return { classes };
 };
@@ -412,90 +426,125 @@ export const getYearlyFeeSummary = async (schoolId, academicYear) => {
     const MONTH_LABELS = ["", "January", "February", "March", "April", "May", "June",
         "July", "August", "September", "October", "November", "December"];
 
-    const assignments = await FeeAssignment.find({
-        schoolId,
-        academicYear: Number(academicYear),
-    })
-        .populate("feeStructureId", "feeType name")
-        .lean();
+    // Monthly breakdown — single aggregation
+    const monthlyPipeline = [
+        {
+            $match: {
+                schoolId: new mongoose.Types.ObjectId(schoolId),
+                academicYear: Number(academicYear),
+            },
+        },
+        {
+            $group: {
+                _id: "$month",
+                totalDue: { $sum: "$netAmount" },
+                totalCollected: { $sum: "$paidAmount" },
+                totalPending: {
+                    $sum: {
+                        $cond: [
+                            { $in: ["$status", ["PENDING", "PARTIAL", "OVERDUE"]] },
+                            { $max: [{ $subtract: ["$netAmount", "$paidAmount"] }, 0] },
+                            0,
+                        ],
+                    },
+                },
+                totalWaived: {
+                    $sum: {
+                        $cond: [
+                            { $in: ["$status", ["WAIVED", "PAID"]] },
+                            { $max: [{ $subtract: ["$netAmount", "$paidAmount"] }, 0] },
+                            0,
+                        ],
+                    },
+                },
+            },
+        },
+        { $sort: { _id: 1 } },
+    ];
 
-    // Group by month and type
-    const monthMap = {};
-    const typeMap = {};
+    // Type breakdown — single aggregation
+    const typePipeline = [
+        {
+            $match: {
+                schoolId: new mongoose.Types.ObjectId(schoolId),
+                academicYear: Number(academicYear),
+            },
+        },
+        {
+            $lookup: {
+                from: "feestructures",
+                localField: "feeStructureId",
+                foreignField: "_id",
+                as: "structure",
+                pipeline: [{ $project: { feeType: 1 } }],
+            },
+        },
+        { $unwind: { path: "$structure", preserveNullAndEmptyArrays: true } },
+        {
+            $group: {
+                _id: { $ifNull: ["$structure.feeType", "OTHER"] },
+                totalDue: { $sum: "$netAmount" },
+                totalCollected: { $sum: "$paidAmount" },
+                totalPending: {
+                    $sum: {
+                        $cond: [
+                            { $in: ["$status", ["PENDING", "PARTIAL", "OVERDUE"]] },
+                            { $max: [{ $subtract: ["$netAmount", "$paidAmount"] }, 0] },
+                            0,
+                        ],
+                    },
+                },
+                totalWaived: {
+                    $sum: {
+                        $cond: [
+                            { $in: ["$status", ["WAIVED", "PAID"]] },
+                            { $max: [{ $subtract: ["$netAmount", "$paidAmount"] }, 0] },
+                            0,
+                        ],
+                    },
+                },
+            },
+        },
+        { $sort: { totalDue: -1 } },
+    ];
 
-    for (const a of assignments) {
-        const status = (a.status || "PENDING").toUpperCase();
-        const netAmt = Number(a.netAmount) || 0;
-        const paidAmt = Number(a.paidAmount) || 0;
-        const remaining = Math.max(0, netAmt - paidAmt);
+    const [monthlyRows, typeRows] = await Promise.all([
+        FeeAssignment.aggregate(monthlyPipeline),
+        FeeAssignment.aggregate(typePipeline),
+    ]);
 
-        // Define status categories
-        const isSettled = ["PAID", "WAIVED"].includes(status);
-        
-        const waivedAmt = isSettled ? remaining : 0;
-        const pendingAmt = !isSettled ? remaining : 0;
+    const monthlyBreakdown = monthlyRows.map((row) => {
+        const collectionRate = row.totalDue > 0
+            ? Number(((row.totalCollected / row.totalDue) * 100).toFixed(2)) : 0;
+        return {
+            month: row._id,
+            label: MONTH_LABELS[row._id],
+            totalDue: row.totalDue,
+            totalCollected: row.totalCollected,
+            totalPending: row.totalPending,
+            totalWaived: row.totalWaived,
+            collectionRate,
+        };
+    });
 
-        // Monthly aggregation
-        const mKey = String(a.month);
-        if (!monthMap[mKey]) {
-            monthMap[mKey] = { totalDue: 0, totalCollected: 0, totalPending: 0, totalWaived: 0 };
-        }
-        monthMap[mKey].totalDue += netAmt;
-        monthMap[mKey].totalCollected += paidAmt;
-        monthMap[mKey].totalPending += pendingAmt;
-        monthMap[mKey].totalWaived += waivedAmt;
-
-        // Type aggregation
-        const fs = a.feeStructureId;
-        if (fs) {
-            const type = fs.feeType || "OTHER";
-            if (!typeMap[type]) {
-                typeMap[type] = { totalDue: 0, totalCollected: 0, totalPending: 0, totalWaived: 0 };
-            }
-            typeMap[type].totalDue += netAmt;
-            typeMap[type].totalCollected += paidAmt;
-            typeMap[type].totalPending += pendingAmt;
-            typeMap[type].totalWaived += waivedAmt;
-        }
-    }
-
-    const monthlyBreakdown = Object.entries(monthMap)
-        .sort(([a], [b]) => Number(a) - Number(b))
-        .map(([month, data]) => ({
-            month: Number(month),
-            label: MONTH_LABELS[Number(month)],
-            totalDue: data.totalDue,
-            totalCollected: data.totalCollected,
-            totalPending: data.totalPending,
-            totalWaived: data.totalWaived,
-            collectionRate: data.totalDue > 0
-                ? Number(((data.totalCollected / data.totalDue) * 100).toFixed(2))
-                : 0,
-        }));
-
-    const typeBreakdown = Object.entries(typeMap)
-        .map(([type, data]) => ({
-            type,
-            totalDue: data.totalDue,
-            totalCollected: data.totalCollected,
-            totalPending: data.totalPending,
-            totalWaived: data.totalWaived,
-            collectionRate: data.totalDue > 0
-                ? Number(((data.totalCollected / data.totalDue) * 100).toFixed(2))
-                : 0,
-        }))
-        .sort((a, b) => b.totalDue - a.totalDue);
+    const typeBreakdown = typeRows.map((row) => ({
+        type: row._id,
+        totalDue: row.totalDue,
+        totalCollected: row.totalCollected,
+        totalPending: row.totalPending,
+        totalWaived: row.totalWaived,
+        collectionRate: row.totalDue > 0
+            ? Number(((row.totalCollected / row.totalDue) * 100).toFixed(2)) : 0,
+    }));
 
     const yearTotal = {
-        totalDue: monthlyBreakdown.reduce((s, m) => s + (m.totalDue || 0), 0),
-        totalCollected: monthlyBreakdown.reduce((s, m) => s + (m.totalCollected || 0), 0),
-        totalPending: monthlyBreakdown.reduce((s, m) => s + (m.totalPending || 0), 0),
-        totalWaived: monthlyBreakdown.reduce((s, m) => s + (m.totalWaived || 0), 0),
+        totalDue: monthlyBreakdown.reduce((s, m) => s + m.totalDue, 0),
+        totalCollected: monthlyBreakdown.reduce((s, m) => s + m.totalCollected, 0),
+        totalPending: monthlyBreakdown.reduce((s, m) => s + m.totalPending, 0),
+        totalWaived: monthlyBreakdown.reduce((s, m) => s + m.totalWaived, 0),
     };
-
     yearTotal.collectionRate = yearTotal.totalDue > 0
-        ? Number(((yearTotal.totalCollected / yearTotal.totalDue) * 100).toFixed(2))
-        : 0;
+        ? Number(((yearTotal.totalCollected / yearTotal.totalDue) * 100).toFixed(2)) : 0;
 
     return { academicYear: Number(academicYear), monthlyBreakdown, typeBreakdown, yearTotal };
 };
