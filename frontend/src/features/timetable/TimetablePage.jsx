@@ -37,8 +37,15 @@ const TimetablePage = () => {
     const { user } = useAuth();
     const isTeacher = user?.role === "teacher";
     const isAdmin = ['admin', 'super_admin'].includes(user?.role);
-    // School name for PDF header — schoolId is an ObjectId in Redux state (not populated), safe fallback to 'School'
-    const schoolName = user?.school?.name || user?.schoolId?.name || 'School';
+    let schoolData = user?.school || user?.schoolId;
+    if (!schoolData || !schoolData.name) {
+        try {
+            const cached = JSON.parse(sessionStorage.getItem('schoolBranding'));
+            schoolData = cached?.school || cached || schoolData;
+        } catch (e) {}
+    }
+    const schoolName = schoolData?.name || 'School';
+    const schoolLogo = schoolData?.logoUrl || null;
 
     const [adminViewMode, setAdminViewMode] = useState("class");
     const [selectedTeacherId, setSelectedTeacherId] = useState("");
@@ -222,28 +229,30 @@ const TimetablePage = () => {
     };
 
     // Export PDF for admin class view
-    const handleExportPDF = () => {
+    const handleExportPDF = async () => {
         if (!activeClassOption || !activeTimetableId || !selectedTimetableEntries.length) return;
-        generateTimetablePDF({
+        await generateTimetablePDF({
             entries: selectedTimetableEntries,
             timeSlots,
             standard: activeClassOption.standard,
             section: activeClassOption.section,
             academicYear: activeClassOption.timetable?.academicYear || '',
             schoolName,
+            schoolLogo,
         });
     };
 
     // Export PDF for teacher / student personal schedule
-    const handleExportSchedulePDF = () => {
+    const handleExportSchedulePDF = async () => {
         if (!myScheduleEntries.length) return;
         const firstEntry = myScheduleEntries[0];
-        generateTimetablePDF({
+        await generateTimetablePDF({
             entries: myScheduleEntries,
             timeSlots,
             standard: firstEntry?.timetableId?.standard || 'My Schedule',
             section: firstEntry?.timetableId?.section || '',
             schoolName,
+            schoolLogo,
         });
     };
 
