@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import { FaCalendarAlt, FaChalkboardTeacher, FaExclamationTriangle, FaTimes } from "react-icons/fa";
+import { FaCalendarAlt, FaChalkboardTeacher, FaExclamationTriangle, FaFilePdf, FaTimes } from "react-icons/fa";
 import { readError } from "../../utils";
+import { generateTimetablePDF } from "../../utils/pdfGenerator";
 import { ButtonSpinner } from "../../components/ui/Spinner";
 import DashboardLayout from "../../layouts/DashboardLayout";
 import { useAuth } from "../auth";
@@ -36,6 +37,8 @@ const TimetablePage = () => {
     const { user } = useAuth();
     const isTeacher = user?.role === "teacher";
     const isAdmin = ['admin', 'super_admin'].includes(user?.role);
+    // School name for PDF header — schoolId is an ObjectId in Redux state (not populated), safe fallback to 'School'
+    const schoolName = user?.school?.name || user?.schoolId?.name || 'School';
 
     const [adminViewMode, setAdminViewMode] = useState("class");
     const [selectedTeacherId, setSelectedTeacherId] = useState("");
@@ -216,6 +219,32 @@ const TimetablePage = () => {
             setErrorMessage(readError(error, "Failed to create timetable."));
             return false;
         }
+    };
+
+    // Export PDF for admin class view
+    const handleExportPDF = () => {
+        if (!activeClassOption || !activeTimetableId || !selectedTimetableEntries.length) return;
+        generateTimetablePDF({
+            entries: selectedTimetableEntries,
+            timeSlots,
+            standard: activeClassOption.standard,
+            section: activeClassOption.section,
+            academicYear: activeClassOption.timetable?.academicYear || '',
+            schoolName,
+        });
+    };
+
+    // Export PDF for teacher / student personal schedule
+    const handleExportSchedulePDF = () => {
+        if (!myScheduleEntries.length) return;
+        const firstEntry = myScheduleEntries[0];
+        generateTimetablePDF({
+            entries: myScheduleEntries,
+            timeSlots,
+            standard: firstEntry?.timetableId?.standard || 'My Schedule',
+            section: firstEntry?.timetableId?.section || '',
+            schoolName,
+        });
     };
 
     const isLoading = timeSlotsQuery.isLoading || (isTeacher ? myScheduleQuery.isLoading : false);
