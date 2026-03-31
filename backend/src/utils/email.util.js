@@ -64,13 +64,7 @@ export const sendCredentialsEmail = async ({ to, name, role, password, schoolNam
         const recipientLabel = recipientLabelMap[role] || "User Name";
 
         const rawHtml = await getTemplate('credentials.template.html');
-        const htmlContent = parseTemplate(rawHtml, {
-            name,
-            to,
-            password,
-            schoolName: displaySchool,
-            recipientLabel
-        });
+        const htmlContent = parseTemplate(rawHtml, { name, to, password, schoolName: displaySchool, recipientLabel});
 
         const mailOptions = {
             from: `"${displaySchool}" <${conf.SMTP_FROM || conf.SMTP_USER}>`, // Dynamic branding
