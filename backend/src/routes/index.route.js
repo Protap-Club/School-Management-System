@@ -10,6 +10,7 @@ import feesRoutes from "../module/fees/fees.route.js";
 import examinationRoutes from "../module/examination/examination.route.js";
 import assignmentRoutes from "../module/assignment/assignment.route.js";
 import resultRoutes from "../module/result/result.route.js";
+import securityRoutes from "../module/security/security.route.js";
 import { checkAuth } from "../middlewares/auth.middleware.js";
 import extractSchoolId from "../middlewares/school.middleware.js";
 
@@ -20,6 +21,7 @@ router.use("/auth", authRoutes);
 
 // NFC device endpoint — uses its own device-key auth, must come before global checkAuth
 router.use("/attendance", attendanceRoutes);
+router.use("/security", securityRoutes);
 
 // Protected (all below need auth)
 router.use(checkAuth);

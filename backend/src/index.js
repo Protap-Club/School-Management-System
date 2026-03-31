@@ -11,6 +11,8 @@ import { initSocket } from './socket.js';
 
 // Local Imports 
 import { conf } from './config/index.js';
+import { cspOptions } from './config/csp.js';
+import { corsOptions, socketCorsOptions } from './config/cors.js';
 import logger from './config/logger.js'; // Import our configured logger
 import apiRoutes from './routes/index.route.js';
 import errorHandler, { notFoundHandler } from './middlewares/error.middleware.js';
@@ -38,18 +40,9 @@ if (missingEnv.length) {
 // Use the native http server to hook Socket.io, then pass the app to it.
 const server = createServer(app);
 
-// CORS Configuration 
-// Only allowing our frontend to connect.
-const corsOptions = {
-    origin: conf.CORS_ORIGINS,
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'x-platform', 'x-device-key']
-};
-
 // WebSocket (Socket.io) Setup 
 // Setting up real-time communication for things like live attendance updates.
-const io = initSocket(server, corsOptions);
+const io = initSocket(server, socketCorsOptions);
 
 // Store io instance on the app object to make it accessible in request handlers
 app.set('io', io);
@@ -64,9 +57,23 @@ app.use(helmet({
             includeSubDomains: false,
             preload: false
         }
+        : false,
+    xFrameOptions: { action: 'deny' }, // Legacy clickjacking protection for older browsers
+    contentSecurityPolicy: cspOptions.enabled
+        ? {
+            useDefaults: false,
+            directives: cspOptions.directives,
+            reportOnly: cspOptions.reportOnly
+        }
         : false
 }));
+if (cspOptions.enabled) {
+    logger.info(`CSP is enabled in ${cspOptions.reportOnly ? 'report-only' : 'enforce'} mode.`);
+} else {
+    logger.warn('CSP is disabled via CSP_MODE=off.');
+}
 app.use(cors(corsOptions)); // Enable Cross-Origin Resource Sharing
+app.options(/.*/, cors(corsOptions)); // Ensure all preflight requests use the same strict policy
 app.use(cookieParser());     // Parse cookies (needed for refresh tokens)
 app.use(express.json({ limit: conf.JSON_BODY_LIMIT })); // Parses incoming JSON payloads
 app.use(express.text({ type: 'text/plain', limit: conf.TEXT_BODY_LIMIT })); // Let's receive plain text for certain NFC readers
