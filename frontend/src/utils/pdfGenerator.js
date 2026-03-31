@@ -260,34 +260,49 @@ export const generateTimetablePDF = ({
     const pageWidth = doc.internal.pageSize.width;
 
     // ── Header ──────────────────────────────────────────────────────────────
-    doc.setFontSize(18);
+    doc.setFontSize(16);
     doc.setFont(undefined, 'bold');
     doc.setTextColor(30, 30, 30);
-    doc.text(schoolName, pageWidth / 2, 18, { align: 'center' });
+    doc.text(schoolName, pageWidth / 2, 14, { align: 'center' });
 
-    doc.setFontSize(11);
+    doc.setFontSize(9);
     doc.setFont(undefined, 'normal');
     doc.setTextColor(100, 100, 100);
-    doc.text('WEEKLY TIMETABLE', pageWidth / 2, 26, { align: 'center' });
+    doc.text('WEEKLY TIMETABLE', pageWidth / 2, 21, { align: 'center' });
 
-    doc.setFontSize(10);
+    doc.setFontSize(9);
     doc.setTextColor(60, 60, 60);
     const subtitle = section
         ? `Class ${standard}-${section}   ·   Academic Year: ${academicYear || '—'}`
         : `${standard}   ·   Academic Year: ${academicYear || '—'}`;
-    doc.text(subtitle, pageWidth / 2, 33, { align: 'center' });
+    doc.text(subtitle, pageWidth / 2, 27, { align: 'center' });
 
-    doc.setFontSize(8);
+    doc.setFontSize(7.5);
     doc.setTextColor(150, 150, 150);
     doc.text(
         `Generated: ${new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}`,
-        pageWidth / 2, 39, { align: 'center' }
+        pageWidth / 2, 32, { align: 'center' }
     );
 
     // Divider below header
     doc.setDrawColor(220, 220, 220);
     doc.setLineWidth(0.3);
-    doc.line(14, 43, pageWidth - 14, 43);
+    doc.line(14, 35, pageWidth - 14, 35);
+
+    // ── Dynamic sizing — keep everything on one landscape A4 page ────────────
+    // Landscape A4 height = 210mm; startY at 38 leaves ~162mm for table
+    const TABLE_START_Y = 38;
+    const PAGE_HEIGHT = doc.internal.pageSize.height;
+    const FOOTER_RESERVE = 10;
+    const TABLE_HEADER_H = 9;
+    const rowCount = timeSlots.length || 1;
+    const availableForRows = PAGE_HEIGHT - TABLE_START_Y - FOOTER_RESERVE - TABLE_HEADER_H;
+    const targetRowH = availableForRows / rowCount;
+    const BODY_FONT = 7.5;
+    const LINE_H_MM = BODY_FONT * 0.353;
+    const MAX_LINES = 2;
+    const cellPadV = Math.min(4, Math.max(1.5, (targetRowH - MAX_LINES * LINE_H_MM) / 2));
+    const cellPadH = 3;
 
     // ── Table ────────────────────────────────────────────────────────────────
     const head = [['TIME', ...DAYS]];
@@ -360,7 +375,7 @@ export const generateTimetablePDF = ({
     });
 
     autoTable(doc, {
-        startY: 48,
+        startY: TABLE_START_Y,
         head,
         body,
         theme: 'grid',
@@ -368,20 +383,20 @@ export const generateTimetablePDF = ({
             fillColor: [30, 30, 30],
             textColor: [255, 255, 255],
             fontStyle: 'bold',
-            fontSize: 9,
+            fontSize: 8.5,
             halign: 'center',
-            cellPadding: { top: 4, bottom: 4, left: 3, right: 3 },
+            cellPadding: { top: 3, bottom: 3, left: cellPadH, right: cellPadH },
         },
         styles: {
-            fontSize: 8,
-            cellPadding: { top: 5, bottom: 5, left: 4, right: 4 },
+            fontSize: BODY_FONT,
+            cellPadding: { top: cellPadV, bottom: cellPadV, left: cellPadH, right: cellPadH },
             valign: 'middle',
             lineColor: [220, 220, 220],
             lineWidth: 0.2,
             overflow: 'linebreak',
         },
         columnStyles: {
-            0: { halign: 'center', cellWidth: 28, fillColor: [248, 248, 248] },
+            0: { halign: 'center', cellWidth: 26, fillColor: [248, 248, 248] },
             1: { halign: 'center' },
             2: { halign: 'center' },
             3: { halign: 'center' },
@@ -391,10 +406,11 @@ export const generateTimetablePDF = ({
         },
         alternateRowStyles: { fillColor: [255, 255, 255] },
         margin: { left: 14, right: 14 },
+        pageBreak: 'avoid',
     });
 
     // ── Footer ───────────────────────────────────────────────────────────────
-    const finalY = (doc.lastAutoTable?.finalY || 150) + 8;
+    const finalY = (doc.lastAutoTable?.finalY || 150) + 6;
     doc.setFontSize(7);
     doc.setTextColor(180, 180, 180);
     doc.text(
