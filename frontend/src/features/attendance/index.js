@@ -9,6 +9,7 @@ export {
     useLinkNfcTag,
     useMarkNfcAttendance,
     useMarkManualAttendance,
+    useReplaceClassTeacher,
     useProfile,
 } from './api/queries';
 

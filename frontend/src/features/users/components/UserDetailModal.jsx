@@ -2,8 +2,10 @@ import React, { useState, useEffect, useMemo } from 'react';
 import {
   FaTimes, FaIdCard, FaBuilding, FaLayerGroup, FaEnvelope, FaPhone, FaSave, FaChalkboardTeacher
 } from 'react-icons/fa';
-import { useUpdateUser } from '../api/queries';
+import { useUpdateUser, useUsers } from '../api/queries';
 import { useSchoolClasses } from '../../../hooks/useSchoolClasses';
+
+const LIGHT_SELECT_CLASS = 'w-full bg-white text-gray-900 rounded px-2 py-1.5 text-xs font-black outline-none border border-gray-100 focus:border-blue-300 transition-all';
 
 const naturalSort = (arr) => {
   return [...arr].sort((a, b) => {
@@ -11,12 +13,17 @@ const naturalSort = (arr) => {
   });
 };
 
+const buildClassKey = ({ standard, section } = {}) =>
+  `${String(standard || '').trim()}::${String(section || '').trim().toUpperCase()}`;
+
 const UserDetailModal = ({ user, onClose, initialMode = 'view', onSuccess }) => {
   const updateUserMutation = useUpdateUser();
+  const teachersQuery = useUsers({ role: 'teacher', pageSize: 5000, enabled: initialMode === 'edit' && user?.role === 'teacher' });
   const [mode, setMode] = useState(initialMode);
   const [formData, setFormData] = useState({});
   const [guardianTab, setGuardianTab] = useState('parents');
   const [teacherClassDraft, setTeacherClassDraft] = useState({ standard: '', section: '' });
+  const [saveError, setSaveError] = useState('');
 
   useEffect(() => {
     if (user) {
@@ -41,6 +48,7 @@ const UserDetailModal = ({ user, onClose, initialMode = 'view', onSuccess }) => 
       });
       setMode(initialMode);
       setTeacherClassDraft({ standard: '', section: '' });
+      setSaveError('');
     }
   }, [user, initialMode]);
 
@@ -51,7 +59,19 @@ const UserDetailModal = ({ user, onClose, initialMode = 'view', onSuccess }) => 
   const isArchivedUser = Boolean(user?.isArchived);
   const isActiveUser = Boolean(user?.isActive);
   const { classSections } = useSchoolClasses({ enabled: isEditing && (isStudent || isTeacher) });
-
+  const currentTeacherClassKeys = useMemo(
+    () => new Set((formData.profile?.assignedClasses || []).map((item) => buildClassKey(item))),
+    [formData.profile?.assignedClasses]
+  );
+  const occupiedTeacherClassKeys = useMemo(() => {
+    return new Set(
+      (teachersQuery.data?.data?.users || [])
+        .filter((teacher) => String(teacher._id) !== String(user?._id))
+        .map((teacher) => teacher.profile?.assignedClasses?.[0])
+        .filter(Boolean)
+        .map((item) => buildClassKey(item))
+    );
+  }, [teachersQuery.data?.data?.users, user?._id]);
   const classSectionsMap = useMemo(() => {
     const map = {};
 
@@ -123,6 +143,7 @@ const UserDetailModal = ({ user, onClose, initialMode = 'view', onSuccess }) => 
 
   const handleSave = async () => {
     try {
+      setSaveError('');
       await updateUserMutation.mutateAsync({
         id: user._id,
         payload: {
@@ -135,7 +156,7 @@ const UserDetailModal = ({ user, onClose, initialMode = 'view', onSuccess }) => 
       if (onSuccess) onSuccess('User updated successfully');
       setMode('view');
     } catch (error) {
-      console.error('Update failed', error);
+      setSaveError(error?.response?.data?.message || 'Failed to update user');
     }
   };
   const handleAddTeacherClass = () => {
@@ -152,11 +173,18 @@ const UserDetailModal = ({ user, onClose, initialMode = 'view', onSuccess }) => 
     );
     if (exists) return;
 
-    const next = [...current, { standard, section, subjects: [] }];
+    const nextClassKey = buildClassKey({ standard, section });
+    if (occupiedTeacherClassKeys.has(nextClassKey)) {
+      setSaveError('This class already has a class teacher assigned.');
+      return;
+    }
+
+    const next = [{ standard, section, subjects: [] }];
     setFormData((prev) => ({
       ...prev,
       profile: { ...prev.profile, assignedClasses: next }
     }));
+    setSaveError('');
   };
 
   const handleRemoveTeacherClass = (target) => {
@@ -238,6 +266,11 @@ const UserDetailModal = ({ user, onClose, initialMode = 'view', onSuccess }) => 
 
         {/* Content Area */}
         <div className="flex-1 overflow-y-auto p-8 custom-scrollbar bg-gray-50/30">
+          {saveError && (
+            <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+              {saveError}
+            </div>
+          )}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* Left Column: Basic Info & Badges */}
             <div className="lg:col-span-1 space-y-6">
@@ -316,7 +349,8 @@ const UserDetailModal = ({ user, onClose, initialMode = 'view', onSuccess }) => 
                       </div>
                       {isEditing ? (
                         <select
-                          className="w-full bg-gray-50 rounded px-2 py-1 text-xs font-black outline-none border border-gray-100 focus:border-blue-300 transition-all"
+                          className="w-full bg-white text-gray-900 rounded px-2 py-1 text-xs font-black outline-none border border-gray-100 focus:border-blue-300 transition-all"
+                          style={{ colorScheme: 'light' }}
                           value={formData.profile?.standard}
                           onChange={(e) => {
                             const nextStandard = e.target.value;
@@ -328,8 +362,8 @@ const UserDetailModal = ({ user, onClose, initialMode = 'view', onSuccess }) => 
                             });
                           }}
                         >
-                          <option value="" disabled hidden>Standard</option>
-                          {standards.map(std => <option key={std} value={std}>{std}</option>)}
+                          <option value="">Standard</option>
+                          {standards.map(std => <option key={std} value={std} className="bg-white text-gray-900">{std}</option>)}
                         </select>
                       ) : (
                         <span className="text-sm font-black text-gray-900">{formData.profile?.standard || 'N/A'}</span>
@@ -342,12 +376,13 @@ const UserDetailModal = ({ user, onClose, initialMode = 'view', onSuccess }) => 
                       </div>
                       {isEditing ? (
                         <select
-                          className="w-full bg-gray-50 rounded px-2 py-1 text-xs font-black outline-none border border-gray-100 focus:border-blue-300 transition-all"
+                          className="w-full bg-white text-gray-900 rounded px-2 py-1 text-xs font-black outline-none border border-gray-100 focus:border-blue-300 transition-all"
+                          style={{ colorScheme: 'light' }}
                           value={formData.profile?.section}
                           onChange={(e) => setFormData({ ...formData, profile: { ...formData.profile, section: e.target.value } })}
                         >
-                          <option value="" disabled hidden>Section</option>
-                          {sections.map(sec => <option key={sec} value={sec}>{sec}</option>)}
+                          <option value="">Section</option>
+                          {sections.map(sec => <option key={sec} value={sec} className="bg-white text-gray-900">{sec}</option>)}
                         </select>
                       ) : (
                         <span className="text-sm font-black text-gray-900">{formData.profile?.section || 'N/A'}</span>
@@ -366,7 +401,8 @@ const UserDetailModal = ({ user, onClose, initialMode = 'view', onSuccess }) => 
                     {isEditing && (
                       <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-2 items-center mb-3">
                         <select
-                          className="w-full bg-gray-50 rounded px-2 py-1.5 text-xs font-black outline-none border border-gray-100 focus:border-blue-300 transition-all"
+                          className={LIGHT_SELECT_CLASS}
+                          style={{ colorScheme: 'light' }}
                           value={teacherClassDraft.standard}
                           onChange={(e) => {
                             const nextStandard = e.target.value;
@@ -374,26 +410,34 @@ const UserDetailModal = ({ user, onClose, initialMode = 'view', onSuccess }) => 
                             setTeacherClassDraft({ standard: nextStandard, section: nextSection });
                           }}
                         >
-                          <option value="" disabled hidden>Standard</option>
-                          {standards.map(std => <option key={std} value={std}>{std}</option>)}
+                          <option value="">Standard</option>
+                          {standards.map(std => <option key={std} value={std} className="bg-white text-gray-900">{std}</option>)}
                         </select>
                         <select
-                          className="w-full bg-gray-50 rounded px-2 py-1.5 text-xs font-black outline-none border border-gray-100 focus:border-blue-300 transition-all"
+                          className={LIGHT_SELECT_CLASS}
+                          style={{ colorScheme: 'light' }}
                           value={teacherClassDraft.section}
                           onChange={(e) => setTeacherClassDraft((prev) => ({ ...prev, section: e.target.value }))}
                           disabled={!teacherSelectedStandard}
                         >
-                          <option value="" disabled hidden>Section</option>
-                          {teacherSections.map(sec => <option key={sec} value={sec}>{sec}</option>)}
+                          <option value="">Section</option>
+                          {teacherSections.map(sec => <option key={sec} value={sec} className="bg-white text-gray-900">{sec}</option>)}
                         </select>
                         <button
                           type="button"
                           onClick={handleAddTeacherClass}
+                          disabled={!teacherClassDraft.standard || !teacherClassDraft.section}
                           className="px-3 py-1.5 rounded-lg text-xs font-bold bg-blue-600 text-white hover:bg-blue-700 transition-colors"
                         >
                           Add
                         </button>
                       </div>
+                    )}
+
+                    {isEditing && (
+                      <p className="mb-3 text-[11px] text-slate-500">
+                        Teacher can own only one class as class teacher. Choosing a new class replaces the current one.
+                      </p>
                     )}
 
                     <div className="flex flex-wrap gap-2">

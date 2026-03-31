@@ -12,6 +12,7 @@ import {
 } from "../../utils/customError.js";
 import logger from "../../config/logger.js";
 import { assertClassSectionExists } from "../../utils/classSection.util.js";
+import { ensureActiveTeacher } from "../../utils/teacher.util.js";
 
 // ═══════════════════════════════════════════════════════════════
 // Helper — Validate teacher has access to a class
@@ -27,6 +28,29 @@ const assertTeacherClassAccess = async (userId, schoolId, standard, section) => 
     if (!hasAccess) {
         throw new ForbiddenError("You can only manage exams for your assigned classes");
     }
+};
+
+const assertExamAssignedTeachersAreActive = async (schoolId, schedule = []) => {
+    const teacherIds = [
+        ...new Set(
+            (Array.isArray(schedule) ? schedule : [])
+                .map((item) => item?.assignedTeacher)
+                .filter(Boolean)
+                .map((teacherId) => String(teacherId))
+        ),
+    ];
+
+    if (teacherIds.length === 0) {
+        return;
+    }
+
+    await Promise.all(
+        teacherIds.map((teacherId) =>
+            ensureActiveTeacher(schoolId, teacherId, {
+                message: "Assigned teacher is archived or unavailable for this exam",
+            })
+        )
+    );
 };
 
 // ═══════════════════════════════════════════════════════════════
@@ -85,6 +109,8 @@ export const createExam = async (schoolId, data, user) => {
     }
 
     // Prepare create data
+    await assertExamAssignedTeachersAreActive(activeSchoolId, data.schedule);
+
     const createData = {
         ...data,
         schoolId: activeSchoolId,
@@ -197,6 +223,10 @@ export const updateExam = async (schoolId, examId, data, user) => {
     }
 
     // Apply safe updates (don't allow changing examType, standard, section, academicYear)
+    if (data.schedule !== undefined) {
+        await assertExamAssignedTeachersAreActive(schoolId, data.schedule);
+    }
+
     if (data.name !== undefined) exam.name = data.name;
     if (data.category !== undefined) exam.category = data.category;
     if (data.categoryDescription !== undefined)

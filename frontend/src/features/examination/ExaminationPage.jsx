@@ -554,7 +554,9 @@ const ExaminationPage = () => {
                   </div>
                   <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
                     <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Creation Details</div>
-                    <div className="text-slate-900 font-bold">{selectedExam.createdBy?.isArchived ? 'No Assigned Teacher' : (selectedExam.createdBy?.name || 'Admin')} • {selectedExam.createdByRole || 'Staff'}</div>
+                    <div className="text-slate-900 font-bold">
+                      {selectedExam.createdBy?.name || 'Admin'} • {selectedExam.createdBy?.isArchived ? `Archived ${selectedExam.createdByRole || 'Staff'}` : (selectedExam.createdByRole || 'Staff')}
+                    </div>
                   </div>
                 </div>
 
@@ -598,7 +600,10 @@ const ExaminationPage = () => {
                             </div>
                             <div className="flex items-center gap-3 text-xs text-slate-600 font-medium pt-1">
                                 <FaChalkboardTeacher size={12} className="text-slate-400" />
-                                <span>Invigilator: {slot.assignedTeacher?.isArchived ? 'No Assigned Teacher' : (slot.assignedTeacher?.name || 'No Assigned Teacher')}</span>
+                                <span>
+                                  Invigilator: {slot.assignedTeacher?.name || 'No Assigned Teacher'}
+                                  {slot.assignedTeacher?.isArchived ? ' (Archived)' : ''}
+                                </span>
                               </div>
                           </div>
                           {slot.syllabus && (

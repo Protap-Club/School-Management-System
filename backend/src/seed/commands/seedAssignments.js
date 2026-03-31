@@ -45,31 +45,36 @@ const seedAssignments = async () => {
     const teacherIdByEmail = new Map(teacherUsers.map((teacher) => [teacher.email, teacher._id]));
     const records = [];
 
-    teachers.forEach((teacher, classIndex) => {
+    teachers.forEach((teacher, teacherIndex) => {
       const createdBy = teacherIdByEmail.get(teacher.email);
       if (!createdBy) {
         logger.warn(`[${code}] Teacher not found for assignments: ${teacher.email}`);
         return;
       }
 
-      const classLabel = `${teacher.assignedClass.standard}-${teacher.assignedClass.section}`;
-      const subjects = teacher.subjects?.length ? teacher.subjects : ["English"];
+      // Iterate through every class assigned to this teacher
+      teacher.assignedClasses.forEach((assignedClassRef, classIdx) => {
+        const { standard, section, subjects } = assignedClassRef;
+        const classLabel = `${standard}-${section}`;
 
-      assignmentData.templates.forEach((template, templateIndex) => {
-        const subject = subjects[(classIndex + templateIndex) % subjects.length];
+        // Create assignment for each template
+        assignmentData.templates.forEach((template, templateIndex) => {
+          // Select subject from the teacher's specialization group for this specific class
+          const subject = subjects[(teacherIndex + classIdx + templateIndex) % subjects.length];
 
-        records.push({
-          schoolId: school._id,
-          createdBy,
-          title: fillTemplate(template.titleTemplate, { classLabel, subject }),
-          description: fillTemplate(template.descriptionTemplate, { classLabel, subject }),
-          subject,
-          standard: teacher.assignedClass.standard,
-          section: teacher.assignedClass.section,
-          dueDate: addDays(template.dueInDays + (classIndex % 3)),
-          requiresSubmission: Boolean(template.requiresSubmission),
-          status: "active",
-          attachments: [],
+          records.push({
+            schoolId: school._id,
+            createdBy,
+            title: fillTemplate(template.titleTemplate, { classLabel, subject }),
+            description: fillTemplate(template.descriptionTemplate, { classLabel, subject }),
+            subject,
+            standard: String(standard),
+            section: String(section),
+            dueDate: addDays(template.dueInDays + (teacherIndex % 3)),
+            requiresSubmission: Boolean(template.requiresSubmission),
+            status: "active",
+            attachments: [],
+          });
         });
       });
     });

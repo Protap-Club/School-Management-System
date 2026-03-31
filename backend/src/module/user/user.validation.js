@@ -101,6 +101,7 @@ export const userIdsBodySchema = z.object({
     body: z.object({
         userIds: z.array(objectIdSchema).nonempty('User IDs array cannot be empty'),
         isArchived: z.boolean({ required_error: 'isArchived is required' }),
+        replacementTeacherId: objectIdSchema.optional(),
     }),
 });
 
@@ -152,4 +153,22 @@ export const updateUserSchema = z.object({
         contactNo: z.string().optional(),
         profile: profileUpdateSchema.optional(),
     }).strict(),
+});
+
+export const replaceClassTeacherSchema = z.object({
+    body: z.object({
+        standard: z.string().min(1, 'Standard is required'),
+        section: z.string().min(1, 'Section is required'),
+        replacementTeacherId: objectIdSchema,
+        mode: z.enum(['replace', 'swap', 'reassign']).optional().default('replace'),
+        reassignTeacherId: objectIdSchema.optional(),
+    }).strict().superRefine((data, ctx) => {
+        if (data.mode === 'reassign' && !data.reassignTeacherId) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: 'reassignTeacherId is required when mode is reassign',
+                path: ['reassignTeacherId'],
+            });
+        }
+    }),
 });

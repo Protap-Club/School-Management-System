@@ -4,7 +4,6 @@ import School from "../../module/school/School.model.js";
 import logger from "../../config/logger.js";
 import { loadSeedJson } from "../lib/loadJson.js";
 import {
-  buildTeacherSeedData,
   createClassKey,
   getAcademicYear,
   getSchoolClassSections,
@@ -32,34 +31,41 @@ const seedTimetable = async () => {
   for (const schoolDef of schoolsDef) {
     const code = schoolDef.code;
     const school = await School.findOne({ code });
+
     if (!school) {
       logger.warn(`School ${code} not found. Skipping timetable.`);
       continue;
     }
 
-    // Clean up
+    // 🔥 CLEAN OLD DATA
     const existing = await Timetable.find({ schoolId: school._id }).select("_id");
     await TimetableEntry.deleteMany({ timetableId: { $in: existing.map((t) => t._id) } });
     await Timetable.deleteMany({ schoolId: school._id });
     await TimeSlot.deleteMany({ schoolId: school._id });
 
-    // 1. TimeSlots (same for all schools)
+    // 1️⃣ TIME SLOTS
     const slots = await TimeSlot.insertMany(
-      ttData.timeSlots.map((slot) => ({ ...slot, schoolId: school._id }))
+      ttData.timeSlots.map((slot) => ({
+        ...slot,
+        schoolId: school._id,
+      }))
     );
+
     const slotByNumber = {};
     slots.forEach((slot) => {
       slotByNumber[slot.slotNumber] = slot;
     });
 
-    // 2. Timetable headers
+    // 2️⃣ TIMETABLE HEADERS
     const classSections = getSchoolClassSections(code);
-    const timetableHeaders = classSections.map((tt) => ({
+
+    const timetableHeaders = classSections.map((cls) => ({
       schoolId: school._id,
-      standard: String(tt.standard),
-      section: String(tt.section).toUpperCase(),
+      standard: String(cls.standard),
+      section: String(cls.section).toUpperCase(),
       academicYear: ttData.academicYear || getAcademicYear(),
     }));
+
     const createdTimetables = await Timetable.insertMany(timetableHeaders);
 
     const timetableMap = {};
@@ -67,55 +73,53 @@ const seedTimetable = async () => {
       timetableMap[`${item.standard}-${item.section}`] = item._id;
     });
 
-    // 3. Resolve teacher emails for this school
-    const generatedTeachers = buildTeacherSeedData(code);
-    const teacherEmails = generatedTeachers.map((teacher) => teacher.email);
-    const teachers = await User.find({
-      schoolId: school._id,
-      email: { $in: teacherEmails },
-    }).select("_id email");
-    const teacherIdByEmail = {};
-    teachers.forEach((t) => {
-      teacherIdByEmail[t.email] = t._id;
+    // ✅ NEW LOGIC: FETCH TEACHER ASSIGNMENTS FROM TeacherProfile
+    const TeacherProfile = (await import("../../module/user/model/TeacherProfile.model.js")).default;
+    const teacherProfiles = await TeacherProfile.find({ schoolId: school._id }).lean();
+
+    // Map: "standard-section-subject" -> teacherUserId
+    const assignmentMap = new Map();
+    teacherProfiles.forEach(profile => {
+      profile.assignedClasses.forEach(ac => {
+        const classKey = `${ac.standard}-${ac.section}`.toUpperCase();
+        ac.subjects.forEach(sub => {
+          assignmentMap.set(`${classKey}-${sub}`, profile.userId);
+        });
+      });
     });
 
-    // 4. Create entries
+    // 3️⃣ CREATE ENTRIES
     const entries = [];
     const classSlots = Object.values(slotByNumber)
       .filter((slot) => slot.slotType === "CLASS")
-      .sort((left, right) => left.slotNumber - right.slotNumber);
+      .sort((a, b) => a.slotNumber - b.slotNumber);
 
-    for (const teacher of generatedTeachers) {
-      const classKey = createClassKey(teacher.assignedClass);
-      const timetableId = timetableMap[classKey];
-      if (!timetableId) continue;
-
-      const teacherId = teacherIdByEmail[teacher.email];
-      if (!teacherId) {
-        logger.warn(`[${code}] Teacher not found: ${teacher.email}`);
-        continue;
-      }
-
-      const subjects = teacher.subjects?.length
-        ? teacher.subjects
-        : getSubjectsForStandard(teacher.assignedClass.standard);
+    for (const timetable of createdTimetables) {
+      const classKey = `${timetable.standard}-${timetable.section}`.toUpperCase();
+      const subjects = getSubjectsForStandard(timetable.standard);
 
       daysOfWeek.forEach((day, dayIndex) => {
         const dayShort = DAY_MAP[day];
         if (!dayShort) return;
 
         classSlots.forEach((slot, slotIndex) => {
+          // Deterministic rotation to pick a subject for this slot
           const subject = subjects[(slotIndex + dayIndex) % subjects.length];
+          const teacherId = assignmentMap.get(`${classKey}-${subject}`);
 
-          entries.push({
-            schoolId: school._id,
-            timetableId,
-            dayOfWeek: dayShort,
-            timeSlotId: slot._id,
-            subject,
-            teacherId,
-            roomNumber: teacher.roomNumber || `Class ${classKey}`,
-          });
+          if (teacherId) {
+            entries.push({
+              schoolId: school._id,
+              timetableId: timetable._id,
+              dayOfWeek: dayShort,
+              timeSlotId: slot._id,
+              subject,
+              teacherId,
+              roomNumber: `Class ${timetable.standard}-${timetable.section}`,
+            });
+          } else {
+            logger.debug(`[${code}] No teacher assigned for ${classKey} -> ${subject}`);
+          }
         });
       });
     }
@@ -124,7 +128,9 @@ const seedTimetable = async () => {
       await TimetableEntry.insertMany(entries, { ordered: false });
     }
 
-    logger.info(`[${code}] Timetable seeded: ${slots.length} slots, ${createdTimetables.length} headers, ${entries.length} entries`);
+    logger.info(
+      `[${code}] Timetable seeded: ${slots.length} slots, ${createdTimetables.length} timetables, ${entries.length} entries`
+    );
   }
 };
 

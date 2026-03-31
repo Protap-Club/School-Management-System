@@ -8,11 +8,20 @@ import {
     uploadAvatar,
     updateUser,
     updateTeacherProfile,
+    replaceClassTeacher,
 } from "./user.controller.js";
 import { checkRole } from "../../middlewares/role.middleware.js";
 import { USER_ROLES } from "../../constants/userRoles.js";
 import { validate } from "../../middlewares/validation.middleware.js";
-import { createUserSchema, getUsersSchema, userIdsBodySchema, userIdParamsSchema, updateTeacherProfileSchema, updateUserSchema } from "./user.validation.js";
+import {
+    createUserSchema,
+    getUsersSchema,
+    userIdsBodySchema,
+    userIdParamsSchema,
+    updateTeacherProfileSchema,
+    updateUserSchema,
+    replaceClassTeacherSchema,
+} from "./user.validation.js";
 import checkWebOnly from "../../middlewares/checkWebOnly.js";
 import { avatarUpload } from "../../middlewares/upload.middleware.js";
 
@@ -53,6 +62,14 @@ router.patch(
 );
 
 router.patch("/me/avatar", checkWebOnly, avatarUpload.single("avatar"), uploadAvatar);
+
+router.patch(
+    "/class-teacher/replace",
+    checkWebOnly,
+    checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN]),
+    validate(replaceClassTeacherSchema),
+    replaceClassTeacher
+);
 
 router.patch(
     "/:id/teacher-profile",

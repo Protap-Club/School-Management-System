@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { FaTimes, FaUserPlus, FaBuilding } from 'react-icons/fa';
 import api from '../../../lib/axios';
 import { useAuth } from '../../../features/auth';
-import { useCreateUser } from '../api/queries';
+import { useCreateUser, useUsers } from '../api/queries';
 import { useSchoolClasses } from '../../../hooks/useSchoolClasses';
 
 const InputField = ({ label, name, value, onChange, type = "text", required = false, isNumeric = false, ...props }) => (
@@ -24,7 +24,17 @@ const InputField = ({ label, name, value, onChange, type = "text", required = fa
     </div>
 );
 
-const SelectField = ({ label, name, value, onChange, options, placeholder, required = false, loading = false }) => (
+const SelectField = ({
+    label,
+    name,
+    value,
+    onChange,
+    options,
+    placeholder,
+    required = false,
+    loading = false,
+    disabled = false
+}) => (
     <div className="space-y-1">
         <label className="text-sm font-medium text-gray-700 flex items-center gap-1">
             {label} {required && <span className="text-red-500">*</span>}
@@ -34,12 +44,13 @@ const SelectField = ({ label, name, value, onChange, options, placeholder, requi
             value={value}
             onChange={onChange}
             required={required}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all bg-white disabled:opacity-60"
-            disabled={loading}
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all bg-white text-gray-900 disabled:bg-gray-100 disabled:text-gray-500 disabled:opacity-100"
+            disabled={disabled}
+            style={{ colorScheme: 'light' }}
         >
-            <option value="" disabled hidden>{loading ? 'Loading...' : `Select ${label}`}</option>
+            <option value="">{loading ? 'Loading...' : (placeholder || `Select ${label}`)}</option>
             {options.map(opt => (
-                <option key={opt} value={opt}>{opt}</option>
+                <option key={opt} value={opt} className="bg-white text-gray-900">{opt}</option>
             ))}
         </select>
     </div>
@@ -67,9 +78,13 @@ const INITIAL_FORM = {
     expectedSalary: ''
 };
 
+const buildClassKey = ({ standard, section } = {}) =>
+    `${String(standard || '').trim()}::${String(section || '').trim().toUpperCase()}`;
+
 const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
     const { user } = useAuth();
     const createUserMutation = useCreateUser();
+    const teachersQuery = useUsers({ role: 'teacher', pageSize: 5000, enabled: isOpen && roleToAdd === 'teacher' });
     const [formData, setFormData] = useState({ ...INITIAL_FORM });
     const [schoolName, setSchoolName] = useState('');
     const [loading, setLoading] = useState(false);
@@ -77,8 +92,23 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
     const [activeGuardianTab, setActiveGuardianTab] = useState('parents'); // 'parents' | 'guardian'
 
     // Classes / sections fetched from backend via global hook
-    const { loading: classesLoading, availableStandards: standards, getSectionsForStandard, allUniqueSections } = useSchoolClasses();
+    const { loading: classesLoading, classSections, availableStandards: standards, getSectionsForStandard, allUniqueSections } = useSchoolClasses();
+    const occupiedTeacherClassKeys = useMemo(() => {
+        return new Set(
+            (teachersQuery.data?.data?.users || [])
+                .map((teacher) => teacher.profile?.assignedClasses?.[0])
+                .filter(Boolean)
+                .map((assignedClass) => buildClassKey(assignedClass))
+        );
+    }, [teachersQuery.data?.data?.users]);
+    const selectedTeacherClassOccupied = useMemo(
+        () => roleToAdd === 'teacher' && formData.standard && formData.section
+            ? occupiedTeacherClassKeys.has(buildClassKey({ standard: formData.standard, section: formData.section }))
+            : false,
+        [formData.section, formData.standard, occupiedTeacherClassKeys, roleToAdd]
+    );
     const sections = formData.standard ? getSectionsForStandard(formData.standard) : allUniqueSections;
+    const teacherAssignmentLoading = classesLoading || teachersQuery.isLoading;
 
     const roleLabel = roleToAdd?.charAt(0).toUpperCase() + roleToAdd?.slice(1);
 
@@ -130,6 +160,11 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
             if (roleToAdd === 'admin') {
                 if (formData.department) payload.department = formData.department;
             } else if (roleToAdd === 'teacher') {
+                if (formData.standard && formData.section && selectedTeacherClassOccupied) {
+                    setError('A class teacher is already assigned to this class. Please choose another class or replace the existing teacher first.');
+                    setLoading(false);
+                    return;
+                }
                 if (formData.standard) payload.standard = formData.standard;
                 if (formData.section) payload.section = formData.section;
                 if (formData.expectedSalary !== '') {
@@ -244,20 +279,29 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
                                     <SelectField
                                         label="Primary Standard" name="standard" value={formData.standard}
                                         onChange={handleChange} required
-                                        options={standards} placeholder="Choose Class"
+                                        options={standards} placeholder="Choose Standard"
                                         loading={classesLoading}
+                                        disabled={classesLoading}
                                     />
                                     <SelectField
                                         label="Primary Section" name="section" value={formData.section}
                                         onChange={handleChange} required
                                         options={sections} placeholder="Choose Section"
                                         loading={classesLoading}
+                                        disabled={classesLoading || !formData.standard}
                                     />
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <InputField label="Expected / Desired Salary" name="expectedSalary" type="text"
                                         value={formData.expectedSalary} onChange={handleChange}
                                         placeholder="e.g. 45000" isNumeric />
+                                </div>
+                                <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                                    {teacherAssignmentLoading
+                                        ? 'Checking current class-teacher assignments...'
+                                        : selectedTeacherClassOccupied
+                                            ? 'This selected class already has a class teacher. Saving will be blocked until you choose a free class.'
+                                            : 'All configured classes are visible here. If a class already has a class teacher, saving will show a clear message.'}
                                 </div>
                             </div>
                         )}
@@ -273,12 +317,14 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
                                         onChange={handleChange} required
                                         options={standards}
                                         loading={classesLoading}
+                                        disabled={classesLoading}
                                     />
                                     <SelectField
                                         label="Section" name="section" value={formData.section}
                                         onChange={handleChange} required
                                         options={sections}
                                         loading={classesLoading}
+                                        disabled={classesLoading || !formData.standard}
                                     />
                                 </div>
                             </div>

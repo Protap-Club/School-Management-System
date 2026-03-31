@@ -7,6 +7,7 @@ import {
     getConfiguredClassSections,
     normalizeClassSection,
 } from "../../utils/classSection.util.js";
+import { ensureActiveTeacher } from "../../utils/teacher.util.js";
 
 // HELPERS
 
@@ -226,6 +227,25 @@ export const createEntries = async (schoolId, timetableId, entries) => {
         throw new NotFoundError("Timetable not found");
     }
 
+    const teacherIdsToValidate = [
+        ...new Set(
+            entries
+                .map((entry) => entry.teacherId)
+                .filter(Boolean)
+                .map((teacherId) => String(teacherId))
+        ),
+    ];
+
+    if (teacherIdsToValidate.length > 0) {
+        await Promise.all(
+            teacherIdsToValidate.map((teacherId) =>
+                ensureActiveTeacher(schoolId, teacherId, {
+                    message: "Selected teacher is archived or unavailable for timetable entries",
+                })
+            )
+        );
+    }
+
     // run all teacher conflict checks in parallel for better performance
     const conflictResults = await Promise.all(
         entries.map(async (entry) => {
@@ -301,6 +321,12 @@ export const createEntries = async (schoolId, timetableId, entries) => {
 export const updateEntry = async (schoolId, id, updates) => {
     const entry = await TimetableEntry.findOne({ _id: id, schoolId }).lean();
     if (!entry) throw new NotFoundError("Entry not found");
+
+    if (updates.teacherId) {
+        await ensureActiveTeacher(schoolId, updates.teacherId, {
+            message: "Selected teacher is archived or unavailable for timetable entries",
+        });
+    }
 
     // only check conflicts when fields that affect scheduling are changed
     if (updates.teacherId || updates.timeSlotId || updates.dayOfWeek) {
