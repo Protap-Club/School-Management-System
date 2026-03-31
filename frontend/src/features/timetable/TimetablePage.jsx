@@ -248,53 +248,52 @@ const TimetablePage = () => {
                 )}
 
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
-                    <div className="flex items-center gap-6">
-                        <div className="w-16 h-16 bg-white rounded-2xl shadow-lg flex items-center justify-center text-primary transform hover:rotate-6 transition-transform">
-                            <FaCalendarAlt size={32} />
-                        </div>
-                        <div className="space-y-1">
-                            <h1 className="page-title">Timetable</h1>
-                            <p className="page-subtitle">
-                                {isTeacher ? "View your weekly schedule." : "Manage class and teacher schedules."}
-                            </p>
-                        </div>
+                    <div className="flex flex-col space-y-1">
+                        <h1 className="text-2xl font-semibold text-gray-900 tracking-tight">Timetable</h1>
+                        <p className="text-sm text-gray-500">
+                            {isTeacher ? "Manage your teaching hours and academic schedule." : "Academic scheduling and faculty coordination."}
+                        </p>
                     </div>
 
                     {isAdmin ? (
-                        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-gray-100 bg-white p-2 shadow-sm">
-                            <Tabs value={adminViewMode} onValueChange={setAdminViewMode}>
-                                <TabsList>
-                                    <TabsTrigger value="class">Class</TabsTrigger>
-                                    <TabsTrigger value="teacher">Teacher</TabsTrigger>
+                        <div className="flex flex-wrap items-center gap-3">
+                            <Tabs value={adminViewMode} onValueChange={setAdminViewMode} className="bg-gray-100/50 p-1 rounded-lg border border-gray-200/60">
+                                <TabsList className="bg-transparent gap-1 h-auto p-0">
+                                    <TabsTrigger value="class" className="rounded-md text-[13px] font-medium data-[state=active]:bg-white data-[state=active]:shadow-sm px-4 py-1.5 data-[state=active]:text-gray-900 text-gray-600">Class</TabsTrigger>
+                                    <TabsTrigger value="teacher" className="rounded-md text-[13px] font-medium data-[state=active]:bg-white data-[state=active]:shadow-sm px-4 py-1.5 data-[state=active]:text-gray-900 text-gray-600">Teacher</TabsTrigger>
                                 </TabsList>
                             </Tabs>
 
                             {adminViewMode === "class" ? (
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-3">
                                     <Select value={activeClassOption?.key || ""} onValueChange={setSelectedClassKey}>
-                                        <SelectTrigger className="w-52">
+                                        <SelectTrigger className="w-52 h-9 text-[13px] font-medium border-gray-200/80 rounded-md focus:ring-gray-200">
                                             <SelectValue placeholder="Select class" />
                                         </SelectTrigger>
-                                        <SelectContent>
+                                        <SelectContent className="rounded-md border-gray-200/80 shadow-sm">
                                             {classOptions.map((item) => (
-                                                <SelectItem key={item.key} value={item.key}>
+                                                <SelectItem key={item.key} value={item.key} className="text-[13px]">
                                                     {item.standard}-{item.section}{item.timetable ? ` (${item.timetable.academicYear})` : " (Not created)"}
                                                 </SelectItem>
                                             ))}
                                         </SelectContent>
                                     </Select>
-                                    <Button size="sm" onClick={() => setCreateDialogOpen(true)}>
-                                        New
+                                    <Button 
+                                        size="sm" 
+                                        className="h-9 px-4 text-[13px] font-medium bg-gray-900 hover:bg-gray-800 text-white rounded-md transition-colors shadow-none"
+                                        onClick={() => setCreateDialogOpen(true)}
+                                    >
+                                        New Schedule
                                     </Button>
                                 </div>
                             ) : (
                                 <Select value={activeTeacherId} onValueChange={setSelectedTeacherId}>
-                                    <SelectTrigger className="w-52">
+                                    <SelectTrigger className="w-52 h-9 text-[13px] font-medium border-gray-200/80 rounded-md focus:ring-gray-200">
                                         <SelectValue placeholder="Select teacher" />
                                     </SelectTrigger>
-                                    <SelectContent>
+                                    <SelectContent className="rounded-md border-gray-200/80 shadow-sm">
                                         {teachers.map((teacher) => (
-                                            <SelectItem key={teacher._id} value={teacher._id}>
+                                            <SelectItem key={teacher._id} value={teacher._id} className="text-[13px]">
                                                 {teacher.name}
                                             </SelectItem>
                                         ))}
@@ -303,34 +302,36 @@ const TimetablePage = () => {
                             )}
                         </div>
                     ) : (
-                        <div className="inline-flex items-center gap-2 rounded-lg bg-gray-100 px-3 py-2 text-sm font-medium text-gray-700">
-                            <FaChalkboardTeacher />
-                            My Schedule
+                        <div className="inline-flex items-center gap-2 rounded-md bg-gray-100 border border-gray-200/80 px-3 py-1.5 text-xs font-medium text-gray-600">
+                            <FaChalkboardTeacher size={14} />
+                            Active Faculty Schedule
                         </div>
                     )}
                 </div>
 
                 {isLoading ? (
-                    <div className="flex h-64 items-center justify-center rounded-xl border border-gray-100 bg-white">
-                        <ButtonSpinner className="text-2xl" />
+                    <div className="flex h-64 items-center justify-center rounded-xl border border-gray-200/80 bg-white">
+                        <ButtonSpinner className="text-2xl text-gray-400" />
                     </div>
                 ) : (
-                    <div className="space-y-3">
+                    <div className="space-y-6">
                         {isAdmin && adminViewMode === "class" && activeClassOption && !activeTimetableId && (
-                            <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                                No timetable exists yet for {activeClassOption.standard}-{activeClassOption.section}. Click `New` to create it.
+                            <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-[13px] text-gray-700 flex items-center gap-3">
+                                <span>No timetable exists yet for <span className="font-semibold">{activeClassOption.standard}-{activeClassOption.section}</span>. Click <strong>New Schedule</strong> to initialize it.</span>
                             </div>
                         )}
 
-                        <div className="rounded-xl border border-gray-100 bg-white p-3 shadow-sm">
-                            <TimetableGrid
-                                entries={displayEntries}
-                                timeSlots={timeSlots}
-                                teachers={teachers}
-                                onCellClick={handleCellClick}
-                                readOnly={isTeacher || adminViewMode === "teacher" || (isAdmin && adminViewMode === "class" && !activeTimetableId)}
-                                showClass={isTeacher || adminViewMode === "teacher"}
-                            />
+                        <div className="overflow-x-auto pb-4 pt-1">
+                            <div className="min-w-[900px]">
+                                <TimetableGrid
+                                    entries={displayEntries}
+                                    timeSlots={timeSlots}
+                                    teachers={teachers}
+                                    onCellClick={handleCellClick}
+                                    readOnly={isTeacher || adminViewMode === "teacher" || (isAdmin && adminViewMode === "class" && !activeTimetableId)}
+                                    showClass={isTeacher || adminViewMode === "teacher"}
+                                />
+                            </div>
                         </div>
                     </div>
                 )}
