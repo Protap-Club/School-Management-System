@@ -205,3 +205,207 @@ const PAGE_CENTER = (doc, text) => {
         return 14;
     }
 };
+
+/**
+ * Generates a PDF timetable for a class or personal schedule.
+ *
+ * @param {Object}       options
+ * @param {Array}        options.entries       - TimetableEntry[] with populated timeSlotId & teacherId
+ * @param {Array}        options.timeSlots     - TimeSlot[] sorted by slotNumber
+ * @param {string}       options.standard      - e.g. "10"
+ * @param {string}       options.section       - e.g. "A"
+ * @param {string|number} options.academicYear - e.g. 2025
+ * @param {string}       options.schoolName    - Display name of the school
+ */
+export const generateTimetablePDF = ({
+    entries = [],
+    timeSlots = [],
+    standard = '',
+    section = '',
+    academicYear = '',
+    schoolName = 'School',
+}) => {
+    const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+    // Convert 24-h "HH:MM" to "HH:MM AM/PM"; passthrough if already contains am/pm
+    const formatTime = (t) => {
+        if (!t) return '';
+        if (/am|pm/i.test(t)) return t;
+        const [h, m] = t.split(':').map(Number);
+        if (isNaN(h)) return t;
+        const period = h >= 12 ? 'PM' : 'AM';
+        const h12 = h % 12 || 12;
+        return `${String(h12).padStart(2, '0')}:${String(m ?? 0).padStart(2, '0')} ${period}`;
+    };
+
+    // Resolve teacher display name from a populated or raw teacherId field
+    const getTeacherName = (teacherId) => {
+        if (!teacherId) return '';
+        if (typeof teacherId === 'object' && teacherId?.name) {
+            return teacherId.isArchived
+                ? `${teacherId.name} (Archived)`
+                : teacherId.name;
+        }
+        return '';
+    };
+
+    // Build lookup table: "Mon__<slotId>" → entry
+    const entryMap = new Map();
+    entries.forEach((e) => {
+        const slotId = String(e.timeSlotId?._id || e.timeSlotId || '');
+        entryMap.set(`${e.dayOfWeek}__${slotId}`, e);
+    });
+
+    const doc = new jsPDF({ orientation: 'landscape' });
+    const pageWidth = doc.internal.pageSize.width;
+
+    // ── Header ──────────────────────────────────────────────────────────────
+    doc.setFontSize(18);
+    doc.setFont(undefined, 'bold');
+    doc.setTextColor(30, 30, 30);
+    doc.text(schoolName, pageWidth / 2, 18, { align: 'center' });
+
+    doc.setFontSize(11);
+    doc.setFont(undefined, 'normal');
+    doc.setTextColor(100, 100, 100);
+    doc.text('WEEKLY TIMETABLE', pageWidth / 2, 26, { align: 'center' });
+
+    doc.setFontSize(10);
+    doc.setTextColor(60, 60, 60);
+    const subtitle = section
+        ? `Class ${standard}-${section}   ·   Academic Year: ${academicYear || '—'}`
+        : `${standard}   ·   Academic Year: ${academicYear || '—'}`;
+    doc.text(subtitle, pageWidth / 2, 33, { align: 'center' });
+
+    doc.setFontSize(8);
+    doc.setTextColor(150, 150, 150);
+    doc.text(
+        `Generated: ${new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}`,
+        pageWidth / 2, 39, { align: 'center' }
+    );
+
+    // Divider below header
+    doc.setDrawColor(220, 220, 220);
+    doc.setLineWidth(0.3);
+    doc.line(14, 43, pageWidth - 14, 43);
+
+    // ── Table ────────────────────────────────────────────────────────────────
+    const head = [['TIME', ...DAYS]];
+    const body = [];
+
+    timeSlots.forEach((slot) => {
+        const slotId = String(slot._id || slot.slotNumber || '');
+        const timeLabel = `${formatTime(slot.startTime)}\n${formatTime(slot.endTime)}`;
+
+        if (slot.slotType === 'BREAK') {
+            // Break row: time column + one merged cell spanning all 6 days
+            body.push([
+                {
+                    content: timeLabel,
+                    styles: {
+                        fontStyle: 'normal',
+                        fontSize: 7.5,
+                        textColor: [130, 130, 130],
+                        fillColor: [250, 250, 250],
+                    },
+                },
+                {
+                    content: slot.label || 'Break',
+                    colSpan: DAYS.length,
+                    styles: {
+                        halign: 'center',
+                        fontStyle: 'italic',
+                        textColor: [150, 150, 150],
+                        fillColor: [250, 250, 250],
+                    },
+                },
+            ]);
+            return;
+        }
+
+        // Regular period row
+        const row = [
+            {
+                content: timeLabel,
+                styles: {
+                    fontStyle: 'bold',
+                    fontSize: 8,
+                    textColor: [60, 60, 60],
+                },
+            },
+        ];
+
+        DAYS.forEach((day) => {
+            const entry = entryMap.get(`${day}__${slotId}`);
+            if (entry) {
+                const teacher = getTeacherName(entry.teacherId);
+                const subject = entry.subject || '';
+                row.push({
+                    content: teacher ? `${subject}\n${teacher}` : subject,
+                    styles: {
+                        fontStyle: 'bold',
+                        textColor: [20, 20, 20],
+                        fontSize: 8.5,
+                    },
+                });
+            } else {
+                row.push({
+                    content: '',
+                    styles: { fillColor: [252, 252, 252] },
+                });
+            }
+        });
+
+        body.push(row);
+    });
+
+    autoTable(doc, {
+        startY: 48,
+        head,
+        body,
+        theme: 'grid',
+        headStyles: {
+            fillColor: [30, 30, 30],
+            textColor: [255, 255, 255],
+            fontStyle: 'bold',
+            fontSize: 9,
+            halign: 'center',
+            cellPadding: { top: 4, bottom: 4, left: 3, right: 3 },
+        },
+        styles: {
+            fontSize: 8,
+            cellPadding: { top: 5, bottom: 5, left: 4, right: 4 },
+            valign: 'middle',
+            lineColor: [220, 220, 220],
+            lineWidth: 0.2,
+            overflow: 'linebreak',
+        },
+        columnStyles: {
+            0: { halign: 'center', cellWidth: 28, fillColor: [248, 248, 248] },
+            1: { halign: 'center' },
+            2: { halign: 'center' },
+            3: { halign: 'center' },
+            4: { halign: 'center' },
+            5: { halign: 'center' },
+            6: { halign: 'center' },
+        },
+        alternateRowStyles: { fillColor: [255, 255, 255] },
+        margin: { left: 14, right: 14 },
+    });
+
+    // ── Footer ───────────────────────────────────────────────────────────────
+    const finalY = (doc.lastAutoTable?.finalY || 150) + 8;
+    doc.setFontSize(7);
+    doc.setTextColor(180, 180, 180);
+    doc.text(
+        `${schoolName} — Computer generated timetable`,
+        pageWidth / 2,
+        finalY,
+        { align: 'center' }
+    );
+
+    const filename = section
+        ? `timetable-${standard}-${section}.pdf`
+        : `schedule-${standard}.pdf`;
+    doc.save(filename);
+};
