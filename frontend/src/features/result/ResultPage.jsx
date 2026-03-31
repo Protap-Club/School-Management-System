@@ -68,13 +68,20 @@ const ResultPage = () => {
   const [entryModal, setEntryModal] = useState({ open: false, student: null, result: null });
   const [detailModal, setDetailModal] = useState({ open: false, result: null });
 
-  const completedExamsQuery = useCompletedResultExams();
+  const queryFilters = useMemo(() => ({
+    ...filters,
+    page: currentPage,
+    pageSize: pageSize
+  }), [filters, currentPage, pageSize]);
+
+  const completedExamsQuery = useCompletedResultExams(queryFilters);
   const examStudentsQuery = useResultExamStudents(selectedExam?._id);
   const examResultsQuery = useResultExamResults(selectedExam?._id);
   const saveResultMutation = useSaveResult();
   const publishResultsMutation = usePublishExamResults();
 
-  const completedExams = useMemo(() => completedExamsQuery.data || [], [completedExamsQuery.data]);
+  const completedExams = useMemo(() => completedExamsQuery.data?.exams || [], [completedExamsQuery.data]);
+  const examPagination = useMemo(() => completedExamsQuery.data?.pagination || { page: 0, pageSize: 25, totalCount: 0, totalPages: 0 }, [completedExamsQuery.data]);
   const { classSections } = useSchoolClasses();
   const configuredClassKeySet = useMemo(
     () => new Set(classSections.map((item) => makeClassKey(item))),
@@ -140,10 +147,7 @@ const ResultPage = () => {
     });
   }, [examResults, resultSearch]);
 
-  const paginatedExams = useMemo(() => {
-    const start = currentPage * pageSize;
-    return filteredExams.slice(start, start + pageSize);
-  }, [filteredExams, currentPage, pageSize]);
+  const paginatedExams = filteredExams; // Server-side paginated
 
   const paginatedStudents = useMemo(() => {
     const start = currentPage * pageSize;
@@ -444,10 +448,10 @@ const ResultPage = () => {
                   </tbody>
                 </table>
               </div>
-              {filteredExams.length > 25 && (
+              {examPagination.totalCount > 25 && (
                 <PaginationControls
                   currentPage={currentPage}
-                  totalItems={filteredExams.length}
+                  totalItems={examPagination.totalCount}
                   pageSize={pageSize}
                   onPageChange={setCurrentPage}
                   onPageSizeChange={(newSize) => {

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import { FaCalendarAlt, FaChalkboardTeacher, FaExclamationTriangle, FaTimes } from "react-icons/fa";
+import { FaCalendarAlt, FaChalkboardTeacher, FaExclamationTriangle, FaFilePdf, FaTimes } from "react-icons/fa";
 import { readError } from "../../utils";
+import { generateTimetablePDF } from "../../utils/pdfGenerator";
 import { ButtonSpinner } from "../../components/ui/Spinner";
 import DashboardLayout from "../../layouts/DashboardLayout";
 import { useAuth } from "../auth";
@@ -36,6 +37,15 @@ const TimetablePage = () => {
     const { user } = useAuth();
     const isTeacher = user?.role === "teacher";
     const isAdmin = ['admin', 'super_admin'].includes(user?.role);
+    let schoolData = user?.school || user?.schoolId;
+    if (!schoolData || !schoolData.name) {
+        try {
+            const cached = JSON.parse(sessionStorage.getItem('schoolBranding'));
+            schoolData = cached?.school || cached || schoolData;
+        } catch (e) {}
+    }
+    const schoolName = schoolData?.name || 'School';
+    const schoolLogo = schoolData?.logoUrl || null;
 
     const [adminViewMode, setAdminViewMode] = useState("class");
     const [selectedTeacherId, setSelectedTeacherId] = useState("");
@@ -218,6 +228,34 @@ const TimetablePage = () => {
         }
     };
 
+    // Export PDF for admin class view
+    const handleExportPDF = async () => {
+        if (!activeClassOption || !activeTimetableId || !selectedTimetableEntries.length) return;
+        await generateTimetablePDF({
+            entries: selectedTimetableEntries,
+            timeSlots,
+            standard: activeClassOption.standard,
+            section: activeClassOption.section,
+            academicYear: activeClassOption.timetable?.academicYear || '',
+            schoolName,
+            schoolLogo,
+        });
+    };
+
+    // Export PDF for teacher / student personal schedule
+    const handleExportSchedulePDF = async () => {
+        if (!myScheduleEntries.length) return;
+        const firstEntry = myScheduleEntries[0];
+        await generateTimetablePDF({
+            entries: myScheduleEntries,
+            timeSlots,
+            standard: firstEntry?.timetableId?.standard || 'My Schedule',
+            section: firstEntry?.timetableId?.section || '',
+            schoolName,
+            schoolLogo,
+        });
+    };
+
     const isLoading = timeSlotsQuery.isLoading || (isTeacher ? myScheduleQuery.isLoading : false);
     const isEntryMutationPending = createEntryMutation.isPending || updateEntryMutation.isPending || deleteEntryMutation.isPending;
 
@@ -285,6 +323,17 @@ const TimetablePage = () => {
                                     >
                                         New Schedule
                                     </Button>
+                                    {activeTimetableId && selectedTimetableEntries.length > 0 && (
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            className="h-9 px-4 text-[13px] font-medium border-gray-200 rounded-md transition-colors shadow-none flex items-center gap-1.5"
+                                            onClick={handleExportPDF}
+                                        >
+                                            <FaFilePdf size={12} />
+                                            Export PDF
+                                        </Button>
+                                    )}
                                 </div>
                             ) : (
                                 <Select value={activeTeacherId} onValueChange={setSelectedTeacherId}>
@@ -302,9 +351,22 @@ const TimetablePage = () => {
                             )}
                         </div>
                     ) : (
-                        <div className="inline-flex items-center gap-2 rounded-md bg-gray-100 border border-gray-200/80 px-3 py-1.5 text-xs font-medium text-gray-600">
-                            <FaChalkboardTeacher size={14} />
-                            Active Faculty Schedule
+                        <div className="flex items-center gap-3">
+                            <div className="inline-flex items-center gap-2 rounded-md bg-gray-100 border border-gray-200/80 px-3 py-1.5 text-xs font-medium text-gray-600">
+                                <FaChalkboardTeacher size={14} />
+                                Active Faculty Schedule
+                            </div>
+                            {myScheduleEntries.length > 0 && (
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-9 px-4 text-[13px] font-medium border-gray-200 rounded-md transition-colors shadow-none flex items-center gap-1.5"
+                                    onClick={handleExportSchedulePDF}
+                                >
+                                    <FaFilePdf size={12} />
+                                    Export PDF
+                                </Button>
+                            )}
                         </div>
                     )}
                 </div>

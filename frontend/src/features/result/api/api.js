@@ -13,8 +13,8 @@ const ensureSuccess = (response, fallbackMessage = 'Request failed') => {
 };
 
 export const resultApi = {
-  getCompletedExams: async () => {
-    const response = await api.get(`${RESULT_BASE_URL}/exams/completed`);
+  getCompletedExams: async (filters = {}) => {
+    const response = await api.get(`${RESULT_BASE_URL}/exams/completed`, { params: filters });
     return ensureSuccess(response, 'Failed to load completed exams');
   },
 

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '../features/auth';
-import { useStudents, useTodayAttendance, useProfile } from '../features/attendance';
+import { useDashboardStats } from '../hooks/useDashboardStats';
 import DashboardLayout from '../layouts/DashboardLayout';
 import { connectSocket, disconnectSocket } from '../api/socket';
 import api from '../lib/axios';
@@ -38,13 +38,7 @@ const Dashboard = () => {
     [isSuperAdmin, isAdmin, user?.role]
   );
 
-  // Persistence Key
-  const CACHE_KEY = `dashboard_cache_${user?._id}`;
-
-  // Queries
-  const { data: studentsRes, isLoading: studentsLoading } = useStudents();
-  const { data: attendanceRes, isLoading: attendanceLoading } = useTodayAttendance();
-  const { data: profileRes } = useProfile();
+  const { data: statsRes, isLoading: statsLoading } = useDashboardStats();
   const { data: scheduleRes } = useMySchedule(isTeacher);
   const { data: noticesRes } = useNotices(!isTeacher);
   const { data: usersRes } = useUsers({ 
@@ -57,16 +51,6 @@ const Dashboard = () => {
   const [selectedClass, setSelectedClass] = useState('all');
   const [attendanceData, setAttendanceData] = useState([]);
   const [calendarEventsCount, setCalendarEventsCount] = useState(0);
-
-  // Persistence State
-  const [persistedData, setPersistedData] = useState(() => {
-    const key = user?._id ? `dashboard_cache_${user._id}` : null;
-    if (!key) return null;
-    try {
-      const cached = localStorage.getItem(key);
-      return cached ? JSON.parse(cached) : null;
-    } catch { return null; }
-  });
 
   const parseTime = (timeStr) => {
     if (!timeStr) return 0;
@@ -151,174 +135,63 @@ const Dashboard = () => {
     fetchCalendarStats();
   }, [user, accessToken]);
 
-  // Local state for socket updates
+  // Socket updates
   useEffect(() => {
-    if (!user?._id) return;
+    if (!isAdmin && !isSuperAdmin && !isTeacher) return;
+    const socket = connectSocket(user?.schoolId);
+    socket.on('attendance-marked', () => {
+      // Invalidate both the detailed attendance cache and the dashboard stats
+      queryClient.invalidateQueries({ queryKey: attendanceKeys.today() });
+      queryClient.invalidateQueries({ queryKey: ['dashboard', 'stats'] });
+    });
+    return () => disconnectSocket();
+  }, [user?.schoolId, isAdmin, isSuperAdmin, isTeacher, queryClient]);
 
-    if (attendanceRes?.data || studentsRes?.data || profileRes?.data) {
-      // Data minimization: store only what's needed for the matrix and stats
-      // Standard student list can be 2000+ records, we only need IDs and Class/Section
-      const rawStudents = studentsRes?.data?.users || studentsRes?.data || [];
-      const minimizedStudents = rawStudents.length > 0 
-        ? rawStudents.map(s => ({
-            _id: s._id,
-            profile: {
-              standard: s.profile?.standard,
-              section: s.profile?.section
-            }
-          }))
-        : persistedData?.students;
-
-      const minimizedAttendance = (attendanceRes?.data || [])
-        .map(a => ({
-          studentId: a.studentId,
-          status: a.status
-        }));
-
-      const newCache = {
-        students: minimizedStudents,
-        attendance: minimizedAttendance.length > 0 ? minimizedAttendance : persistedData?.attendance,
-        profile: profileRes?.data || persistedData?.profile,
-        timestamp: Date.now()
-      };
-
-      if (attendanceRes?.data) setAttendanceData(attendanceRes.data);
-
-      try {
-        localStorage.setItem(CACHE_KEY, JSON.stringify(newCache));
-      } catch (err) {
-        console.warn('Dashboard cache failed (QuotaExceeded):', err);
-        // If quota exceeded, we clear the current key to make room for minimized data if it was full of old junk
-        if (err.name === 'QuotaExceededError') {
-          try {
-            localStorage.removeItem(CACHE_KEY);
-            // Optionally try one more time if it's the first failure
-          } catch (inner) {}
-        }
-      }
-      setPersistedData(newCache);
-    }
-  }, [attendanceRes?.data, studentsRes?.data, profileRes?.data, CACHE_KEY, user?._id]);
-
-  const allStudents = useMemo(() => {
-    const raw = studentsRes?.data || persistedData?.students;
-    return raw?.users || raw || [];
-  }, [studentsRes, persistedData]);
-
-  const currentProfile = useMemo(() => {
-    const raw = profileRes?.data || persistedData?.profile;
-    return raw?.data || raw;
-  }, [profileRes, persistedData]);
-
-  const loading = (studentsLoading || attendanceLoading) && !persistedData;
+  const loading = statsLoading;
 
   const stats = useMemo(() => {
-    const rawAtt = attendanceRes?.data || attendanceData || persistedData?.attendance || [];
-    const currentAttendance = Array.isArray(rawAtt) ? rawAtt : (rawAtt?.data || []);
-    const attendanceMap = new Map(currentAttendance.map(a => [a.studentId, a.status]));
+    if (!statsRes) return { overall: { total: 0, present: 0, late: 0, absent: 0, rate: "0" }, matrix: [], trend: [10, 10, 10] };
+    
+    const matrix = (statsRes.classMatrix || []).map(c => ({
+      name: `${c.standard} ${c.section}`,
+      total: c.total,
+      present: c.present,
+      late: c.late,
+      absent: c.absent,
+      rate: c.rate.toString()
+    }));
 
-    const calculateForGroup = (group) => {
-      let present = 0, late = 0;
-      group.forEach(s => {
-        const serverStatus = attendanceMap.get(s._id);
-        if (serverStatus) {
-          if (serverStatus === 'Present') present++;
-          else if (serverStatus === 'Late') late++;
-        }
-      });
-      const total = group.length;
-      // Fixed precision logic: handle 0 present correctly
-      const rateNumber = total > 0 ? (present / total) * 100 : 0;
-      const rate = rateNumber > 0 ? rateNumber.toFixed(1) : "0";
-      return { total, present, late, absent: Math.max(0, total - present - late), rate };
+    const rateNum = statsRes.totalStudents > 0 ? (statsRes.todayAttendance.present / statsRes.totalStudents) * 100 : 0;
+    const rateStr = rateNum > 0 ? rateNum.toFixed(1) : "0";
+
+    const overall = {
+      total: statsRes.totalStudents,
+      present: statsRes.todayAttendance.present,
+      late: statsRes.todayAttendance.late,
+      absent: statsRes.todayAttendance.absent,
+      rate: rateStr
     };
 
-    const overall = calculateForGroup(allStudents);
-
-    // Classroom Matrix Data
-    const classGroups = new Map();
-    allStudents.forEach(s => {
-      const cls = `${s.profile?.standard} ${s.profile?.section}`;
-      if (!s.profile?.standard) return;
-      if (!classGroups.has(cls)) classGroups.set(cls, []);
-      classGroups.get(cls).push(s);
-    });
-
-    const matrixSource = (isAdmin || isSuperAdmin) && configuredClassSections.length > 0
-      ? configuredClassSections.map((pair) => {
-          const name = `${pair.standard} ${pair.section}`;
-          return [name, classGroups.get(name) || []];
-        })
-      : Array.from(classGroups.entries());
-
-    const matrix = matrixSource.map(([name, students]) => ({
-      name,
-      ...calculateForGroup(students)
-    })).sort((a, b) => {
-      const [stdA, secA] = a.name.split(' ');
-      const [stdB, secB] = b.name.split(' ');
-      return parseInt(stdA) !== parseInt(stdB) ? parseInt(stdA) - parseInt(stdB) : secA.localeCompare(secB);
-    });
-
-    // Mock trend based on current rate for visual flair
-    const trend = [30, 45, overall.rate * 0.8, overall.rate * 0.9, overall.rate].map(v => Math.max(10, v));
+    const trend = [30, 45, rateNum * 0.8, rateNum * 0.9, rateNum].map(v => Math.max(10, v));
 
     return { overall, matrix, trend };
-  }, [allStudents, attendanceRes, attendanceData, configuredClassSections, isAdmin, isSuperAdmin, persistedData]);
+  }, [statsRes]);
 
   useEffect(() => {
     if (!(isAdmin || isSuperAdmin) || selectedClass === 'all') return;
 
-    const isStillValid = configuredClassSections.some(
-      (pair) => `${pair.standard} ${pair.section}` === selectedClass
-    );
-
+    const isStillValid = stats.matrix.some(m => m.name === selectedClass);
     if (!isStillValid) {
       setSelectedClass('all');
     }
-  }, [configuredClassSections, isAdmin, isSuperAdmin, selectedClass]);
+  }, [stats.matrix, isAdmin, isSuperAdmin, selectedClass]);
 
   const filteredStats = useMemo(() => {
-    if (isTeacher && currentProfile?.assignedClasses?.length > 0) {
-      // Aggregate stats for all assigned classes
-      const assignedClassNames = currentProfile.assignedClasses.map(ac => `${ac.standard} ${ac.section}`);
-      const matchingClasses = stats.matrix.filter(m => assignedClassNames.includes(m.name));
-
-      if (matchingClasses.length > 0) {
-        return matchingClasses.reduce((acc, curr) => ({
-          total: acc.total + curr.total,
-          present: acc.present + curr.present,
-          late: acc.late + curr.late,
-          absent: acc.absent + curr.absent,
-          rate: (((acc.total + curr.total) > 0) ? (((acc.present + curr.present) / (acc.total + curr.total)) * 100).toFixed(1) : "0")
-        }), { total: 0, present: 0, late: 0, absent: 0, rate: "0" });
-      }
-      return stats.overall;
-    }
     if ((isAdmin || isSuperAdmin) && selectedClass !== 'all') {
       return stats.matrix.find(m => m.name === selectedClass) || stats.overall;
     }
     return stats.overall;
-  }, [stats, selectedClass, isAdmin, isSuperAdmin, isTeacher, currentProfile]);
-
-  useEffect(() => {
-    if (!isAdmin && !isSuperAdmin && !isTeacher) return;
-    const socket = connectSocket(user?.schoolId);
-    socket.on('attendance-marked', (data) => {
-      queryClient.invalidateQueries({ queryKey: attendanceKeys.today() });
-      setAttendanceData(prev => {
-        const arr = Array.isArray(prev) ? prev : [];
-        const index = arr.findIndex(a => a.studentId === data.studentId);
-        if (index >= 0) {
-          const next = [...arr];
-          next[index] = { ...next[index], status: data.status, checkInTime: data.checkInTime };
-          return next;
-        }
-        return [...arr, { studentId: data.studentId, status: data.status, checkInTime: data.checkInTime }];
-      });
-    });
-    return () => disconnectSocket();
-  }, [user?.schoolId, isAdmin, isSuperAdmin, isTeacher, queryClient]);
+  }, [stats, selectedClass, isAdmin, isSuperAdmin]);
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -713,4 +586,3 @@ const Dashboard = () => {
 };
 
 export default Dashboard;
-

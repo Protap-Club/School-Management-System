@@ -16,12 +16,22 @@ export const EXAM_QUERY_KEYS = {
 // ── Custom Hooks ───────────────────────────────────────────────────
 
 // Get exams list (filtered by role)
-// Normalizes API response to return a plain array of exams
+// Normalizes API response to handle server-side pagination
 export const useExams = (filters = {}) => {
   return useQuery({
     queryKey: EXAM_QUERY_KEYS.list(filters),
     queryFn: () => examApi.getExams(filters),
-    select: (response) => response?.data || [],
+    select: (response) => {
+      // Handle the new paginated shape `{ exams, pagination }` while maintaining backward compatibility
+      if (response?.data?.exams || response?.data?.pagination) {
+        return {
+          exams: response.data.exams || [],
+          pagination: response.data.pagination || { page: 0, pageSize: 25, totalCount: 0, totalPages: 0 }
+        };
+      }
+      // Fallback for any endpoints returning an array
+      return { exams: Array.isArray(response?.data) ? response.data : [], pagination: null };
+    },
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 };

@@ -43,4 +43,7 @@ const attendanceSchema = new mongoose.Schema(
 // Compound index: One attendance record per student per day
 attendanceSchema.index({ studentId: 1, date: 1 }, { unique: true });
 
+// Dashboard/today query: filter by school + date (getTodayAttendance, stats endpoint)
+attendanceSchema.index({ schoolId: 1, date: 1 });
+
 export default mongoose.model("Attendance", attendanceSchema);
