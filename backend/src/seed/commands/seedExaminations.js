@@ -1,11 +1,12 @@
 import School from "../../module/school/School.model.js";
 import User from "../../module/user/model/User.model.js";
+import TeacherProfile from "../../module/user/model/TeacherProfile.model.js";
 import Exam from "../../module/examination/Exam.model.js";
 import Result from "../../module/result/result.model.js";
 import { CalendarEvent } from "../../module/calendar/calendar.model.js";
 import logger from "../../config/logger.js";
 import { loadSeedJson } from "../lib/loadJson.js";
-import { buildTeacherSeedData, getAcademicYear } from "../lib/generatedAcademicSeed.js";
+import { getAcademicYear } from "../lib/generatedAcademicSeed.js";
 
 const examData = loadSeedJson("examinations.json");
 const { schools: schoolsDef } = loadSeedJson("schools.json");
@@ -38,7 +39,7 @@ const toDateOnly = (date) => {
 
 const addMinutes = (timeValue, minutesToAdd) => {
   const [hours, minutes] = String(timeValue).split(":").map(Number);
-  const totalMinutes = (hours * 60) + minutes + minutesToAdd;
+  const totalMinutes = hours * 60 + minutes + minutesToAdd;
   const nextHours = Math.floor(totalMinutes / 60);
   const nextMinutes = totalMinutes % 60;
   return `${String(nextHours).padStart(2, "0")}:${String(nextMinutes).padStart(2, "0")}`;
@@ -51,13 +52,13 @@ const buildDateTime = (dateValue, timeValue) => {
   return date;
 };
 
-const buildSchedule = (teacher, template, classIndex, teacherId) => {
-  const subjects = teacher.subjects?.length ? teacher.subjects : ["English"];
+const buildSchedule = (teacherProfile, template, teacherIdx, classIdx, teacherId, classRef) => {
+  const subjects = classRef.subjects;
   const totalSubjects = Math.min(template.subjectsPerExam || 1, subjects.length);
 
   return Array.from({ length: totalSubjects }, (_, subjectIndex) => {
-    const examDate = addSchoolDays(template.daysFromNow + classIndex + subjectIndex);
-    const subject = subjects[(classIndex + subjectIndex) % subjects.length];
+    const examDate = addSchoolDays(template.daysFromNow + teacherIdx + classIdx + subjectIndex);
+    const subject = subjects[(teacherIdx + classIdx + subjectIndex) % subjects.length];
 
     return {
       subject,
@@ -67,7 +68,7 @@ const buildSchedule = (teacher, template, classIndex, teacherId) => {
       totalMarks: template.totalMarks,
       passingMarks: template.passingMarks,
       assignedTeacher: teacherId,
-      syllabus: `${subject} revision for Class ${teacher.assignedClass.standard}-${teacher.assignedClass.section}`,
+      syllabus: `${subject} revision for Class ${classRef.standard}-${classRef.section}`,
     };
   });
 };
@@ -94,11 +95,13 @@ const seedExaminations = async () => {
   for (const schoolDef of schoolsDef) {
     const code = schoolDef.code;
     const school = await School.findOne({ code });
+
     if (!school) {
       logger.warn(`School ${code} not found. Skipping examinations.`);
       continue;
     }
 
+    // 🔥 CLEAN OLD DATA
     await Result.deleteMany({ schoolId: school._id });
     await Exam.deleteMany({ schoolId: school._id });
     await CalendarEvent.deleteMany({
@@ -106,11 +109,11 @@ const seedExaminations = async () => {
       sourceType: "exam",
     });
 
-    const teachers = buildTeacherSeedData(code);
-    const teacherUsers = await User.find({
+    // ✅ 🔥 FIX: USE TEACHER PROFILES TO GET CLASS ASSIGNMENTS
+    const teacherProfiles = await TeacherProfile.find({
       schoolId: school._id,
-      email: { $in: teachers.map((teacher) => teacher.email) },
-    }).select("_id email");
+    }).populate("userId").lean();
+
     const admin = await User.findOne({
       schoolId: school._id,
       role: { $in: ["admin", "super_admin"] },
@@ -121,42 +124,46 @@ const seedExaminations = async () => {
       continue;
     }
 
-    const teacherIdByEmail = new Map(teacherUsers.map((teacher) => [teacher.email, teacher._id]));
     const examRecords = [];
 
-    teachers.forEach((teacher, classIndex) => {
-      const teacherId = teacherIdByEmail.get(teacher.email);
-      if (!teacherId) {
-        logger.warn(`[${code}] Teacher not found for examinations: ${teacher.email}`);
-        return;
-      }
+    teacherProfiles.forEach((profile, teacherIdx) => {
+      if (!profile.assignedClasses?.length) return;
 
-      const classLabel = `${teacher.assignedClass.standard}-${teacher.assignedClass.section}`;
-      const templates = [examData.classTestTemplate, examData.termExamTemplate];
+      const teacherUser = profile.userId;
+      if (!teacherUser) return;
 
-      templates.forEach((template) => {
-        const createdBy = template.examType === "CLASS_TEST" ? teacherId : admin._id;
-        const createdByRole = template.examType === "CLASS_TEST" ? "teacher" : admin.role;
+      // Iterate through every class this teacher is assigned to
+      profile.assignedClasses.forEach((classRef, classIdx) => {
+        const classLabel = `${classRef.standard}-${classRef.section}`;
+        const templates = [examData.classTestTemplate, examData.termExamTemplate];
 
-        examRecords.push({
-          schoolId: school._id,
-          name: fillTemplate(template.nameTemplate, { classLabel }),
-          examType: template.examType,
-          category: template.category,
-          academicYear: getAcademicYear(),
-          standard: teacher.assignedClass.standard,
-          section: teacher.assignedClass.section,
-          description: fillTemplate(template.descriptionTemplate, { classLabel }),
-          schedule: buildSchedule(teacher, template, classIndex, teacherId),
-          status: template.status,
-          createdBy,
-          createdByRole,
-          isActive: true,
+        templates.forEach((template) => {
+          const createdBy = template.examType === "CLASS_TEST" ? teacherUser._id : admin._id;
+          const createdByRole = template.examType === "CLASS_TEST" ? "teacher" : admin.role;
+
+          examRecords.push({
+            schoolId: school._id,
+            name: fillTemplate(template.nameTemplate, { classLabel }),
+            examType: template.examType,
+            category: template.category,
+            academicYear: getAcademicYear(),
+            standard: classRef.standard,
+            section: classRef.section,
+            description: fillTemplate(template.descriptionTemplate, { classLabel }),
+            schedule: buildSchedule(profile, template, teacherIdx, classIdx, teacherUser._id, classRef),
+            status: template.status,
+            createdBy,
+            createdByRole,
+            isActive: true,
+          });
         });
       });
     });
 
-    const insertedExams = examRecords.length ? await Exam.insertMany(examRecords, { ordered: false }) : [];
+    const insertedExams = examRecords.length
+      ? await Exam.insertMany(examRecords, { ordered: false })
+      : [];
+
     const calendarEvents = insertedExams
       .filter((exam) => exam.status === "PUBLISHED")
       .flatMap((exam) => buildCalendarEvents(exam, school._id));

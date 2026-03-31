@@ -36,7 +36,7 @@
         "assignedClasses": [
           { "standard": "11", "section": "A", "subjects": ["Physics"] },
           { "standard": "12", "section": "A", "subjects": ["Physics"] },
-          { "standard": "10", "section": "C", "subjects": ["Science"] }
+          { "standard": "10", "section": "C", "subjects": ["Physics"] }
         ]
       },
       {
@@ -72,7 +72,7 @@
         "assignedClasses": [
           { "standard": "11", "section": "B", "subjects": ["Chemistry"] },
           { "standard": "12", "section": "B", "subjects": ["Chemistry"] },
-          { "standard": "10", "section": "D", "subjects": ["Science"] }
+          { "standard": "10", "section": "D", "subjects": ["Chemistry"] }
         ]
       },
       {
@@ -84,7 +84,7 @@
         "assignedClasses": [
           { "standard": "11", "section": "A", "subjects": ["Biology"] },
           { "standard": "12", "section": "A", "subjects": ["Biology"] },
-          { "standard": "9", "section": "C", "subjects": ["Science"] }
+          { "standard": "9", "section": "C", "subjects": ["Biology"] }
         ]
       },
       {
@@ -270,7 +270,7 @@
         "assignedClasses": [
           { "standard": "11", "section": "A", "subjects": ["Physics"] },
           { "standard": "12", "section": "A", "subjects": ["Physics"] },
-          { "standard": "10", "section": "C", "subjects": ["Science"] }
+          { "standard": "10", "section": "C", "subjects": ["Physics"] }
         ]
       },
       {
@@ -306,7 +306,7 @@
         "assignedClasses": [
           { "standard": "11", "section": "B", "subjects": ["Chemistry"] },
           { "standard": "12", "section": "B", "subjects": ["Chemistry"] },
-          { "standard": "10", "section": "D", "subjects": ["Science"] }
+          { "standard": "10", "section": "D", "subjects": ["Chemistry"] }
         ]
       },
       {
@@ -318,7 +318,7 @@
         "assignedClasses": [
           { "standard": "11", "section": "A", "subjects": ["Biology"] },
           { "standard": "12", "section": "A", "subjects": ["Biology"] },
-          { "standard": "9", "section": "C", "subjects": ["Science"] }
+          { "standard": "9", "section": "C", "subjects": ["Biology"] }
         ]
       },
       {
@@ -504,7 +504,7 @@
         "assignedClasses": [
           { "standard": "11", "section": "A", "subjects": ["Physics"] },
           { "standard": "12", "section": "A", "subjects": ["Physics"] },
-          { "standard": "10", "section": "C", "subjects": ["Science"] }
+          { "standard": "10", "section": "C", "subjects": ["Physics"] }
         ]
       },
       {
@@ -540,7 +540,7 @@
         "assignedClasses": [
           { "standard": "11", "section": "B", "subjects": ["Chemistry"] },
           { "standard": "12", "section": "B", "subjects": ["Chemistry"] },
-          { "standard": "10", "section": "D", "subjects": ["Science"] }
+          { "standard": "10", "section": "D", "subjects": ["Chemistry"] }
         ]
       },
       {
@@ -552,7 +552,7 @@
         "assignedClasses": [
           { "standard": "11", "section": "A", "subjects": ["Biology"] },
           { "standard": "12", "section": "A", "subjects": ["Biology"] },
-          { "standard": "9", "section": "C", "subjects": ["Science"] }
+          { "standard": "9", "section": "C", "subjects": ["Biology"] }
         ]
       },
       {

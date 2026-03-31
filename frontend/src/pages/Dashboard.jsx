@@ -156,16 +156,46 @@ const Dashboard = () => {
     if (!user?._id) return;
 
     if (attendanceRes?.data || studentsRes?.data || profileRes?.data) {
+      // Data minimization: store only what's needed for the matrix and stats
+      // Standard student list can be 2000+ records, we only need IDs and Class/Section
+      const rawStudents = studentsRes?.data?.users || studentsRes?.data || [];
+      const minimizedStudents = rawStudents.length > 0 
+        ? rawStudents.map(s => ({
+            _id: s._id,
+            profile: {
+              standard: s.profile?.standard,
+              section: s.profile?.section
+            }
+          }))
+        : persistedData?.students;
+
+      const minimizedAttendance = (attendanceRes?.data || [])
+        .map(a => ({
+          studentId: a.studentId,
+          status: a.status
+        }));
+
       const newCache = {
-        students: studentsRes?.data || persistedData?.students,
-        attendance: attendanceRes?.data || persistedData?.attendance,
+        students: minimizedStudents,
+        attendance: minimizedAttendance.length > 0 ? minimizedAttendance : persistedData?.attendance,
         profile: profileRes?.data || persistedData?.profile,
         timestamp: Date.now()
       };
 
       if (attendanceRes?.data) setAttendanceData(attendanceRes.data);
 
-      localStorage.setItem(CACHE_KEY, JSON.stringify(newCache));
+      try {
+        localStorage.setItem(CACHE_KEY, JSON.stringify(newCache));
+      } catch (err) {
+        console.warn('Dashboard cache failed (QuotaExceeded):', err);
+        // If quota exceeded, we clear the current key to make room for minimized data if it was full of old junk
+        if (err.name === 'QuotaExceededError') {
+          try {
+            localStorage.removeItem(CACHE_KEY);
+            // Optionally try one more time if it's the first failure
+          } catch (inner) {}
+        }
+      }
       setPersistedData(newCache);
     }
   }, [attendanceRes?.data, studentsRes?.data, profileRes?.data, CACHE_KEY, user?._id]);
