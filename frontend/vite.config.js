@@ -75,6 +75,18 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [react(), tailwindcss()],
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            vendor: ['react', 'react-dom', 'react-router-dom'],
+            charts: ['recharts'],
+            ui: ['framer-motion', 'lucide-react', 'react-icons'],
+            query: ['@tanstack/react-query'],
+          },
+        },
+      },
+    },
     server: {
       headers: cspHeaders,
     },

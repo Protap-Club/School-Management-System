@@ -8,6 +8,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { createServer } from 'http';
 import rateLimit from 'express-rate-limit';
+import compression from 'compression';
 import { initSocket } from './socket.js';
 
 // Local Imports 
@@ -17,6 +18,8 @@ import { corsOptions, socketCorsOptions } from './config/cors.js';
 import logger from './config/logger.js'; // Import our configured logger
 import apiRoutes from './routes/index.route.js';
 import errorHandler, { notFoundHandler } from './middlewares/error.middleware.js';
+import { startResultExpiryJob } from './module/result/result.service.js';
+import { startAssignmentExpiryJob } from './module/assignment/assignment.service.js';
 
 // Constants & Setup    
 const __filename = fileURLToPath(import.meta.url);
@@ -120,6 +123,9 @@ const mutationLimiter = rateLimit({
     message: { success: false, message: 'Too many requests, please try again later.' },
 });
 
+// Response compression
+app.use(compression());
+
 // Apply rate limits
 app.use('/api/v1', apiLimiter);
 app.use('/api/v1', (req, res, next) => {
@@ -162,6 +168,10 @@ mongoose.connect(conf.MONGO_URI, {
         server.listen(PORT, () => {
             logger.info(`Server is running on port ${PORT}`);
             logger.info("Socket.io is ready and waiting for connections.");
+            
+            // Start background maintenance jobs
+            startResultExpiryJob();
+            startAssignmentExpiryJob();
         });
     })
     .catch((error) => {

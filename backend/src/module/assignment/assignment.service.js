@@ -240,8 +240,6 @@ export const createAssignment = async (schoolId, userId, body, files) => {
 };
 
 export const listAssignments = async (schoolId, userId, role, query = {}) => {
-    await closeExpiredAssignments(schoolId);
-
     const filter = { schoolId };
 
     if (role === USER_ROLES.TEACHER || isAdminRole(role)) {
@@ -328,8 +326,6 @@ export const listSubmittedAssignments = async (schoolId, userId, role, query = {
     if (![USER_ROLES.TEACHER, USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN].includes(role)) {
         throw new ForbiddenError("You are not allowed to view submitted assignments");
     }
-
-    await closeExpiredAssignments(schoolId);
 
     const assignmentFilter = { schoolId };
 
@@ -860,4 +856,16 @@ export const getAssignmentMetadata = async (schoolId) => {
     });
 
     return result;
+};
+
+export const startAssignmentExpiryJob = () => {
+    const runJob = () => {
+        Assignment.updateMany(
+            { status: "active", dueDate: { $lt: new Date() } },
+            { $set: { status: "closed" } }
+        ).catch((err) => logger.error(err, "Failed to close expired assignments"));
+    };
+
+    runJob(); // Run immediately on startup
+    setInterval(runJob, 15 * 60 * 1000); // Every 15 minutes
 };

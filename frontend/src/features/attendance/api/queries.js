@@ -27,6 +27,7 @@ export const useStudents = () => {
         queryKey: attendanceKeys.students(),
         queryFn: attendanceApi.getStudents,
         enabled,
+        staleTime: 5 * 60 * 1000,
     });
 };
 
@@ -37,6 +38,7 @@ export const useTeachers = (enabled = true) => {
         queryKey: attendanceKeys.teachers(),
         queryFn: attendanceApi.getTeachers,
         enabled: queryEnabled,
+        staleTime: 5 * 60 * 1000,
     });
 };
 
@@ -47,6 +49,7 @@ export const useTodayAttendance = () => {
         queryKey: attendanceKeys.today(),
         queryFn: attendanceApi.getTodayAttendance,
         enabled,
+        staleTime: 60 * 1000,
     });
 };
 
@@ -57,6 +60,7 @@ export const useProfile = () => {
         queryKey: attendanceKeys.profile(),
         queryFn: attendanceApi.getProfile,
         enabled,
+        staleTime: 10 * 60 * 1000,
     });
 };
 

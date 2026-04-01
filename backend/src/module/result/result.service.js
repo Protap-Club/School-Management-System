@@ -437,7 +437,6 @@ const buildExamResultCountMap = async (schoolId, examIds) => {
 };
 
 export const getCompletedExams = async (schoolId, user, platform, pageNum = 0, limit = 25) => {
-    await lockExpiredResults({ schoolId });
 
     const query = {
         schoolId,
@@ -517,7 +516,6 @@ export const getCompletedExams = async (schoolId, user, platform, pageNum = 0, l
 };
 
 export const getExamStudents = async (schoolId, examId, user, platform) => {
-    await lockExpiredResults({ schoolId, examId });
 
     const exam = await getExamOrThrow(schoolId, examId);
     assertCompletedExam(exam);
@@ -585,12 +583,6 @@ export const saveResult = async (schoolId, data, user) => {
     const subjects = normalizeSubjects(exam, data.subjects);
     const summary = calculateResultSummary(exam, subjects);
 
-    await lockExpiredResults({
-        schoolId,
-        examId: data.examId,
-        studentId: data.studentId,
-    });
-
     let result = await Result.findOne({
         schoolId,
         examId: data.examId,
@@ -646,7 +638,6 @@ export const saveResult = async (schoolId, data, user) => {
 };
 
 export const getExamResults = async (schoolId, examId, user, platform) => {
-    await lockExpiredResults({ schoolId, examId });
 
     const exam = await getExamOrThrow(schoolId, examId);
     assertCompletedExam(exam);
@@ -699,7 +690,6 @@ export const getExamResults = async (schoolId, examId, user, platform) => {
 };
 
 export const publishExamResults = async (schoolId, examId, user) => {
-    await lockExpiredResults({ schoolId, examId });
 
     const exam = await getExamOrThrow(schoolId, examId);
     assertCompletedExam(exam);
@@ -763,7 +753,6 @@ export const publishExamResults = async (schoolId, examId, user) => {
 };
 
 export const getMyResults = async (schoolId, studentId, filters = {}, platform) => {
-    await lockExpiredResults({ schoolId, studentId });
 
     const [studentUser, studentProfile] = await Promise.all([
         User.findOne({
@@ -834,4 +823,13 @@ export const getMyResults = async (schoolId, studentId, filters = {}, platform) 
     }
 
     return { results: formatted };
+};
+
+export const startResultExpiryJob = () => {
+    const runJob = () => {
+        lockExpiredResults({}).catch((err) => logger.error(err, "Failed to lock expired results"));
+    };
+
+    runJob(); // Run immediately on startup
+    setInterval(runJob, 15 * 60 * 1000); // Reset every 15 minutes
 };

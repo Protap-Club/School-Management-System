@@ -64,9 +64,20 @@ export const getFeeStructures = async (schoolId, filters = {}) => {
     if (filters.feeType) query.feeType = filters.feeType;
     if (filters.isActive !== undefined) query.isActive = filters.isActive === "true";
 
-    return await FeeStructure.find(query)
+    const page = Math.max(0, Number(filters.page) || 0);
+    const pageSize = Math.min(100, Math.max(1, Number(filters.pageSize) || 50));
+    const totalCount = await FeeStructure.countDocuments(query);
+
+    const structures = await FeeStructure.find(query)
         .sort({ standard: 1, section: 1, feeType: 1 })
+        .skip(page * pageSize)
+        .limit(pageSize)
         .lean();
+
+    return {
+        structures,
+        pagination: { page, pageSize, totalCount, totalPages: Math.ceil(totalCount / pageSize) },
+    };
 };
 
 export const updateFeeStructure = async (schoolId, id, data) => {
