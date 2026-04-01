@@ -1,4 +1,5 @@
 import express from 'express';
+import crypto from 'crypto';
 
 import mongoose from 'mongoose';
 import cors from 'cors';
@@ -88,6 +89,13 @@ app.use(express.text({ type: 'text/plain', limit: conf.TEXT_BODY_LIMIT })); // L
 app.use('/resource', express.static(path.join(__dirname, '../resource')));
 
 
+// Request Correlation ID — enables distributed tracing in production
+app.use((req, res, next) => {
+    req.id = req.headers['x-request-id'] || crypto.randomUUID();
+    res.setHeader('X-Request-Id', req.id);
+    next();
+});
+
 // Response Logger
 app.use((req, res, next) => {
     const start = Date.now();
@@ -96,6 +104,7 @@ app.use((req, res, next) => {
         const duration = Date.now() - start;
         logger.info({
             msg: "API Response",
+            requestId: req.id,
             method: req.method,
             url: req.originalUrl,
             status: res.statusCode,
@@ -138,9 +147,16 @@ app.use('/api/v1', (req, res, next) => {
 // API Routes
 app.use('/api/v1', apiRoutes);
 
-// A simple health check endpoint.
-app.get('/', (req, res) => {
-    res.send('School Management System API is running...');
+// Health check endpoint — used by load balancers to verify instance readiness
+app.get('/', async (req, res) => {
+    const dbState = mongoose.connection.readyState;
+    const isHealthy = dbState === 1;
+    res.status(isHealthy ? 200 : 503).json({
+        status: isHealthy ? 'healthy' : 'unhealthy',
+        uptime: process.uptime(),
+        timestamp: new Date().toISOString(),
+        database: isHealthy ? 'connected' : 'disconnected',
+    });
 });
 
 
@@ -178,4 +194,24 @@ mongoose.connect(conf.MONGO_URI, {
         logger.error("MongoDB connection error:", error);
         process.exit(1); // Exit the process with a failure code.
     });
+
+// Graceful Shutdown — allows container orchestrators to drain in-flight requests
+const gracefulShutdown = (signal) => {
+    logger.info(`${signal} received. Starting graceful shutdown...`);
+    server.close(() => {
+        logger.info('HTTP server closed.');
+        mongoose.connection.close(false).then(() => {
+            logger.info('MongoDB connection closed.');
+            process.exit(0);
+        });
+    });
+    // Force exit after 10 seconds if graceful shutdown stalls
+    setTimeout(() => {
+        logger.error('Graceful shutdown timed out. Forcing exit.');
+        process.exit(1);
+    }, 10000);
+};
+
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 

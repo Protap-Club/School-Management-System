@@ -35,7 +35,9 @@ const attendanceSchema = new mongoose.Schema(
             type: mongoose.Schema.Types.ObjectId,
             ref: "User"
         },
-        remarks: { type: String, trim: true }
+        remarks: { type: String, trim: true },
+        // Archival flag — set when records are moved to cold storage
+        archivedAt: { type: Date, default: null },
     },
     { timestamps: true }
 );
@@ -45,5 +47,8 @@ attendanceSchema.index({ studentId: 1, date: 1 }, { unique: true });
 
 // Dashboard/today query: filter by school + date (getTodayAttendance, stats endpoint)
 attendanceSchema.index({ schoolId: 1, date: 1 });
+
+// Archival queries: find non-archived records older than N years for a school
+attendanceSchema.index({ schoolId: 1, archivedAt: 1, date: 1 });
 
 export default mongoose.model("Attendance", attendanceSchema);

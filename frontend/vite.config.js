@@ -91,7 +91,10 @@ export default defineConfig(({ mode }) => {
       headers: cspHeaders,
     },
     preview: {
-      headers: cspHeaders,
+      headers: {
+        ...cspHeaders,
+        'Cache-Control': 'public, max-age=31536000, immutable',
+      },
     },
     resolve: {
       alias: {

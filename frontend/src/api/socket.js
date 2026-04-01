@@ -71,8 +71,10 @@ export const connectSocket = (schoolId) => {
             autoConnect: true,
             transports: ['websocket', 'polling'],
             reconnection: true,
-            reconnectionAttempts: 5,
-            reconnectionDelay: 1000
+            reconnectionAttempts: 10,
+            reconnectionDelay: 1000,
+            reconnectionDelayMax: 30000,   // Cap at 30 seconds between retries
+            randomizationFactor: 0.5,      // Jitter to prevent thundering herd
         });
 
         socket.on('connect', () => {
