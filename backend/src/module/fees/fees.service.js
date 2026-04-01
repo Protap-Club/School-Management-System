@@ -379,24 +379,56 @@ export const getClassFeeOverview = async (schoolId, academicYear, month, standar
                 },
             },
         },
+        // Final stage: Facet to get both student list and summary totals in one call
+        {
+            $facet: {
+                students: [{ $match: {} }], // Use the existing projection
+                summary: [
+                    { $unwind: "$fees" },
+                    {
+                        $group: {
+                            _id: null,
+                            totalStudents: { $sum: 1 },
+                            totalCollected: { $sum: "$fees.paid" },
+                            totalPending: {
+                                $sum: {
+                                    $cond: [
+                                        { $in: ["$fees.status", ["PENDING", "PARTIAL"]] },
+                                        { $subtract: ["$fees.amount", "$fees.paid"] },
+                                        0,
+                                    ],
+                                },
+                            },
+                            totalOverdue: {
+                                $sum: {
+                                    $cond: [
+                                        { $eq: ["$fees.status", "OVERDUE"] },
+                                        { $subtract: ["$fees.amount", "$fees.paid"] },
+                                        0,
+                                    ],
+                                },
+                            },
+                        },
+                    },
+                ],
+            },
+        },
     ];
 
-    const students = await StudentProfile.aggregate(pipeline);
+    const [result] = await StudentProfile.aggregate(pipeline);
 
-    // Compute summary from flat assignments
-    const allAssignments = students.flatMap(s => s.fees);
-    const summary = {
-        totalStudents: students.length,
-        totalCollected: allAssignments.reduce((sum, a) => sum + a.paid, 0),
-        totalPending: allAssignments
-            .filter(a => a.status === "PENDING" || a.status === "PARTIAL")
-            .reduce((sum, a) => sum + (a.amount - a.paid), 0),
-        totalOverdue: allAssignments
-            .filter(a => a.status === "OVERDUE")
-            .reduce((sum, a) => sum + (a.amount - a.paid), 0),
+    // Extract summary from facet result (default to 0s if no records)
+    const summary = result.summary[0] || {
+        totalStudents: 0,
+        totalCollected: 0,
+        totalPending: 0,
+        totalOverdue: 0,
     };
 
-    return { summary, students };
+    // If there were students but summary count is off due to unwind, fix it back to student count
+    summary.totalStudents = result.students.length;
+
+    return { summary, students: result.students };
 };
 
 // All-classes summary for a specific month (Admin only)
