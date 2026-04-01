@@ -6,7 +6,13 @@ import logger from './config/logger.js';
 let io;
 
 export const initSocket = (server, corsOptions) => {
-    io = new Server(server, { cors: corsOptions });
+    io = new Server(server, { 
+        cors: corsOptions,
+        maxHttpBufferSize: 1e6,        // 1MB max message size
+        connectTimeout: 10000,          // 10s connection timeout
+        pingInterval: 25000,            // 25s ping interval
+        pingTimeout: 20000,             // 20s ping timeout (cleans stale connections)
+    });
     const isProduction = conf.NODE_ENV === 'production';
 
     // Socket.io responses can bypass Express middleware headers.

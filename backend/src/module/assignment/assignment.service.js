@@ -274,17 +274,7 @@ export const listAssignments = async (schoolId, userId, role, query = {}) => {
     }
 
     if (query.search?.trim()) {
-        const searchRegex = new RegExp(escapeRegExp(query.search.trim()), "i");
-        filter.$and = [
-            ...(filter.$and || []),
-            {
-                $or: [
-                    { title: searchRegex },
-                    { subject: searchRegex },
-                    { description: searchRegex },
-                ],
-            },
-        ];
+        filter.$text = { $search: query.search.trim() };
     }
 
     const page = parseInt(query.page, 10) || 0;
@@ -384,11 +374,7 @@ export const listSubmittedAssignments = async (schoolId, userId, role, query = {
         const [matchingAssignments, matchingUsers, matchingProfiles] = await Promise.all([
             Assignment.find({
                 ...assignmentFilter,
-                $or: [
-                    { title: searchRegex },
-                    { subject: searchRegex },
-                    { description: searchRegex },
-                ],
+                $text: { $search: query.search.trim() },
             })
                 .select("_id")
                 .lean(),

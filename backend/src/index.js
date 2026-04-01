@@ -7,6 +7,7 @@ import helmet from 'helmet';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { createServer } from 'http';
+import rateLimit from 'express-rate-limit';
 import { initSocket } from './socket.js';
 
 // Local Imports 
@@ -101,6 +102,32 @@ app.use((req, res, next) => {
     };
     next();
 });
+  
+// Rate Limiting — Protects API from flooding
+const apiLimiter = rateLimit({
+    windowMs: 60 * 1000, // 1 minute
+    max: 100, // 100 requests per minute per IP
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { success: false, message: 'Too many requests, please try again later.' },
+});
+
+const mutationLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 30, // 30 mutation requests per minute
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { success: false, message: 'Too many requests, please try again later.' },
+});
+
+// Apply rate limits
+app.use('/api/v1', apiLimiter);
+app.use('/api/v1', (req, res, next) => {
+    if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) {
+        return mutationLimiter(req, res, next);
+    }
+    next();
+});
 
 // API Routes
 app.use('/api/v1', apiRoutes);
@@ -121,7 +148,13 @@ app.use(errorHandler);
 // Database & Server Initialization 
 // We connect to MongoDB first, and only if successful, we start the server.
 logger.info("Connecting to MongoDB...");
-mongoose.connect(conf.MONGO_URI, { dbName: conf.DB_NAME })
+mongoose.connect(conf.MONGO_URI, { 
+    dbName: conf.DB_NAME,
+    maxPoolSize: 50,
+    minPoolSize: 10,
+    serverSelectionTimeoutMS: 5000,
+    socketTimeoutMS: 45000,
+})
     .then(() => {
         logger.info("MongoDB connected successfully.");
 

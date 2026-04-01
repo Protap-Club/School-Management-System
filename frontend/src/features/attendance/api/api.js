@@ -4,7 +4,7 @@ import api from '../../../lib/axios';
 export const attendanceApi = {
     /** Fetch all students (paginated). */
     getStudents: async () => {
-        const response = await api.get('/users?role=student&pageSize=2000');
+        const response = await api.get('/users?role=student&pageSize=100');
         return response.data;
     },
 
