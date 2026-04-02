@@ -102,3 +102,24 @@ export const pages = {
 
 // Export utilities
 export { withSuspense, PageLoader };
+
+// Prefetch critical routes after initial render to speed up navigation
+export const prefetchRoutes = () => {
+    if (typeof window !== 'undefined') {
+        // Use requestIdleCallback if available, fallback to setTimeout
+        const runPrefetch = () => {
+            // Pre-load critical modules
+            import('../pages/Dashboard').catch(() => {});
+            import('../features/attendance/AttendancePage').catch(() => {});
+        };
+
+        if ('requestIdleCallback' in window) {
+            window.requestIdleCallback(runPrefetch, { timeout: 2000 });
+        } else {
+            setTimeout(runPrefetch, 2000);
+        }
+    }
+};
+
+// Trigger prefetch on module load
+prefetchRoutes();

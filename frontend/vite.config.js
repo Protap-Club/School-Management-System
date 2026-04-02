@@ -85,11 +85,26 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [react(), tailwindcss()],
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            vendor: ['react', 'react-dom', 'react-router-dom'],
+            charts: ['recharts'],
+            ui: ['framer-motion', 'lucide-react', 'react-icons'],
+            query: ['@tanstack/react-query'],
+          },
+        },
+      },
+    },
     server: {
       headers: securityHeaders,
     },
     preview: {
-      headers: securityHeaders,
+      headers: {
+        ...cspHeaders,
+        'Cache-Control': 'public, max-age=31536000, immutable',
+      },
     },
     resolve: {
       alias: {

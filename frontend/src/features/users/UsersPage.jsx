@@ -14,6 +14,7 @@ import {
     useToggleUsersStatus,
 } from './api/queries';
 import { useToastMessage } from '../../hooks/useToastMessage';
+import useDebounce from '../../hooks/useDebounce';
 
 
 
@@ -60,6 +61,7 @@ const UsersPage = () => {
     const [page, setPage] = useState(0);
     const [showArchived, setShowArchived] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
+    const debouncedSearch = useDebounce(searchQuery, 300);
     const [sortBy, setSortBy] = useState('default');
     const [showSortMenu, setShowSortMenu] = useState(false);
 
@@ -81,7 +83,7 @@ const UsersPage = () => {
     const isAdminOrAbove = currentUser?.role === 'super_admin' || currentUser?.role === 'admin';
 
     // Queries
-    const queryParams = { role: selectedRole, page, pageSize, name: searchQuery };
+    const queryParams = { role: selectedRole, page, pageSize, name: debouncedSearch };
     const { data: usersData, isLoading: usersLoading } = useUsers(queryParams);
     const { data: archivedData, isLoading: archivedLoading } = useArchivedUsers(queryParams);
     const { data: activeTeachersData } = useUsers({
@@ -99,15 +101,15 @@ const UsersPage = () => {
     const filteredUsers = useMemo(() => {
         if (!usersList) return [];
         return usersList.filter(u =>
-            u.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            u.email.toLowerCase().includes(searchQuery.toLowerCase())
+            u.name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+            u.email.toLowerCase().includes(debouncedSearch.toLowerCase())
         ).sort((a, b) => {
             if (sortBy === 'name') return a.name.localeCompare(b.name);
             if (sortBy === 'email') return a.email.localeCompare(b.email);
             if (sortBy === 'role') return (ROLE_ORDER[a.role] || 99) - (ROLE_ORDER[b.role] || 99);
             return 0;
         });
-    }, [usersList, searchQuery, sortBy]);
+    }, [usersList, debouncedSearch, sortBy]);
 
     useEffect(() => { if (!selectionMode) setSelectedUsers([]); }, [selectionMode]);
 

@@ -240,8 +240,6 @@ export const createAssignment = async (schoolId, userId, body, files) => {
 };
 
 export const listAssignments = async (schoolId, userId, role, query = {}) => {
-    await closeExpiredAssignments(schoolId);
-
     const filter = { schoolId };
 
     if (role === USER_ROLES.TEACHER || isAdminRole(role)) {
@@ -274,17 +272,7 @@ export const listAssignments = async (schoolId, userId, role, query = {}) => {
     }
 
     if (query.search?.trim()) {
-        const searchRegex = new RegExp(escapeRegExp(query.search.trim()), "i");
-        filter.$and = [
-            ...(filter.$and || []),
-            {
-                $or: [
-                    { title: searchRegex },
-                    { subject: searchRegex },
-                    { description: searchRegex },
-                ],
-            },
-        ];
+        filter.$text = { $search: query.search.trim() };
     }
 
     const page = parseInt(query.page, 10) || 0;
@@ -339,8 +327,6 @@ export const listSubmittedAssignments = async (schoolId, userId, role, query = {
         throw new ForbiddenError("You are not allowed to view submitted assignments");
     }
 
-    await closeExpiredAssignments(schoolId);
-
     const assignmentFilter = { schoolId };
 
     if (query.standard && query.standard !== "all") {
@@ -384,11 +370,7 @@ export const listSubmittedAssignments = async (schoolId, userId, role, query = {
         const [matchingAssignments, matchingUsers, matchingProfiles] = await Promise.all([
             Assignment.find({
                 ...assignmentFilter,
-                $or: [
-                    { title: searchRegex },
-                    { subject: searchRegex },
-                    { description: searchRegex },
-                ],
+                $text: { $search: query.search.trim() },
             })
                 .select("_id")
                 .lean(),
@@ -874,4 +856,16 @@ export const getAssignmentMetadata = async (schoolId) => {
     });
 
     return result;
+};
+
+export const startAssignmentExpiryJob = () => {
+    const runJob = () => {
+        Assignment.updateMany(
+            { status: "active", dueDate: { $lt: new Date() } },
+            { $set: { status: "closed" } }
+        ).catch((err) => logger.error(err, "Failed to close expired assignments"));
+    };
+
+    runJob(); // Run immediately on startup
+    setInterval(runJob, 15 * 60 * 1000); // Every 15 minutes
 };

@@ -74,5 +74,6 @@ const assignmentSchema = new mongoose.Schema(
 // Compound index for listing assignments per school by class
 assignmentSchema.index({ schoolId: 1, standard: 1, section: 1, createdAt: -1 });
 assignmentSchema.index({ schoolId: 1, status: 1, dueDate: 1 });
+assignmentSchema.index({ title: "text", subject: "text", description: "text" });
 
 export const Assignment = mongoose.model("Assignment", assignmentSchema);

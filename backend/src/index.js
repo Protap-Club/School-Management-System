@@ -1,4 +1,5 @@
 import express from 'express';
+import crypto from 'crypto';
 
 import mongoose from 'mongoose';
 import cors from 'cors';
@@ -7,6 +8,8 @@ import helmet from 'helmet';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { createServer } from 'http';
+import rateLimit from 'express-rate-limit';
+import compression from 'compression';
 import { initSocket } from './socket.js';
 
 // Local Imports 
@@ -16,6 +19,8 @@ import { corsOptions, socketCorsOptions } from './config/cors.js';
 import logger from './config/logger.js'; // Import our configured logger
 import apiRoutes from './routes/index.route.js';
 import errorHandler, { notFoundHandler } from './middlewares/error.middleware.js';
+import { startResultExpiryJob } from './module/result/result.service.js';
+import { startAssignmentExpiryJob } from './module/assignment/assignment.service.js';
 import { sanitizeParams } from './middlewares/paramSanitizer.middleware.js';
 
 // Constants & Setup    
@@ -84,6 +89,13 @@ app.use(express.text({ type: 'text/plain', limit: conf.TEXT_BODY_LIMIT })); // L
 app.use('/resource', express.static(path.join(__dirname, '../resource')));
 
 
+// Request Correlation ID — enables distributed tracing in production
+app.use((req, res, next) => {
+    req.id = req.headers['x-request-id'] || crypto.randomUUID();
+    res.setHeader('X-Request-Id', req.id);
+    next();
+});
+
 // Response Logger
 app.use((req, res, next) => {
     const start = Date.now();
@@ -92,6 +104,7 @@ app.use((req, res, next) => {
         const duration = Date.now() - start;
         logger.info({
             msg: "API Response",
+            requestId: req.id,
             method: req.method,
             url: req.originalUrl,
             status: res.statusCode,
@@ -99,6 +112,35 @@ app.use((req, res, next) => {
         });
         return originalJson(body);
     };
+    next();
+});
+  
+// Rate Limiting — Protects API from flooding
+const apiLimiter = rateLimit({
+    windowMs: 60 * 1000, // 1 minute
+    max: 100, // 100 requests per minute per IP
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { success: false, message: 'Too many requests, please try again later.' },
+});
+
+const mutationLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 30, // 30 mutation requests per minute
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { success: false, message: 'Too many requests, please try again later.' },
+});
+
+// Response compression
+app.use(compression());
+
+// Apply rate limits
+app.use('/api/v1', apiLimiter);
+app.use('/api/v1', (req, res, next) => {
+    if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) {
+        return mutationLimiter(req, res, next);
+    }
     next();
 });
 
@@ -111,9 +153,16 @@ app.use('/api/v1', (req, res, next) => {
 });
 app.use('/api/v1', sanitizeParams, apiRoutes);
 
-// A simple health check endpoint.
-app.get('/', (req, res) => {
-    res.send('School Management System API is running...');
+// Health check endpoint — used by load balancers to verify instance readiness
+app.get('/', async (req, res) => {
+    const dbState = mongoose.connection.readyState;
+    const isHealthy = dbState === 1;
+    res.status(isHealthy ? 200 : 503).json({
+        status: isHealthy ? 'healthy' : 'unhealthy',
+        uptime: process.uptime(),
+        timestamp: new Date().toISOString(),
+        database: isHealthy ? 'connected' : 'disconnected',
+    });
 });
 
 
@@ -127,7 +176,13 @@ app.use(errorHandler);
 // Database & Server Initialization 
 // We connect to MongoDB first, and only if successful, we start the server.
 logger.info("Connecting to MongoDB...");
-mongoose.connect(conf.MONGO_URI, { dbName: conf.DB_NAME })
+mongoose.connect(conf.MONGO_URI, { 
+    dbName: conf.DB_NAME,
+    maxPoolSize: 50,
+    minPoolSize: 10,
+    serverSelectionTimeoutMS: 5000,
+    socketTimeoutMS: 45000,
+})
     .then(() => {
         logger.info("MongoDB connected successfully.");
 
@@ -135,10 +190,34 @@ mongoose.connect(conf.MONGO_URI, { dbName: conf.DB_NAME })
         server.listen(PORT, () => {
             logger.info(`Server is running on port ${PORT}`);
             logger.info("Socket.io is ready and waiting for connections.");
+            
+            // Start background maintenance jobs
+            startResultExpiryJob();
+            startAssignmentExpiryJob();
         });
     })
     .catch((error) => {
         logger.error("MongoDB connection error:", error);
         process.exit(1); // Exit the process with a failure code.
     });
+
+// Graceful Shutdown — allows container orchestrators to drain in-flight requests
+const gracefulShutdown = (signal) => {
+    logger.info(`${signal} received. Starting graceful shutdown...`);
+    server.close(() => {
+        logger.info('HTTP server closed.');
+        mongoose.connection.close(false).then(() => {
+            logger.info('MongoDB connection closed.');
+            process.exit(0);
+        });
+    });
+    // Force exit after 10 seconds if graceful shutdown stalls
+    setTimeout(() => {
+        logger.error('Graceful shutdown timed out. Forcing exit.');
+        process.exit(1);
+    }, 10000);
+};
+
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 

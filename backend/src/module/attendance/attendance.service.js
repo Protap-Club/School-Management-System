@@ -167,7 +167,7 @@ export const getTodayAttendance = async (user, platform) => {
     const records = await Attendance.find({
         schoolId,
         date: { $gte: startOfDay }
-    }).select("studentId status checkInTime").lean();
+    }).select("studentId status checkInTime").sort({ checkInTime: -1 }).limit(200).lean();
 
     return records;
 };

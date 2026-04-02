@@ -337,7 +337,7 @@ export const getUsers = async (creator, filters = {}) => {
 
     // 1. INPUT VALIDATION & SANITIZATION
     const page = Math.max(0, filters.page || 0);
-    const maxPageSize = [USER_ROLES.TEACHER, USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN].includes(creator.role) ? 5000 : 100;
+    const maxPageSize = 100;
     const pageSize = Math.min(maxPageSize, Math.max(1, filters.pageSize || 25));
     const { page: _, pageSize: __, ...queryFilters } = filters;
 
@@ -352,28 +352,28 @@ export const getUsers = async (creator, filters = {}) => {
             return { totalCount: 0, users: [], pagination: { page, pageSize, totalPages: 0 } };
         }
 
-        // Only filter if querying students (teachers can view their own profile)
+        // Optimized Teacher Join: If a teacher is querying students, we use an aggregation pipeline to filter 
+        // by assigned classes directly in the database instead of doing two separate queries and merging in JS memory.
         if (!query.role || query.role === USER_ROLES.STUDENT ||
-            (query.role.$in && query.role.$in.includes(USER_ROLES.STUDENT))) {
+            (typeof query.role === 'object' && query.role.$in && query.role.$in.includes(USER_ROLES.STUDENT))) {
 
-            const matchingStudents = await StudentProfile.find({
-                schoolId: creator.schoolId,
+            const classMatch = {
                 $or: assignedClasses.map(cls => ({
                     standard: cls.standard,
                     section: cls.section
                 }))
-            }).select("userId").lean();
+            };
 
-            const allowedStudentIds = matchingStudents.map(sp => sp.userId.toString());
+            const studentsInClasses = await StudentProfile.aggregate([
+                { $match: { schoolId: creator.schoolId, ...classMatch } },
+                { $project: { userId: 1, _id: 0 } }
+            ]);
 
-            // Merge with existing _id filter if present
+            const allowedStudentIds = studentsInClasses.map(s => s.userId);
+
             if (query._id) {
-                const existingIds = Array.isArray(query._id.$in)
-                    ? query._id.$in.map(id => id.toString())
-                    : [query._id.toString()];
-
-                const intersection = existingIds.filter(id => allowedStudentIds.includes(id));
-                query._id = { $in: intersection };
+                const existingIdsIn = Array.isArray(query._id.$in) ? query._id.$in : [query._id];
+                query._id = { $in: existingIdsIn.filter(id => allowedStudentIds.some(aid => aid.equals(id))) };
             } else {
                 query._id = { $in: allowedStudentIds };
             }

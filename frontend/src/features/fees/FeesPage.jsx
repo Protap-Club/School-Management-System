@@ -36,6 +36,7 @@ import { ButtonSpinner } from '../../components/ui/Spinner';
 import { useToastMessage } from '../../hooks/useToastMessage';
 import { useSchoolClasses } from '../../hooks/useSchoolClasses';
 import { makeClassKey } from '../../utils/classSection';
+import useDebounce from '../../hooks/useDebounce';
 
 const MODAL_OVERLAY = 'modal-overlay fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4';
 const currentYear = new Date().getFullYear();
@@ -85,6 +86,7 @@ const FeesPage = () => {
 
     // Staff Salary state
     const [staffSearch, setStaffSearch] = useState('');
+    const debouncedStaffSearch = useDebounce(staffSearch, 300);
     const [staffStatusFilter, setStaffStatusFilter] = useState('all');
     const [selectedStaff, setSelectedStaff] = useState(null);
     const [baseSalaryModal, setBaseSalaryModal] = useState({ open: false, staff: null, amount: '' });
@@ -101,7 +103,7 @@ const FeesPage = () => {
 
     useEffect(() => {
         setStaffDashboardPage(1);
-    }, [staffSearch]);
+    }, [debouncedStaffSearch]);
 
     const { availableStandards, allUniqueSections, getSectionsForStandard, classSections } = useSchoolClasses({ enabled: isAdmin });
 
@@ -167,7 +169,7 @@ const FeesPage = () => {
 
     // showToast provided by useToastMessage hook
 
-    const structures = structData?.data || [];
+    const structures = structData?.data?.structures || [];
 
     const overviewClasses = useMemo(() => {
         if (!isAdmin) return [];
@@ -846,7 +848,7 @@ const FeesPage = () => {
                                                     {teachersLoading || salariesLoading ? (
                                                         <SkeletonRows rows={5} columns={5} />
                                                     ) : (() => {
-                                                        const filteredStaffDashboard = (teachersData?.data?.users || []).filter(t => t.name.toLowerCase().includes(staffSearch.toLowerCase()));
+                                                        const filteredStaffDashboard = (teachersData?.data?.users || []).filter(t => t.name.toLowerCase().includes(debouncedStaffSearch.toLowerCase()));
                                                         if (filteredStaffDashboard.length === 0) {
                                                             return <tr><td colSpan={5}><EmptyState icon={FaUser} title="No staff records" subtitle="We couldn't find any staff matching your search." /></td></tr>;
                                                         }
@@ -895,7 +897,7 @@ const FeesPage = () => {
                                             
                                             {/* Pagination Controls */}
                                             {(() => {
-                                                const filteredStaffDashboardCount = (teachersData?.data?.users || []).filter(t => t.name.toLowerCase().includes(staffSearch.toLowerCase())).length;
+                                                const filteredStaffDashboardCount = (teachersData?.data?.users || []).filter(t => t.name.toLowerCase().includes(debouncedStaffSearch.toLowerCase())).length;
                                                 if (filteredStaffDashboardCount > STAFF_DASHBOARD_PER_PAGE) {
                                                     const totalPages = Math.ceil(filteredStaffDashboardCount / STAFF_DASHBOARD_PER_PAGE);
                                                     return (

@@ -120,7 +120,8 @@ const Dashboard = () => {
         const response = await api.get('/calendar', {
           params: {
             start: startOfMonth.toISOString(),
-            end: endOfMonth.toISOString()
+            end: endOfMonth.toISOString(),
+            limit: 50
           }
         });
 
