@@ -73,13 +73,23 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
   const cspHeaders = buildCspHeader({ mode, env })
 
+  // Security headers object (merged with CSP headers)
+  const securityHeaders = {
+    ...cspHeaders,
+    'X-Frame-Options': 'DENY',              // Anti-clickjacking
+    'X-Content-Type-Options': 'nosniff',    // Anti-MIME-sniffing
+    'X-XSS-Protection': '0',               // Disabled in favor of CSP (modern best practice)
+    'Referrer-Policy': 'strict-origin-when-cross-origin',
+    'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
+  }
+
   return {
     plugins: [react(), tailwindcss()],
     server: {
-      headers: cspHeaders,
+      headers: securityHeaders,
     },
     preview: {
-      headers: cspHeaders,
+      headers: securityHeaders,
     },
     resolve: {
       alias: {
