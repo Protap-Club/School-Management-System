@@ -20,7 +20,17 @@ let transporter = nodemailer.createTransport({
 const getTemplate = async (templateName) => {
     if (TEMPLATE_CACHE.has(templateName)) return TEMPLATE_CACHE.get(templateName);
     
-    const templatePath = path.join(TEMPLATE_DIR, templateName);
+    // Path traversal guard: enforce safe basename and verify resolved path
+    const safeName = path.basename(templateName);
+    if (safeName !== templateName) {
+        throw new Error(`Invalid template name: ${templateName}`);
+    }
+
+    const templatePath = path.resolve(TEMPLATE_DIR, safeName);
+    if (!templatePath.startsWith(path.resolve(TEMPLATE_DIR))) {
+        throw new Error(`Template path escapes allowed directory: ${templateName}`);
+    }
+
     const content = await fs.readFile(templatePath, 'utf-8');
     TEMPLATE_CACHE.set(templateName, content);
     return content;

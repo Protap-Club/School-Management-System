@@ -16,6 +16,7 @@ import { corsOptions, socketCorsOptions } from './config/cors.js';
 import logger from './config/logger.js'; // Import our configured logger
 import apiRoutes from './routes/index.route.js';
 import errorHandler, { notFoundHandler } from './middlewares/error.middleware.js';
+import { sanitizeParams } from './middlewares/paramSanitizer.middleware.js';
 
 // Constants & Setup    
 const __filename = fileURLToPath(import.meta.url);
@@ -52,10 +53,9 @@ app.set('io', io);
 app.use(helmet({
     hsts: isProduction
         ? {
-            // Start conservatively in production; increase after HTTPS validation.
-            maxAge: 300,
-            includeSubDomains: false,
-            preload: false
+            maxAge: 31536000,              // 1 year (OWASP recommendation)
+            includeSubDomains: true,       // Protect all subdomains
+            preload: false                 // Set true after verifying on hstspreload.org
         }
         : false,
     xFrameOptions: { action: 'deny' }, // Legacy clickjacking protection for older browsers
@@ -102,8 +102,14 @@ app.use((req, res, next) => {
     next();
 });
 
-// API Routes
-app.use('/api/v1', apiRoutes);
+// API Routes — prevent caching of sensitive API responses
+app.use('/api/v1', (req, res, next) => {
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
+    next();
+});
+app.use('/api/v1', sanitizeParams, apiRoutes);
 
 // A simple health check endpoint.
 app.get('/', (req, res) => {

@@ -101,7 +101,8 @@ const SearchableSelect = ({ label, value, onChange, options, placeholder, requir
 
 const TimetableModal = ({
   isOpen, onClose, onSave, onDelete, initialData, slotInfo,
-  teachers = [], subjects = [], rooms = [], loading = false
+  teachers = [], subjects = [], rooms = [], loading = false,
+  defaultRoom = ""
 }) => {
   const [formData, setFormData] = useState({ ...EMPTY_FORM });
   const [errors, setErrors] = useState({});
@@ -114,7 +115,7 @@ const TimetableModal = ({
         roomNumber: initialData.roomNumber || '',
         notes: initialData.notes || ''
       }
-      : { ...EMPTY_FORM }
+      : { ...EMPTY_FORM, roomNumber: defaultRoom }
     );
     setErrors({});
   }, [initialData, isOpen]);
@@ -130,6 +131,7 @@ const TimetableModal = ({
     const newErrors = {};
     if (!formData.subject.trim()) newErrors.subject = 'Subject is required';
     if (!formData.teacherId) newErrors.teacherId = 'Please select a teacher';
+    if (!formData.roomNumber?.trim()) newErrors.roomNumber = 'Class/Room is required';
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -209,15 +211,26 @@ const TimetableModal = ({
               {errors.teacherId && <p className="text-red-500 text-xs mt-1 ml-1">{errors.teacherId}</p>}
             </div>
 
-            <SearchableSelect
-              label="Class (Room)"
-              value={formData.roomNumber}
-              onChange={(val) => updateField('roomNumber', val)}
-              options={rooms}
-              placeholder="Select or type room"
-              error={errors.roomNumber}
-              loading={loading}
-            />
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Class (Room)
+              </label>
+              <div className="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50/50 text-gray-700 font-bold flex items-center gap-2.5 transition-all">
+                <div className="bg-gray-100 p-1.5 rounded-lg text-gray-500">
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                  </svg>
+                </div>
+                <span>{formData.roomNumber || defaultRoom}</span>
+                <span className="ml-auto text-[10px] uppercase tracking-wider text-gray-400 font-extrabold bg-gray-100 px-2 py-0.5 rounded-full border border-gray-200/50">Fixed</span>
+              </div>
+              <p className="text-[10px] text-gray-500 mt-1.5 ml-1 flex items-center gap-1 opacity-70">
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                This timetable entry is locked to the current class.
+              </p>
+            </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
