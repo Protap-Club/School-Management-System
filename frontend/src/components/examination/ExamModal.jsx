@@ -1,10 +1,142 @@
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { 
     FaTimes, FaPlus, FaTrash, FaCalendarAlt, FaClock, 
-    FaBookOpen, FaInfoCircle, FaCheckCircle, FaExclamationTriangle
+    FaBookOpen, FaInfoCircle, FaCheckCircle, FaExclamationTriangle,
+    FaSearch, FaChevronDown
 } from 'react-icons/fa';
 import { useSchoolClasses } from '../../hooks/useSchoolClasses';
+import { useUsers } from '../../features/users/api/queries';
 import { ButtonSpinner } from '../../components/ui/Spinner';
+
+import { createPortal } from 'react-dom';
+
+const TeacherSelectDropdown = ({ value, onChange, options, className }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const [search, setSearch] = useState('');
+    const dropdownRef = React.useRef(null);
+    const menuRef = React.useRef(null);
+    const [rect, setRect] = useState(null);
+
+    const updateRect = useCallback(() => {
+        if (dropdownRef.current) {
+            setRect(dropdownRef.current.getBoundingClientRect());
+        }
+    }, []);
+
+    useEffect(() => {
+        if (isOpen) {
+            updateRect();
+            window.addEventListener('resize', updateRect);
+            // Capture scroll events from any scrollable parent to update position on scroll.
+            window.addEventListener('scroll', updateRect, true); 
+        } else {
+            setSearch('');
+        }
+        return () => {
+            window.removeEventListener('resize', updateRect);
+            window.removeEventListener('scroll', updateRect, true);
+        };
+    }, [isOpen, updateRect]);
+
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            // Check if click was outside both the button and the portal menu
+            if (
+                dropdownRef.current && !dropdownRef.current.contains(event.target) &&
+                menuRef.current && !menuRef.current.contains(event.target)
+            ) {
+                setIsOpen(false);
+            }
+        };
+        if (isOpen) {
+            document.addEventListener("mousedown", handleClickOutside);
+        }
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, [isOpen]);
+
+    const filteredOptions = useMemo(() => {
+        return options.filter(opt => opt.label.toLowerCase().includes(search.toLowerCase()));
+    }, [options, search]);
+
+    const selectedOption = options.find(opt => opt.value === value);
+
+    const menuContent = (
+        <div 
+            ref={menuRef}
+            style={{
+                position: 'fixed',
+                top: rect ? rect.bottom + 4 : -9999,
+                left: rect ? rect.left : -9999,
+                width: rect ? rect.width : 'auto',
+                zIndex: 999999
+            }}
+            className={`bg-white rounded-xl shadow-2xl ring-1 ring-black/5 overflow-hidden transition-all duration-200 origin-top transform ${isOpen ? 'opacity-100 scale-y-100' : 'opacity-0 scale-y-95'}`}
+        >
+            <div className="p-2 border-b border-gray-100">
+                <div className="relative">
+                    <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={12} />
+                    <input
+                        type="text"
+                        placeholder="Search teacher..."
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        className="w-full pl-8 pr-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
+                        onClick={(e) => e.stopPropagation()}
+                    />
+                </div>
+            </div>
+            <div className="max-h-56 overflow-y-auto custom-scrollbar p-1">
+                <button
+                    type="button"
+                    onClick={() => {
+                        onChange('');
+                        setIsOpen(false);
+                    }}
+                    className={`w-full text-left px-3 py-2.5 rounded-lg text-sm transition-colors hover:bg-gray-50 ${!value ? 'bg-primary/5 text-primary font-bold' : 'text-gray-600'}`}
+                >
+                    Unassigned (Optional)
+                </button>
+                {filteredOptions.length > 0 ? (
+                    filteredOptions.map((opt) => (
+                        <button
+                            key={opt.value}
+                            type="button"
+                            onClick={() => {
+                                onChange(opt.value);
+                                setIsOpen(false);
+                            }}
+                            className={`w-full text-left px-3 py-2.5 rounded-lg text-sm transition-colors hover:bg-gray-50 ${value === opt.value ? 'bg-primary/5 text-primary font-bold' : 'text-gray-700 truncate'}`}
+                        >
+                            {opt.label}
+                        </button>
+                    ))
+                ) : (
+                    <div className="px-3 py-4 text-center text-xs text-gray-500">
+                        No teachers found.
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+
+    return (
+        <div ref={dropdownRef} className={`relative ${className}`} style={{ padding: 0, border: 'none', background: 'transparent' }}>
+            <button
+                type="button"
+                onClick={() => setIsOpen(!isOpen)}
+                className={`flex items-center justify-between w-full text-left focus:outline-none`}
+                style={{ padding: '0.625rem 1rem', background: 'transparent' }}
+            >
+                <span className={selectedOption ? 'text-gray-900 truncate' : 'text-gray-500'}>
+                    {selectedOption ? selectedOption.label : 'Unassigned (Optional)'}
+                </span>
+                <FaChevronDown className={`shrink-0 ml-2 text-gray-400 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} size={12} />
+            </button>
+
+            {createPortal(menuContent, document.body)}
+        </div>
+    );
+};
 
 const INITIAL_FORM = {
     name: '',
@@ -55,6 +187,18 @@ const ExamModal = ({ isOpen, onClose, onSubmit, editData, isLoading, userRole, u
         getSectionsForStandard,
         allUniqueSections,
     } = useSchoolClasses();
+
+    const { data: teachersData } = useUsers({ role: 'teacher', pageSize: 1500, enabled: isOpen });
+    
+    const teacherOptions = useMemo(() => {
+        const list = teachersData?.data?.users || teachersData?.users || [];
+        return [...list]
+            .sort((a, b) => a.name.localeCompare(b.name))
+            .map(t => ({
+                value: t._id,
+                label: `${t.name} ${t.staffId ? `(${t.staffId})` : ''}`
+            }));
+    }, [teachersData]);
 
     // Filtered options based on teacher assignments
     const availableStandards = useMemo(() => {
@@ -122,7 +266,7 @@ const ExamModal = ({ isOpen, onClose, onSubmit, editData, isLoading, userRole, u
                         endTime: s.endTime || '',
                         totalMarks: String(s.totalMarks || ''),
                         passingMarks: String(s.passingMarks || ''),
-                        assignedTeacher: s.assignedTeacher || '',
+                        assignedTeacher: s.assignedTeacher?._id || s.assignedTeacher || '',
                         syllabus: s.syllabus || ''
                     })) : [{ ...INITIAL_FORM.schedule[0] }]
                 };
@@ -599,6 +743,20 @@ const ExamModal = ({ isOpen, onClose, onSubmit, editData, isLoading, userRole, u
                                                         />
                                                         {errors[`schedule_${index}_passingMarks`] && <p className="text-red-500 text-[10px] mt-1.5 ml-1">{errors[`schedule_${index}_passingMarks`]}</p>}
                                                     </div>
+                                                </div>
+
+                                                <div>
+                                                    <label className={labelClasses}>Invigilator / Teacher</label>
+                                                    <TeacherSelectDropdown
+                                                        value={item.assignedTeacher}
+                                                        onChange={(val) => handleScheduleChange(index, 'assignedTeacher', val)}
+                                                        options={teacherOptions}
+                                                        className={`p-0 bg-white border rounded-xl text-sm transition-all outline-none ${
+                                                            errors[`schedule_${index}_assignedTeacher`] 
+                                                            ? 'border-red-400 focus-within:border-red-500 focus-within:ring-4 focus-within:ring-red-50' 
+                                                            : 'border-slate-200 focus-within:border-primary focus-within:ring-4 focus-within:ring-primary/10 hover:border-slate-300'
+                                                        }`}
+                                                    />
                                                 </div>
 
                                                 <div className="md:col-span-2 lg:col-span-3 xl:col-span-4">
