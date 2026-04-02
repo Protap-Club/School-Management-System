@@ -4,6 +4,7 @@ import api from '../../../lib/axios';
 import { useAuth } from '../../../features/auth';
 import { useCreateUser, useUsers } from '../api/queries';
 import { useSchoolClasses } from '../../../hooks/useSchoolClasses';
+import { useNavigate } from 'react-router-dom';
 
 const InputField = ({ label, name, value, onChange, type = "text", required = false, isNumeric = false, ...props }) => (
     <div className="space-y-1">
@@ -83,6 +84,13 @@ const buildClassKey = ({ standard, section } = {}) =>
 
 const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
     const { user } = useAuth();
+    const navigate = useNavigate();
+    const isSuperAdmin = user?.role === 'super_admin';
+    const isAdmin = user?.role === 'admin';
+    const rolePrefix = useMemo(
+        () => isSuperAdmin ? 'superadmin' : (isAdmin ? 'admin' : (user?.role || 'student')),
+        [isSuperAdmin, isAdmin, user?.role]
+    );
     const createUserMutation = useCreateUser();
     const teachersQuery = useUsers({ role: 'teacher', pageSize: 5000, enabled: isOpen && roleToAdd === 'teacher' });
     const [formData, setFormData] = useState({ ...INITIAL_FORM });
@@ -93,20 +101,23 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
 
     // Classes / sections fetched from backend via global hook
     const { loading: classesLoading, classSections, availableStandards: standards, getSectionsForStandard, allUniqueSections } = useSchoolClasses();
-    const occupiedTeacherClassKeys = useMemo(() => {
-        return new Set(
-            (teachersQuery.data?.data?.users || [])
-                .map((teacher) => teacher.profile?.assignedClasses?.[0])
-                .filter(Boolean)
-                .map((assignedClass) => buildClassKey(assignedClass))
-        );
+    const occupiedTeacherMap = useMemo(() => {
+        const map = new Map();
+        (teachersQuery.data?.data?.users || []).forEach(teacher => {
+            const assignedClass = teacher.profile?.assignedClasses?.[0];
+            if (assignedClass) {
+                map.set(buildClassKey(assignedClass), teacher.name);
+            }
+        });
+        return map;
     }, [teachersQuery.data?.data?.users]);
-    const selectedTeacherClassOccupied = useMemo(
-        () => roleToAdd === 'teacher' && formData.standard && formData.section
-            ? occupiedTeacherClassKeys.has(buildClassKey({ standard: formData.standard, section: formData.section }))
-            : false,
-        [formData.section, formData.standard, occupiedTeacherClassKeys, roleToAdd]
-    );
+
+    const occupiedTeacherName = useMemo(() => {
+        if (roleToAdd === 'teacher' && formData.standard && formData.section) {
+            return occupiedTeacherMap.get(buildClassKey({ standard: formData.standard, section: formData.section }));
+        }
+        return null;
+    }, [formData.section, formData.standard, occupiedTeacherMap, roleToAdd]);
     const sections = formData.standard ? getSectionsForStandard(formData.standard) : allUniqueSections;
     const teacherAssignmentLoading = classesLoading || teachersQuery.isLoading;
 
@@ -160,8 +171,8 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
             if (roleToAdd === 'admin') {
                 if (formData.department) payload.department = formData.department;
             } else if (roleToAdd === 'teacher') {
-                if (formData.standard && formData.section && selectedTeacherClassOccupied) {
-                    setError('A class teacher is already assigned to this class. Please choose another class or replace the existing teacher first.');
+                if (formData.standard && formData.section && occupiedTeacherName) {
+                    setError(`Class ${formData.standard} ${formData.section} is already assigned to teacher named ${occupiedTeacherName}.`);
                     setLoading(false);
                     return;
                 }
@@ -296,13 +307,44 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
                                         value={formData.expectedSalary} onChange={handleChange}
                                         placeholder="e.g. 45000" isNumeric />
                                 </div>
-                                <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
-                                    {teacherAssignmentLoading
-                                        ? 'Checking current class-teacher assignments...'
-                                        : selectedTeacherClassOccupied
-                                            ? 'This selected class already has a class teacher. Saving will be blocked until you choose a free class.'
+                                {occupiedTeacherName ? (
+                                    <div className="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-800 shadow-sm transition-all duration-300 transform scale-100">
+                                        <div className="flex items-start gap-4">
+                                            <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
+                                                <span className="text-xl">🎓</span>
+                                            </div>
+                                            <div className="space-y-1 mt-0.5">
+                                                <p className="font-semibold text-amber-900 leading-tight">
+                                                    Quick Head's up!
+                                                </p>
+                                                <p className="font-medium text-amber-700/90 text-xs">
+                                                    Class <strong className="text-amber-900">{formData.standard} {formData.section}</strong> is already assigned to our teacher named <strong className="text-amber-900">{occupiedTeacherName}</strong>. 
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <div className="mt-4 pt-4 border-t border-amber-200/50 flex flex-col space-y-3">
+                                            <p className="text-xs text-amber-700/80 font-bold uppercase tracking-wide flex items-center gap-1.5">
+                                                🏫 Add new class and section directly from settings 🏛️
+                                            </p>
+                                            <button 
+                                                type="button" 
+                                                onClick={() => {
+                                                    onClose();
+                                                    navigate(`/${rolePrefix}/settings#academic-management`, { state: { fromAddTeacherWarning: true } });
+                                                }} 
+                                                className="self-start bg-white border border-amber-300 text-amber-700 px-4 py-2.5 rounded-xl font-bold hover:bg-amber-100 hover:scale-[1.02] transition-all flex items-center gap-2"
+                                            >
+                                                Create a new class and section
+                                            </button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                                        {teacherAssignmentLoading
+                                            ? 'Checking current class-teacher assignments...'
                                             : 'All configured classes are visible here. If a class already has a class teacher, saving will show a clear message.'}
-                                </div>
+                                    </div>
+                                )}
                             </div>
                         )}
 

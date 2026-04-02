@@ -410,6 +410,7 @@ const TimetablePage = () => {
                 subjects={availableClasses.subjects || []}
                 rooms={availableClasses.rooms || []}
                 loading={isEntryMutationPending}
+                defaultRoom={activeClassOption ? `Class ${activeClassOption.standard}-${activeClassOption.section}` : ""}
             />
 
             <CreateTimetableDialog

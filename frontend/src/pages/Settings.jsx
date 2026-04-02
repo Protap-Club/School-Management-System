@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import DashboardLayout from '../layouts/DashboardLayout';
 import { useAuth } from '../features/auth';
@@ -59,6 +60,7 @@ const sanitizeSectionInput = (value) => value.replace(/[^A-Za-z0-9_]/g, '');
     
 const Settings = () => {
     const queryClient = useQueryClient();
+    const location = useLocation();
     const { user: currentUser } = useAuth();
     const { updateTheme, fetchBranding } = useTheme();
     const { refreshFeatures } = useFeatures();
@@ -84,6 +86,8 @@ const Settings = () => {
     const [transferTarget, setTransferTarget] = useState({ standard: '', section: '' });
     const [teacherTransferTarget, setTeacherTransferTarget] = useState({ standard: '', section: '' });
     const [teacherAction, setTeacherAction] = useState('unassign');
+
+    const hasShownToastRef = useRef(false);
 
     // Shared hook — provides classSections + real-time socket sync
     const { classSections, loading: classesLoading } = useSchoolClasses({ enabled: canManageAcademic });
@@ -113,6 +117,21 @@ const Settings = () => {
 
         fetchSchoolData();
     }, [currentSchoolId, isSuperAdmin]);
+
+    useEffect(() => {
+        if (!loading && location.hash === '#academic-management') {
+            setTimeout(() => {
+                const el = document.getElementById('academic-management');
+                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }, 300);
+
+            if (location.state?.fromAddTeacherWarning && !hasShownToastRef.current) {
+                showMessage('success', 'Please create and add new class and section here in Academic Management');
+                hasShownToastRef.current = true;
+                window.history.replaceState({}, document.title);
+            }
+        }
+    }, [loading, location.hash, location.state, showMessage]);
 
     const handleToggleFeature = useCallback(async (featureKey) => {
         if (!currentSchoolId || togglingFeature) return;
@@ -664,7 +683,7 @@ const Settings = () => {
 
 
                         {canManageAcademic && (
-                            <div className="bg-white rounded-3xl border border-gray-200 shadow-sm overflow-hidden">
+                            <div id="academic-management" className="bg-white rounded-3xl border border-gray-200 shadow-sm overflow-hidden scroll-mt-24">
                                 <div className="px-6 py-5 border-b border-gray-100 flex items-center gap-4">
                                     <div className="w-11 h-11 rounded-xl flex items-center justify-center" style={{ backgroundColor: `${accentColor}14` }}>
                                         <FaGraduationCap style={{ color: accentColor }} size={18} />

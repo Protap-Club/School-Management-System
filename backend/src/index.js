@@ -21,6 +21,7 @@ import apiRoutes from './routes/index.route.js';
 import errorHandler, { notFoundHandler } from './middlewares/error.middleware.js';
 import { startResultExpiryJob } from './module/result/result.service.js';
 import { startAssignmentExpiryJob } from './module/assignment/assignment.service.js';
+import { sanitizeParams } from './middlewares/paramSanitizer.middleware.js';
 
 // Constants & Setup    
 const __filename = fileURLToPath(import.meta.url);
@@ -57,10 +58,9 @@ app.set('io', io);
 app.use(helmet({
     hsts: isProduction
         ? {
-            // Start conservatively in production; increase after HTTPS validation.
-            maxAge: 300,
-            includeSubDomains: false,
-            preload: false
+            maxAge: 31536000,              // 1 year (OWASP recommendation)
+            includeSubDomains: true,       // Protect all subdomains
+            preload: false                 // Set true after verifying on hstspreload.org
         }
         : false,
     xFrameOptions: { action: 'deny' }, // Legacy clickjacking protection for older browsers
@@ -144,8 +144,14 @@ app.use('/api/v1', (req, res, next) => {
     next();
 });
 
-// API Routes
-app.use('/api/v1', apiRoutes);
+// API Routes — prevent caching of sensitive API responses
+app.use('/api/v1', (req, res, next) => {
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
+    next();
+});
+app.use('/api/v1', sanitizeParams, apiRoutes);
 
 // Health check endpoint — used by load balancers to verify instance readiness
 app.get('/', async (req, res) => {
