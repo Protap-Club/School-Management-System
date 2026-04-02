@@ -1,8 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { FaTimes, FaUserPlus, FaBuilding } from 'react-icons/fa';
 import api from '../../../lib/axios';
 import { useAuth } from '../../../features/auth';
-import { useCreateUser } from '../api/queries';
+import { useCreateUser, useUsers } from '../api/queries';
+import { useSchoolClasses } from '../../../hooks/useSchoolClasses';
+import { useNavigate } from 'react-router-dom';
 
 const InputField = ({ label, name, value, onChange, type = "text", required = false, isNumeric = false, ...props }) => (
     <div className="space-y-1">
@@ -18,12 +20,22 @@ const InputField = ({ label, name, value, onChange, type = "text", required = fa
                     onChange(e);
                 }
             }}
-            className="w-full px-4 py-2 border border-blue-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all placeholder:text-gray-400"
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all placeholder:text-gray-400"
             required={required} {...props} />
     </div>
 );
 
-const SelectField = ({ label, name, value, onChange, options, placeholder, required = false, loading = false }) => (
+const SelectField = ({
+    label,
+    name,
+    value,
+    onChange,
+    options,
+    placeholder,
+    required = false,
+    loading = false,
+    disabled = false
+}) => (
     <div className="space-y-1">
         <label className="text-sm font-medium text-gray-700 flex items-center gap-1">
             {label} {required && <span className="text-red-500">*</span>}
@@ -33,12 +45,13 @@ const SelectField = ({ label, name, value, onChange, options, placeholder, requi
             value={value}
             onChange={onChange}
             required={required}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all bg-white disabled:opacity-60"
-            disabled={loading}
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all bg-white text-gray-900 disabled:bg-gray-100 disabled:text-gray-500 disabled:opacity-100"
+            disabled={disabled}
+            style={{ colorScheme: 'light' }}
         >
-            <option value="">{loading ? 'Loading...' : `Select ${label}`}</option>
+            <option value="">{loading ? 'Loading...' : (placeholder || `Select ${label}`)}</option>
             {options.map(opt => (
-                <option key={opt} value={opt}>{opt}</option>
+                <option key={opt} value={opt} className="bg-white text-gray-900">{opt}</option>
             ))}
         </select>
     </div>
@@ -62,28 +75,51 @@ const INITIAL_FORM = {
     department: '', standard: '', section: '', rollNumber: '',
     contactNo: '', schoolId: '',
     fatherName: '', fatherContact: '', motherName: '', motherContact: '',
-    guardianName: '', guardianContact: '', address: ''
+    guardianName: '', guardianContact: '', address: '',
+    expectedSalary: ''
 };
 
-const naturalSort = (arr) => {
-    return [...arr].sort((a, b) => {
-        return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
-    });
-};
+const buildClassKey = ({ standard, section } = {}) =>
+    `${String(standard || '').trim()}::${String(section || '').trim().toUpperCase()}`;
 
 const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
     const { user } = useAuth();
+    const navigate = useNavigate();
+    const isSuperAdmin = user?.role === 'super_admin';
+    const isAdmin = user?.role === 'admin';
+    const rolePrefix = useMemo(
+        () => isSuperAdmin ? 'superadmin' : (isAdmin ? 'admin' : (user?.role || 'student')),
+        [isSuperAdmin, isAdmin, user?.role]
+    );
     const createUserMutation = useCreateUser();
+    const teachersQuery = useUsers({ role: 'teacher', pageSize: 5000, enabled: isOpen && roleToAdd === 'teacher' });
     const [formData, setFormData] = useState({ ...INITIAL_FORM });
     const [schoolName, setSchoolName] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [activeGuardianTab, setActiveGuardianTab] = useState('parents'); // 'parents' | 'guardian'
 
-    // Classes / sections fetched from backend
-    const [standards, setStandards] = useState([]);
-    const [sections, setSections] = useState([]);
-    const [classesLoading, setClassesLoading] = useState(false);
+    // Classes / sections fetched from backend via global hook
+    const { loading: classesLoading, classSections, availableStandards: standards, getSectionsForStandard, allUniqueSections } = useSchoolClasses();
+    const occupiedTeacherMap = useMemo(() => {
+        const map = new Map();
+        (teachersQuery.data?.data?.users || []).forEach(teacher => {
+            const assignedClass = teacher.profile?.assignedClasses?.[0];
+            if (assignedClass) {
+                map.set(buildClassKey(assignedClass), teacher.name);
+            }
+        });
+        return map;
+    }, [teachersQuery.data?.data?.users]);
+
+    const occupiedTeacherName = useMemo(() => {
+        if (roleToAdd === 'teacher' && formData.standard && formData.section) {
+            return occupiedTeacherMap.get(buildClassKey({ standard: formData.standard, section: formData.section }));
+        }
+        return null;
+    }, [formData.section, formData.standard, occupiedTeacherMap, roleToAdd]);
+    const sections = formData.standard ? getSectionsForStandard(formData.standard) : allUniqueSections;
+    const teacherAssignmentLoading = classesLoading || teachersQuery.isLoading;
 
     const roleLabel = roleToAdd?.charAt(0).toUpperCase() + roleToAdd?.slice(1);
 
@@ -111,26 +147,7 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
             }
         };
 
-        const fetchClasses = async () => {
-            if (roleToAdd === 'student' || roleToAdd === 'teacher') {
-                setClassesLoading(true);
-                try {
-                    const response = await api.get('/school/classes');
-                    const data = response.data?.data;
-                    setStandards(naturalSort(data?.standards || []));
-                    setSections(naturalSort(data?.sections || []));
-                } catch {
-                    // fallback — keep empty
-                    setStandards([]);
-                    setSections([]);
-                } finally {
-                    setClassesLoading(false);
-                }
-            }
-        };
-
         fetchSchoolDetails();
-        fetchClasses();
     }, [isOpen, user, roleToAdd]);
 
     if (!isOpen) return null;
@@ -154,9 +171,42 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
             if (roleToAdd === 'admin') {
                 if (formData.department) payload.department = formData.department;
             } else if (roleToAdd === 'teacher') {
+                if (formData.standard && formData.section && occupiedTeacherName) {
+                    setError(`Class ${formData.standard} ${formData.section} is already assigned to teacher named ${occupiedTeacherName}.`);
+                    setLoading(false);
+                    return;
+                }
                 if (formData.standard) payload.standard = formData.standard;
                 if (formData.section) payload.section = formData.section;
+                if (formData.expectedSalary !== '') {
+                    const expectedSalary = Number(formData.expectedSalary);
+                    if (!Number.isFinite(expectedSalary) || expectedSalary <= 100) {
+                        setError('Expected / Desired Salary must be more than 100');
+                        setLoading(false);
+                        return;
+                    }
+                    payload.expectedSalary = expectedSalary;
+                }
+                // Note: assignedClasses will be constructed on backend from standard/section if provided
             } else if (roleToAdd === 'student') {
+                // Validation: Roll number must be positive
+                const rollNum = Number(formData.rollNumber);
+                if (!rollNum || rollNum <= 0) {
+                    setError('Roll Number must be a positive number (greater than 0)');
+                    setLoading(false);
+                    return;
+                }
+
+                // Validation: At least one parent or guardian name is required
+                const hasParentInfo = formData.fatherName?.trim() || formData.motherName?.trim();
+                const hasGuardianInfo = formData.guardianName?.trim();
+
+                if (!hasParentInfo && !hasGuardianInfo) {
+                    setError('A student must have at least one parent or guardian detail provided');
+                    setLoading(false);
+                    return;
+                }
+
                 const studentFields = [
                     'rollNumber', 'standard', 'section',
                     'fatherName', 'fatherContact', 'motherName', 'motherContact',
@@ -186,7 +236,7 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
     );
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+        <div className="modal-overlay fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden animate-fade-in-up flex flex-col max-h-[90vh]">
                 {/* Header */}
                 <div className="px-8 py-6 flex items-center justify-between bg-white border-b border-gray-100">
@@ -218,7 +268,7 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <InputField label="Email Address" name="email" type="email" value={formData.email} onChange={handleChange} required />
-                                <InputField label="Contact Number" name="contactNo" value={formData.contactNo} onChange={handleChange} isNumeric />
+                                <InputField label="Contact Number" name="contactNo" value={formData.contactNo} onChange={handleChange} isNumeric maxLength={10} />
                             </div>
                         </div>
 
@@ -240,16 +290,61 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
                                     <SelectField
                                         label="Primary Standard" name="standard" value={formData.standard}
                                         onChange={handleChange} required
-                                        options={standards} placeholder="Choose Class"
+                                        options={standards} placeholder="Choose Standard"
                                         loading={classesLoading}
+                                        disabled={classesLoading}
                                     />
                                     <SelectField
                                         label="Primary Section" name="section" value={formData.section}
                                         onChange={handleChange} required
                                         options={sections} placeholder="Choose Section"
                                         loading={classesLoading}
+                                        disabled={classesLoading || !formData.standard}
                                     />
                                 </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <InputField label="Expected / Desired Salary" name="expectedSalary" type="text"
+                                        value={formData.expectedSalary} onChange={handleChange}
+                                        placeholder="e.g. 45000" isNumeric />
+                                </div>
+                                {occupiedTeacherName ? (
+                                    <div className="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-800 shadow-sm transition-all duration-300 transform scale-100">
+                                        <div className="flex items-start gap-4">
+                                            <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
+                                                <span className="text-xl">🎓</span>
+                                            </div>
+                                            <div className="space-y-1 mt-0.5">
+                                                <p className="font-semibold text-amber-900 leading-tight">
+                                                    Quick Head's up!
+                                                </p>
+                                                <p className="font-medium text-amber-700/90 text-xs">
+                                                    Class <strong className="text-amber-900">{formData.standard} {formData.section}</strong> is already assigned to our teacher named <strong className="text-amber-900">{occupiedTeacherName}</strong>. 
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <div className="mt-4 pt-4 border-t border-amber-200/50 flex flex-col space-y-3">
+                                            <p className="text-xs text-amber-700/80 font-bold uppercase tracking-wide flex items-center gap-1.5">
+                                                🏫 Add new class and section directly from settings 🏛️
+                                            </p>
+                                            <button 
+                                                type="button" 
+                                                onClick={() => {
+                                                    onClose();
+                                                    navigate(`/${rolePrefix}/settings#academic-management`, { state: { fromAddTeacherWarning: true } });
+                                                }} 
+                                                className="self-start bg-white border border-amber-300 text-amber-700 px-4 py-2.5 rounded-xl font-bold hover:bg-amber-100 hover:scale-[1.02] transition-all flex items-center gap-2"
+                                            >
+                                                Create a new class and section
+                                            </button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                                        {teacherAssignmentLoading
+                                            ? 'Checking current class-teacher assignments...'
+                                            : 'All configured classes are visible here. If a class already has a class teacher, saving will show a clear message.'}
+                                    </div>
+                                )}
                             </div>
                         )}
 
@@ -264,12 +359,14 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
                                         onChange={handleChange} required
                                         options={standards}
                                         loading={classesLoading}
+                                        disabled={classesLoading}
                                     />
                                     <SelectField
                                         label="Section" name="section" value={formData.section}
                                         onChange={handleChange} required
                                         options={sections}
                                         loading={classesLoading}
+                                        disabled={classesLoading || !formData.standard}
                                     />
                                 </div>
                             </div>
@@ -299,7 +396,7 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
                                                 <h5 className={`text-[10px] font-black ${p.textColor} uppercase tracking-widest`}>{p.label}</h5>
                                                 <div className="space-y-4">
                                                     <InputField label="Full Name" name={p.nameField} value={formData[p.nameField]} onChange={handleChange} />
-                                                    <InputField label="Contact No." name={p.contactField} value={formData[p.contactField]} onChange={handleChange} isNumeric />
+                                                    <InputField label="Contact No." name={p.contactField} value={formData[p.contactField]} onChange={handleChange} isNumeric maxLength={10} />
                                                 </div>
                                             </div>
                                         ))}
@@ -309,7 +406,7 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
                                         <h5 className={`text-[10px] font-black ${GUARDIAN_SECTION.textColor} uppercase tracking-widest`}>{GUARDIAN_SECTION.label}</h5>
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                             <InputField label="Full Name" name={GUARDIAN_SECTION.nameField} value={formData[GUARDIAN_SECTION.nameField]} onChange={handleChange} />
-                                            <InputField label="Contact No." name={GUARDIAN_SECTION.contactField} value={formData[GUARDIAN_SECTION.contactField]} onChange={handleChange} isNumeric />
+                                            <InputField label="Contact No." name={GUARDIAN_SECTION.contactField} value={formData[GUARDIAN_SECTION.contactField]} onChange={handleChange} isNumeric maxLength={10} />
                                         </div>
                                     </div>
                                 )}
@@ -317,17 +414,13 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
                             </div>
                         )}
 
-                        {/* Info */}
-                        <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 flex items-start gap-3">
-                            <span className="text-blue-500 mt-0.5">ℹ️</span>
-                            <p className="text-sm text-blue-700">A secure password will be <strong>auto-generated</strong> and sent to the user's email address.</p>
-                        </div>
+
 
                         {/* Actions */}
                         <div className="pt-4 flex justify-end gap-3 border-t border-gray-100">
                             <button type="button" onClick={onClose} className="px-5 py-2.5 text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg transition-all font-medium text-sm">Cancel</button>
                             <button type="submit" disabled={loading}
-                                className="px-6 py-2.5 bg-gray-900 hover:bg-black text-white rounded-lg shadow-lg shadow-gray-200 transition-all font-medium text-sm flex items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed">
+                                className="btn-primary px-6 rounded-lg shadow-lg shadow-primary/20 disabled:opacity-70 disabled:cursor-not-allowed">
                                 {loading ? (<><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>Creating...</>) : (<><FaUserPlus />Create {roleLabel}</>)}
                             </button>
                         </div>

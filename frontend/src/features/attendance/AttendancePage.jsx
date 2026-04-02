@@ -5,11 +5,13 @@ import DashboardLayout from '../../layouts/DashboardLayout';
 import { useAuth } from '../../features/auth';
 import { useFeatures } from '../../state';
 import { connectSocket, disconnectSocket } from '../../api/socket';
+import { useSchoolClasses } from '../../hooks/useSchoolClasses';
 import {
     useStudents,
     useTeachers,
     useTodayAttendance,
     useMarkManualAttendance,
+    useReplaceClassTeacher,
 } from './index';
 
 // Components
@@ -17,7 +19,7 @@ import StudentHistoryModal from './components/StudentHistoryModal';
 import { AttendanceStatCards } from './components/AttendanceStatCards';
 import AdminClassList from './components/AdminClassList';
 import TeacherStudentList from './components/TeacherStudentList';
-import PaginationControls from './components/PaginationControls';
+import { PaginationControls } from '../../components/ui/PaginationControls';
 
 // Icons & UI
 import { FaCalendarAlt, FaUsers, FaCheckCircle, FaTimesCircle, FaSearch, FaWifi, FaClipboardList } from 'react-icons/fa';
@@ -33,11 +35,6 @@ const STATUS_STYLES = {
     unmarked: 'bg-slate-100 text-slate-500 hover:bg-slate-200 border-slate-200',
 };
 const STATUS_LABELS = { present: 'Present', late: 'Late', absent: 'Absent', unmarked: 'Unmarked' };
-const STAT_CARDS_CONFIG = [
-    { label: 'Total Students', key: 'total', color: 'text-blue-600', bg: 'bg-blue-100' },
-    { label: 'Present Today', key: 'present', color: 'text-emerald-600', bg: 'bg-emerald-100' },
-    { label: 'Absent Today', key: 'absent', color: 'text-rose-600', bg: 'bg-rose-100' },
-];
 const ITEMS_PER_PAGE = 15;
 
 // ─── Helpers ────────────────────────────────────────────
@@ -47,14 +44,48 @@ const buildAttendanceMap = (records = []) => {
     return map;
 };
 
-const buildClassGroups = (students = [], teachers = []) => {
+const buildClassGroups = (students = [], teachers = [], configuredClassSections = []) => {
     const groups = {};
+    const configuredKeys = new Set(
+        configuredClassSections.map((item) => `${item.standard} ${item.section}`.trim())
+    );
+    const primaryClassTeacherByClass = {};
+
+    teachers.forEach((teacher) => {
+        const primaryClass = teacher.profile?.assignedClasses?.[0];
+        if (!primaryClass?.standard || !primaryClass?.section) return;
+
+        const key = `${primaryClass.standard} ${primaryClass.section}`.trim();
+        const existingTeacher = primaryClassTeacherByClass[key];
+
+        if (!existingTeacher) {
+            primaryClassTeacherByClass[key] = teacher;
+            return;
+        }
+
+        const existingTs = new Date(existingTeacher.profile?.updatedAt || existingTeacher.updatedAt || 0).getTime();
+        const nextTs = new Date(teacher.profile?.updatedAt || teacher.updatedAt || 0).getTime();
+        if (nextTs >= existingTs) {
+            primaryClassTeacherByClass[key] = teacher;
+        }
+    });
+
+    configuredClassSections.forEach((item) => {
+        const key = `${item.standard} ${item.section}`.trim();
+        const classTeacher = primaryClassTeacherByClass[key] || null;
+        groups[key] = { id: key, standard: item.standard, section: item.section, teacher: classTeacher || null, students: [] };
+    });
+
     students.forEach(student => {
-        const std = student.profile?.standard || 'Unassigned';
+        // Hide "Unassigned" class by skipping students without a assigned standard
+        if (!student.profile?.standard) return;
+
+        const std = student.profile.standard;
         const sec = student.profile?.section || '';
         const key = `${std} ${sec}`.trim();
+        if (configuredKeys.size > 0 && !configuredKeys.has(key)) return;
         if (!groups[key]) {
-            const classTeacher = teachers.find(t => t.profile?.assignedClasses?.some(ac => String(ac.standard) === String(std) && String(ac.section) === String(sec)));
+            const classTeacher = primaryClassTeacherByClass[key] || null;
             groups[key] = { id: key, standard: std, section: sec, teacher: classTeacher || null, students: [] };
         }
         groups[key].students.push(student);
@@ -88,9 +119,11 @@ const AttendancePage = () => {
 
     // Queries & Mutations
     const { data: studentsRes, isLoading: studentsLoading } = useStudents();
-    const { data: teachersRes, isLoading: teachersLoading } = useTeachers();
+    const { data: teachersRes, isLoading: teachersLoading } = useTeachers(isAdmin);
     const { data: attendanceRes, isLoading: attendanceLoading } = useTodayAttendance();
     const manualMutation = useMarkManualAttendance();
+    const replaceTeacherMutation = useReplaceClassTeacher();
+    const { classSections: configuredClassSections } = useSchoolClasses({ enabled: isAdmin });
 
     // UI State
     const [socketConnected, setSocketConnected] = useState(false);
@@ -123,7 +156,10 @@ const AttendancePage = () => {
     const attendanceRecords = useMemo(() => attendanceRes?.data || [], [attendanceRes]);
     const attendanceMap = useMemo(() => buildAttendanceMap(attendanceRecords), [attendanceRecords]);
 
-    const allGroupedClasses = useMemo(() => isAdmin ? buildClassGroups(filteredStudents, teachers) : {}, [isAdmin, filteredStudents, teachers]);
+    const allGroupedClasses = useMemo(
+        () => isAdmin ? buildClassGroups(filteredStudents, teachers, configuredClassSections) : {},
+        [configuredClassSections, filteredStudents, isAdmin, teachers]
+    );
 
     const groupedClasses = useMemo(() => {
         if (!isAdmin) return {};
@@ -245,7 +281,7 @@ const AttendancePage = () => {
         return () => disconnectSocket();
     }, [currentUser?.schoolId]);
 
-
+    // ─── Access Guards ──────────────────────────────────
     if (!featuresLoading && !hasFeature('attendance')) return (
         <DashboardLayout>
             <div className="flex flex-col items-center justify-center p-12 text-center h-[60vh]">
@@ -266,14 +302,14 @@ const AttendancePage = () => {
                         <div className="flex items-center gap-3">
                             <button
                                 onClick={() => navigate(`/${currentUser?.role === 'super_admin' ? 'superadmin' : 'admin'}/attendance`)}
-                                className="text-4xl font-black tracking-tight text-slate-900 hover:text-primary transition-colors text-left"
+                                className="page-title hover:text-primary transition-colors text-left"
                             >
                                 Attendance
                             </button>
                             {classId && (
                                 <>
-                                    <span className="text-3xl font-light text-slate-300">/</span>
-                                    <span className="text-3xl font-bold bg-primary/10 text-primary px-4 py-1 rounded-2xl">Class {decodeURIComponent(classId)}</span>
+                                    <span className="text-2xl font-light text-slate-300">/</span>
+                                    <span className="text-xl font-semibold bg-primary/10 text-primary px-4 py-1 rounded-2xl">Class {decodeURIComponent(classId)}</span>
                                 </>
                             )}
                             <Badge variant={socketConnected ? "default" : "secondary"} className={`rounded-full px-3 py-1 animate-in fade-in ${socketConnected ? 'bg-emerald-500 hover:bg-emerald-600' : ''}`}>
@@ -323,6 +359,9 @@ const AttendancePage = () => {
                         setSelectedStudent={setSelectedStudent} getStudentStatus={getStudentStatus}
                         STATUS_STYLES={STATUS_STYLES} STATUS_LABELS={STATUS_LABELS}
                         handleManualToggle={handleManualToggle} manualMutation={manualMutation}
+                        teachers={teachers}
+                        onReplaceClassTeacher={(payload) => replaceTeacherMutation.mutateAsync(payload)}
+                        replaceTeacherPending={replaceTeacherMutation.isPending}
                     />
                 ) : (
                     <TeacherStudentList
@@ -337,7 +376,7 @@ const AttendancePage = () => {
 
                 {/* Present/Absent Students List Modal */}
                 {showModalType && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200">
                         <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-200">
                             <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
                                 <div className="flex items-center gap-3">

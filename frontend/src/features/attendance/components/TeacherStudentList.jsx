@@ -4,7 +4,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { FaUserGraduate } from 'react-icons/fa';
-import PaginationControls from './PaginationControls';
+import { PaginationControls } from '../../../components/ui/PaginationControls';
 
 const TeacherStudentList = ({
     filteredStudents,

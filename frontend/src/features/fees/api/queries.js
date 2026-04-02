@@ -9,8 +9,32 @@ export const feeKeys = {
     allClassesOverview: (academicYear, month) => [...feeKeys.all, 'allClassesOverview', academicYear, month],
     classOverview: (standard, section, academicYear, month) => [...feeKeys.all, 'classOverview', standard, section, academicYear, month],
     yearlySummary: (academicYear) => [...feeKeys.all, 'yearlySummary', academicYear],
-    myClasses: (academicYear, month) => [...feeKeys.all, 'myClasses', academicYear, month],
     studentHistory: (studentId, academicYear) => [...feeKeys.all, 'studentHistory', studentId, academicYear],
+    salaries: () => [...feeKeys.all, 'salaries'],
+    salaryList: (filters) => [...feeKeys.salaries(), filters],
+    mySalary: (filters) => [...feeKeys.all, 'mySalary', filters],
+    myFees: (filters) => [...feeKeys.all, 'myFees', filters],
+    feeTypes: () => [...feeKeys.all, 'feeTypes'],
+};
+
+// ── Fee Type Queries ──────────────────────────────────────────
+
+export const useFeeTypes = (config = {}) => {
+    return useQuery({
+        queryKey: feeKeys.feeTypes(),
+        queryFn: feesApi.getFeeTypes,
+        ...config,
+    });
+};
+
+export const useCreateFeeType = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: feesApi.createFeeType,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: feeKeys.feeTypes() });
+        },
+    });
 };
 
 // ── Fee Structure Queries ─────────────────────────────────────
@@ -123,10 +147,62 @@ export const useStudentFeeHistory = (studentId, academicYear) => {
     });
 };
 
-export const useMyClassFees = (academicYear, month, isTeacher = false) => {
+export const useMyFees = (filters = {}, isStudent = false) => {
     return useQuery({
-        queryKey: feeKeys.myClasses(academicYear, month),
-        queryFn: () => feesApi.getMyClassFees({ academicYear, month }),
-        enabled: !!academicYear && !!month && isTeacher,
+        queryKey: feeKeys.myFees(filters),
+        queryFn: () => feesApi.getMyFees(filters),
+        enabled: isStudent,
+    });
+};
+
+// ── Salary Hooks ──────────────────────────────────────────────
+
+import { salaryApi } from './salary-api';
+
+export const useCreateSalary = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: salaryApi.createSalary,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: feeKeys.salaries() });
+            queryClient.invalidateQueries({ queryKey: ['users'] }); // Invalidate users to refresh salary display in rows
+        },
+    });
+};
+
+export const useSalaries = (filters = {}, enabled = true) => {
+    return useQuery({
+        queryKey: feeKeys.salaryList(filters),
+        queryFn: () => salaryApi.getSalaries(filters),
+        enabled: enabled,
+    });
+};
+
+export const useUpdateSalaryStatus = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: salaryApi.updateSalaryStatus,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: feeKeys.salaries() });
+            queryClient.invalidateQueries({ queryKey: feeKeys.mySalary() });
+        },
+    });
+};
+
+export const useMySalary = (filters = {}, enabled = true) => {
+    return useQuery({
+        queryKey: feeKeys.mySalary(filters),
+        queryFn: () => salaryApi.getMySalary(filters),
+        enabled: enabled,
+    });
+};
+
+export const useUpdateTeacherProfile = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: salaryApi.updateTeacherProfile,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['users'] });
+        },
     });
 };

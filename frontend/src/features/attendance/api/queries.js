@@ -1,6 +1,8 @@
 // Attendance TanStack Query Hooks — all server-state management for attendance.
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useSelector } from 'react-redux';
 import { attendanceApi } from './api';
+import { selectAccessToken } from '../../auth/authSlice';
 
 // ─── Query Keys ─────────────────────────────────────────
 export const attendanceKeys = {
@@ -11,37 +13,54 @@ export const attendanceKeys = {
     profile: () => [...attendanceKeys.all, 'profile'],
 };
 
+const useProtectedQueryEnabled = (enabled = true) => {
+    const accessToken = useSelector(selectAccessToken);
+    return Boolean(accessToken) && enabled;
+};
+
 // ─── Queries ────────────────────────────────────────────
 
 /** Fetch all students for attendance view. */
 export const useStudents = () => {
+    const enabled = useProtectedQueryEnabled();
     return useQuery({
         queryKey: attendanceKeys.students(),
         queryFn: attendanceApi.getStudents,
+        enabled,
+        staleTime: 5 * 60 * 1000,
     });
 };
 
 /** Fetch all teachers (admin view). */
-export const useTeachers = () => {
+export const useTeachers = (enabled = true) => {
+    const queryEnabled = useProtectedQueryEnabled(enabled);
     return useQuery({
         queryKey: attendanceKeys.teachers(),
         queryFn: attendanceApi.getTeachers,
+        enabled: queryEnabled,
+        staleTime: 5 * 60 * 1000,
     });
 };
 
 /** Fetch today's attendance records. */
 export const useTodayAttendance = () => {
+    const enabled = useProtectedQueryEnabled();
     return useQuery({
         queryKey: attendanceKeys.today(),
         queryFn: attendanceApi.getTodayAttendance,
+        enabled,
+        staleTime: 60 * 1000,
     });
 };
 
 /** Fetch current user's profile. */
 export const useProfile = () => {
+    const enabled = useProtectedQueryEnabled();
     return useQuery({
         queryKey: attendanceKeys.profile(),
         queryFn: attendanceApi.getProfile,
+        enabled,
+        staleTime: 10 * 60 * 1000,
     });
 };
 
@@ -122,6 +141,17 @@ export const useMarkManualAttendance = () => {
         // Refetch after mutation settles to sync with server truth
         onSettled: () => {
             queryClient.invalidateQueries({ queryKey: attendanceKeys.today() });
+        },
+    });
+};
+
+export const useReplaceClassTeacher = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: attendanceApi.replaceClassTeacher,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: attendanceKeys.all });
+            queryClient.invalidateQueries({ queryKey: ['users'] });
         },
     });
 };

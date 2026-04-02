@@ -185,6 +185,7 @@ const reportError = (err, req) => {
 //  Catches all errors and sends appropriate response
 
 const errorHandler = (err, req, res, next) => {
+
     let error = err;
 
     // 1. Check if it's already an AppError (our custom error)
@@ -230,18 +231,23 @@ const errorHandler = (err, req, res, next) => {
     reportError(error, req);
 
     // Construct response
+    const isDev = process.env.NODE_ENV === 'development';
     const response = {
         success: false,
         error: {
-            message: error.message,
+            // In production, hide internal error details for non-operational errors
+            message: error.isOperational || isDev
+                ? error.message
+                : 'An unexpected error occurred',
             code: error.code,
-            ...(error.data && { details: error.data }),
+            // Only include error details for operational errors or in dev mode
+            ...((error.data && (error.isOperational || isDev)) && { details: error.data }),
             timestamp: error.timestamp
         }
     };
 
     // Include stack trace in development only
-    if (process.env.NODE_ENV === 'development') {
+    if (isDev) {
         response.error.stack = error.stack;
     }
 
@@ -263,15 +269,6 @@ export const notFoundHandler = (req, res, next) => {
         }
     );
     next(error);
-};
-
-//   Async Handler Wrapper
-//   Wraps async route handlers to catch errors automatically
-
-export const asyncHandler = (fn) => {
-    return (req, res, next) => {
-        Promise.resolve(fn(req, res, next)).catch(next);
-    };
 };
 
 export default errorHandler;

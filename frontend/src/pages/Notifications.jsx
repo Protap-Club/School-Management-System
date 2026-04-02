@@ -4,20 +4,7 @@ import { useAuth } from '../features/auth';
 import { useReceivedNotices } from '../features/notices';
 import { useNavigate } from 'react-router-dom';
 import { FaBell, FaInfoCircle, FaClock, FaChevronDown, FaFileAlt, FaArrowRight, FaPaperclip } from 'react-icons/fa';
-
-const TIME_UNITS = [
-  [31536000, 'year'], [2592000, 'month'], [86400, 'day'], [3600, 'hour'], [60, 'minute']
-];
-
-const getRelativeTime = (dateString) => {
-  if (!dateString) return '';
-  const seconds = Math.floor((new Date() - new Date(dateString)) / 1000);
-  for (const [divisor, unit] of TIME_UNITS) {
-    const interval = seconds / divisor;
-    if (interval > 1) return `${Math.floor(interval)} ${unit}s ago`;
-  }
-  return 'Just now';
-};
+import { getRelativeTime } from '../utils';
 
 const NOTIFICATION_TYPE_CONFIG = {
   file: { icon: <FaFileAlt className="text-purple-500" size={20} />, bg: 'bg-purple-50 border-purple-100', border: 'border-l-purple-500' },

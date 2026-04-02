@@ -20,7 +20,7 @@ export const RECIPIENT_MAP = {
     students: { type: 'students', key: 'selectedStudents' }, groups: { type: 'groups', key: 'selectedGroups' },
 };
 
-export const MODAL_OVERLAY = 'fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4';
+export const MODAL_OVERLAY = 'modal-overlay fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4';
 
 export const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });

@@ -78,6 +78,11 @@ const examSchema = new mongoose.Schema(
             ],
             default: "OTHER",
         },
+        // Optional explanation when category is set to "OTHER"
+        categoryDescription: {
+            type: String,
+            trim: true,
+        },
         academicYear: {
             type: Number,
             required: [true, "Academic year is required"],
@@ -112,7 +117,7 @@ const examSchema = new mongoose.Schema(
         },
         createdByRole: {
             type: String,
-            enum: ["admin", "teacher"],
+            enum: ["admin", "teacher", "super_admin"],
             required: true,
         },
         isActive: {
@@ -125,8 +130,7 @@ const examSchema = new mongoose.Schema(
 
 // Prevent duplicate exams: same name + class + year + type
 examSchema.index(
-    { schoolId: 1, name: 1, academicYear: 1, standard: 1, section: 1, examType: 1 },
-    { unique: true }
+    { schoolId: 1, name: 1, academicYear: 1, standard: 1, section: 1, examType: 1 }
 );
 
 // Query optimization indexes

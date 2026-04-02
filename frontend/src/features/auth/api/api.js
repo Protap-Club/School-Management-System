@@ -1,5 +1,5 @@
 // Auth API Functions
-import api from '../../../lib/axios';
+import api, { clearAccessToken, setAccessToken, getAccessToken } from '../../../lib/axios';
 
 export const authKeys = {
     all: ['auth'],
@@ -10,28 +10,37 @@ export const authApi = {
     // Login user and get token
     login: async ({ email, password }) => {
         const response = await api.post('/auth/login', { email, password });
-        if (response.status === 401) {
-            // Throw a custom object that looks like an axios error for compatibility
-            throw { response };
-        }
+        setAccessToken(response.data?.token);
         return response.data;
     },
 
     // Check if current token is valid
     checkAuth: async () => {
-        const response = await api.get('/auth/me');
-        if (response.status === 401) {
-            throw { response };
+        if (!getAccessToken()) {
+            try {
+                const refreshRes = await api.post('/auth/refresh');
+                if (refreshRes.data?.success) {
+                    setAccessToken(refreshRes.data.token);
+                } else {
+                    return { success: false, message: "Not authenticated" };
+                }
+            } catch (error) {
+                return { success: false, message: "Not authenticated" };
+            }
         }
-        return response.data;
+        
+        try {
+            const response = await api.get('/auth/me');
+            return response.data;
+        } catch (error) {
+            return { success: false, message: error.response?.data?.message || "Not authenticated" };
+        }
     },
 
     // Refresh access token (cookie sent automatically)
     refreshToken: async () => {
         const response = await api.post('/auth/refresh');
-        if (response.status === 401) {
-            throw { response };
-        }
+        setAccessToken(response.data?.token);
         return response.data;
     },
 
@@ -40,7 +49,8 @@ export const authApi = {
         try {
             await api.post('/auth/logout');
         } catch {
+            // Ignore logout response errors and clear local auth state regardless.
         }
-        localStorage.removeItem('token');
+        clearAccessToken();
     },
 };

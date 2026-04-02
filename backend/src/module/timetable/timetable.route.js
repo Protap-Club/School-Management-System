@@ -16,7 +16,7 @@ import {
 } from "./timetable.controller.js";
 import { checkRole } from "../../middlewares/role.middleware.js";
 import { USER_ROLES } from "../../constants/userRoles.js";
-import extractSchoolId from "../../middlewares/school.middleware.js";
+
 import { requireFeature } from "../../middlewares/feature.middleware.js";
 import checkWebOnly from "../../middlewares/checkWebOnly.js";
 import { validate } from "../../middlewares/validation.middleware.js";
@@ -35,8 +35,7 @@ import {
 const router = express.Router();
 
 // applied to all timetable routes
-// extracts schoolId from JWT and checks if timetable feature is enabled for the school
-router.use(extractSchoolId);
+// checks if timetable feature is enabled for the school
 router.use(requireFeature("timetable"));
 
 // SCHEDULE VIEWS

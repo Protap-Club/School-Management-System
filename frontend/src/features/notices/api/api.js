@@ -45,24 +45,6 @@ export const noticesApi = {
         return response.data;
     },
 
-    // Get classes list (derived from timetable data)
-    getClasses: async () => {
-        try {
-            const response = await api.get('/timetables');
-            const timetables = response.data?.data || [];
-            // Transform timetable data into class options
-            return {
-                success: true,
-                data: timetables.map(t => ({
-                    value: `${t.standard}-${t.section}`,
-                    label: `Class ${t.standard} - Section ${t.section}`
-                }))
-            };
-        } catch {
-            return { success: true, data: [] };
-        }
-    },
-
     // Get students list
     // Bug 4 fix: Use /notices/my-students instead of /users?role=student&pageSize=100
     // The old endpoint was capped at 100 records — teachers with >100 students (e.g. Priya with 122)
@@ -74,13 +56,19 @@ export const noticesApi = {
 
     // Get teachers list
     getTeachers: async () => {
-        const response = await api.get('/users?role=teacher&pageSize=100');
+        const response = await api.get('/users?role=teacher&pageSize=5000&isArchived=false');
         return response.data;
     },
 
     // Get all users (students + teachers)
-    getAllUsers: async () => {
-        const response = await api.get('/users?pageSize=100');
+    getAllUsers: async (filters = {}) => {
+        const params = new URLSearchParams();
+        // Server-side search avoids loading thousands of users just to filter on the client.
+        if (filters.search) params.append('search', filters.search);
+        if (filters.role && filters.role !== 'all') params.append('role', filters.role);
+        params.append('pageSize', filters.pageSize || '5000');
+        const query = params.toString();
+        const response = await api.get(`/users${query ? `?${query}` : ''}`);
         return response.data;
     },
 
@@ -103,8 +91,15 @@ export const noticesApi = {
     },
 
     // Acknowledge a notice (receivers only)
-    acknowledgeNotice: async (id) => {
-        const response = await api.post(`/notices/${id}/acknowledge`);
+    acknowledgeNotice: async (id, { responseMessage = '', files = [] } = {}) => {
+        const formData = new FormData();
+        if (responseMessage) {
+            formData.append('responseMessage', responseMessage);
+        }
+        if (files && files.length > 0) {
+            files.forEach((file) => formData.append('ackAttachments', file));
+        }
+        const response = await api.post(`/notices/${id}/acknowledge`, formData);
         return response.data;
     },
 

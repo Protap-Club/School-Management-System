@@ -1,5 +1,5 @@
 import React from 'react';
-import { FaPlus, FaMapMarkerAlt, FaChalkboardTeacher } from 'react-icons/fa';
+import { FaPlus } from 'react-icons/fa';
 import { DAYS_OF_WEEK } from '..';
 
 const TimetableGrid = ({
@@ -24,13 +24,16 @@ const TimetableGrid = ({
   };
 
   const getTeacherName = (teacherId) => {
-    if (!teacherId) return 'Unassigned';
-    // If teacherId has embedded name (from populated response), use it directly
-    if (teacherId?.name) return teacherId.name;
+    if (!teacherId) return 'No Assigned Teacher';
+    // If teacherId has embedded name (from populated response), check archive status
+    if (teacherId?.name) {
+      return teacherId.isArchived ? `${teacherId.name} (Archived)` : teacherId.name;
+    }
     // Fallback: lookup in teachers array
     const id = teacherId?._id || teacherId;
     const teacher = teachers.find((t) => t._id === id);
-    return teacher ? teacher.name : 'Unassigned';
+    if (!teacher) return 'No Assigned Teacher';
+    return teacher.isArchived ? `${teacher.name} (Archived)` : teacher.name;
   };
   const getClassDisplay = (entry) => {
     if (entry.timetableId) {
@@ -59,20 +62,23 @@ const TimetableGrid = ({
 
   return (
     <div className="w-full">
-      <div className="w-full border border-gray-200 rounded-xl overflow-hidden bg-white shadow-sm">
-        <div className="grid grid-cols-[100px_repeat(6,1fr)] bg-gray-50 border-b border-gray-200">
-          <div className="py-3 px-2 text-xs font-bold text-gray-500 uppercase tracking-wider text-center border-r border-gray-100">
-            TIME
+      <div className="w-full border border-gray-300 shadow-sm rounded-xl overflow-hidden bg-white">
+        {/* Header Row */}
+        <div className="grid grid-cols-[100px_repeat(6,1fr)] bg-gray-100 border-b border-gray-300">
+          <div className="py-2.5 px-3 text-[11px] font-bold text-gray-600 uppercase tracking-wider text-center border-r border-gray-300 flex items-center justify-center">
+            Time
           </div>
           {DAYS_OF_WEEK.map((day) => (
             <div
               key={day}
-              className="py-3 px-2 text-sm font-bold text-gray-700 text-center border-r border-gray-100 last:border-r-0"
+              className="py-2.5 px-3 text-[12px] font-bold text-gray-800 text-center border-r border-gray-300 last:border-r-0"
             >
               {day}
             </div>
           ))}
         </div>
+
+        {/* Time Slot Rows */}
         {timeSlots.map((slot) => {
           const isBreak = slot.slotType === 'BREAK';
           const slotId = getSlotId(slot);
@@ -80,29 +86,24 @@ const TimetableGrid = ({
           return (
             <div
               key={slotId}
-              className={`grid border-b border-gray-100 last:border-b-0 ${isBreak
-                ? 'grid-cols-[100px_1fr] bg-amber-50/60'
+              className={`grid border-b border-gray-200/60 last:border-b-0 ${isBreak
+                ? 'grid-cols-[100px_1fr] bg-white'
                 : 'grid-cols-[100px_repeat(6,1fr)]'
                 }`}
             >
               {/* Time Column */}
-              <div className={`py-3 px-2 flex flex-col items-center justify-center border-r border-gray-100 text-center ${isBreak ? 'bg-amber-50' : ''
-                }`}>
-                <span className="text-xs font-medium text-gray-600">
+              <div className={`py-4 px-2 flex flex-col items-center justify-center border-r border-gray-200/80 text-center bg-white`}>
+                <span className="text-[12px] font-medium text-gray-800">
                   {formatTime(slot.startTime)}
                 </span>
-                <span className="text-xs font-medium text-gray-600">
+                <span className="text-[11px] text-gray-400 mt-0.5">
                   {formatTime(slot.endTime)}
                 </span>
-                {isBreak && (
-                  <span className="mt-1 px-2 py-0.5 bg-orange-100 text-orange-600 rounded text-[10px] font-bold uppercase">
-                    Break
-                  </span>
-                )}
               </div>
+
               {isBreak ? (
                 <div className="py-4 flex items-center justify-center">
-                  <span className="text-sm font-medium text-orange-400 uppercase tracking-widest">
+                  <span className="text-[11px] font-medium text-gray-400 uppercase tracking-[0.15em]">
                     {slot.label || 'Break'}
                   </span>
                 </div>
@@ -114,45 +115,36 @@ const TimetableGrid = ({
                     <div
                       key={`${day}-${slotId}`}
                       onClick={() => !readOnly && onCellClick(day, slot, entry)}
-                      className={`min-h-[70px] p-2 border-r border-gray-100 last:border-r-0 transition-all duration-150 relative group ${!readOnly ? 'cursor-pointer hover:bg-blue-50/40' : ''
-                        }`}
+                      className={`min-h-[85px] p-3 border-r border-gray-200/60 last:border-r-0 transition-colors relative group flex flex-col justify-start ${
+                        entry 
+                          ? 'bg-white border-l-[3px] border-l-gray-800 hover:bg-gray-50 cursor-pointer shadow-sm' 
+                          : !readOnly ? 'cursor-pointer hover:bg-gray-50/30' : ''
+                      }`}
                     >
                       {entry ? (
-                        <div className={`h-full flex flex-col justify-between rounded-lg p-2 border transition-all ${showClass
-                          ? 'bg-purple-50 border-purple-200'
-                          : 'bg-blue-50 border-blue-200'
-                          }`}>
-                          <div>
-                            <h4 className="text-sm font-semibold text-gray-800 leading-tight line-clamp-1">
+                          <div className="space-y-1">
+                            <h4 className="text-[13px] font-semibold text-gray-900 leading-tight line-clamp-2">
                               {entry.subject || 'No Subject'}
                             </h4>
-                            <div className="flex items-center text-xs text-gray-500 mt-1">
+                            
+                            <div className="flex items-center gap-2 pt-0.5">
                               {showClass ? (
-                                <span className="font-medium text-purple-600 truncate">
+                                <span className="text-[12px] font-medium text-gray-600">
                                   {getClassDisplay(entry)}
                                 </span>
                               ) : (
-                                <>
-                                  <FaChalkboardTeacher className="mr-1 text-blue-400 text-[10px]" />
-                                  <span className="truncate">
-                                    {getTeacherName(entry.teacherId)}
-                                  </span>
-                                </>
+                                <span className="text-[12px] font-medium text-gray-600 truncate max-w-[120px]">
+                                  {getTeacherName(entry.teacherId)}
+                                </span>
                               )}
                             </div>
                           </div>
-                          {entry.roomNumber && (
-                            <div className="flex items-center text-xs text-gray-400 mt-1">
-                              <FaMapMarkerAlt className="mr-1 text-[10px]" />
-                              <span>{entry.roomNumber}</span>
-                            </div>
-                          )}
-                        </div>
+
                       ) : (
                         !readOnly && (
                           <div className="h-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                            <div className="w-7 h-7 rounded-full bg-blue-100 text-blue-500 flex items-center justify-center shadow-sm">
-                              <FaPlus className="text-xs" />
+                            <div className="w-6 h-6 rounded-md text-gray-400 flex items-center justify-center hover:bg-gray-100 hover:text-gray-700 transition-colors">
+                              <FaPlus className="text-[10px]" />
                             </div>
                           </div>
                         )
@@ -165,12 +157,12 @@ const TimetableGrid = ({
           );
         })}
         {timeSlots.length === 0 && (
-          <div className="p-12 text-center text-gray-400">
-            <p className="text-lg">No time slots defined yet.</p>
-            <p className="text-sm mt-2">Admin needs to create time slots first.</p>
+          <div className="p-10 text-center text-gray-400 bg-white">
+            <p className="text-[13px] font-medium text-gray-600">No time slots mapped.</p>
           </div>
         )}
       </div>
+
     </div>
   );
 };

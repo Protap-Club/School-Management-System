@@ -39,35 +39,44 @@ export const login = asyncHandler(async (req, res) => {
         success: true,
         token: result.accessToken,
         user: result.user,
-        refreshToken: result.refreshToken,
+        ...(platform === "mobile" && { refreshToken: result.refreshToken }),
     });
 });
 
 // Refresh access token using the HttpOnly refresh cookie
-export const refresh = asyncHandler(async (req, res) => {
-    // Mobile sends token in body (no cookie jar); web sends it as HttpOnly cookie
-    const oldRefreshToken = req.cookies?.refreshToken || req.body?.refreshToken;
+export const refresh = async (req, res, next) => {
+    try {
+        // Mobile sends token in body (no cookie jar); web sends it as HttpOnly cookie
+        const oldRefreshToken = req.cookies?.refreshToken || req.body?.refreshToken;
+        const platform = req.headers["x-platform"] === "mobile" ? "mobile" : "web";
 
-    if (!oldRefreshToken) {
-        throw new UnauthorizedError("Refresh token is missing");
+        if (!oldRefreshToken) {
+            return res.status(200).json({ success: false, message: "Refresh token is missing" });
+        }
+
+        const metadata = {
+            userAgent: req.headers["user-agent"],
+            ip: req.ip || req.headers["x-forwarded-for"] || req.connection.remoteAddress,
+        };
+
+        const result = await authService.refreshAccessToken(oldRefreshToken, metadata);
+
+        // Set the new rotated refresh token cookie
+        res.cookie("refreshToken", result.refreshToken, REFRESH_COOKIE_OPTIONS);
+
+        res.status(200).json({
+            success: true,
+            token: result.accessToken,
+            ...(platform === "mobile" && { refreshToken: result.refreshToken }),
+        });
+    } catch (error) {
+        // Suppress 401s for refresh to avoid browser console errors, return 200 with success: false
+        if (error.statusCode === 401 || error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
+            return res.status(200).json({ success: false, message: error.message });
+        }
+        next(error);
     }
-
-    const metadata = {
-        userAgent: req.headers["user-agent"],
-        ip: req.ip || req.headers["x-forwarded-for"] || req.connection.remoteAddress,
-    };
-
-    const result = await authService.refreshAccessToken(oldRefreshToken, metadata);
-
-    // Set the new rotated refresh token cookie
-    res.cookie("refreshToken", result.refreshToken, REFRESH_COOKIE_OPTIONS);
-
-    res.status(200).json({
-        success: true,
-        token: result.accessToken,
-        refreshToken: result.refreshToken,
-    });
-});
+};
 
 // Handle user logout — clears refresh token from DB and cookie
 export const logout = asyncHandler(async (req, res) => {

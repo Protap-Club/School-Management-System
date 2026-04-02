@@ -24,6 +24,7 @@ export const PROFILE_CONFIG = {
                 employeeId: data.employeeId,
                 qualification: data.qualification,
                 joiningDate: data.joiningDate,
+                expectedSalary: data.expectedSalary,
                 assignedClasses: data.assignedClasses || []
             };
 

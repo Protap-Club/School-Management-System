@@ -16,7 +16,8 @@ const Calendar = lazy(() => import('../pages/Calendar'));
 const Notifications = lazy(() => import('../pages/Notifications'));
 const Fees = lazy(() => import('../pages/Fees'));
 const Examination = lazy(() => import('../pages/Examination'));
-
+const Assignments = lazy(() => import('../features/assignment/AssignmentPage'));
+const Result = lazy(() => import('../pages/Result'));
 // Loading fallback component
 const PageLoader = () => (
     <div className="flex items-center justify-center min-h-screen">
@@ -48,6 +49,9 @@ export const routes = {
         timetable: '/superadmin/timetable',
         calendar: '/superadmin/calendar',
         fees: '/superadmin/fees',
+        examination: '/superadmin/examination',
+        result: '/superadmin/result',
+        assignments: '/superadmin/assignments',
     },
 
     // Admin
@@ -60,7 +64,9 @@ export const routes = {
         calendar: '/admin/calendar',
         fees: '/admin/fees',
         examination: '/admin/examination',
+        result: '/admin/result',
         notifications: '/notifications',
+        assignments: '/admin/assignments',
     },
 
     // Teacher
@@ -72,6 +78,8 @@ export const routes = {
         calendar: '/teacher/calendar',
         fees: '/teacher/fees',
         examination: '/teacher/examination',
+        assignments: '/teacher/assignments',
+        result: '/teacher/result',
     },
 };
 
@@ -88,7 +96,30 @@ export const pages = {
     Notifications,
     Fees,
     Examination,
+    Assignments,
+    Result,
 };
 
 // Export utilities
 export { withSuspense, PageLoader };
+
+// Prefetch critical routes after initial render to speed up navigation
+export const prefetchRoutes = () => {
+    if (typeof window !== 'undefined') {
+        // Use requestIdleCallback if available, fallback to setTimeout
+        const runPrefetch = () => {
+            // Pre-load critical modules
+            import('../pages/Dashboard').catch(() => {});
+            import('../features/attendance/AttendancePage').catch(() => {});
+        };
+
+        if ('requestIdleCallback' in window) {
+            window.requestIdleCallback(runPrefetch, { timeout: 2000 });
+        } else {
+            setTimeout(runPrefetch, 2000);
+        }
+    }
+};
+
+// Trigger prefetch on module load
+prefetchRoutes();

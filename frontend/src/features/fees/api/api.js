@@ -68,8 +68,13 @@ export const feesApi = {
 
     // ── Teacher Specific ──────────────────────────────────────────
 
-    getMyClassFees: async ({ academicYear, month }) => {
-        const response = await api.get(`/fees/my-classes?academicYear=${academicYear}&month=${month}`);
+
+    // ── Student Specific ──────────────────────────────────────────
+    getMyFees: async (filters = {}) => {
+        const params = new URLSearchParams();
+        if (filters.academicYear) params.append('academicYear', filters.academicYear);
+        if (filters.month) params.append('month', filters.month);
+        const response = await api.get(`/fees/my-fees?${params.toString()}`);
         return response.data;
     },
 
@@ -79,6 +84,18 @@ export const feesApi = {
         const params = new URLSearchParams();
         if (academicYear) params.append('academicYear', academicYear);
         const response = await api.get(`/fees/student/${studentId}/history?${params.toString()}`);
+        return response.data;
+    },
+
+    // ── Fee Type Management ───────────────────────────────────────
+
+    getFeeTypes: async () => {
+        const response = await api.get('/fees/types');
+        return response.data;
+    },
+
+    createFeeType: async (data) => {
+        const response = await api.post('/fees/types', data);
         return response.data;
     },
 };

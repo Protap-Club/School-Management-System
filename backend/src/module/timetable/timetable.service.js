@@ -2,6 +2,12 @@ import { TimeSlot, Timetable, TimetableEntry, DAYS_OF_WEEK } from "./Timetable.m
 import { NotFoundError, ConflictError, ForbiddenError, BadRequestError } from "../../utils/customError.js";
 import logger from "../../config/logger.js";
 import StudentProfile from "../user/model/StudentProfile.model.js";
+import {
+    buildClassSectionKey,
+    getConfiguredClassSections,
+    normalizeClassSection,
+} from "../../utils/classSection.util.js";
+import { ensureActiveTeacher } from "../../utils/teacher.util.js";
 
 // HELPERS
 
@@ -24,6 +30,41 @@ const groupEntriesByDay = (entries) => {
     });
 
     return grouped;
+};
+
+const getConfiguredClassSectionSet = async (schoolId) => {
+    const { keySet } = await getConfiguredClassSections(schoolId);
+    return keySet;
+};
+
+const cleanupOrphanTimetables = async (schoolId, configuredClassSet = null) => {
+    const activeClassSet = configuredClassSet || await getConfiguredClassSectionSet(schoolId);
+    const timetables = await Timetable.find({ schoolId })
+        .select("_id standard section")
+        .lean();
+
+    const staleTimetableIds = timetables
+        .filter((item) => !activeClassSet.has(buildClassSectionKey(item.standard, item.section)))
+        .map((item) => item._id);
+
+    if (!staleTimetableIds.length) {
+        return { configuredClassSet: activeClassSet, removedTimetables: 0, removedEntries: 0 };
+    }
+
+    const [entryDeleteResult, timetableDeleteResult] = await Promise.all([
+        TimetableEntry.deleteMany({ schoolId, timetableId: { $in: staleTimetableIds } }),
+        Timetable.deleteMany({ schoolId, _id: { $in: staleTimetableIds } }),
+    ]);
+
+    const removedEntries = entryDeleteResult.deletedCount || 0;
+    const removedTimetables = timetableDeleteResult.deletedCount || 0;
+
+    logger.info(
+        `Removed orphan timetables for school ${schoolId}. ` +
+        `Timetables: ${removedTimetables}, entries: ${removedEntries}`
+    );
+
+    return { configuredClassSet: activeClassSet, removedTimetables, removedEntries };
 };
 
 // TIMESLOT SERVICES
@@ -87,23 +128,35 @@ export const deleteTimeSlot = async (schoolId, id) => {
 // returns all timetable headers for a school with optional filters
 // sorted by most recent academic year first, then by class name
 export const getTimetables = async (schoolId, filters = {}) => {
+    const { configuredClassSet } = await cleanupOrphanTimetables(schoolId);
+
     const query = { schoolId };
-    if (filters.standard) query.standard = filters.standard;
-    if (filters.section) query.section = filters.section;
+    if (filters.standard) query.standard = String(filters.standard).trim();
+    if (filters.section) query.section = String(filters.section).trim().toUpperCase();
     if (filters.academicYear) query.academicYear = filters.academicYear;
 
-    return await Timetable.find(query).sort({ academicYear: -1, standard: 1, section: 1 }).lean();
+    const timetables = await Timetable.find(query).sort({ academicYear: -1, standard: 1, section: 1 }).lean();
+
+    return timetables.filter((item) => configuredClassSet.has(buildClassSectionKey(item.standard, item.section)));
 };
 
 // fetches a single timetable with all its entries populated
 // entries include teacher names and time slot details for display
 export const getTimetableById = async (schoolId, id) => {
+    const configuredClassSet = await getConfiguredClassSectionSet(schoolId);
     const timetable = await Timetable.findOne({ _id: id, schoolId }).lean();
     if (!timetable) throw new NotFoundError("Timetable not found");
+    if (!configuredClassSet.has(buildClassSectionKey(timetable.standard, timetable.section))) {
+        await Promise.all([
+            TimetableEntry.deleteMany({ schoolId, timetableId: timetable._id }),
+            Timetable.deleteOne({ _id: timetable._id, schoolId }),
+        ]);
+        throw new NotFoundError("Timetable not found");
+    }
 
     const entries = await TimetableEntry.find({ timetableId: id })
         .populate("timeSlotId", "slotNumber startTime endTime")
-        .populate("teacherId", "name")
+        .populate("teacherId", "name isArchived")
         .sort({ dayOfWeek: 1 })
         .lean();
 
@@ -113,16 +166,31 @@ export const getTimetableById = async (schoolId, id) => {
 // creates a new timetable header for a class + section + year
 // only one timetable can exist per unique class-section-year combination
 export const createTimetable = async (schoolId, data) => {
+    const normalizedData = normalizeClassSection(data);
+    if (!normalizedData.standard || !normalizedData.section) {
+        throw new BadRequestError("Standard and section are required");
+    }
+
+    const configuredClassSet = await getConfiguredClassSectionSet(schoolId);
+    if (!configuredClassSet.has(buildClassSectionKey(normalizedData.standard, normalizedData.section))) {
+        throw new BadRequestError("Selected class-section is not configured in Settings");
+    }
+
     const exists = await Timetable.exists({
         schoolId,
-        standard: data.standard,
-        section: data.section,
+        standard: normalizedData.standard,
+        section: normalizedData.section,
         academicYear: data.academicYear
     });
 
     if (exists) throw new ConflictError("Timetable already exists for this class");
 
-    const timetable = await Timetable.create({ schoolId, ...data });
+    const timetable = await Timetable.create({
+        schoolId,
+        ...data,
+        standard: normalizedData.standard,
+        section: normalizedData.section,
+    });
     logger.info(`Timetable created: ${timetable._id}`);
     return timetable;
 };
@@ -147,13 +215,41 @@ export const deleteTimetable = async (schoolId, id) => {
 // checks if any teacher is already assigned elsewhere at the same day + time slot
 // break periods (no teacherId) skip conflict checks since they have no teacher
 export const createEntries = async (schoolId, timetableId, entries) => {
+    const configuredClassSet = await getConfiguredClassSectionSet(schoolId);
     const timetable = await Timetable.findOne({ _id: timetableId, schoolId });
     if (!timetable) throw new NotFoundError("Timetable not found");
+
+    if (!configuredClassSet.has(buildClassSectionKey(timetable.standard, timetable.section))) {
+        await Promise.all([
+            TimetableEntry.deleteMany({ schoolId, timetableId: timetable._id }),
+            Timetable.deleteOne({ _id: timetable._id, schoolId }),
+        ]);
+        throw new NotFoundError("Timetable not found");
+    }
+
+    const teacherIdsToValidate = [
+        ...new Set(
+            entries
+                .map((entry) => entry.teacherId)
+                .filter(Boolean)
+                .map((teacherId) => String(teacherId))
+        ),
+    ];
+
+    if (teacherIdsToValidate.length > 0) {
+        await Promise.all(
+            teacherIdsToValidate.map((teacherId) =>
+                ensureActiveTeacher(schoolId, teacherId, {
+                    message: "Selected teacher is archived or unavailable for timetable entries",
+                })
+            )
+        );
+    }
 
     // run all teacher conflict checks in parallel for better performance
     const conflictResults = await Promise.all(
         entries.map(async (entry) => {
-            // break periods have no teacher — no conflict possible
+            // break periods have no teacher - no conflict possible
             if (!entry.teacherId) return { entry, conflict: null, error: null };
 
             try {
@@ -163,9 +259,25 @@ export const createEntries = async (schoolId, timetableId, entries) => {
                     teacherId: entry.teacherId,
                     dayOfWeek: entry.dayOfWeek,
                     timeSlotId: entry.timeSlotId
-                }).populate('timetableId', 'standard section');
+                }).populate('timetableId', 'standard section').lean();
 
-                return { entry, conflict, error: null };
+                if (!conflict) return { entry, conflict: null, error: null };
+
+                const slot = await TimeSlot.findById(entry.timeSlotId)
+                    .select("slotNumber startTime endTime")
+                    .lean();
+
+                return {
+                    entry,
+                    conflict: {
+                        classKey: `${conflict.timetableId.standard}-${conflict.timetableId.section}`,
+                        timetableId: conflict.timetableId._id,
+                        dayOfWeek: entry.dayOfWeek,
+                        timeSlotId: entry.timeSlotId,
+                        slot
+                    },
+                    error: null
+                };
             } catch (error) {
                 return { entry, conflict: null, error: error.message };
             }
@@ -180,10 +292,13 @@ export const createEntries = async (schoolId, timetableId, entries) => {
         if (error) {
             failed.push({ ...entry, reason: error });
         } else if (conflict) {
-            // include which class the teacher is busy in so admin can fix the conflict
+            const timeLabel = conflict.slot?.startTime && conflict.slot?.endTime
+                ? ` (${conflict.slot.startTime} - ${conflict.slot.endTime})`
+                : '';
             failed.push({
                 ...entry,
-                reason: `Teacher busy in ${conflict.timetableId.standard}-${conflict.timetableId.section}`
+                reason: `Teacher already assigned in ${conflict.classKey} on ${conflict.dayOfWeek}${timeLabel}`,
+                conflict
             });
         } else {
             toInsert.push({ schoolId, timetableId, ...entry });
@@ -206,6 +321,12 @@ export const createEntries = async (schoolId, timetableId, entries) => {
 export const updateEntry = async (schoolId, id, updates) => {
     const entry = await TimetableEntry.findOne({ _id: id, schoolId }).lean();
     if (!entry) throw new NotFoundError("Entry not found");
+
+    if (updates.teacherId) {
+        await ensureActiveTeacher(schoolId, updates.teacherId, {
+            message: "Selected teacher is archived or unavailable for timetable entries",
+        });
+    }
 
     // only check conflicts when fields that affect scheduling are changed
     if (updates.teacherId || updates.timeSlotId || updates.dayOfWeek) {
@@ -241,13 +362,13 @@ export const deleteEntry = async (schoolId, id) => {
 // returns a teacher's full weekly schedule grouped by day
 // called by admin to view any teacher's assignments
 export const getTeacherSchedule = async (schoolId, teacherId) => {
+    await cleanupOrphanTimetables(schoolId);
+
     const entries = await TimetableEntry.find({ schoolId, teacherId })
         .populate("timetableId", "standard section academicYear")
         .populate("timeSlotId", "slotNumber startTime endTime slotType")
         .sort({ dayOfWeek: 1 })
         .lean();
-
-    if (!entries.length) throw new NotFoundError("No schedule found for this teacher");
 
     return groupEntriesByDay(entries);
 };
@@ -257,6 +378,8 @@ export const getTeacherSchedule = async (schoolId, teacherId) => {
 // students see their class timetable based on their standard + section
 // mobile platform gets a simplified response shape (no nested IDs)
 export const getUserTimetable = async (schoolId, userId, role, platform) => {
+    await cleanupOrphanTimetables(schoolId);
+
     let query = { schoolId };
 
     if (role === "teacher") {
@@ -282,7 +405,7 @@ export const getUserTimetable = async (schoolId, userId, role, platform) => {
     }
 
     const result = await TimetableEntry.find(query)
-        .populate("teacherId", "name")
+        .populate("teacherId", "name isArchived")
         .populate("timetableId", "standard section academicYear")
         .populate("timeSlotId", "slotNumber startTime endTime slotType")
         .lean();

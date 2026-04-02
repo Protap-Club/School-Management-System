@@ -7,6 +7,7 @@ import logger from "../config/logger.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const TEMPLATE_CACHE = new Map(); // Cache templates to avoid constant Disk I/O
+const TEMPLATE_DIR = path.join(__dirname, '../view');
 
 let transporter = nodemailer.createTransport({
     host: conf.SMTP_HOST || 'smtp.gmail.com',
@@ -19,7 +20,17 @@ let transporter = nodemailer.createTransport({
 const getTemplate = async (templateName) => {
     if (TEMPLATE_CACHE.has(templateName)) return TEMPLATE_CACHE.get(templateName);
     
-    const templatePath = path.join(__dirname, '../templates', templateName);
+    // Path traversal guard: enforce safe basename and verify resolved path
+    const safeName = path.basename(templateName);
+    if (safeName !== templateName) {
+        throw new Error(`Invalid template name: ${templateName}`);
+    }
+
+    const templatePath = path.resolve(TEMPLATE_DIR, safeName);
+    if (!templatePath.startsWith(path.resolve(TEMPLATE_DIR))) {
+        throw new Error(`Template path escapes allowed directory: ${templateName}`);
+    }
+
     const content = await fs.readFile(templatePath, 'utf-8');
     TEMPLATE_CACHE.set(templateName, content);
     return content;
@@ -33,28 +44,37 @@ const parseTemplate = (html, data) => {
 // Sends credentials email with School Branding
 export const sendCredentialsEmail = async ({ to, name, role, password, schoolName }) => {
     try {
-
-        if(conf.NODE_ENV !== 'production'){
-            logger.info(`Email skipped (non -prod) :${to}`);
-            return { success : true, skipped : true};
+        // ── DEV GUARD ────────────────────────────────────────────────────────────
+        // In local development we skip real email delivery and just log
+        // the credentials to the console.  Remove this block (or set
+        // NODE_ENV=production) before deploying to a live environment.
+        if (process.env.NODE_ENV !== 'production') {
+            logger.warn(`[DEV] Email sending skipped. Credentials for ${to}:`);
+            logger.warn(`[DEV]   Name     : ${name}`);
+            logger.warn(`[DEV]   Role     : ${role}`);
+            logger.warn(`[DEV]   Email    : ${to}`);
+            logger.warn(`[DEV]   Password : ${password}`);
+            return { success: true };
         }
+        // ─────────────────────────────────────────────────────────────────────────
 
-        if (!conf.SMTP_USER) {
+        if (!conf.SMTP_USER || !conf.SMTP_PASS) {
             logger.warn("SMTP not configured. Email skipped.");
             return { success: false };
         }
 
-        const roleDisplay = role.replace('_', ' ').toUpperCase();
+        const roleDisplay = role.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
         const displaySchool = schoolName || "Our School"; // Default fallback
+        const recipientLabelMap = {
+            student: "Student Name",
+            teacher: "Teacher Name",
+            admin: "Admin Name",
+            super_admin: "Administrator Name",
+        };
+        const recipientLabel = recipientLabelMap[role] || "User Name";
 
         const rawHtml = await getTemplate('credentials.template.html');
-        const htmlContent = parseTemplate(rawHtml, {
-            name,
-            role: roleDisplay,
-            email: to,
-            password,
-            schoolName: displaySchool
-        });
+        const htmlContent = parseTemplate(rawHtml, { name, to, password, schoolName: displaySchool, recipientLabel});
 
         const mailOptions = {
             from: `"${displaySchool}" <${conf.SMTP_FROM || conf.SMTP_USER}>`, // Dynamic branding

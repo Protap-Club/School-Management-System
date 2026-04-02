@@ -1,9 +1,45 @@
 import { io } from 'socket.io-client';
+import { SOCKET_URL } from '../config';
+import { getAccessToken, subscribeAccessToken } from '../lib/axios';
 
-const SOCKET_URL = 'http://localhost:5000';
+if (!SOCKET_URL) {
+    throw new Error('Missing VITE_SOCKET_URL environment variable');
+}
 
 let socket = null;
 let currentSchoolId = null;
+let currentToken = getAccessToken() || null;
+
+const applySocketToken = (token, { reconnect = false } = {}) => {
+    currentToken = token || null;
+
+    if (!socket) return;
+
+    socket.auth = {
+        ...(socket.auth || {}),
+        token: currentToken,
+    };
+
+    if (!currentToken) {
+        if (socket.connected || socket.active) {
+            socket.disconnect();
+        }
+        return;
+    }
+
+    if (reconnect) {
+        if (socket.connected || socket.active) {
+            socket.disconnect();
+        }
+        socket.connect();
+    }
+};
+
+subscribeAccessToken((token) => {
+    const nextToken = token || null;
+    if (nextToken === currentToken) return;
+    applySocketToken(nextToken, { reconnect: true });
+});
 
 /**
  * Connect to Socket.io server and join school room
@@ -19,19 +55,26 @@ export const connectSocket = (schoolId) => {
         }
     }
 
+    const token = getAccessToken();
+
     // If already connected to the same school, return existing socket
-    if (socket && socket.connected && currentSchoolId === schoolIdStr) {
+    if (socket && socket.connected && currentSchoolId === schoolIdStr && currentToken === (token || null)) {
         return socket;
     }
 
     // Create socket if it doesn't exist
     if (!socket) {
         socket = io(SOCKET_URL, {
+            auth: {
+                token: token || null,
+            },
             autoConnect: true,
             transports: ['websocket', 'polling'],
             reconnection: true,
-            reconnectionAttempts: 5,
-            reconnectionDelay: 1000
+            reconnectionAttempts: 10,
+            reconnectionDelay: 1000,
+            reconnectionDelayMax: 30000,   // Cap at 30 seconds between retries
+            randomizationFactor: 0.5,      // Jitter to prevent thundering herd
         });
 
         socket.on('connect', () => {
@@ -46,8 +89,10 @@ export const connectSocket = (schoolId) => {
         });
     }
 
+    applySocketToken(token);
+
     // Connect if not connected
-    if (!socket.connected) {
+    if (!socket.connected && token) {
         socket.connect();
     }
 
@@ -68,21 +113,3 @@ export const connectSocket = (schoolId) => {
 export const disconnectSocket = () => {
     // Don't actually disconnect - React Strict Mode will reconnect anyway
 };
-
-/**
- * Force disconnect - use only when truly leaving the app
- */
-export const forceDisconnectSocket = () => {
-    if (socket) {
-        socket.disconnect();
-        socket = null;
-        currentSchoolId = null;
-    }
-};
-
-/**
- * Get current socket instance
- */
-export const getSocket = () => socket;
-
-export default { connectSocket, disconnectSocket, forceDisconnectSocket, getSocket };

@@ -22,7 +22,7 @@ const Login = () => {
         }
     }, [location.search]);
 
-    const validateForm = () => {
+    const validateForm = useCallback(() => {
         if (!email) {
             setError('Email is required');
             return false;
@@ -37,7 +37,7 @@ const Login = () => {
             return false;
         }
         return true;
-    };
+    }, [email, password]);
 
     const handleSubmit = useCallback(async (e) => {
         e.preventDefault();
@@ -65,7 +65,7 @@ const Login = () => {
         } finally {
             setIsSubmitting(false);
         }
-    }, [email, password, login, navigate, location]);
+    }, [validateForm, email, password, login, navigate, location]);
 
     return (
         <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-blue-100 p-4">

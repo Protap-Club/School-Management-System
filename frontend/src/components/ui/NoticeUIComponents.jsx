@@ -13,10 +13,15 @@ export const SectionHeader = ({ icon, iconBg, iconColor, title, subtitle }) => (
     </div>
 );
 
-export const TabButton = ({ tab, activeTab, icon, label, setActiveTab }) => (
+export const TabButton = ({ tab, activeTab, icon, label, setActiveTab, count }) => (
     <button onClick={() => setActiveTab(tab)}
-        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === tab ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
-        {React.cloneElement(icon, { className: "inline mr-2", size: 12 })}{label}
+        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${activeTab === tab ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+        {icon && React.cloneElement(icon, { size: 12 })}{label}
+        {count !== undefined && (
+            <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${activeTab === tab ? 'bg-primary text-white' : 'bg-gray-200 text-gray-500'}`}>
+                {count}
+            </span>
+        )}
     </button>
 );
 
@@ -43,29 +48,53 @@ export const MemberList = ({ items, selectedArr, setSelectedArr, toggleSelection
     </div>
 );
 
-export const SearchableList = ({ items, selectedArr, setSelectedArr, searchField, placeholder, searchTerm, setSearchTerm, toggleSelection, renderLabel }) => (
-    <div className="mt-3 space-y-3">
-        <div className="relative">
-            <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
-            <input type="text" placeholder={placeholder} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                onClick={(e) => e.stopPropagation()} />
+export const SearchableList = ({
+    items,
+    selectedArr,
+    setSelectedArr,
+    searchField,
+    placeholder,
+    searchTerm,
+    setSearchTerm,
+    toggleSelection,
+    renderLabel,
+    hideUntilSearch = false,
+    emptyLabel,
+    minSearchLength = 0
+}) => {
+    const term = searchTerm.trim().toLowerCase();
+    const showEmptyPrompt = hideUntilSearch && term.length < minSearchLength;
+    const filteredItems = showEmptyPrompt
+        ? []
+        : items.filter(item => searchField(item).toLowerCase().includes(term));
+    const emptyText = showEmptyPrompt
+        ? (emptyLabel || (minSearchLength > 0 ? `Type at least ${minSearchLength} characters` : 'Type to search'))
+        : 'No results found';
+
+    return (
+        <div className="mt-3 space-y-3">
+            <div className="relative">
+                <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
+                <input type="text" placeholder={placeholder} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    onClick={(e) => e.stopPropagation()} />
+            </div>
+            <div className="border border-gray-200 rounded-lg max-h-48 overflow-y-auto cursor-default" onClick={e => e.stopPropagation()}>
+                {filteredItems.map(item => (
+                    <label key={item._id || item.value} className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 cursor-pointer text-sm border-b border-gray-50 last:border-b-0">
+                        <input type="checkbox" checked={selectedArr.includes(item._id || item.value)}
+                            onChange={() => toggleSelection(selectedArr, setSelectedArr, item._id || item.value)}
+                            className="w-3.5 h-3.5 text-primary border-gray-300 rounded focus:ring-primary" />
+                        {renderLabel ? renderLabel(item) : <span>{item.name || item.label}</span>}
+                    </label>
+                ))}
+                {filteredItems.length === 0 && (
+                    <div className="px-3 py-4 text-center text-xs text-gray-400">{emptyText}</div>
+                )}
+            </div>
         </div>
-        <div className="border border-gray-200 rounded-lg max-h-48 overflow-y-auto cursor-default" onClick={e => e.stopPropagation()}>
-            {items.filter(item => searchField(item).toLowerCase().includes(searchTerm.toLowerCase())).map(item => (
-                <label key={item._id || item.value} className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 cursor-pointer text-sm border-b border-gray-50 last:border-b-0">
-                    <input type="checkbox" checked={selectedArr.includes(item._id || item.value)}
-                        onChange={() => toggleSelection(selectedArr, setSelectedArr, item._id || item.value)}
-                        className="w-3.5 h-3.5 text-primary border-gray-300 rounded focus:ring-primary" />
-                    {renderLabel ? renderLabel(item) : <span>{item.name || item.label}</span>}
-                </label>
-            ))}
-            {items.filter(item => searchField(item).toLowerCase().includes(searchTerm.toLowerCase())).length === 0 && (
-                <div className="px-3 py-4 text-center text-xs text-gray-400">No results found</div>
-            )}
-        </div>
-    </div>
-);
+    );
+};
 
 export const RadioOption = ({ value, title, subtitle, sendOption, setSendOption, setSearchTerm, expandedContent }) => (
     <label className={`flex items-${expandedContent && sendOption === value ? 'start' : 'center'} gap-3 p-3 border border-gray-200 rounded-xl cursor-pointer hover:bg-gray-50 transition-colors`}>

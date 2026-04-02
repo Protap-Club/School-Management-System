@@ -11,7 +11,16 @@ const timeSchema = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Invalid time f
 
 const scheduleItemSchema = z.object({
     subject: z.string({ required_error: "Subject is required" }).nonempty().max(100),
-    examDate: z.string({ required_error: "Exam date is required" }).datetime({ offset: true }).or(z.string().date()),
+    examDate: z.string({ required_error: "Exam date is required" })
+        .datetime({ offset: true })
+        .or(z.string().date())
+        .refine(
+            (val) => {
+                const date = new Date(val.includes('T') ? val : val + 'T00:00:00');
+                return date.getDay() !== 0;
+            },
+            { message: "Sundays are not allowed." }
+        ),
     startTime: timeSchema,
     endTime: timeSchema,
     totalMarks: z.number({ required_error: "Total marks is required" }).int().min(1),
@@ -32,11 +41,14 @@ export const createExamSchema = z.object({
             .enum(["MIDTERM", "FINAL", "SEMESTER", "UNIT_TEST", "CLASS_TEST", "SURPRISE_TEST", "WEEKLY_QUIZ", "OTHER"])
             .optional()
             .default("OTHER"),
+        categoryDescription: z.string().max(200).optional(),
         academicYear: z.number({ required_error: "Academic year is required" }).int().min(2000).max(2100),
         standard: z.string({ required_error: "Standard is required" }).nonempty(),
         section: z.string({ required_error: "Section is required" }).nonempty(),
         description: z.string().max(500).optional(),
         schedule: z.array(scheduleItemSchema).optional().default([]),
+        schoolId: objectIdSchema.optional(),
+        status: z.enum(["DRAFT", "PUBLISHED", "COMPLETED", "CANCELLED"]).optional(),
     }),
 });
 
@@ -53,8 +65,15 @@ export const updateExamSchema = z.object({
         category: z
             .enum(["MIDTERM", "FINAL", "SEMESTER", "UNIT_TEST", "CLASS_TEST", "SURPRISE_TEST", "WEEKLY_QUIZ", "OTHER"])
             .optional(),
+        categoryDescription: z.string().max(200).optional(),
         description: z.string().max(500).optional(),
         schedule: z.array(scheduleItemSchema).optional(),
+        status: z.enum(["DRAFT", "PUBLISHED", "COMPLETED", "CANCELLED"]).optional(),
+        examType: z.enum(["TERM_EXAM", "CLASS_TEST"]).optional(),
+        standard: z.string().optional(),
+        section: z.string().optional(),
+        academicYear: z.number().optional(),
+        schoolId: objectIdSchema.optional(),
     }),
 });
 
@@ -73,6 +92,10 @@ export const getExamsQuerySchema = z.object({
             standard: z.string().optional(),
             section: z.string().optional(),
             status: z.enum(["DRAFT", "PUBLISHED", "COMPLETED", "CANCELLED"]).optional(),
+            page: z.union([z.string(), z.number()]).optional()
+                .transform((val) => (val !== undefined ? Number(val) : 0)),
+            pageSize: z.union([z.string(), z.number()]).optional()
+                .transform((val) => (val !== undefined ? Number(val) : 25)),
         })
         .optional(),
 });

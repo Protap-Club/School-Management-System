@@ -10,8 +10,10 @@ import {
     FaBullhorn,
     FaCalendarAlt,
     FaCalendarDay,
-    FaMoneyBillWave,
+    FaMoneyCheckAlt,
     FaGraduationCap,
+    FaBook,
+    FaClipboardCheck,
 } from 'react-icons/fa';
 
 const Sidebar = () => {
@@ -51,7 +53,21 @@ const Sidebar = () => {
 
                 // Fees
                 if (hasFeature('fees')) {
-                    superAdminLinks.push({ path: '/superadmin/fees', label: 'Fees', icon: <FaMoneyBillWave /> });
+                    superAdminLinks.push({ path: '/superadmin/fees', label: 'Payment', icon: <FaMoneyCheckAlt /> });
+                }
+
+                // Examination
+                if (hasFeature('examination')) {
+                    superAdminLinks.push({ path: '/superadmin/examination', label: 'Examination', icon: <FaGraduationCap /> });
+                }
+
+                if (hasFeature('result')) {
+                    superAdminLinks.push({ path: '/superadmin/result', label: 'Results', icon: <FaClipboardCheck /> });
+                }
+
+                // Assignments
+                if (hasFeature('assignment')) {
+                    superAdminLinks.push({ path: '/superadmin/assignments', label: 'Assignments', icon: <FaBook /> });
                 }
 
                 // Settings always last
@@ -88,12 +104,20 @@ const Sidebar = () => {
 
                 // 7. Fees
                 if (hasFeature('fees')) {
-                    adminLinks.push({ path: '/admin/fees', label: 'Fees', icon: <FaMoneyBillWave /> });
+                    adminLinks.push({ path: '/admin/fees', label: 'Payment', icon: <FaMoneyCheckAlt />, feature: 'fees' });
                 }
 
                 // 8. Examination
                 if (hasFeature('examination')) {
                     adminLinks.push({ path: '/admin/examination', label: 'Examination', icon: <FaGraduationCap /> });
+                }
+
+                if (hasFeature('result')) {
+                    adminLinks.push({ path: '/admin/result', label: 'Results', icon: <FaClipboardCheck /> });
+                }
+
+                if (hasFeature('assignment')) {
+                    adminLinks.push({ path: '/admin/assignments', label: 'Assignments', icon: <FaBook /> });
                 }
 
                 // Settings always last
@@ -130,7 +154,7 @@ const Sidebar = () => {
 
                 // 7. Fees
                 if (hasFeature('fees')) {
-                    teacherLinks.push({ path: '/teacher/fees', label: 'Fees', icon: <FaMoneyBillWave /> });
+                    teacherLinks.push({ path: '/teacher/fees', label: 'Payment', icon: <FaMoneyCheckAlt />, feature: 'fees' });
                 }
 
                 // 8. Examination
@@ -138,8 +162,17 @@ const Sidebar = () => {
                     teacherLinks.push({ path: '/teacher/examination', label: 'Examination', icon: <FaGraduationCap /> });
                 }
 
-                // Settings always last
-                teacherLinks.push({ path: '/teacher/settings', label: 'Settings', icon: <FaCog /> });
+                if (hasFeature('result')) {
+                    teacherLinks.push({ path: '/teacher/result', label: 'Results', icon: <FaClipboardCheck /> });
+                }
+
+                // Assignments
+                if (hasFeature('assignment')) {
+                    teacherLinks.push({ path: '/teacher/assignments', label: 'Assignments', icon: <FaBook /> });
+                }
+
+                // Removed settings for teachers as requested
+                // teacherLinks.push({ path: '/teacher/settings', label: 'Settings', icon: <FaCog /> });
 
                 return teacherLinks;
             default:
@@ -170,7 +203,7 @@ const Sidebar = () => {
                                 }`;
                         }}
                     >
-                        <span className={`flex-shrink-0 text-lg transition-colors duration-200 ${isCollapsed ? '' : ''}`}>
+                        <span className={`shrink-0 text-lg transition-colors duration-200 ${isCollapsed ? '' : ''}`}>
                             {link.icon}
                         </span>
                         <span className={`transition-all duration-300 overflow-hidden whitespace-nowrap ${isCollapsed ? 'w-0 opacity-0 hidden md:block md:w-0 md:opacity-0' : 'w-auto opacity-100'

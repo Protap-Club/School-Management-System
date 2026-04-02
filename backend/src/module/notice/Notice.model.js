@@ -76,6 +76,26 @@ const noticeSchema = new mongoose.Schema(
           type: Date,
           default: Date.now,
         },
+        responseMessage: {
+          type: String,
+          trim: true,
+          default: '',
+          maxlength: 500,
+        },
+        attachments: {
+          type: [
+            {
+              filename: { type: String },
+              originalName: { type: String },
+              path: { type: String },
+              size: { type: Number },
+              mimetype: { type: String },
+              secure_url: { type: String },
+              public_id: { type: String },
+            },
+          ],
+          default: [],
+        },
       },
     ],
   },

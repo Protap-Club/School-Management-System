@@ -13,6 +13,8 @@ const commands = {
     "seed-attendance": () => import("./commands/seedAttendance.js"),
     "seed-calendar": () => import("./commands/seedCalendar.js"),
     "seed-notices": () => import("./commands/seedNotices.js"),
+    "seed-assignments": () => import("./commands/seedAssignments.js"),
+    "seed-examinations": () => import("./commands/seedExaminations.js"),
     "cleanup": () => import("./commands/cleanup.js"),
     "nfc": () => import("./commands/nfc.js"),
 };
@@ -20,28 +22,34 @@ const commands = {
 const showHelp = () => {
     logger.info(`
 ═══════════════════════════════════════════════════════════
-  Seed CLI — Database Seeding Tool
+  Seed CLI — Multi-School Database Seeding Tool
 ═══════════════════════════════════════════════════════════
 
 USAGE:
   node src/seed/index.js <command>
 
+SCHOOLS:  JNV (Jawahar Navodaya Vidyalaya)
+          NV  (Navrachna International School)
+          AV  (Ambe Vidyalaya)
+
 COMMANDS:
   seed-all            Runs ALL seed commands below in order (one-shot full setup)
-  seed-school         Creates the Navrachna school
-  seed-users          Creates super admin, admin, teachers, and students (classes 6-12)
-  seed-profiles       Creates admin, teacher, and student profiles
-  seed-timetable      Creates time slots, timetables, and timetable entries
+  seed-school         Creates all 3 schools from schools.json
+  seed-users          Creates super admin, admins, teachers, and students per school
+  seed-profiles       Creates admin, teacher, and student profiles per school
+  seed-timetable      Creates time slots, timetables, and timetable entries per school
   seed-attendance     Creates realistic attendance for all seeded students
-  seed-calendar       Creates holidays, exams, and school events
-  seed-notices        Creates notices and notice groups
-  cleanup             Removes ALL Navrachna data (run before re-seeding)
+  seed-calendar       Creates holidays, exams, and school events per school
+  seed-notices        Creates notices per school
+  seed-assignments    Creates assignment records per class with future due dates
+  seed-examinations   Creates class tests and term exams per class
+  cleanup             Removes ALL seeded school data (run before re-seeding)
   help                Show this help message
 
 DEPENDENCY ORDER (if running individually):
   seed-school → seed-users → seed-profiles → seed-timetable / seed-attendance / seed-calendar / seed-notices
 
-DEFAULT PASSWORD: Demo@123  (for all seeded users)
+DEFAULT PASSWORD: School@123  (for all seeded users)
 ═══════════════════════════════════════════════════════════
 `);
 };

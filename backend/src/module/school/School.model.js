@@ -1,5 +1,22 @@
 import mongoose from "mongoose";
 
+const classSectionSchema = new mongoose.Schema(
+  {
+    standard: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    section: {
+      type: String,
+      required: true,
+      trim: true,
+      uppercase: true,
+    },
+  },
+  { _id: false }
+);
+
 const schoolSchema = new mongoose.Schema(
   {
     name: {
@@ -50,6 +67,12 @@ const schoolSchema = new mongoose.Schema(
         default: "#2563eb",
       },
     },
+    academic: {
+      classSections: {
+        type: [classSectionSchema],
+        default: [],
+      },
+    },
 
     // Feature toggle modules
     features: {
@@ -62,6 +85,7 @@ const schoolSchema = new mongoose.Schema(
       calendar: { type: Boolean, default: false },
       examination: { type: Boolean, default: false },
       assignment: { type: Boolean, default: false },
+      result: { type: Boolean, default: false },
     },
   },
   {
@@ -78,7 +102,7 @@ schoolSchema.virtual("adminCount", {
   localField: "_id",
   foreignField: "schoolId",
   count: true,
-  match: { role: "admin" },
+  match: { role: "admin", isArchived: { $ne: true } },
 });
 
 // Count Teachers
@@ -87,7 +111,7 @@ schoolSchema.virtual("teacherCount", {
   localField: "_id",
   foreignField: "schoolId",
   count: true,
-  match: { role: "teacher" },
+  match: { role: "teacher", isArchived: { $ne: true } },
 });
 
 // Count Students
@@ -96,7 +120,7 @@ schoolSchema.virtual("studentCount", {
   localField: "_id",
   foreignField: "schoolId",
   count: true,
-  match: { role: "student" },
+  match: { role: "student", isArchived: { $ne: true } },
 });
 
 export default mongoose.model("School", schoolSchema);

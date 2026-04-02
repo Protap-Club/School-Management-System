@@ -16,32 +16,45 @@ export const EXAM_QUERY_KEYS = {
 // ── Custom Hooks ───────────────────────────────────────────────────
 
 // Get exams list (filtered by role)
+// Normalizes API response to handle server-side pagination
 export const useExams = (filters = {}) => {
   return useQuery({
     queryKey: EXAM_QUERY_KEYS.list(filters),
     queryFn: () => examApi.getExams(filters),
-    select: (response) => response.data,
+    select: (response) => {
+      // Handle the new paginated shape `{ exams, pagination }` while maintaining backward compatibility
+      if (response?.data?.exams || response?.data?.pagination) {
+        return {
+          exams: response.data.exams || [],
+          pagination: response.data.pagination || { page: 0, pageSize: 25, totalCount: 0, totalPages: 0 }
+        };
+      }
+      // Fallback for any endpoints returning an array
+      return { exams: Array.isArray(response?.data) ? response.data : [], pagination: null };
+    },
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 };
 
 // Get single exam by ID
+// Returns a normalized exam object (or null)
 export const useExam = (examId) => {
   return useQuery({
     queryKey: EXAM_QUERY_KEYS.detail(examId),
     queryFn: () => examApi.getExamById(examId),
-    select: (response) => response.data,
+    select: (response) => response?.data || null,
     enabled: !!examId,
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 };
 
 // Get student's exams
+// Normalizes to { termExams: [], classTests: [] }
 export const useMyExams = (filters = {}) => {
   return useQuery({
     queryKey: EXAM_QUERY_KEYS.myExamsList(filters),
     queryFn: () => examApi.getMyExams(filters),
-    select: (response) => response.data,
+    select: (response) => response?.data || { termExams: [], classTests: [] },
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 };

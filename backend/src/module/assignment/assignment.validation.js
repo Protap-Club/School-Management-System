@@ -1,6 +1,18 @@
 import { z } from "zod";
 
 const objectIdSchema = z.string().regex(/^[0-9a-fA-F]{24}$/, "Invalid ObjectId");
+const dueDateSchema = z.string().refine(
+    (value) => /^\d{4}-\d{2}-\d{2}$/.test(value) || !Number.isNaN(Date.parse(value)),
+    { message: "dueDate must be a valid date or ISO datetime" }
+).refine(
+    (value) => {
+        const d = new Date(value.includes('T') ? value : value + 'T00:00:00');
+        return d.getDay() !== 0;
+    },
+    { message: "Sundays are not allowed." }
+);
+const booleanishSchema = z.union([z.boolean(), z.enum(["true", "false"])])
+    .transform((value) => value === true || value === "true");
 
 // Assignment Validation Schemas
 
@@ -12,8 +24,8 @@ export const createAssignmentSchema = z.object({
         subject: z.string({ required_error: "Subject is required" }).min(1, "Subject cannot be empty").max(100),
         standard: z.string({ required_error: "Standard is required" }).min(1),
         section: z.string({ required_error: "Section is required" }).min(1),
-        dueDate: z.string({ required_error: "Due date is required" })
-            .datetime({ message: "dueDate must be a valid ISO datetime" }),
+        dueDate: dueDateSchema,
+        requiresSubmission: booleanishSchema.optional().default(false),
     }),
 });
 
@@ -22,7 +34,8 @@ export const updateAssignmentSchema = z.object({
     body: z.object({
         title: z.string().min(1).max(200).optional(),
         description: z.string().max(2000).optional(),
-        dueDate: z.string().datetime({ message: "dueDate must be a valid ISO datetime" }).optional(),
+        dueDate: dueDateSchema.optional(),
+        requiresSubmission: booleanishSchema.optional(),
         status: z.enum(["active", "closed"]).optional(),
     }),
     params: z.object({

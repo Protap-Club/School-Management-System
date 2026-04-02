@@ -10,6 +10,7 @@ const initialYear = new Date().getFullYear();
 const CreateTimetableDialog = ({ open, onOpenChange, onCreate, isPending = false, availableClasses = {} }) => {
     const standards = useMemo(() => availableClasses?.standards || [], [availableClasses]);
     const sections = useMemo(() => availableClasses?.sections || [], [availableClasses]);
+    const classSections = useMemo(() => availableClasses?.classSections || [], [availableClasses]);
 
     const [form, setForm] = useState({
         standard: "",
@@ -17,15 +18,38 @@ const CreateTimetableDialog = ({ open, onOpenChange, onCreate, isPending = false
         academicYear: String(initialYear),
     });
 
-    const normalizedSectionOptions = useMemo(() => {
-        if (sections.length > 0) return sections;
-        return ["A", "B", "C"];
-    }, [sections]);
+    const sectionsByStandard = useMemo(() => {
+        const map = new Map();
+
+        for (const pair of classSections) {
+            const standard = String(pair?.standard || "").trim();
+            const section = String(pair?.section || "").trim().toUpperCase();
+            if (!standard || !section) continue;
+
+            if (!map.has(standard)) {
+                map.set(standard, new Set());
+            }
+            map.get(standard).add(section);
+        }
+
+        return map;
+    }, [classSections]);
+
     const selectedStandard = form.standard || standards[0] || "";
-    const selectedSection = form.section || normalizedSectionOptions[0] || "";
+    const normalizedSectionOptions = useMemo(() => {
+        if (!selectedStandard) return sections;
+        const byStandard = sectionsByStandard.get(selectedStandard);
+        if (!byStandard) return sections;
+        return [...byStandard].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
+    }, [sections, sectionsByStandard, selectedStandard]);
+    const selectedSection = form.section && normalizedSectionOptions.includes(form.section)
+        ? form.section
+        : (normalizedSectionOptions[0] || "");
 
     const handleSubmit = async (event) => {
         event.preventDefault();
+        if (!selectedStandard || !selectedSection) return;
+
         const payload = {
             standard: selectedStandard.trim(),
             section: selectedSection.trim(),
@@ -56,7 +80,7 @@ const CreateTimetableDialog = ({ open, onOpenChange, onCreate, isPending = false
                     <div className="space-y-2">
                         <Label>Standard</Label>
                         {standards.length > 0 ? (
-                            <Select value={selectedStandard} onValueChange={(value) => setForm((prev) => ({ ...prev, standard: value }))}>
+                            <Select value={selectedStandard} onValueChange={(value) => setForm((prev) => ({ ...prev, standard: value, section: "" }))}>
                                 <SelectTrigger className="w-full">
                                     <SelectValue placeholder="Select standard" />
                                 </SelectTrigger>
@@ -81,7 +105,7 @@ const CreateTimetableDialog = ({ open, onOpenChange, onCreate, isPending = false
                     <div className="space-y-2">
                         <Label>Section</Label>
                         <Select value={selectedSection} onValueChange={(value) => setForm((prev) => ({ ...prev, section: value }))}>
-                            <SelectTrigger className="w-full">
+                            <SelectTrigger className="w-full" disabled={normalizedSectionOptions.length === 0}>
                                 <SelectValue placeholder="Select section" />
                             </SelectTrigger>
                             <SelectContent>
@@ -110,7 +134,7 @@ const CreateTimetableDialog = ({ open, onOpenChange, onCreate, isPending = false
                         <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isPending}>
                             Cancel
                         </Button>
-                        <Button type="submit" disabled={isPending}>
+                        <Button type="submit" disabled={isPending || !selectedStandard || !selectedSection}>
                             {isPending ? "Creating..." : "Create"}
                         </Button>
                     </DialogFooter>

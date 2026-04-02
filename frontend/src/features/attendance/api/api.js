@@ -4,13 +4,13 @@ import api from '../../../lib/axios';
 export const attendanceApi = {
     /** Fetch all students (paginated). */
     getStudents: async () => {
-        const response = await api.get('/users?role=student&pageSize=2000');
+        const response = await api.get('/users?role=student&pageSize=100');
         return response.data;
     },
 
     /** Fetch all teachers (paginated). */
     getTeachers: async () => {
-        const response = await api.get('/users?role=teacher&pageSize=500');
+        const response = await api.get('/users?role=teacher&pageSize=500&isArchived=false');
         return response.data;
     },
 
@@ -44,6 +44,17 @@ export const attendanceApi = {
      */
     markManualAttendance: async ({ studentId, status }) => {
         const response = await api.put('/attendance/manual', { studentId, status });
+        return response.data;
+    },
+
+    replaceClassTeacher: async ({ standard, section, replacementTeacherId, mode = 'replace', reassignTeacherId } = {}) => {
+        const response = await api.patch('/users/class-teacher/replace', {
+            standard,
+            section,
+            replacementTeacherId,
+            mode,
+            ...(reassignTeacherId ? { reassignTeacherId } : {}),
+        });
         return response.data;
     },
 };

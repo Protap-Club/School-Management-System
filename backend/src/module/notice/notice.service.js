@@ -7,6 +7,8 @@ import { deleteFromCloudinary } from "../../middlewares/upload.middleware.js";
 import cloudinary from "../../config/cloudinary.js";
 import StudentProfile from "../user/model/StudentProfile.model.js";
 import TeacherProfile from "../user/model/TeacherProfile.model.js";
+import User from "../user/model/User.model.js";
+import { getConfiguredClassSections } from "../../utils/classSection.util.js";
 
 /**
  * Generates a download URL for a Cloudinary attachment.
@@ -95,14 +97,52 @@ const enrichWithSignedUrls = (notices) => {
     return notices;
 };
 
+const normalizeClassRecipient = (recipient) => {
+    if (typeof recipient !== "string") return null;
+
+    const trimmed = recipient.trim();
+    if (!trimmed) return null;
+
+    const separatorIndex = trimmed.lastIndexOf("-");
+    if (separatorIndex <= 0 || separatorIndex === trimmed.length - 1) return null;
+
+    const standard = trimmed.slice(0, separatorIndex).trim();
+    const section = trimmed.slice(separatorIndex + 1).trim().toUpperCase();
+    if (!standard || !section) return null;
+
+    return `${standard}-${section}`;
+};
+
 // NOTICE SERVICES
 
 // Create a new notice
 export const createNotice = async (schoolId, userId, data, file) => {
     // Parse recipients (sent as JSON string from FormData)
-    const recipients = typeof data.recipients === 'string'
+    let recipients = typeof data.recipients === 'string'
         ? JSON.parse(data.recipients)
         : (data.recipients || []);
+
+    if (data.recipientType === "classes") {
+        const { classSections } = await getConfiguredClassSections(schoolId);
+        const configuredClassSet = new Set(
+            classSections.map((item) => normalizeClassRecipient(`${item.standard}-${item.section}`)).filter(Boolean)
+        );
+
+        const normalizedRecipients = Array.isArray(recipients)
+            ? recipients.map((item) => normalizeClassRecipient(item)).filter(Boolean)
+            : [];
+
+        if (!normalizedRecipients.length) {
+            throw new BadRequestError("Please select at least one valid class");
+        }
+
+        const invalidRecipients = normalizedRecipients.filter((item) => !configuredClassSet.has(item));
+        if (invalidRecipients.length) {
+            throw new BadRequestError(`Some selected classes are no longer available: ${invalidRecipients.join(", ")}`);
+        }
+
+        recipients = [...new Set(normalizedRecipients)];
+    }
 
     // Build attachment if file exists
     // Cloudinary returns the full URL in file.path/secure_url and public_id in file.filename/public_id
@@ -110,9 +150,6 @@ export const createNotice = async (schoolId, userId, data, file) => {
     if (file) {
         const fileUrl = file.path || file.secure_url || file.url;
         const filePublicId = file.filename || file.public_id;
-
-        console.log(`[DEBUG] Notice attachment extracted - URL: ${fileUrl}, PublicID: ${filePublicId}`);
-
         attachment = {
             filename: filePublicId,
             originalName: file.originalname,
@@ -136,7 +173,7 @@ export const createNotice = async (schoolId, userId, data, file) => {
         requiresAcknowledgment: data.requiresAcknowledgment === true || data.requiresAcknowledgment === 'true',
     });
 
-    await notice.populate("createdBy", "name email role");
+    await notice.populate("createdBy", "name email role isArchived");
     logger.info(`Notice created: ${notice._id}`);
 
     return notice;
@@ -186,8 +223,9 @@ export const getNotices = async (user, platform, filters = {}) => {
     // Date filter
     if (filters.date && filters.date !== 'all') {
         const now = new Date();
+        const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
         const dateMap = {
-            today: new Date(now.setHours(0, 0, 0, 0)),
+            today: todayStart,
             last7: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000),
             last30: new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000),
         };
@@ -198,8 +236,9 @@ export const getNotices = async (user, platform, filters = {}) => {
     }
 
     const results = await Notice.find(query)
-        .populate("createdBy", "name email role")
+        .populate("createdBy", "name email role isArchived")
         .sort({ createdAt: -1 })
+        .limit(50)
         .lean();
 
     return enrichWithSignedUrls(results);
@@ -210,6 +249,28 @@ export const getReceivedNotices = async (schoolId, user) => {
     const userId = user._id;
     const role = user.role;
 
+    if (role === USER_ROLES.ADMIN || role === USER_ROLES.SUPER_ADMIN) {
+        const teacherUsers = await User.find({ schoolId, role: USER_ROLES.TEACHER })
+            .select('_id')
+            .lean();
+        const teacherIds = teacherUsers.map(t => t._id);
+
+        if (teacherIds.length === 0) {
+            return [];
+        }
+
+        const results = await Notice.find({
+            schoolId,
+            createdBy: { $in: teacherIds }
+        })
+            .populate("createdBy", "name email role isArchived")
+            .sort({ createdAt: -1 })
+            .limit(50)
+            .lean();
+
+        return enrichWithSignedUrls(results);
+    }
+
     // 1. Gather all target strings/IDs the user is a part of
     const targetRecipients = [userId.toString()]; // User's own ID
 
@@ -217,11 +278,22 @@ export const getReceivedNotices = async (schoolId, user) => {
     const userGroups = await NoticeGroup.find({ schoolId, members: userId, isActive: true }).select('_id').lean();
     userGroups.forEach(g => targetRecipients.push(g._id.toString()));
 
+    let myTeacherIds = [];
+
     // 3. Fetch User's Classes (if student or teacher)
     if (role === USER_ROLES.STUDENT) {
         const profile = await StudentProfile.findOne({ schoolId, userId }).lean();
         if (profile && profile.standard && profile.section) {
             targetRecipients.push(`${profile.standard}-${profile.section}`);
+            
+            // Allow student to receive 'All Students' notices sent implicitly by their own assigned teachers
+            const teachers = await TeacherProfile.find({
+                schoolId,
+                assignedClasses: {
+                    $elemMatch: { standard: profile.standard, section: profile.section }
+                }
+            }).select('userId').lean();
+            myTeacherIds = teachers.map(t => t.userId);
         }
     } else if (role === USER_ROLES.TEACHER) {
         const profile = await TeacherProfile.findOne({ schoolId, userId }).lean();
@@ -232,15 +304,27 @@ export const getReceivedNotices = async (schoolId, user) => {
         }
     }
 
+    const orConditions = [
+        { recipientType: 'all' }, // Sent to entire school
+        { recipients: { $in: targetRecipients } } // explicitly sent to me, my class, or my group
+    ];
+
+    // If teacher sent to "All Students", it's implicit (recipients is empty array).
+    // Only fetch these if the sender is actually one of my assigned teachers.
+    if (role === USER_ROLES.STUDENT && myTeacherIds.length > 0) {
+        orConditions.push({
+            recipientType: 'students',
+            recipients: { $size: 0 },
+            createdBy: { $in: myTeacherIds }
+        });
+    }
+
     const results = await Notice.find({
         schoolId,
         createdBy: { $ne: userId },
-        $or: [
-            { recipients: { $size: 0 } },  // Sent to all
-            { recipients: { $in: targetRecipients } } // Sent to me, my class, or my group
-        ],
+        $or: orConditions
     })
-        .populate("createdBy", "name email role")
+        .populate("createdBy", "name email role isArchived")
         .sort({ createdAt: -1 })
         .limit(50)
         .lean();
@@ -255,7 +339,7 @@ export const getNoticeById = async (schoolId, noticeId) => {
     }
 
     const notice = await Notice.findOne({ _id: noticeId, schoolId })
-        .populate("createdBy", "name email role")
+        .populate("createdBy", "name email role isArchived")
         .lean();
 
     if (!notice) {
@@ -297,7 +381,7 @@ export const deleteNotice = async (schoolId, noticeId, userId) => {
 // ACKNOWLEDGMENT SERVICES
 
 // Record a user's acknowledgment of a notice
-export const acknowledgeNotice = async (schoolId, noticeId, user) => {
+export const acknowledgeNotice = async (schoolId, noticeId, user, responseMessage, files = []) => {
     if (!mongoose.Types.ObjectId.isValid(noticeId)) {
         throw new BadRequestError("Invalid notice ID");
     }
@@ -319,12 +403,66 @@ export const acknowledgeNotice = async (schoolId, noticeId, user) => {
         throw new ConflictError("You have already acknowledged this notice");
     }
 
-    notice.acknowledgments.push({
-        userId: user._id,
-        role: user.role,
-        timestamp: new Date(),
+    const cleanupUploadedFiles = async () => {
+        for (const file of files || []) {
+            const fileUrl = file.path || file.secure_url || file.url;
+            if (fileUrl) {
+                try {
+                    await deleteFromCloudinary(fileUrl);
+                } catch (cleanupError) {
+                    logger.warn(`Failed to cleanup uploaded file: ${cleanupError.message}`);
+                }
+            } else if (file.public_id || file.filename) {
+                try {
+                    await cloudinary.uploader.destroy(file.public_id || file.filename, { resource_type: 'raw' });
+                } catch (cleanupError) {
+                    logger.warn(`Failed to cleanup uploaded file: ${cleanupError.message}`);
+                }
+            }
+        }
+    };
+
+    const attachments = (files || []).map((file) => {
+        const fileUrl = file.path || file.secure_url || file.url;
+        const filePublicId = file.filename || file.public_id;
+        return {
+            filename: filePublicId,
+            originalName: file.originalname,
+            path: fileUrl,
+            secure_url: fileUrl,
+            public_id: filePublicId,
+            size: file.size,
+            mimetype: file.mimetype,
+        };
     });
-    await notice.save();
+
+    const trimmedMessage = (responseMessage || '').trim();
+    const hasMessage = trimmedMessage.length > 0;
+    const hasAttachments = attachments.length > 0;
+
+    if (hasMessage && trimmedMessage.length < 2 && !hasAttachments) {
+        await cleanupUploadedFiles();
+        throw new BadRequestError("Response message must be at least 2 characters long");
+    }
+
+    if (!hasMessage && !hasAttachments) {
+        await cleanupUploadedFiles();
+        throw new BadRequestError("Please provide a response message (min 2 chars) or at least one attachment");
+    }
+
+    try {
+        notice.acknowledgments.push({
+            userId: user._id,
+            role: user.role,
+            timestamp: new Date(),
+            responseMessage: trimmedMessage,
+            attachments,
+        });
+        await notice.save();
+    } catch (saveError) {
+        await cleanupUploadedFiles();
+        throw saveError;
+    }
 
     logger.info(`Notice ${noticeId} acknowledged by ${user._id} (${user.role})`);
     return { message: "Notice acknowledged successfully" };
@@ -368,6 +506,11 @@ export const getAcknowledgments = async (schoolId, noticeId, requestingUserId) =
         email: a.userId?.email || "",
         role: a.role,
         timestamp: a.timestamp,
+        responseMessage: a.responseMessage || '',
+        attachments: (a.attachments || []).map(att => ({
+            ...att,
+            secure_url: getDownloadUrl(att),
+        })),
     }));
 
     const User = mongoose.model("User");
@@ -557,7 +700,7 @@ const getStudentMobileNotices = async (schoolId, user) => {
 const getTeacherMobileNotices = async (schoolId, user) => {
     const received = await getReceivedNotices(schoolId, user);
     const history = await Notice.find({ schoolId, createdBy: user._id })
-        .populate("createdBy", "name email role")
+        .populate("createdBy", "name email role isArchived")
         .sort({ createdAt: -1 })
         .limit(20) // Limit mobile history to recent 20
         .lean();

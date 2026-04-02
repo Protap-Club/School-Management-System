@@ -1,0 +1,704 @@
+{
+  "JNV": {
+    "adminProfiles": [
+      {
+        "email": "kartik@jnv.com",
+        "permissions": ["manage_users", "manage_fees", "manage_attendance", "manage_notices", "manage_calendar"],
+        "department": "Administration",
+        "employeeId": "JNV-ADM-001"
+      },
+      {
+        "email": "jay@jnv.com",
+        "permissions": ["manage_users", "manage_timetable", "manage_exams", "manage_results"],
+        "department": "Academics",
+        "employeeId": "JNV-ADM-002"
+      }
+    ],
+    "teacherProfiles": [
+      {
+        "email": "anita@jnv.com",
+        "employeeId": "JNV-TCH-001",
+        "qualification": "M.Sc. Mathematics, B.Ed.",
+        "joiningDate": "2020-06-15",
+        "expectedSalary": 45000,
+        "assignedClasses": [
+          { "standard": "10", "section": "A", "subjects": ["Mathematics"] },
+          { "standard": "10", "section": "B", "subjects": ["Mathematics"] },
+          { "standard": "9", "section": "A", "subjects": ["Mathematics"] }
+        ]
+      },
+      {
+        "email": "manoj@jnv.com",
+        "employeeId": "JNV-TCH-002",
+        "qualification": "M.Sc. Physics, B.Ed.",
+        "joiningDate": "2019-07-01",
+        "expectedSalary": 48000,
+        "assignedClasses": [
+          { "standard": "11", "section": "A", "subjects": ["Physics"] },
+          { "standard": "12", "section": "A", "subjects": ["Physics"] },
+          { "standard": "10", "section": "C", "subjects": ["Physics"] }
+        ]
+      },
+      {
+        "email": "priya@jnv.com",
+        "employeeId": "JNV-TCH-003",
+        "qualification": "M.A. English, B.Ed.",
+        "joiningDate": "2021-04-10",
+        "expectedSalary": 42000,
+        "assignedClasses": [
+          { "standard": "10", "section": "A", "subjects": ["English"] },
+          { "standard": "10", "section": "B", "subjects": ["English"] },
+          { "standard": "9", "section": "B", "subjects": ["English"] }
+        ]
+      },
+      {
+        "email": "vikram@jnv.com",
+        "employeeId": "JNV-TCH-004",
+        "qualification": "M.A. Hindi, B.Ed.",
+        "joiningDate": "2018-06-20",
+        "expectedSalary": 50000,
+        "assignedClasses": [
+          { "standard": "10", "section": "A", "subjects": ["Hindi"] },
+          { "standard": "9", "section": "A", "subjects": ["Hindi"] },
+          { "standard": "8", "section": "A", "subjects": ["Hindi"] }
+        ]
+      },
+      {
+        "email": "sunita@jnv.com",
+        "employeeId": "JNV-TCH-005",
+        "qualification": "M.Sc. Chemistry, B.Ed.",
+        "joiningDate": "2020-08-01",
+        "expectedSalary": 44000,
+        "assignedClasses": [
+          { "standard": "11", "section": "B", "subjects": ["Chemistry"] },
+          { "standard": "12", "section": "B", "subjects": ["Chemistry"] },
+          { "standard": "10", "section": "D", "subjects": ["Chemistry"] }
+        ]
+      },
+      {
+        "email": "ramesh@jnv.com",
+        "employeeId": "JNV-TCH-006",
+        "qualification": "M.Sc. Biology, B.Ed.",
+        "joiningDate": "2019-04-15",
+        "expectedSalary": 46000,
+        "assignedClasses": [
+          { "standard": "11", "section": "A", "subjects": ["Biology"] },
+          { "standard": "12", "section": "A", "subjects": ["Biology"] },
+          { "standard": "9", "section": "C", "subjects": ["Biology"] }
+        ]
+      },
+      {
+        "email": "kavita@jnv.com",
+        "employeeId": "JNV-TCH-007",
+        "qualification": "M.A. Social Science, B.Ed.",
+        "joiningDate": "2021-07-01",
+        "expectedSalary": 40000,
+        "assignedClasses": [
+          { "standard": "10", "section": "A", "subjects": ["Social Science"] },
+          { "standard": "10", "section": "B", "subjects": ["Social Science"] },
+          { "standard": "8", "section": "B", "subjects": ["Social Science"] }
+        ]
+      },
+      {
+        "email": "ashok@jnv.com",
+        "employeeId": "JNV-TCH-008",
+        "qualification": "M.Sc. Computer Science",
+        "joiningDate": "2022-01-10",
+        "expectedSalary": 52000,
+        "assignedClasses": [
+          { "standard": "11", "section": "A", "subjects": ["Computer Science"] },
+          { "standard": "12", "section": "A", "subjects": ["Computer Science"] },
+          { "standard": "10", "section": "A", "subjects": ["Computer Science"] }
+        ]
+      },
+      {
+        "email": "meena@jnv.com",
+        "employeeId": "JNV-TCH-009",
+        "qualification": "M.A. Sanskrit, B.Ed.",
+        "joiningDate": "2017-06-01",
+        "expectedSalary": 55000,
+        "assignedClasses": [
+          { "standard": "6", "section": "A", "subjects": ["Sanskrit"] },
+          { "standard": "7", "section": "A", "subjects": ["Sanskrit"] },
+          { "standard": "8", "section": "A", "subjects": ["Sanskrit"] }
+        ]
+      },
+      {
+        "email": "sanjay@jnv.com",
+        "employeeId": "JNV-TCH-010",
+        "qualification": "M.Sc. Mathematics, B.Ed.",
+        "joiningDate": "2020-06-15",
+        "expectedSalary": 43000,
+        "assignedClasses": [
+          { "standard": "9", "section": "B", "subjects": ["Mathematics"] },
+          { "standard": "9", "section": "C", "subjects": ["Mathematics"] },
+          { "standard": "8", "section": "C", "subjects": ["Mathematics"] }
+        ]
+      },
+      {
+        "email": "lakshmi@jnv.com",
+        "employeeId": "JNV-TCH-011",
+        "qualification": "M.A. English, M.Phil.",
+        "joiningDate": "2018-04-01",
+        "expectedSalary": 47000,
+        "assignedClasses": [
+          { "standard": "11", "section": "A", "subjects": ["English"] },
+          { "standard": "12", "section": "A", "subjects": ["English"] },
+          { "standard": "12", "section": "B", "subjects": ["English"] }
+        ]
+      },
+      {
+        "email": "arun@jnv.com",
+        "employeeId": "JNV-TCH-012",
+        "qualification": "B.P.Ed., M.P.Ed.",
+        "joiningDate": "2019-07-15",
+        "expectedSalary": 38000,
+        "assignedClasses": [
+          { "standard": "6", "section": "A", "subjects": ["Physical Education"] },
+          { "standard": "7", "section": "A", "subjects": ["Physical Education"] },
+          { "standard": "8", "section": "A", "subjects": ["Physical Education"] }
+        ]
+      },
+      {
+        "email": "geeta@jnv.com",
+        "employeeId": "JNV-TCH-013",
+        "qualification": "M.Sc. Mathematics, B.Ed.",
+        "joiningDate": "2021-06-01",
+        "expectedSalary": 41000,
+        "assignedClasses": [
+          { "standard": "6", "section": "A", "subjects": ["Mathematics"] },
+          { "standard": "6", "section": "B", "subjects": ["Mathematics"] },
+          { "standard": "7", "section": "A", "subjects": ["Mathematics"] }
+        ]
+      },
+      {
+        "email": "dinesh@jnv.com",
+        "employeeId": "JNV-TCH-014",
+        "qualification": "M.A. Gujarati, B.Ed.",
+        "joiningDate": "2020-04-10",
+        "expectedSalary": 39000,
+        "assignedClasses": [
+          { "standard": "6", "section": "A", "subjects": ["Gujarati"] },
+          { "standard": "7", "section": "A", "subjects": ["Gujarati"] },
+          { "standard": "8", "section": "B", "subjects": ["Gujarati"] }
+        ]
+      },
+      {
+        "email": "rekha@jnv.com",
+        "employeeId": "JNV-TCH-015",
+        "qualification": "M.Sc. Science, B.Ed.",
+        "joiningDate": "2022-06-15",
+        "expectedSalary": 40000,
+        "assignedClasses": [
+          { "standard": "6", "section": "A", "subjects": ["Science"] },
+          { "standard": "6", "section": "B", "subjects": ["Science"] },
+          { "standard": "7", "section": "B", "subjects": ["Science"] }
+        ]
+      },
+      {
+        "email": "nitin@jnv.com",
+        "employeeId": "JNV-TCH-016",
+        "qualification": "M.A. History, B.Ed.",
+        "joiningDate": "2019-08-01",
+        "expectedSalary": 42000,
+        "assignedClasses": [
+          { "standard": "9", "section": "D", "subjects": ["Social Science"] },
+          { "standard": "10", "section": "C", "subjects": ["Social Science"] },
+          { "standard": "10", "section": "D", "subjects": ["Social Science"] }
+        ]
+      },
+      {
+        "email": "shobha@jnv.com",
+        "employeeId": "JNV-TCH-017",
+        "qualification": "M.A. Fine Arts",
+        "joiningDate": "2021-08-10",
+        "expectedSalary": 36000,
+        "assignedClasses": [
+          { "standard": "1", "section": "A", "subjects": ["Art"] },
+          { "standard": "2", "section": "A", "subjects": ["Art"] },
+          { "standard": "3", "section": "A", "subjects": ["Art"] }
+        ]
+      },
+      {
+        "email": "prakash@jnv.com",
+        "employeeId": "JNV-TCH-018",
+        "qualification": "M.A. Music, B.Ed.",
+        "joiningDate": "2020-09-01",
+        "expectedSalary": 35000,
+        "assignedClasses": [
+          { "standard": "1", "section": "A", "subjects": ["Music"] },
+          { "standard": "2", "section": "A", "subjects": ["Music"] },
+          { "standard": "3", "section": "A", "subjects": ["Music"] }
+        ]
+      }
+    ]
+  },
+  "NV": {
+    "adminProfiles": [
+      {
+        "email": "vrajesh@nv.com",
+        "permissions": ["manage_users", "manage_fees", "manage_attendance", "manage_notices", "manage_calendar"],
+        "department": "Administration",
+        "employeeId": "NV-ADM-001"
+      },
+      {
+        "email": "priyansh@nv.com",
+        "permissions": ["manage_users", "manage_timetable", "manage_exams", "manage_results"],
+        "department": "Academics",
+        "employeeId": "NV-ADM-002"
+      }
+    ],
+    "teacherProfiles": [
+      {
+        "email": "ritu@nv.com",
+        "employeeId": "NV-TCH-001",
+        "qualification": "M.Sc. Mathematics, B.Ed.",
+        "joiningDate": "2019-06-01",
+        "expectedSalary": 48000,
+        "assignedClasses": [
+          { "standard": "10", "section": "A", "subjects": ["Mathematics"] },
+          { "standard": "10", "section": "B", "subjects": ["Mathematics"] },
+          { "standard": "9", "section": "A", "subjects": ["Mathematics"] }
+        ]
+      },
+      {
+        "email": "pranav@nv.com",
+        "employeeId": "NV-TCH-002",
+        "qualification": "M.Sc. Physics, B.Ed.",
+        "joiningDate": "2018-07-15",
+        "expectedSalary": 52000,
+        "assignedClasses": [
+          { "standard": "11", "section": "A", "subjects": ["Physics"] },
+          { "standard": "12", "section": "A", "subjects": ["Physics"] },
+          { "standard": "10", "section": "C", "subjects": ["Physics"] }
+        ]
+      },
+      {
+        "email": "swati@nv.com",
+        "employeeId": "NV-TCH-003",
+        "qualification": "M.A. English Literature, B.Ed.",
+        "joiningDate": "2020-04-01",
+        "expectedSalary": 45000,
+        "assignedClasses": [
+          { "standard": "10", "section": "A", "subjects": ["English"] },
+          { "standard": "10", "section": "B", "subjects": ["English"] },
+          { "standard": "9", "section": "B", "subjects": ["English"] }
+        ]
+      },
+      {
+        "email": "hemant@nv.com",
+        "employeeId": "NV-TCH-004",
+        "qualification": "M.A. Hindi, B.Ed.",
+        "joiningDate": "2017-06-20",
+        "expectedSalary": 54000,
+        "assignedClasses": [
+          { "standard": "10", "section": "A", "subjects": ["Hindi"] },
+          { "standard": "9", "section": "A", "subjects": ["Hindi"] },
+          { "standard": "8", "section": "A", "subjects": ["Hindi"] }
+        ]
+      },
+      {
+        "email": "pooja@nv.com",
+        "employeeId": "NV-TCH-005",
+        "qualification": "M.Sc. Chemistry, B.Ed.",
+        "joiningDate": "2019-08-01",
+        "expectedSalary": 47000,
+        "assignedClasses": [
+          { "standard": "11", "section": "B", "subjects": ["Chemistry"] },
+          { "standard": "12", "section": "B", "subjects": ["Chemistry"] },
+          { "standard": "10", "section": "D", "subjects": ["Chemistry"] }
+        ]
+      },
+      {
+        "email": "rakesh@nv.com",
+        "employeeId": "NV-TCH-006",
+        "qualification": "M.Sc. Biology, B.Ed.",
+        "joiningDate": "2020-06-15",
+        "expectedSalary": 46000,
+        "assignedClasses": [
+          { "standard": "11", "section": "A", "subjects": ["Biology"] },
+          { "standard": "12", "section": "A", "subjects": ["Biology"] },
+          { "standard": "9", "section": "C", "subjects": ["Biology"] }
+        ]
+      },
+      {
+        "email": "asha@nv.com",
+        "employeeId": "NV-TCH-007",
+        "qualification": "M.A. History, B.Ed.",
+        "joiningDate": "2021-04-10",
+        "expectedSalary": 43000,
+        "assignedClasses": [
+          { "standard": "10", "section": "A", "subjects": ["Social Science"] },
+          { "standard": "10", "section": "B", "subjects": ["Social Science"] },
+          { "standard": "8", "section": "B", "subjects": ["Social Science"] }
+        ]
+      },
+      {
+        "email": "vijay@nv.com",
+        "employeeId": "NV-TCH-008",
+        "qualification": "M.Sc. Computer Science, MCA",
+        "joiningDate": "2021-01-05",
+        "expectedSalary": 55000,
+        "assignedClasses": [
+          { "standard": "11", "section": "A", "subjects": ["Computer Science"] },
+          { "standard": "12", "section": "A", "subjects": ["Computer Science"] },
+          { "standard": "10", "section": "A", "subjects": ["Computer Science"] }
+        ]
+      },
+      {
+        "email": "nandini@nv.com",
+        "employeeId": "NV-TCH-009",
+        "qualification": "M.A. Sanskrit, B.Ed.",
+        "joiningDate": "2016-06-01",
+        "expectedSalary": 58000,
+        "assignedClasses": [
+          { "standard": "6", "section": "A", "subjects": ["Sanskrit"] },
+          { "standard": "7", "section": "A", "subjects": ["Sanskrit"] },
+          { "standard": "8", "section": "A", "subjects": ["Sanskrit"] }
+        ]
+      },
+      {
+        "email": "govind@nv.com",
+        "employeeId": "NV-TCH-010",
+        "qualification": "M.Sc. Mathematics, B.Ed.",
+        "joiningDate": "2021-06-15",
+        "expectedSalary": 42000,
+        "assignedClasses": [
+          { "standard": "9", "section": "B", "subjects": ["Mathematics"] },
+          { "standard": "9", "section": "C", "subjects": ["Mathematics"] },
+          { "standard": "8", "section": "C", "subjects": ["Mathematics"] }
+        ]
+      },
+      {
+        "email": "sarita@nv.com",
+        "employeeId": "NV-TCH-011",
+        "qualification": "M.A. English, M.Phil.",
+        "joiningDate": "2018-04-01",
+        "expectedSalary": 49000,
+        "assignedClasses": [
+          { "standard": "11", "section": "A", "subjects": ["English"] },
+          { "standard": "12", "section": "A", "subjects": ["English"] },
+          { "standard": "12", "section": "B", "subjects": ["English"] }
+        ]
+      },
+      {
+        "email": "kiran@nv.com",
+        "employeeId": "NV-TCH-012",
+        "qualification": "B.P.Ed., M.P.Ed.",
+        "joiningDate": "2019-07-15",
+        "expectedSalary": 40000,
+        "assignedClasses": [
+          { "standard": "6", "section": "A", "subjects": ["Physical Education"] },
+          { "standard": "7", "section": "A", "subjects": ["Physical Education"] },
+          { "standard": "8", "section": "A", "subjects": ["Physical Education"] }
+        ]
+      },
+      {
+        "email": "madhuri@nv.com",
+        "employeeId": "NV-TCH-013",
+        "qualification": "M.Sc. Mathematics, B.Ed.",
+        "joiningDate": "2022-06-01",
+        "expectedSalary": 41000,
+        "assignedClasses": [
+          { "standard": "6", "section": "A", "subjects": ["Mathematics"] },
+          { "standard": "6", "section": "B", "subjects": ["Mathematics"] },
+          { "standard": "7", "section": "A", "subjects": ["Mathematics"] }
+        ]
+      },
+      {
+        "email": "bharat@nv.com",
+        "employeeId": "NV-TCH-014",
+        "qualification": "M.A. Gujarati, B.Ed.",
+        "joiningDate": "2020-04-10",
+        "expectedSalary": 39000,
+        "assignedClasses": [
+          { "standard": "6", "section": "A", "subjects": ["Gujarati"] },
+          { "standard": "7", "section": "A", "subjects": ["Gujarati"] },
+          { "standard": "8", "section": "B", "subjects": ["Gujarati"] }
+        ]
+      },
+      {
+        "email": "lata@nv.com",
+        "employeeId": "NV-TCH-015",
+        "qualification": "M.Sc. Science, B.Ed.",
+        "joiningDate": "2021-06-15",
+        "expectedSalary": 43000,
+        "assignedClasses": [
+          { "standard": "6", "section": "A", "subjects": ["Science"] },
+          { "standard": "6", "section": "B", "subjects": ["Science"] },
+          { "standard": "7", "section": "B", "subjects": ["Science"] }
+        ]
+      },
+      {
+        "email": "sunil@nv.com",
+        "employeeId": "NV-TCH-016",
+        "qualification": "M.A. Geography, B.Ed.",
+        "joiningDate": "2019-08-01",
+        "expectedSalary": 42000,
+        "assignedClasses": [
+          { "standard": "9", "section": "D", "subjects": ["Social Science"] },
+          { "standard": "10", "section": "C", "subjects": ["Social Science"] },
+          { "standard": "10", "section": "D", "subjects": ["Social Science"] }
+        ]
+      },
+      {
+        "email": "divya@nv.com",
+        "employeeId": "NV-TCH-017",
+        "qualification": "M.A. Fine Arts",
+        "joiningDate": "2022-08-10",
+        "expectedSalary": 37000,
+        "assignedClasses": [
+          { "standard": "1", "section": "A", "subjects": ["Art"] },
+          { "standard": "2", "section": "A", "subjects": ["Art"] },
+          { "standard": "3", "section": "A", "subjects": ["Art"] }
+        ]
+      },
+      {
+        "email": "manoj@nv.com",
+        "employeeId": "NV-TCH-018",
+        "qualification": "M.A. Music, Sangeet Visharad",
+        "joiningDate": "2020-09-01",
+        "expectedSalary": 36000,
+        "assignedClasses": [
+          { "standard": "1", "section": "A", "subjects": ["Music"] },
+          { "standard": "2", "section": "A", "subjects": ["Music"] },
+          { "standard": "3", "section": "A", "subjects": ["Music"] }
+        ]
+      }
+    ]
+  },
+  "AV": {
+    "adminProfiles": [
+      {
+        "email": "shivam@av.com",
+        "permissions": ["manage_users", "manage_fees", "manage_attendance", "manage_notices", "manage_calendar"],
+        "department": "Administration",
+        "employeeId": "AV-ADM-001"
+      },
+      {
+        "email": "ashish@av.com",
+        "permissions": ["manage_users", "manage_timetable", "manage_exams", "manage_results"],
+        "department": "Academics",
+        "employeeId": "AV-ADM-002"
+      }
+    ],
+    "teacherProfiles": [
+      {
+        "email": "vaishali@av.com",
+        "employeeId": "AV-TCH-001",
+        "qualification": "M.Sc. Mathematics, B.Ed.",
+        "joiningDate": "2020-06-01",
+        "expectedSalary": 42000,
+        "assignedClasses": [
+          { "standard": "10", "section": "A", "subjects": ["Mathematics"] },
+          { "standard": "10", "section": "B", "subjects": ["Mathematics"] },
+          { "standard": "9", "section": "A", "subjects": ["Mathematics"] }
+        ]
+      },
+      {
+        "email": "jayesh@av.com",
+        "employeeId": "AV-TCH-002",
+        "qualification": "M.Sc. Physics, B.Ed.",
+        "joiningDate": "2019-07-01",
+        "expectedSalary": 46000,
+        "assignedClasses": [
+          { "standard": "11", "section": "A", "subjects": ["Physics"] },
+          { "standard": "12", "section": "A", "subjects": ["Physics"] },
+          { "standard": "10", "section": "C", "subjects": ["Physics"] }
+        ]
+      },
+      {
+        "email": "usha@av.com",
+        "employeeId": "AV-TCH-003",
+        "qualification": "M.A. English, B.Ed.",
+        "joiningDate": "2021-04-01",
+        "expectedSalary": 40000,
+        "assignedClasses": [
+          { "standard": "10", "section": "A", "subjects": ["English"] },
+          { "standard": "10", "section": "B", "subjects": ["English"] },
+          { "standard": "9", "section": "B", "subjects": ["English"] }
+        ]
+      },
+      {
+        "email": "nikhil@av.com",
+        "employeeId": "AV-TCH-004",
+        "qualification": "M.A. Hindi, B.Ed.",
+        "joiningDate": "2018-06-15",
+        "expectedSalary": 48000,
+        "assignedClasses": [
+          { "standard": "10", "section": "A", "subjects": ["Hindi"] },
+          { "standard": "9", "section": "A", "subjects": ["Hindi"] },
+          { "standard": "8", "section": "A", "subjects": ["Hindi"] }
+        ]
+      },
+      {
+        "email": "parul@av.com",
+        "employeeId": "AV-TCH-005",
+        "qualification": "M.Sc. Chemistry, B.Ed.",
+        "joiningDate": "2020-08-01",
+        "expectedSalary": 44000,
+        "assignedClasses": [
+          { "standard": "11", "section": "B", "subjects": ["Chemistry"] },
+          { "standard": "12", "section": "B", "subjects": ["Chemistry"] },
+          { "standard": "10", "section": "D", "subjects": ["Chemistry"] }
+        ]
+      },
+      {
+        "email": "kamlesh@av.com",
+        "employeeId": "AV-TCH-006",
+        "qualification": "M.Sc. Biology, B.Ed.",
+        "joiningDate": "2019-04-15",
+        "expectedSalary": 45000,
+        "assignedClasses": [
+          { "standard": "11", "section": "A", "subjects": ["Biology"] },
+          { "standard": "12", "section": "A", "subjects": ["Biology"] },
+          { "standard": "9", "section": "C", "subjects": ["Biology"] }
+        ]
+      },
+      {
+        "email": "hetal@av.com",
+        "employeeId": "AV-TCH-007",
+        "qualification": "M.A. Social Science, B.Ed.",
+        "joiningDate": "2021-07-05",
+        "expectedSalary": 41000,
+        "assignedClasses": [
+          { "standard": "10", "section": "A", "subjects": ["Social Science"] },
+          { "standard": "10", "section": "B", "subjects": ["Social Science"] },
+          { "standard": "8", "section": "B", "subjects": ["Social Science"] }
+        ]
+      },
+      {
+        "email": "darshan@av.com",
+        "employeeId": "AV-TCH-008",
+        "qualification": "MCA, B.Ed.",
+        "joiningDate": "2022-01-10",
+        "expectedSalary": 50000,
+        "assignedClasses": [
+          { "standard": "11", "section": "A", "subjects": ["Computer Science"] },
+          { "standard": "12", "section": "A", "subjects": ["Computer Science"] },
+          { "standard": "10", "section": "A", "subjects": ["Computer Science"] }
+        ]
+      },
+      {
+        "email": "anjali@av.com",
+        "employeeId": "AV-TCH-009",
+        "qualification": "M.A. Sanskrit, B.Ed.",
+        "joiningDate": "2017-06-01",
+        "expectedSalary": 52000,
+        "assignedClasses": [
+          { "standard": "6", "section": "A", "subjects": ["Sanskrit"] },
+          { "standard": "7", "section": "A", "subjects": ["Sanskrit"] },
+          { "standard": "8", "section": "A", "subjects": ["Sanskrit"] }
+        ]
+      },
+      {
+        "email": "mukesh@av.com",
+        "employeeId": "AV-TCH-010",
+        "qualification": "M.Sc. Mathematics, B.Ed.",
+        "joiningDate": "2021-06-15",
+        "expectedSalary": 41000,
+        "assignedClasses": [
+          { "standard": "9", "section": "B", "subjects": ["Mathematics"] },
+          { "standard": "9", "section": "C", "subjects": ["Mathematics"] },
+          { "standard": "8", "section": "C", "subjects": ["Mathematics"] }
+        ]
+      },
+      {
+        "email": "snehal@av.com",
+        "employeeId": "AV-TCH-011",
+        "qualification": "M.A. English, M.Phil.",
+        "joiningDate": "2018-04-01",
+        "expectedSalary": 47000,
+        "assignedClasses": [
+          { "standard": "11", "section": "A", "subjects": ["English"] },
+          { "standard": "12", "section": "A", "subjects": ["English"] },
+          { "standard": "12", "section": "B", "subjects": ["English"] }
+        ]
+      },
+      {
+        "email": "ravi@av.com",
+        "employeeId": "AV-TCH-012",
+        "qualification": "B.P.Ed., M.P.Ed.",
+        "joiningDate": "2019-07-15",
+        "expectedSalary": 38000,
+        "assignedClasses": [
+          { "standard": "6", "section": "A", "subjects": ["Physical Education"] },
+          { "standard": "7", "section": "A", "subjects": ["Physical Education"] },
+          { "standard": "8", "section": "A", "subjects": ["Physical Education"] }
+        ]
+      },
+      {
+        "email": "komal@av.com",
+        "employeeId": "AV-TCH-013",
+        "qualification": "M.Sc. Mathematics, B.Ed.",
+        "joiningDate": "2022-06-01",
+        "expectedSalary": 39000,
+        "assignedClasses": [
+          { "standard": "6", "section": "A", "subjects": ["Mathematics"] },
+          { "standard": "6", "section": "B", "subjects": ["Mathematics"] },
+          { "standard": "7", "section": "A", "subjects": ["Mathematics"] }
+        ]
+      },
+      {
+        "email": "alpesh@av.com",
+        "employeeId": "AV-TCH-014",
+        "qualification": "M.A. Gujarati, B.Ed.",
+        "joiningDate": "2020-04-10",
+        "expectedSalary": 38000,
+        "assignedClasses": [
+          { "standard": "6", "section": "A", "subjects": ["Gujarati"] },
+          { "standard": "7", "section": "A", "subjects": ["Gujarati"] },
+          { "standard": "8", "section": "B", "subjects": ["Gujarati"] }
+        ]
+      },
+      {
+        "email": "bhavna@av.com",
+        "employeeId": "AV-TCH-015",
+        "qualification": "M.Sc. Science, B.Ed.",
+        "joiningDate": "2021-06-15",
+        "expectedSalary": 40000,
+        "assignedClasses": [
+          { "standard": "6", "section": "A", "subjects": ["Science"] },
+          { "standard": "6", "section": "B", "subjects": ["Science"] },
+          { "standard": "7", "section": "B", "subjects": ["Science"] }
+        ]
+      },
+      {
+        "email": "dharmesh@av.com",
+        "employeeId": "AV-TCH-016",
+        "qualification": "M.A. History, B.Ed.",
+        "joiningDate": "2019-08-01",
+        "expectedSalary": 42000,
+        "assignedClasses": [
+          { "standard": "9", "section": "D", "subjects": ["Social Science"] },
+          { "standard": "10", "section": "C", "subjects": ["Social Science"] },
+          { "standard": "10", "section": "D", "subjects": ["Social Science"] }
+        ]
+      },
+      {
+        "email": "foram@av.com",
+        "employeeId": "AV-TCH-017",
+        "qualification": "M.A. Fine Arts, B.Ed.",
+        "joiningDate": "2022-08-10",
+        "expectedSalary": 35000,
+        "assignedClasses": [
+          { "standard": "1", "section": "A", "subjects": ["Art"] },
+          { "standard": "2", "section": "A", "subjects": ["Art"] },
+          { "standard": "3", "section": "A", "subjects": ["Art"] }
+        ]
+      },
+      {
+        "email": "girish@av.com",
+        "employeeId": "AV-TCH-018",
+        "qualification": "M.A. Music, B.Ed.",
+        "joiningDate": "2020-09-01",
+        "expectedSalary": 34000,
+        "assignedClasses": [
+          { "standard": "1", "section": "A", "subjects": ["Music"] },
+          { "standard": "2", "section": "A", "subjects": ["Music"] },
+          { "standard": "3", "section": "A", "subjects": ["Music"] }
+        ]
+      }
+    ]
+  }
+}

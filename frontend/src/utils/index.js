@@ -40,3 +40,22 @@ export const truncateText = (text, maxLength = 100) => {
     if (!text || text.length <= maxLength) return text;
     return text.slice(0, maxLength).trim() + '...';
 };
+
+// Extract error message from Axios error objects (Issue #5)
+export const readError = (error, fallback = 'Something went wrong') =>
+    error?.response?.data?.message || error?.message || fallback;
+
+// Human-readable relative time string (Issue #13)
+const TIME_UNITS = [
+    [31536000, 'year'], [2592000, 'month'], [86400, 'day'], [3600, 'hour'], [60, 'minute']
+];
+
+export const getRelativeTime = (dateString) => {
+    if (!dateString) return '';
+    const seconds = Math.floor((new Date() - new Date(dateString)) / 1000);
+    for (const [divisor, unit] of TIME_UNITS) {
+        const interval = seconds / divisor;
+        if (interval > 1) return `${Math.floor(interval)} ${unit}s ago`;
+    }
+    return 'Just now';
+};

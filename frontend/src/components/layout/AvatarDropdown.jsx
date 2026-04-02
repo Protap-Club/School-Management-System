@@ -5,6 +5,8 @@ import { FaUser, FaCog, FaSignOutAlt, FaChevronDown } from 'react-icons/fa';
 import AvatarUploadModal from './AvatarUploadModal';
 import { useDispatch } from 'react-redux';
 import { setUser } from '../../features/auth/authSlice';
+import { useQueryClient } from '@tanstack/react-query';
+import { authKeys } from '../../features/auth/api/api';
 
 const AvatarDropdown = () => {
     const { user, logout } = useAuth();
@@ -13,6 +15,7 @@ const AvatarDropdown = () => {
     const dropdownRef = useRef(null);
     const navigate = useNavigate();
     const dispatch = useDispatch();
+    const queryClient = useQueryClient();
 
     useEffect(() => {
         const handleClickOutside = (event) => {
@@ -35,10 +38,17 @@ const AvatarDropdown = () => {
         navigate('/login');
     };
 
-    const handleUploadSuccess = (newAvatarUrl) => {
+    const handleUploadSuccess = (payload) => {
         // Dispatch Redux action to update user state instantly
         if (user) {
-            dispatch(setUser({ ...user, avatarUrl: newAvatarUrl }));
+            const nextUser = {
+                ...user,
+                avatarUrl: payload?.avatarUrl || user.avatarUrl,
+                avatarPublicId: payload?.avatarPublicId || user.avatarPublicId,
+                updatedAt: payload?.updatedAt || user.updatedAt,
+            };
+            dispatch(setUser(nextUser));
+            queryClient.setQueryData(authKeys.user(), { success: true, user: nextUser });
         }
     };
 
@@ -48,14 +58,15 @@ const AvatarDropdown = () => {
                 return '/superadmin/settings';
             case 'admin':
                 return '/admin/settings';
-            case 'teacher':
-                return '/teacher/settings';
             default:
                 return '/settings';
         }
     };
 
-    const displayImage = user?.avatarUrl;
+    const avatarVersion = user?.avatarPublicId || user?.updatedAt || null;
+    const displayImage = user?.avatarUrl
+        ? `${user.avatarUrl}${avatarVersion ? `${user.avatarUrl.includes('?') ? '&' : '?'}v=${encodeURIComponent(avatarVersion)}` : ''}`
+        : null;
 
     return (
         <div className="relative flex items-center gap-2" ref={dropdownRef}>
@@ -89,16 +100,18 @@ const AvatarDropdown = () => {
                     </div>
 
                     <div className="py-1">
-                        <button
-                            onClick={() => {
-                                navigate(getSettingsPath());
-                                setIsOpen(false);
-                            }}
-                            className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                        >
-                            <FaCog className="text-gray-400" />
-                            <span>Settings</span>
-                        </button>
+                        {user?.role !== 'teacher' && (
+                            <button
+                                onClick={() => {
+                                    navigate(getSettingsPath());
+                                    setIsOpen(false);
+                                }}
+                                className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                            >
+                                <FaCog className="text-gray-400" />
+                                <span>Settings</span>
+                            </button>
+                        )}
 
                         <div className="h-px bg-border-subtle my-1" />
 

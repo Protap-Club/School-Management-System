@@ -3,6 +3,7 @@ import { createSlice } from '@reduxjs/toolkit';
 
 const initialState = {
     user: null,
+    accessToken: null,
     isAuthenticated: false,
     isLoading: true,
 };
@@ -16,8 +17,12 @@ const authSlice = createSlice({
             state.isAuthenticated = true;
             state.isLoading = false;
         },
+        setAccessToken: (state, action) => {
+            state.accessToken = action.payload;
+        },
         clearUser: (state) => {
             state.user = null;
+            state.accessToken = null;
             state.isAuthenticated = false;
             state.isLoading = false;
         },
@@ -27,10 +32,11 @@ const authSlice = createSlice({
     },
 });
 
-export const { setUser, clearUser, setLoading } = authSlice.actions;
+export const { setUser, setAccessToken, clearUser, setLoading } = authSlice.actions;
 
 // Selectors
 export const selectUser = (state) => state.auth.user;
+export const selectAccessToken = (state) => state.auth.accessToken;
 export const selectIsAuthenticated = (state) => state.auth.isAuthenticated;
 export const selectIsLoading = (state) => state.auth.isLoading;
 

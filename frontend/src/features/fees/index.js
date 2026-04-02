@@ -13,12 +13,19 @@ export {
     useAllClassesOverview,
     useClassOverview,
     useYearlySummary,
-    useMyClassFees,
     useStudentFeeHistory,
+    useCreateSalary,
+    useSalaries,
+    useUpdateSalaryStatus,
+    useMySalary,
+    useUpdateTeacherProfile,
+    useMyFees,
+    useFeeTypes,
+    useCreateFeeType,
 } from './api/queries';
 
 // Constants
-export const FEE_TYPES = ['TUITION', 'EXAM', 'LAB', 'LIBRARY', 'TRANSPORT', 'SPORTS', 'OTHER'];
+export const FEE_TYPES = ['TUITION', 'EXAM', 'LAB', 'LIBRARY', 'TRANSPORT', 'SPORTS'];
 
 export const FEE_TYPE_LABELS = {
     TUITION: 'Tuition',
@@ -27,7 +34,6 @@ export const FEE_TYPE_LABELS = {
     LIBRARY: 'Library',
     TRANSPORT: 'Transport',
     SPORTS: 'Sports',
-    OTHER: 'Other',
 };
 
 export const FREQUENCY_OPTIONS = ['MONTHLY', 'QUARTERLY', 'YEARLY', 'ONE_TIME'];

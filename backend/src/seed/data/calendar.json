@@ -1,0 +1,39 @@
+{
+  "events": [
+    { "title": "Republic Day", "start": "2026-01-26", "end": "2026-01-26", "allDay": true, "type": "national", "description": "National holiday celebrating the adoption of the Indian Constitution" },
+    { "title": "Maha Shivaratri", "start": "2026-02-15", "end": "2026-02-15", "allDay": true, "type": "national", "description": "Hindu festival dedicated to Lord Shiva" },
+    { "title": "Holi", "start": "2026-03-10", "end": "2026-03-10", "allDay": true, "type": "national", "description": "Festival of colours celebrating the arrival of spring" },
+    { "title": "Dhuleti", "start": "2026-03-11", "end": "2026-03-11", "allDay": true, "type": "national", "description": "Second day of Holi celebrations" },
+    { "title": "Ugadi / Gudi Padwa", "start": "2026-03-22", "end": "2026-03-22", "allDay": true, "type": "national", "description": "New Year's Day for the Hindu lunisolar calendar" },
+    { "title": "Ram Navami", "start": "2026-03-28", "end": "2026-03-28", "allDay": true, "type": "national", "description": "Celebration of the birth of Lord Rama" },
+    { "title": "Good Friday", "start": "2026-04-03", "end": "2026-04-03", "allDay": true, "type": "national", "description": "Christian holiday commemorating the crucifixion of Jesus" },
+    { "title": "Id-ul-Fitr", "start": "2026-04-01", "end": "2026-04-01", "allDay": true, "type": "national", "description": "Festival marking the end of Ramadan" },
+    { "title": "Dr. Ambedkar Jayanti", "start": "2026-04-14", "end": "2026-04-14", "allDay": true, "type": "national", "description": "Birthday of Dr. B.R. Ambedkar, architect of the Indian Constitution" },
+    { "title": "May Day", "start": "2026-05-01", "end": "2026-05-01", "allDay": true, "type": "national", "description": "International Workers' Day" },
+    { "title": "Buddha Purnima", "start": "2026-05-12", "end": "2026-05-12", "allDay": true, "type": "national", "description": "Celebration of the birth of Gautama Buddha" },
+    { "title": "Rath Yatra", "start": "2026-06-23", "end": "2026-06-23", "allDay": true, "type": "national", "description": "Festival of chariots in honour of Lord Jagannath" },
+    { "title": "Independence Day", "start": "2026-08-15", "end": "2026-08-15", "allDay": true, "type": "national", "description": "National holiday celebrating India's independence from British rule" },
+    { "title": "Janmashtami", "start": "2026-08-25", "end": "2026-08-25", "allDay": true, "type": "national", "description": "Birthday of Lord Krishna" },
+    { "title": "Ganesh Chaturthi", "start": "2026-09-07", "end": "2026-09-07", "allDay": true, "type": "national", "description": "Festival celebrating the birth of Lord Ganesha" },
+    { "title": "Mahatma Gandhi Jayanti", "start": "2026-10-02", "end": "2026-10-02", "allDay": true, "type": "national", "description": "Birthday of Mahatma Gandhi, Father of the Nation" },
+    { "title": "Navratri Begins", "start": "2026-10-08", "end": "2026-10-08", "allDay": true, "type": "event", "description": "Nine nights of Garba and Dandiya celebrations" },
+    { "title": "Navratri Holiday", "start": "2026-10-08", "end": "2026-10-16", "allDay": true, "type": "national", "description": "School closed for Navratri festival" },
+    { "title": "Dussehra / Vijayadashami", "start": "2026-10-17", "end": "2026-10-17", "allDay": true, "type": "national", "description": "Festival celebrating victory of good over evil" },
+    { "title": "Diwali Vacation", "start": "2026-10-28", "end": "2026-11-05", "allDay": true, "type": "national", "description": "Diwali festive break — Festival of Lights" },
+    { "title": "Guru Nanak Jayanti", "start": "2026-11-08", "end": "2026-11-08", "allDay": true, "type": "national", "description": "Birthday of Guru Nanak, founder of Sikhism" },
+    { "title": "Christmas", "start": "2026-12-25", "end": "2026-12-25", "allDay": true, "type": "national", "description": "Celebration of the birth of Jesus Christ" },
+
+    { "title": "Annual Day Function", "start": "2026-02-20", "end": "2026-02-20", "allDay": true, "type": "event", "description": "School annual day with cultural performances and awards ceremony" },
+    { "title": "Science Exhibition", "start": "2026-08-20", "end": "2026-08-21", "allDay": true, "type": "event", "description": "Inter-school science project exhibition and demonstration" },
+    { "title": "Sports Day", "start": "2026-12-18", "end": "2026-12-19", "allDay": true, "type": "event", "description": "Annual athletics and sports championship" },
+    { "title": "Parent-Teacher Meeting", "start": "2026-07-18", "end": "2026-07-18", "allDay": false, "type": "custom", "description": "Mid-year parent-teacher interaction for progress review" },
+    { "title": "Summer Vacation", "start": "2026-05-15", "end": "2026-06-14", "allDay": true, "type": "custom", "description": "Summer break — school closed" },
+    { "title": "Winter Break", "start": "2026-12-26", "end": "2027-01-04", "allDay": true, "type": "custom", "description": "Winter vacation and New Year break" },
+
+    { "title": "Unit Test 1", "start": "2026-07-20", "end": "2026-07-24", "allDay": true, "type": "exam", "description": "First unit test for all classes" },
+    { "title": "Mid-Term Examination", "start": "2026-09-21", "end": "2026-10-02", "allDay": true, "type": "exam", "description": "Mid-term examination for classes 1 to 12" },
+    { "title": "Unit Test 2", "start": "2026-11-16", "end": "2026-11-20", "allDay": true, "type": "exam", "description": "Second unit test for all classes" },
+    { "title": "Final Examination", "start": "2027-02-15", "end": "2027-03-05", "allDay": true, "type": "exam", "description": "Annual final examination for classes 1 to 12" },
+    { "title": "Board Exam Preparation Leave (Class 10 & 12)", "start": "2027-01-25", "end": "2027-02-14", "allDay": true, "type": "exam", "description": "Preparatory leave for board-appearing students" }
+  ]
+}

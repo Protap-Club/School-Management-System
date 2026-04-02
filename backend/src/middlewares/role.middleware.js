@@ -13,7 +13,6 @@ const checkRole = (allowedRoles) => {
         }
 
         // Check if user's role exists in the allowed list (assumes DB roles are lowercase)
-        console.error(`[CRITICAL_DEBUG] Role check: allowed=${JSON.stringify(allowedRoles)} current=${req.user.role}`);
         if (!allowedRoles.includes(req.user.role)) {
             logger.warn(`Access denied: User ${req.user._id} (${req.user.role}) is not authorized.`);
             throw new ForbiddenError("Access denied");

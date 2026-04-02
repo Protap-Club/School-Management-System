@@ -3,7 +3,7 @@
  * Handles all timetable-related API calls to backend
  */
 
-import api from './axios';
+import api from '../lib/axios';
 
 // ═══════════════════════════════════════════════════════════════
 // TimeSlot API

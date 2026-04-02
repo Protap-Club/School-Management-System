@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../features/auth';
 import { useSidebar } from '../../state';
-import api from '../../api/axios';
 import { useNavigate } from 'react-router-dom';
 import { headerContent } from '../../config/headerContent.js';
 import { FaBars, FaUserCircle, FaSignOutAlt, FaBuilding, FaChevronDown, FaSearch, FaBell } from 'react-icons/fa';
@@ -11,6 +10,8 @@ import { setUser } from '../../features/auth/authSlice';
 import { useReceivedNotices } from '../../features/notices';
 import { useQueryClient } from '@tanstack/react-query';
 import { authKeys } from '../../features/auth/api/api';
+import { useSchoolProfile } from '../../features/settings/api/queries';
+import api from '../../lib/axios';
 
 const ROLE_GRADIENTS = {
     super_admin: 'from-purple-600 to-blue-600',
@@ -19,12 +20,17 @@ const ROLE_GRADIENTS = {
 };
 
 const Header = () => {
-    const { user, logout } = useAuth();
+    const { user, logout, accessToken } = useAuth();
     const { toggleSidebar } = useSidebar();
     const navigate = useNavigate();
     const dispatch = useDispatch();
     const queryClient = useQueryClient();
-    const [schoolBranding, setSchoolBranding] = useState(null);
+    const [school, setSchool] = useState(() => {
+        try {
+            const cached = JSON.parse(sessionStorage.getItem('schoolBranding'));
+            return (cached?.school || cached) || null;
+        } catch { return null; }
+    });
     const [refreshKey, setRefreshKey] = useState(() => Date.now());
     const [dropdownOpen, setDropdownOpen] = useState(false);
     const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
@@ -54,33 +60,38 @@ const Header = () => {
 
     useEffect(() => {
         const fetchBranding = async () => {
-            if (user) {
-                try {
-                    const response = await api.get('/school');
-                    if (response.data.success && response.data.data) {
-                        setSchoolBranding(response.data.data);
-                        setRefreshKey(Date.now());
-                    }
-                } catch (error) {
-                    console.error('Failed to fetch branding', error);
+            if (!user || !accessToken) return;
+
+            try {
+                const response = await api.get('/school');
+                if (response.data.success && response.data.data) {
+                    const schoolData = response.data.data.school || response.data.data;
+                    setSchool(schoolData);
+                    sessionStorage.setItem('schoolBranding', JSON.stringify(schoolData));
+                    setRefreshKey(Date.now());
                 }
+            } catch (error) {
+                console.error('Failed to fetch branding', error);
             }
         };
         fetchBranding();
         window.addEventListener('settingsUpdated', fetchBranding);
         return () => window.removeEventListener('settingsUpdated', fetchBranding);
-    }, [user]);
+    }, [user, accessToken]);
 
-    const handleUploadSuccess = (newAvatarUrl) => {
+    const handleUploadSuccess = (payload) => {
         if (user) {
-            dispatch(setUser({ ...user, avatarUrl: newAvatarUrl }));
-            setRefreshKey(Date.now());
-            // Invalidate query to prevent old cache from overwriting Redux on remounts
-            queryClient.invalidateQueries({ queryKey: authKeys.user() });
+            const nextUser = {
+                ...user,
+                avatarUrl: payload?.avatarUrl || user.avatarUrl,
+                avatarPublicId: payload?.avatarPublicId || user.avatarPublicId,
+                updatedAt: payload?.updatedAt || user.updatedAt,
+            };
+            dispatch(setUser(nextUser));
+            // Keep auth cache in sync so route switches don't overwrite with stale data
+            queryClient.setQueryData(authKeys.user(), { success: true, user: nextUser });
         }
     };
-
-
 
     const handleNotificationClick = () => {
         // Mark as read by saving the current time
@@ -90,9 +101,17 @@ const Header = () => {
         navigate('/notifications');
     };
 
-    const title = schoolBranding?.school?.name || (user?.role === 'super_admin' ? 'Protap' : 'SMS Portal');
-    const logo = schoolBranding?.school?.logoUrl || null;
+    const title = school?.name || (user?.role === 'super_admin' ? 'Protap' : 'SMS Portal');
+    const logo = school?.logoUrl || null;
+    const logoVersion = school?.logoPublicId || school?.updatedAt || null;
+    const logoSrc = logo
+        ? `${logo}${logoVersion ? `${logo.includes('?') ? '&' : '?'}v=${encodeURIComponent(logoVersion)}` : ''}`
+        : headerContent.logo;
     const roleGradient = ROLE_GRADIENTS[user?.role] || 'from-gray-600 to-gray-700';
+    const avatarVersion = user?.avatarPublicId || user?.updatedAt || null;
+    const avatarSrc = user?.avatarUrl
+        ? `${user.avatarUrl}${avatarVersion ? `${user.avatarUrl.includes('?') ? '&' : '?'}v=${encodeURIComponent(avatarVersion)}` : ''}`
+        : null;
 
     return (
         <header className="fixed top-0 left-0 w-full h-16 bg-white border-b border-gray-200 z-50 flex items-center justify-between px-4 shadow-sm">
@@ -131,45 +150,62 @@ const Header = () => {
                 )}
 
                 {/* User Profile */}
-                <div className="relative flex items-center gap-1" ref={dropdownRef}>
-                    <button
-                        onClick={() => setIsUploadModalOpen(true)}
-                        className={`w-9 h-9 rounded-full bg-gradient-to-r ${roleGradient} flex items-center justify-center text-white font-bold shadow-sm overflow-hidden hover:ring-2 hover:ring-blue-100 transition-all focus:outline-none shrink-0`}
-                        title="Change Profile Picture"
-                    >
-                        {user?.avatarUrl ? (
-                            <img src={`${user.avatarUrl}${user.avatarUrl.includes('?') ? '&' : '?'}t=${refreshKey}`} alt="Avatar" className="w-full h-full object-cover" />
-                        ) : (
-                            user?.name?.charAt(0).toUpperCase() || 'U'
-                        )}
-                    </button>
-
+                {/* User Profile */}
+                <div className="relative flex items-center gap-3 lg:gap-4 pl-2 lg:pl-4 border-l border-gray-200" ref={dropdownRef}>
                     <button
                         onClick={() => setDropdownOpen(!dropdownOpen)}
-                        className="flex items-center gap-2 p-1.5 pr-2 rounded-full hover:bg-gray-50 transition-all border border-transparent hover:border-gray-200 focus:outline-none"
+                        className="flex items-center gap-2 md:gap-3 focus:outline-none rounded-lg p-1 hover:bg-gray-50 transition-colors"
                         title="Account Menu"
                     >
-                        <div className="hidden md:flex flex-col items-start ml-1">
-                            <span className="text-sm font-semibold text-gray-700 leading-tight">{user?.name}</span>
-                            <span className="text-xs text-gray-500 capitalize">{user?.role?.replace('_', ' ')}</span>
+                        <div
+                            className={`w-10 h-10 rounded-full bg-gradient-to-r ${roleGradient} flex items-center justify-center text-white font-bold shadow-sm overflow-hidden shrink-0 border-2 border-transparent`}
+                        >
+                        {avatarSrc ? (
+                                <img src={avatarSrc} alt="Avatar" className="w-full h-full object-cover" loading="eager" />
+                            ) : (
+                                user?.name?.charAt(0).toUpperCase() || 'U'
+                            )}
                         </div>
-                        <FaChevronDown className={`text-gray-400 text-xs transition-transform duration-200 ${dropdownOpen ? 'rotate-180' : ''}`} />
+                        <div className="hidden md:flex flex-col text-left">
+                            <span className="text-sm font-semibold text-gray-800 leading-none mb-1">{user?.name}</span>
+                            <span className="text-xs text-gray-500 font-medium capitalize leading-none">{user?.role?.replace('_', ' ')}</span>
+                        </div>
                     </button>
+                    
                     {dropdownOpen && (
-                        <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden transform origin-top-right transition-all animate-in fade-in zoom-in-95 duration-200">
-                            <div className="p-4 border-b border-gray-50 bg-gray-50/50">
-                                <p className="text-sm font-semibold text-gray-800">{user?.name}</p>
-                                <p className="text-xs text-gray-500 truncate">{user?.email}</p>
+                        <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden transform origin-top-right transition-all animate-in fade-in zoom-in-95 duration-200 z-50">
+                            <div className="p-4 border-b border-gray-100 bg-gray-50/50 flex flex-col items-center text-center">
+                                <button
+                                    onClick={() => {
+                                        setDropdownOpen(false);
+                                        setIsUploadModalOpen(true);
+                                    }}
+                                    className="relative mb-2 group focus:outline-none"
+                                    title="Change Profile Picture"
+                                >
+                                    <div className={`w-16 h-16 rounded-full bg-gradient-to-r ${roleGradient} flex items-center justify-center text-white font-bold shadow-md overflow-hidden text-2xl group-hover:ring-2 group-hover:ring-blue-100 transition-all`}>
+                                        {avatarSrc ? (
+                                            <img src={avatarSrc} alt="Avatar" className="w-full h-full object-cover" loading="eager" />
+                                        ) : (
+                                            user?.name?.charAt(0).toUpperCase() || 'U'
+                                        )}
+                                    </div>
+                                    <div className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                                        </svg>
+                                    </div>
+                                </button>
+                                <p className="text-sm font-bold text-gray-800 w-full truncate">{user?.name}</p>
+                                <p className="text-xs text-gray-500 capitalize">{user?.role?.replace('_', ' ')}</p>
                             </div>
                             <div className="p-2">
-                                <div className="px-3 py-2">
-                                    <span className="inline-block px-2 py-1 rounded-md text-xs font-medium capitalize bg-blue-50 text-blue-700 border border-blue-100 w-full text-center">
-                                        {user?.role?.replace('_', ' ')}
-                                    </span>
-                                </div>
-                                <button onClick={() => { logout(); navigate('/login'); }}
-                                    className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors font-medium">
-                                    <FaSignOutAlt />Sign Out
+                                <button 
+                                    onClick={() => { setDropdownOpen(false); logout(); navigate('/login'); }}
+                                    className="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors font-medium"
+                                >
+                                    <FaSignOutAlt className="w-4 h-4" /> Sign Out
                                 </button>
                             </div>
                         </div>

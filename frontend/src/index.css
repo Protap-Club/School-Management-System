@@ -2,7 +2,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
-@import "@fontsource-variable/dm-sans";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -161,7 +160,7 @@ body {
 }
 
 @theme inline {
-    --font-sans: 'DM Sans', sans-serif;
+    --font-sans: 'Noto Sans', sans-serif;
     --color-sidebar-ring: var(--sidebar-ring);
     --color-sidebar-border: var(--sidebar-border);
     --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -211,5 +210,98 @@ body {
     }
   html {
     @apply font-sans;
+    }
+}
+
+@layer components {
+  .page-title {
+    @apply text-2xl md:text-3xl font-semibold tracking-tight text-foreground;
+  }
+  .page-subtitle {
+    @apply text-sm text-muted-foreground;
+  }
+  .section-title {
+    @apply text-lg md:text-xl font-semibold tracking-tight text-foreground;
+  }
+  .section-subtitle {
+    @apply text-sm text-muted-foreground;
+  }
+  .table-head-cell {
+    @apply text-xs font-semibold uppercase tracking-wider text-muted-foreground;
+  }
+  .table-body-cell {
+    @apply text-sm text-foreground;
+  }
+  .input-base {
+    @apply h-10 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50;
+  }
+  .search-input {
+    @apply h-10 w-full rounded-lg border border-input bg-background pl-10 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50;
+  }
+  .btn-primary {
+    @apply inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary-hover;
+  }
+  .btn-outline {
+    @apply inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-input bg-background px-4 text-sm font-medium text-foreground transition-colors hover:bg-muted;
+  }
+  .card-base {
+    @apply rounded-2xl border border-slate-200 bg-white shadow-sm;
+  }
+}
+/* ═══════════════════════════════════════════════════════════════ */
+/* PRINT STYLES - Optimize PDF output */
+/* ═══════════════════════════════════════════════════════════════ */
+@media print {
+    /* Hide everything by default */
+    body * {
+        visibility: hidden !important;
+    }
+
+    /* Show only the printable content and its parents to maintain layout */
+    .printable-content, .printable-content * {
+        visibility: visible !important;
+    }
+
+    /* Position the printable content absolutely at the top left */
+    .printable-content {
+        visibility: visible !important;
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        margin: 0 !important;
+        padding: 0 !important;
+        display: block !important;
+        background: white !important;
+    }
+
+    /* Hide specific elements within printable content */
+    .no-print {
+        display: none !important;
+    }
+
+    /* Page Setup */
+    @page {
+        margin: 1.5cm;
+        size: auto;
+    }
+
+    /* Ensure background colors and images are printed */
+    body {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        background: white !important;
+    }
+
+    /* Adjust borders and shadows for print */
+    .printable-content {
+        border: none !important;
+        box-shadow: none !important;
+    }
+
+    /* Fix for some browsers clipping content */
+    html, body {
+        height: auto !important;
+        overflow: visible !important;
     }
 }

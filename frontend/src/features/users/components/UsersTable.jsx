@@ -152,8 +152,10 @@ export const UsersTable = ({
                             </TableHead>
                             <TableHead className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Role</TableHead>
                             <TableHead className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">Email</TableHead>
-                            <TableHead className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Status</TableHead>
-                            <TableHead className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Action</TableHead>
+                            <TableHead className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                {showArchived ? 'Archive' : 'Status'}
+                            </TableHead>
+                            <TableHead className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-24 whitespace-nowrap">Action</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -199,13 +201,20 @@ export const UsersTable = ({
                                         <span className="text-sm text-gray-500">{u.email}</span>
                                     </TableCell>
                                     <TableCell className="px-4 py-3">
-                                        <span className={`inline-flex items-center gap-1.5 text-xs font-medium ${u.isActive ? 'text-emerald-600' : 'text-gray-400'}`}>
-                                            <span className={`w-1.5 h-1.5 rounded-full ${u.isActive ? 'bg-emerald-500' : 'bg-gray-300'}`}></span>
-                                            {u.isActive ? 'Active' : 'Inactive'}
-                                        </span>
+                                        {showArchived ? (
+                                            <span className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-700">
+                                                <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                                                Archived
+                                            </span>
+                                        ) : (
+                                            <span className={`inline-flex items-center gap-1.5 text-xs font-medium ${u.isActive ? 'text-emerald-600' : 'text-gray-400'}`}>
+                                                <span className={`w-1.5 h-1.5 rounded-full ${u.isActive ? 'bg-emerald-500' : 'bg-gray-300'}`}></span>
+                                                {u.isActive ? 'Active' : 'Inactive'}
+                                            </span>
+                                        )}
                                     </TableCell>
-                                    <TableCell className="px-4 py-3">
-                                        <div className="flex items-center justify-end gap-1">
+                                    <TableCell className="px-4 py-3 w-24">
+                                        <div className="flex items-center justify-start gap-1">
                                             <button
                                                 onClick={(e) => { e.stopPropagation(); onRowClick(u); }}
                                                 className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
