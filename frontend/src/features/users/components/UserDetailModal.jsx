@@ -300,7 +300,7 @@ const UserDetailModal = ({ user, onClose, initialMode = 'view', onSuccess }) => 
                       />
                     ) : (
                       <span className="text-sm font-black text-gray-900 break-all">
-                        {isAdmin ? (formData.profile?.department || 'Not Provided') : isTeacher ? getTeacherClass() : (formData.profile?.rollNumber || `#${user._id?.slice(-6)?.toUpperCase()}`)}
+                        {isAdmin ? (formData.profile?.department || 'N/A') : isTeacher ? getTeacherClass() : (formData.profile?.rollNumber || `#${user._id?.slice(-6)?.toUpperCase()}`)}
                       </span>
                     )}
                   </div>
@@ -335,7 +335,7 @@ const UserDetailModal = ({ user, onClose, initialMode = 'view', onSuccess }) => 
                         onChange={(e) => setFormData({ ...formData, contactNo: e.target.value.replace(/\D/g, '') })}
                       />
                     ) : (
-                      <span className="text-sm font-black text-gray-900 break-all">{formData.contactNo || 'Not Provided'}</span>
+                      <span className="text-sm font-black text-gray-900 break-all">{formData.contactNo || 'N/A'}</span>
                     )}
                   </div>
                 </div>
@@ -503,7 +503,7 @@ const UserDetailModal = ({ user, onClose, initialMode = 'view', onSuccess }) => 
                               onChange={(e) => setFormData({ ...formData, profile: { ...formData.profile, fatherName: e.target.value } })}
                             />
                           ) : (
-                            <p className="text-sm font-bold text-gray-800">{formData.profile?.fatherName || 'Not Provided'}</p>
+                            <p className="text-sm font-bold text-gray-800">{formData.profile?.fatherName || 'N/A'}</p>
                           )}
                         </div>
                         <div>
@@ -515,7 +515,7 @@ const UserDetailModal = ({ user, onClose, initialMode = 'view', onSuccess }) => 
                               onChange={(e) => setFormData({ ...formData, profile: { ...formData.profile, fatherContact: e.target.value.replace(/\D/g, '') } })}
                             />
                           ) : (
-                            <p className="text-sm font-bold text-gray-800">{formData.profile?.fatherContact || 'Not Provided'}</p>
+                            <p className="text-sm font-bold text-gray-800">{formData.profile?.fatherContact || 'N/A'}</p>
                           )}
                         </div>
                       </div>
@@ -537,7 +537,7 @@ const UserDetailModal = ({ user, onClose, initialMode = 'view', onSuccess }) => 
                               onChange={(e) => setFormData({ ...formData, profile: { ...formData.profile, motherName: e.target.value } })}
                             />
                           ) : (
-                            <p className="text-sm font-bold text-gray-800">{formData.profile?.motherName || 'Not Provided'}</p>
+                            <p className="text-sm font-bold text-gray-800">{formData.profile?.motherName || 'N/A'}</p>
                           )}
                         </div>
                         <div>
@@ -549,7 +549,7 @@ const UserDetailModal = ({ user, onClose, initialMode = 'view', onSuccess }) => 
                               onChange={(e) => setFormData({ ...formData, profile: { ...formData.profile, motherContact: e.target.value.replace(/\D/g, '') } })}
                             />
                           ) : (
-                            <p className="text-sm font-bold text-gray-800">{formData.profile?.motherContact || 'Not Provided'}</p>
+                            <p className="text-sm font-bold text-gray-800">{formData.profile?.motherContact || 'N/A'}</p>
                           )}
                         </div>
                       </div>
@@ -572,7 +572,7 @@ const UserDetailModal = ({ user, onClose, initialMode = 'view', onSuccess }) => 
                             onChange={(e) => setFormData({ ...formData, profile: { ...formData.profile, guardianName: e.target.value } })}
                           />
                         ) : (
-                          <p className="text-sm font-bold text-gray-800">{formData.profile?.guardianName || 'Not Provided'}</p>
+                          <p className="text-sm font-bold text-gray-800">{formData.profile?.guardianName || 'N/A'}</p>
                         )}
                       </div>
                       <div>
@@ -584,7 +584,7 @@ const UserDetailModal = ({ user, onClose, initialMode = 'view', onSuccess }) => 
                             onChange={(e) => setFormData({ ...formData, profile: { ...formData.profile, guardianContact: e.target.value.replace(/\D/g, '') } })}
                           />
                         ) : (
-                          <p className="text-sm font-bold text-gray-800">{formData.profile?.guardianContact || 'Not Provided'}</p>
+                          <p className="text-sm font-bold text-gray-800">{formData.profile?.guardianContact || 'N/A'}</p>
                         )}
                       </div>
                     </div>
