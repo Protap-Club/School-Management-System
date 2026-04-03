@@ -74,9 +74,6 @@ export const createExam = async (schoolId, data, user) => {
 
     // Role-based exam type enforcement
     if (user.role === USER_ROLES.TEACHER) {
-        if (data.examType !== "CLASS_TEST") {
-            throw new ForbiddenError("Teachers can only create CLASS_TEST exams");
-        }
         await assertTeacherClassAccess(
             user._id,
             activeSchoolId,
@@ -225,12 +222,11 @@ export const updateExam = async (schoolId, examId, data, user) => {
     const exam = await Exam.findOne({ _id: examId, schoolId, isActive: true });
     if (!exam) throw new NotFoundError("Exam not found");
 
-    // Permission check
     if (user.role === USER_ROLES.TEACHER) {
-        if (exam.examType !== "CLASS_TEST" || String(exam.createdBy) !== String(user._id)) {
-            throw new ForbiddenError("You can only update your own class tests");
-        }
+        // Teacher can only update if they have access to the class
         await assertTeacherClassAccess(user._id, schoolId, exam.standard, exam.section);
+        
+        // Removed strict examType and creator check to allow scheduling/managing any exam assigned to their class
     }
     // Admins and Super Admins can update any exam (term or class test)
 
@@ -265,11 +261,8 @@ export const deleteExam = async (schoolId, examId, user) => {
     const exam = await Exam.findOne({ _id: examId, schoolId, isActive: true });
     if (!exam) throw new NotFoundError("Exam not found");
 
-    // Permission check
     if (user.role === USER_ROLES.TEACHER) {
-        if (exam.examType !== "CLASS_TEST" || String(exam.createdBy) !== String(user._id)) {
-            throw new ForbiddenError("You can only delete your own class tests");
-        }
+        await assertTeacherClassAccess(user._id, schoolId, exam.standard, exam.section);
     }
 
     await deleteExamCalendarEvents(exam);
@@ -351,11 +344,8 @@ export const updateStatus = async (schoolId, examId, newStatus, user) => {
     const exam = await Exam.findOne({ _id: examId, schoolId, isActive: true });
     if (!exam) throw new NotFoundError("Exam not found");
 
-    // Permission check
     if (user.role === USER_ROLES.TEACHER) {
-        if (exam.examType !== "CLASS_TEST" || String(exam.createdBy) !== String(user._id)) {
-            throw new ForbiddenError("You can only change status of your own class tests");
-        }
+        await assertTeacherClassAccess(user._id, schoolId, exam.standard, exam.section);
     }
     // Admins and Super Admins can change status of any exam
 
