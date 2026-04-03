@@ -1,13 +1,13 @@
 import React from 'react';
 import {
     FaArrowLeft, FaArrowRight, FaHistory, FaMoneyBillWave, FaBan,
-    FaFilter, FaDownload, FaFileInvoice, FaListAlt, FaEye, FaChartBar,
+    FaFilter, FaDownload, FaFileInvoice, FaListAlt, FaEye, FaChartBar, FaInfoCircle
 } from 'react-icons/fa';
 import { MONTH_LABELS, FEE_TYPE_LABELS } from '../index';
 import { SkeletonRows } from '../../../components/ui/SkeletonRows';
 import { EmptyState } from '../../../components/ui/EmptyState';
 import FeeStatusBadge from './FeeStatusBadge';
-import { generateFeeReport } from '../../../utils/pdfGenerator';
+import { generateFeeReport, generateFeeReceipt, generateWaiverNote } from '../../../utils/pdfGenerator';
 import { generateFeeExcel } from '../../../utils/excelGenerator';
 
 // ── Student Overview Sub-Tab ─────────────────────────────────────────────────
@@ -94,10 +94,20 @@ export const StudentOverviewPanel = ({
                                                 ) : <span className="text-xs text-gray-400">—</span>}
                                             </td>
                                             <td className="px-4 py-3">
-                                                {isAdmin && fee.status !== 'PAID' && fee.status !== 'WAIVED' && (
-                                                    <button onClick={() => setPaymentModal({ open: true, assignment: { _id: fee.assignmentId, netAmount: fee.amount, paidAmount: fee.paid } })}
-                                                        className="p-1.5 text-emerald-500 hover:bg-emerald-50 rounded-lg transition-colors"><FaMoneyBillWave size={12} /></button>
-                                                )}
+                                                <div className="flex items-center gap-1">
+                                                    {isAdmin && fee.status !== 'PAID' && fee.status !== 'WAIVED' && (
+                                                        <button onClick={() => setPaymentModal({ open: true, assignment: { _id: fee.assignmentId, netAmount: fee.amount, paidAmount: fee.paid } })}
+                                                            title="Record Payment" className="p-1.5 text-emerald-500 hover:bg-emerald-50 rounded-lg transition-colors"><FaMoneyBillWave size={12} /></button>
+                                                    )}
+                                                    {fee.status === 'PAID' && (
+                                                        <button onClick={() => generateFeeReceipt(fee, selectedStudent || { name: selectedStudent.name, email: selectedStudent.email })}
+                                                            title="Download Receipt" className="p-1.5 text-primary hover:bg-primary/5 rounded-lg transition-colors"><FaFileInvoice size={12} /></button>
+                                                    )}
+                                                    {fee.status === 'WAIVED' && (
+                                                        <button onClick={() => generateWaiverNote(fee, selectedStudent || { name: selectedStudent.name, email: selectedStudent.email })}
+                                                            title="Download Waiver Note" className="p-1.5 text-amber-500 hover:bg-amber-50 rounded-lg transition-colors"><FaFileInvoice size={12} /></button>
+                                                    )}
+                                                </div>
                                             </td>
                                         </tr>
                                     ))
@@ -208,6 +218,14 @@ export const StudentOverviewPanel = ({
                                                                     <button onClick={() => handleWaive(fee.assignmentId)}
                                                                         title="Waive Fee" className="p-1.5 text-gray-400 hover:text-orange-500 hover:bg-orange-50 rounded-lg transition-colors"><FaBan size={12} /></button>
                                                                 </>
+                                                            )}
+                                                            {fee.status === 'PAID' && (
+                                                                <button onClick={() => generateFeeReceipt({ ...fee, standard: selectedClass.standard, section: selectedClass.section }, student)}
+                                                                    title="Download Receipt" className="p-1.5 text-primary hover:bg-primary/5 rounded-lg transition-colors"><FaFileInvoice size={12} /></button>
+                                                            )}
+                                                            {fee.status === 'WAIVED' && (
+                                                                <button onClick={() => generateWaiverNote({ ...fee, standard: selectedClass.standard, section: selectedClass.section }, student)}
+                                                                    title="Download Waiver Note" className="p-1.5 text-amber-500 hover:bg-amber-50 rounded-lg transition-colors"><FaFileInvoice size={12} /></button>
                                                             )}
                                                         </div>
                                                     </td>

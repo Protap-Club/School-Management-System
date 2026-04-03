@@ -48,22 +48,18 @@ export const useFeeStructures = (filters = {}, enabled = false) => {
 };
 
 export const useCreateFeeStructure = () => {
-    const queryClient = useQueryClient();
     return useMutation({
         mutationFn: feesApi.createFeeStructure,
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: feeKeys.structures() });
-        },
+        // NOTE: No onSuccess invalidation — handleCreateStructure batch-invalidates
+        // after all generate calls complete, preventing request floods.
     });
 };
 
 export const useUpdateFeeStructure = () => {
-    const queryClient = useQueryClient();
     return useMutation({
         mutationFn: feesApi.updateFeeStructure,
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: feeKeys.structures() });
-        },
+        // NOTE: No onSuccess invalidation — handleUpdateStructure batch-invalidates
+        // after all generate calls complete, preventing request floods.
     });
 };
 
@@ -80,12 +76,10 @@ export const useDeleteFeeStructure = () => {
 // ── Assignment Mutations ──────────────────────────────────────
 
 export const useGenerateAssignments = () => {
-    const queryClient = useQueryClient();
     return useMutation({
         mutationFn: feesApi.generateAssignments,
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: feeKeys.all });
-        },
+        // NOTE: No onSuccess invalidation here — callers (handleCreateStructure, handleUpdateStructure)
+        // batch-invalidate once after all generate calls complete, preventing request floods.
     });
 };
 

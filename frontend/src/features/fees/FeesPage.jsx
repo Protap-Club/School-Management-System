@@ -334,6 +334,7 @@ const FeesPage = () => {
     const handleGenerate = async (data) => {
         try {
             const result = await genMut.mutateAsync(data);
+            queryClient.invalidateQueries({ queryKey: feeKeys.all });
             showToast('success', result.message || 'Assignments generated');
             setGenModal({ open: false, structure: null });
         } catch (err) { showToast('error', err?.response?.data?.message || 'Failed to generate'); }

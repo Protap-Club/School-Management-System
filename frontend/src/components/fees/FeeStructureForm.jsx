@@ -229,10 +229,11 @@ const FeeStructureForm = ({ onCancel, onSubmit, editData, isLoading, isAdmin }) 
         }
     }, [form.frequency, isEdit, currentMonth]);
 
-    // Reset months when switching to other frequencies
+    // Reset months when switching to other frequencies (except Quarterly which has its own auto-select)
     useEffect(() => {
         if (isEdit) return;
-        if (form.frequency && !['QUARTERLY', 'HALF_YEARLY'].includes(form.frequency)) {
+        // Only Quarterly has auto-selection logic; others (including Half-Yearly) should be cleared for manual selection
+        if (form.frequency && form.frequency !== 'QUARTERLY') {
             setForm(prev => ({ ...prev, applicableMonths: [] }));
         }
     }, [form.frequency, isEdit]);
@@ -500,24 +501,31 @@ const FeeStructureForm = ({ onCancel, onSubmit, editData, isLoading, isAdmin }) 
                 </div>
 
                 <div className="pt-2">
-                    <div className="flex items-center justify-between mb-4 px-1">
+                    <div className="flex items-center justify-between mb-4 px-1 min-h-[26px]">
                         <label className="block text-[11px] font-black text-gray-400 uppercase tracking-widest">Applicable Months</label>
-                        {form.frequency === 'QUARTERLY' && (
-                            <span className="text-[10px] font-black text-red-600 bg-red-50 px-3 py-1 rounded-lg border border-red-100 animate-pulse">
-                                select any 4 month
-                            </span>
-                        )}
-                        {form.frequency === 'HALF_YEARLY' && (
-                            <span className="text-[10px] font-black text-red-600 bg-red-50 px-3 py-1 rounded-lg border border-red-100 animate-pulse">
-                                select exactly 6 months
-                            </span>
-                        )}
-                        {(form.frequency === 'YEARLY' || form.frequency === 'ONE_TIME') && (
-                            <span className="text-[10px] font-black text-red-600 bg-red-50 px-3 py-1 rounded-lg border border-red-100 animate-pulse">
-                                select any 1 month
-                            </span>
-                        )}
-                        {errors.applicableMonths && <span className="text-[10px] font-black text-red-600 px-2 py-1">{errors.applicableMonths}</span>}
+                        {(() => {
+                            let hint = null;
+                            if (form.frequency === 'QUARTERLY') hint = 'select any 4 month';
+                            else if (form.frequency === 'HALF_YEARLY') hint = 'select exactly 6 months';
+                            else if (form.frequency === 'YEARLY' || form.frequency === 'ONE_TIME') hint = 'select any 1 month';
+
+                            if (!hint && !errors.applicableMonths) return null;
+
+                            return (
+                                <div className="flex items-center gap-2">
+                                    {hint && (
+                                        <span className="text-[10px] font-black text-red-600 bg-red-50 px-3 py-1 rounded-lg border border-red-100">
+                                            {hint}
+                                        </span>
+                                    )}
+                                    {errors.applicableMonths && (
+                                        <span className="text-[10px] font-black text-red-600 px-2 py-1 italic">
+                                            ({errors.applicableMonths})
+                                        </span>
+                                    )}
+                                </div>
+                            );
+                        })()}
                     </div>
                     <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-12 gap-1.5">
                         {MONTHS.map(m => {

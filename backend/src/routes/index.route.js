@@ -29,7 +29,7 @@ const authLimiter = rateLimit({
 
 const generalLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 200,
+    max: 1000,                    // Raised from 200 — admin batch ops (multi-class fee creation) legitimately need more headroom
     standardHeaders: true,
     legacyHeaders: false,
     message: { success: false, error: { message: 'Too many requests, please try again later.', code: 'RATE_LIMIT_EXCEEDED' } },
