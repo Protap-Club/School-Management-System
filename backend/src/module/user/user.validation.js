@@ -89,6 +89,15 @@ export const getUsersSchema = z.object({
     }),
 });
 
+// ─── Get Subject Teacher (query params) ─────────────────────────────
+export const getSubjectTeacherSchema = z.object({
+    query: z.object({
+        standard: z.string().min(1, 'Standard is required'),
+        section: z.string().min(1, 'Section is required'),
+        subject: z.string().min(1, 'Subject is required'),
+    }),
+});
+
 // ─── Single User Params ─────────────────────────────────────────────
 export const userIdParamsSchema = z.object({
     params: z.object({

@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import { Assignment } from "./Assignment.model.js";
 import { Submission } from "./Submission.model.js";
 import StudentProfile from "../user/model/StudentProfile.model.js";
+import TeacherProfile from "../user/model/TeacherProfile.model.js";
 import { Timetable, TimetableEntry } from "../timetable/Timetable.model.js";
 import { BadRequestError, NotFoundError, ForbiddenError } from "../../utils/customError.js";
 import { deleteFromCloudinary } from "../../middlewares/upload.middleware.js";
@@ -66,12 +67,13 @@ const formatSubmission = (submission) => {
 
 const formatAssignment = (assignment, extras = {}) => {
     const attachments = (assignment.attachments || []).map(formatFile);
+    const requiresSubmission = assignment?.requiresSubmission !== false;
 
     return {
         ...assignment,
         attachments,
         attachmentsCount: attachments.length,
-        requiresSubmission: Boolean(assignment.requiresSubmission),
+        requiresSubmission,
         ...(extras.hasSubmitted !== undefined && {
             hasSubmitted: extras.hasSubmitted,
             submitted: extras.hasSubmitted,
@@ -108,11 +110,20 @@ const assertFutureDueDate = (value) => {
     return dueDate;
 };
 
-const normalizeBoolean = (value, defaultValue = false) => {
-    if (value === undefined) return defaultValue;
-    if (value === true || value === "true") return true;
-    if (value === false || value === "false") return false;
-    return Boolean(value);
+const normalizeSectionValues = (body = {}) => {
+    const rawSections = Array.isArray(body.sections)
+        ? body.sections
+        : body.section
+            ? [body.section]
+            : [];
+
+    return Array.from(
+        new Set(
+            rawSections
+                .map((value) => String(value || "").trim().toUpperCase())
+                .filter(Boolean)
+        )
+    );
 };
 
 const escapeRegExp = (value = "") => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -135,6 +146,94 @@ const assertCanManageAssignment = (role) => {
     if (![USER_ROLES.TEACHER, USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN].includes(role)) {
         throw new ForbiddenError("You do not have permission to manage assignments");
     }
+};
+
+const getActiveTeacherIds = async (schoolId) => {
+    const User = mongoose.model("User");
+    const teachers = await User.find({
+        schoolId,
+        role: USER_ROLES.TEACHER,
+        isActive: true,
+        isArchived: false,
+    })
+        .select("_id")
+        .lean();
+
+    return teachers.map((teacher) => teacher._id);
+};
+
+const findMatchingTeacherIdsForAssignment = async (schoolId, standard, section, subject) => {
+    const activeTeacherIds = await getActiveTeacherIds(schoolId);
+    if (!activeTeacherIds.length) {
+        return [];
+    }
+
+    const profiles = await TeacherProfile.find({
+        schoolId,
+        userId: { $in: activeTeacherIds },
+        assignedClasses: {
+            $elemMatch: {
+                standard,
+                section,
+                subjects: subject,
+            },
+        },
+    })
+        .select("userId")
+        .lean();
+
+    return profiles.map((profile) => String(profile.userId));
+};
+
+const resolveAssignedTeacherForAssignment = async ({
+    schoolId,
+    standard,
+    section,
+    subject,
+    requestedTeacherId,
+}) => {
+    const teacherIds = await findMatchingTeacherIdsForAssignment(schoolId, standard, section, subject);
+
+    if (requestedTeacherId) {
+        if (!teacherIds.includes(String(requestedTeacherId))) {
+            throw new BadRequestError(
+                `Selected assigned teacher is not mapped to Class ${standard}-${section} for ${subject}`
+            );
+        }
+
+        return requestedTeacherId;
+    }
+
+    if (teacherIds.length === 1) {
+        return teacherIds[0];
+    }
+
+    if (teacherIds.length === 0) {
+        throw new BadRequestError(
+            `No responsible teacher is mapped to Class ${standard}-${section} for ${subject}. Please assign the subject teacher first.`
+        );
+    }
+
+    throw new BadRequestError(
+        `Multiple teachers are mapped to Class ${standard}-${section} for ${subject}. Please choose the responsible teacher explicitly.`
+    );
+};
+
+const deleteStoredFileIfUnused = async (schoolId, file = {}) => {
+    if (!file?.publicId || !file?.url) {
+        return;
+    }
+
+    const [assignmentRefCount, submissionRefCount] = await Promise.all([
+        Assignment.countDocuments({ schoolId, "attachments.publicId": file.publicId }),
+        Submission.countDocuments({ schoolId, "files.publicId": file.publicId }),
+    ]);
+
+    if (assignmentRefCount > 0 || submissionRefCount > 0) {
+        return;
+    }
+
+    await deleteFromCloudinary(file.url);
 };
 
 const isPastDue = (dueDate, referenceDate = new Date()) => {
@@ -209,34 +308,56 @@ const buildAssignmentSummaryMap = async (assignmentIds = []) => {
 };
 
 export const createAssignment = async (schoolId, userId, body, files) => {
-    const { subject } = body;
+    const subject = String(body.subject || "").trim();
     const dueDate = assertFutureDueDate(body.dueDate);
+    const requestedSections = normalizeSectionValues(body);
+    const attachmentRefs = mapFiles(files);
 
     if (!subject) {
         throw new BadRequestError("Subject is required");
     }
 
-    if (!body.standard || !body.section) {
-        throw new BadRequestError("Standard and section are required");
+    if (!body.standard || requestedSections.length === 0) {
+        throw new BadRequestError("Standard and at least one section are required");
     }
 
-    const normalizedClassSection = await assertClassSectionConfigured(schoolId, body.standard, body.section);
+    const assignmentPayloads = [];
 
-    const assignment = await Assignment.create({
-        schoolId,
-        createdBy: userId,
-        title: body.title,
-        description: body.description || "",
-        subject,
-        standard: normalizedClassSection.standard,
-        section: normalizedClassSection.section,
-        dueDate,
-        attachments: mapFiles(files),
-        requiresSubmission: normalizeBoolean(body.requiresSubmission, false),
+    for (const section of requestedSections) {
+        const normalizedClassSection = await assertClassSectionConfigured(schoolId, body.standard, section);
+        const assignedTeacher = await resolveAssignedTeacherForAssignment({
+            schoolId,
+            standard: normalizedClassSection.standard,
+            section: normalizedClassSection.section,
+            subject,
+            requestedTeacherId: body.assignedTeacher,
+        });
+
+        assignmentPayloads.push({
+            schoolId,
+            createdBy: userId,
+            title: body.title,
+            description: body.description || "",
+            subject,
+            standard: normalizedClassSection.standard,
+            section: normalizedClassSection.section,
+            dueDate,
+            attachments: attachmentRefs,
+            requiresSubmission: true,
+            assignedTeacher,
+        });
+    }
+
+    const createdAssignments = await Assignment.insertMany(assignmentPayloads);
+
+    createdAssignments.forEach((assignment) => {
+        logger.info(`Assignment created: ${assignment._id}`);
     });
 
-    logger.info(`Assignment created: ${assignment._id}`);
-    return formatAssignment(assignment.toObject());
+    return {
+        createdCount: createdAssignments.length,
+        assignments: createdAssignments.map((assignment) => formatAssignment(assignment.toObject())),
+    };
 };
 
 export const listAssignments = async (schoolId, userId, role, query = {}) => {
@@ -246,7 +367,7 @@ export const listAssignments = async (schoolId, userId, role, query = {}) => {
         if (query.standard && query.standard !== "all") filter.standard = query.standard;
         if (query.section && query.section !== "all") filter.section = query.section;
         if (query.teacherId && mongoose.Types.ObjectId.isValid(query.teacherId)) {
-            filter.createdBy = query.teacherId;
+            filter.assignedTeacher = query.teacherId;
         }
     } else if (role === USER_ROLES.STUDENT) {
         const profile = await StudentProfile.findOne({ schoolId, userId }).lean();
@@ -259,7 +380,7 @@ export const listAssignments = async (schoolId, userId, role, query = {}) => {
         if (query.standard && query.standard !== "all") filter.standard = query.standard;
         if (query.section && query.section !== "all") filter.section = query.section;
         if (query.teacherId && mongoose.Types.ObjectId.isValid(query.teacherId)) {
-            filter.createdBy = query.teacherId;
+            filter.assignedTeacher = query.teacherId;
         }
     }
 
@@ -283,6 +404,7 @@ export const listAssignments = async (schoolId, userId, role, query = {}) => {
         Assignment.countDocuments(filter),
         Assignment.find(filter)
             .populate("createdBy", "name email")
+            .populate("assignedTeacher", "name email avatarUrl")
             .sort({ createdAt: -1 })
             .skip(skip)
             .limit(pageSize)
@@ -436,11 +558,17 @@ export const listSubmittedAssignments = async (schoolId, userId, role, query = {
         Submission.find(submissionFilter)
             .populate({
                 path: "assignmentId",
-                select: "title subject standard section dueDate status createdBy requiresSubmission attachments",
-                populate: {
-                    path: "createdBy",
-                    select: "name email",
-                },
+                select: "title subject standard section dueDate status createdBy assignedTeacher requiresSubmission attachments",
+                populate: [
+                    {
+                        path: "createdBy",
+                        select: "name email",
+                    },
+                    {
+                        path: "assignedTeacher",
+                        select: "name email avatarUrl",
+                    },
+                ],
             })
             .populate({
                 path: "studentId",
@@ -500,6 +628,7 @@ export const getAssignment = async (schoolId, assignmentId, userId, role) => {
 
     const assignment = await Assignment.findOne({ _id: assignmentId, schoolId })
         .populate("createdBy", "name email")
+        .populate("assignedTeacher", "name email avatarUrl")
         .lean();
 
     if (!assignment) throw new NotFoundError("Assignment not found");
@@ -548,9 +677,16 @@ export const updateAssignment = async (schoolId, assignmentId, userId, role, bod
 
     if (body.title !== undefined) assignment.title = body.title;
     if (body.description !== undefined) assignment.description = body.description;
-    if (body.requiresSubmission !== undefined) {
-        assignment.requiresSubmission = normalizeBoolean(body.requiresSubmission, assignment.requiresSubmission);
+    if (body.assignedTeacher !== undefined) {
+        assignment.assignedTeacher = await resolveAssignedTeacherForAssignment({
+            schoolId,
+            standard: assignment.standard,
+            section: assignment.section,
+            subject: assignment.subject,
+            requestedTeacherId: body.assignedTeacher,
+        });
     }
+    assignment.requiresSubmission = true;
     applyResolvedStatus(assignment, body.status);
 
     if (files?.length) {
@@ -574,19 +710,19 @@ export const deleteAssignment = async (schoolId, assignmentId, role) => {
     const assignment = await Assignment.findOne({ _id: assignmentId, schoolId });
     if (!assignment) throw new NotFoundError("Assignment not found");
 
-    for (const attachment of assignment.attachments) {
-        await deleteFromCloudinary(attachment.url);
-    }
-
+    const attachmentsToClean = [...assignment.attachments];
     const submissions = await Submission.find({ assignmentId }).lean();
-    for (const submission of submissions) {
-        for (const file of submission.files) {
-            await deleteFromCloudinary(file.url);
-        }
-    }
-
+    const submissionFilesToClean = submissions.flatMap((submission) => submission.files || []);
     await Submission.deleteMany({ assignmentId });
     await Assignment.deleteOne({ _id: assignmentId });
+
+    for (const attachment of attachmentsToClean) {
+        await deleteStoredFileIfUnused(schoolId, attachment);
+    }
+
+    for (const file of submissionFilesToClean) {
+        await deleteStoredFileIfUnused(schoolId, file);
+    }
 
     logger.info(`Assignment deleted with cascade: ${assignmentId}`);
 };
@@ -609,12 +745,9 @@ export const removeAttachment = async (schoolId, assignmentId, role, publicId) =
     if (attachmentIndex === -1) throw new NotFoundError("Attachment not found");
 
     const [attachment] = assignment.attachments.splice(attachmentIndex, 1);
-    if (attachment?.url) {
-        await deleteFromCloudinary(attachment.url);
-    }
-
     applyResolvedStatus(assignment);
     await assignment.save();
+    await deleteStoredFileIfUnused(schoolId, attachment);
 
     logger.info(`Attachment removed from assignment ${assignmentId}: ${publicId}`);
     return formatAssignment(assignment.toObject());
@@ -638,7 +771,7 @@ export const submitAssignment = async (schoolId, assignmentId, studentId, files)
     const assignment = await Assignment.findOne({ _id: assignmentId, schoolId }).lean();
     if (!assignment) throw new NotFoundError("Assignment not found");
 
-    if (!assignment.requiresSubmission) {
+    if (assignment.requiresSubmission === false) {
         throw new BadRequestError("This assignment does not require a submission");
     }
 
@@ -659,14 +792,15 @@ export const submitAssignment = async (schoolId, assignmentId, studentId, files)
     const existing = await Submission.findOne({ assignmentId, studentId });
 
     if (existing) {
-        for (const file of existing.files) {
-            await deleteFromCloudinary(file.url);
-        }
-
+        const previousFiles = [...(existing.files || [])];
         existing.files = mappedFiles;
         existing.isLate = isLate;
         existing.submittedAt = new Date();
         await existing.save();
+
+        for (const file of previousFiles) {
+            await deleteStoredFileIfUnused(schoolId, file);
+        }
 
         logger.info(`Re-submission for assignment ${assignmentId} by student ${studentId}`);
         return formatSubmission(existing.toObject());
@@ -710,7 +844,8 @@ export const listSubmissions = async (schoolId, assignmentId) => {
     await closeExpiredAssignmentById(schoolId, assignmentId);
 
     const assignment = await Assignment.findOne({ _id: assignmentId, schoolId })
-        .select("title subject standard section dueDate status createdBy requiresSubmission attachments")
+        .select("title subject standard section dueDate status createdBy assignedTeacher requiresSubmission attachments")
+        .populate("assignedTeacher", "name email avatarUrl")
         .lean();
     if (!assignment) throw new NotFoundError("Assignment not found");
 

@@ -42,7 +42,7 @@ const TimetablePage = () => {
         try {
             const cached = JSON.parse(sessionStorage.getItem('schoolBranding'));
             schoolData = cached?.school || cached || schoolData;
-        } catch (e) {}
+        } catch (e) { }
     }
     const schoolName = schoolData?.name || 'School';
     const schoolLogo = schoolData?.logoUrl || null;
@@ -316,8 +316,8 @@ const TimetablePage = () => {
                                             ))}
                                         </SelectContent>
                                     </Select>
-                                    <Button 
-                                        size="sm" 
+                                    <Button
+                                        size="sm"
                                         className="h-9 px-4 text-[13px] font-medium bg-gray-900 hover:bg-gray-800 text-white rounded-md transition-colors shadow-none"
                                         onClick={() => setCreateDialogOpen(true)}
                                     >

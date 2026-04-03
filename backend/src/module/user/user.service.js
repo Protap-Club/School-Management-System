@@ -728,6 +728,33 @@ export const toggleArchive = async (creator, userIds, isArchived, options = {}) 
     };
 };
 
+export const getSubjectTeacher = async (creator, standard, section, subject) => {
+    // Only looking within the creator's school
+    const profile = await TeacherProfile.findOne({
+        schoolId: creator.schoolId,
+        assignedClasses: {
+            $elemMatch: {
+                standard,
+                section,
+                subjects: subject
+            }
+        }
+    }).lean();
+
+    if (!profile) {
+        return null;
+    }
+
+    const user = await User.findOne({
+        _id: profile.userId,
+        isActive: true,
+        isArchived: false,
+        schoolId: creator.schoolId
+    }).select("_id name email avatarUrl").lean();
+
+    return user;
+};
+
 export const replaceClassTeacher = async (creator, data = {}) => {
     if (![USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN].includes(creator.role)) {
         throw new ForbiddenError("Only admins can replace class teachers");

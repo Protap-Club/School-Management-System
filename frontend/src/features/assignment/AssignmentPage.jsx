@@ -287,12 +287,12 @@ export const AssignmentPage = () => {
                                         </div>
                                         <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
                                             <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Academic Details</div>
-                                            <div className="text-slate-900 font-bold">{selectedAssignment.subject} • {selectedAssignment.createdBy?.name || selectedAssignment.teacher?.name || 'Staff'}</div>
+                                            <div className="text-slate-900 font-bold">{selectedAssignment.subject} • {selectedAssignment.assignedTeacher?.name || selectedAssignment.createdBy?.name || 'Staff'}</div>
                                         </div>
                                         <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
                                             <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Deadline</div>
                                             <div className="text-slate-900 font-bold">
-                                                {new Date(selectedAssignment.dueDate).toLocaleDateString()} • {selectedAssignment.requiresSubmission ? 'Submission Required' : 'No Submission'}
+                                                {new Date(selectedAssignment.dueDate).toLocaleDateString()} • Submission Required
                                             </div>
                                         </div>
                                     </div>

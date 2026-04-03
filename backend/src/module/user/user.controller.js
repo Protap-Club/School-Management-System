@@ -98,3 +98,12 @@ export const replaceClassTeacher = asyncHandler(async (req, res) => {
         data: result
     });
 });
+
+export const getSubjectTeacher = asyncHandler(async (req, res) => {
+    const { standard, section, subject } = req.query;
+    const result = await userService.getSubjectTeacher(req.user, standard, section, subject);
+    res.status(200).json({
+        success: true,
+        data: result
+    });
+});

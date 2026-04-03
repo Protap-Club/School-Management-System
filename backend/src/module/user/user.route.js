@@ -9,6 +9,7 @@ import {
     updateUser,
     updateTeacherProfile,
     replaceClassTeacher,
+    getSubjectTeacher,
 } from "./user.controller.js";
 import { checkRole } from "../../middlewares/role.middleware.js";
 import { USER_ROLES } from "../../constants/userRoles.js";
@@ -21,6 +22,7 @@ import {
     updateTeacherProfileSchema,
     updateUserSchema,
     replaceClassTeacherSchema,
+    getSubjectTeacherSchema,
 } from "./user.validation.js";
 import checkWebOnly from "../../middlewares/checkWebOnly.js";
 import { avatarUpload } from "../../middlewares/upload.middleware.js";
@@ -36,6 +38,13 @@ router.get(
     checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN, USER_ROLES.TEACHER]),
     validate(getUsersSchema),
     getUsers
+);
+
+router.get(
+    "/subject-teacher",
+    checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN, USER_ROLES.TEACHER]),
+    validate(getSubjectTeacherSchema),
+    getSubjectTeacher
 );
 
 router.get(
