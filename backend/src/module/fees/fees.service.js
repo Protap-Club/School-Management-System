@@ -17,40 +17,101 @@ import {
 // ═══════════════════════════════════════════════════════════════
 
 export const createFeeStructure = async (schoolId, data, userId) => {
-    const normalizedClass = await assertClassSectionExists(
-        schoolId,
-        data.standard,
-        data.section,
-        { message: "Class is not configured in School Settings" }
-    );
-    const payload = {
-        ...data,
-        standard: normalizedClass.standard,
-        section: normalizedClass.section,
-    };
+    const standards = Array.isArray(data.standard) ? data.standard : [data.standard];
+    const sections = Array.isArray(data.section) ? data.section : [data.section];
 
-    const exists = await FeeStructure.exists({
-        schoolId,
-        academicYear: payload.academicYear,
-        standard: payload.standard,
-        section: payload.section,
-        feeType: payload.feeType,
-    });
+    const results = [];
+    const summary = { total: standards.length * sections.length, created: 0, skipped: 0, errors: [] };
 
-    if (exists) {
-        throw new ConflictError(
-            `${payload.feeType} fee already exists for ${payload.standard} - ${payload.section}(${payload.academicYear})`
-        );
+    for (const std of standards) {
+        for (const sect of sections) {
+            try {
+                const normalizedClass = await assertClassSectionExists(
+                    schoolId,
+                    std,
+                    sect,
+                    { message: `Class ${std}-${sect} is not configured in School Settings` }
+                );
+
+                const payload = {
+                    ...data,
+                    standard: normalizedClass.standard,
+                    section: normalizedClass.section,
+                };
+
+                // Check for duplicate months across all structures of the same type/std/sect
+                const existingStructures = await FeeStructure.find({
+                    schoolId,
+                    academicYear: payload.academicYear,
+                    standard: payload.standard,
+                    section: payload.section,
+                    feeType: payload.feeType,
+                });
+
+                if (existingStructures.length > 0) {
+                    const occupied = new Set();
+                    existingStructures.forEach(st => (st.applicableMonths || []).forEach(m => occupied.add(m)));
+                    
+                    const duplicateMonths = (payload.applicableMonths || []).filter(m => occupied.has(m));
+                    
+                    if (duplicateMonths.length > 0) {
+                        const monthNames = duplicateMonths.map(m => new Date(2000, m-1).toLocaleString('default', { month: 'long' }));
+                        throw new ConflictError(
+                            `${payload.feeType} fee already created for ${monthNames.join(', ')} in ${payload.standard}-${payload.section}`
+                        );
+                    }
+                    
+                    // If no month overlap, we can't create a secondary structure because of the unique index constraint
+                    // Unless we were to merge them, which is out of scope for 'minimal changes'.
+                    // For now, if no overlap, we still check the primary index.
+                }
+
+                const exists = await FeeStructure.exists({
+                    schoolId,
+                    academicYear: payload.academicYear,
+                    standard: payload.standard,
+                    section: payload.section,
+                    feeType: payload.feeType,
+                });
+
+                if (exists) {
+                    summary.skipped++;
+                    continue;
+                }
+
+                const structure = await FeeStructure.create({
+                    schoolId,
+                    ...payload,
+                    createdBy: userId,
+                });
+
+                logger.info(`FeeStructure created: ${structure._id} (${structure.feeType} for ${structure.standard} - ${structure.section})`);
+                results.push(structure);
+                summary.created++;
+            } catch (error) {
+                summary.errors.push({ standard: std, section: sect, error: error.message });
+                logger.error(`Error creating fee structure for ${std}-${sect}: ${error.message}`);
+            }
+        }
     }
 
-    const structure = await FeeStructure.create({
-        schoolId,
-        ...payload,
-        createdBy: userId,
-    });
+    const isMultiMode = Array.isArray(data.standard) || Array.isArray(data.section);
 
-    logger.info(`FeeStructure created: ${structure._id} (${structure.feeType} for ${structure.standard} - ${structure.section})`);
-    return structure;
+    if (isMultiMode) {
+        return { summary, structures: results };
+    }
+
+    // Existing behavior for single class/section: throw if skipped or error
+    if (summary.skipped > 0) {
+        throw new ConflictError(
+            `${data.feeType} fee already exists for ${data.standard} - ${data.section}(${data.academicYear})`
+        );
+    }
+    if (summary.errors.length > 0) {
+        throw new BadRequestError(summary.errors[0].error);
+    }
+
+    return results[0];
 };
 
 export const getFeeStructures = async (schoolId, filters = {}) => {

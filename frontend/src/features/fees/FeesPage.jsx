@@ -252,30 +252,50 @@ const FeesPage = () => {
     const handleCreateStructure = async (data) => {
         try {
             const result = await createMut.mutateAsync(data);
-            const created = result?.data || result;
-            const createdId = created?._id;
-            if (createdId) {
-                const months = created.applicableMonths || data.applicableMonths || [];
-                const year = Number(created.academicYear || data.academicYear || currentYear);
-                let assignedCount = 0;
-                for (const month of months) {
-                    try {
-                        await genMut.mutateAsync({ structureId: createdId, month, year });
-                        assignedCount++;
-                    } catch (err) { /* skip months that fail (e.g., already assigned) */ }
+            const responseData = result?.data || result;
+            
+            // Check if it's a multi-class creation (has summary and structures array)
+            const isMulti = responseData.summary && Array.isArray(responseData.structures);
+            const structuresToProcess = isMulti ? responseData.structures : [responseData];
+            
+            let totalAssignedMonths = 0;
+            let totalCreated = isMulti ? responseData.summary.created : (responseData._id ? 1 : 0);
+
+            for (const created of structuresToProcess) {
+                const createdId = created?._id;
+                if (createdId) {
+                    const months = created.applicableMonths || data.applicableMonths || [];
+                    const year = Number(created.academicYear || data.academicYear || currentYear);
+                    for (const month of months) {
+                        try {
+                            await genMut.mutateAsync({ structureId: createdId, month, year });
+                            totalAssignedMonths++;
+                        } catch (err) { /* skip months that fail */ }
+                    }
                 }
-                queryClient.invalidateQueries({ queryKey: feeKeys.all });
-                if (assignedCount > 0) {
-                    showToast('success', `Fee structure created & assigned for ${assignedCount} month(s)`);
-                } else {
-                    showToast('success', 'Fee structure created');
-                }
-            } else {
-                showToast('success', 'Fee structure created');
-                queryClient.invalidateQueries({ queryKey: feeKeys.all });
             }
+
+            queryClient.invalidateQueries({ queryKey: feeKeys.all });
+
+            if (isMulti) {
+                const { created: sc, skipped: ss, total: st } = responseData.summary;
+                let msg = `Created structures for ${sc}/${st} classes`;
+                if (ss > 0) msg += ` (${ss} already existed)`;
+                if (totalAssignedMonths > 0) msg += ` & assigned for total ${totalAssignedMonths} month(s)`;
+                showToast('success', msg);
+            } else {
+                showToast('success', totalAssignedMonths > 0 
+                    ? `Fee structure created & assigned for ${totalAssignedMonths} month(s)` 
+                    : 'Fee structure created');
+            }
+            
+            setMgmtView('student_list');
             setStructModal({ open: false, editData: null });
-        } catch (err) { showToast('error', err?.response?.data?.message || 'Failed to create'); }
+        } catch (err) { 
+            const errorDetails = err?.response?.data?.error?.details;
+            const detailMsg = Array.isArray(errorDetails) ? errorDetails.map(d => d.message).join(', ') : '';
+            showToast('error', detailMsg || err?.response?.data?.error?.message || err?.response?.data?.message || 'Failed to create'); 
+        }
     };
 
     const handleUpdateStructure = async ({ id, data }) => {

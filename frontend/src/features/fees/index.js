@@ -36,11 +36,12 @@ export const FEE_TYPE_LABELS = {
     SPORTS: 'Sports',
 };
 
-export const FREQUENCY_OPTIONS = ['MONTHLY', 'QUARTERLY', 'YEARLY', 'ONE_TIME'];
+export const FREQUENCY_OPTIONS = ['MONTHLY', 'QUARTERLY', 'HALF_YEARLY', 'YEARLY', 'ONE_TIME'];
 
 export const FREQUENCY_LABELS = {
     MONTHLY: 'Monthly',
     QUARTERLY: 'Quarterly',
+    HALF_YEARLY: 'Half-Yearly',
     YEARLY: 'Yearly',
     ONE_TIME: 'One Time',
 };
