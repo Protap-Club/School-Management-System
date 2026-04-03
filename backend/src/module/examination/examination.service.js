@@ -118,6 +118,9 @@ export const createExam = async (schoolId, data, user) => {
     };
 
     const exam = await Exam.create(createData);
+    
+    // Sync to calendar (DRAFT and PUBLISHED)
+    await syncExamCalendarEvents(exam, activeSchoolId);
 
     logger.info(
         `Exam created: ${exam._id} (${exam.examType}: "${exam.name}" for ${exam.standard}-${exam.section})`
@@ -249,6 +252,10 @@ export const updateExam = async (schoolId, examId, data, user) => {
     if (data.status !== undefined) exam.status = data.status;
 
     await exam.save();
+    
+    // Re-sync calendar events if the schedule or status changed
+    await syncExamCalendarEvents(exam, schoolId);
+
     logger.info(`Exam updated: ${examId}`);
     return exam;
 };
@@ -296,30 +303,49 @@ const buildDateTime = (dateValue, timeValue) => {
     return date;
 };
 
-const createExamCalendarEvents = async (exam, schoolId) => {
+export const syncExamCalendarEvents = async (exam, schoolId) => {
+    // 1. Always clear existing events for this exam
+    await deleteExamCalendarEvents(exam);
+
+    // 2. Only add to calendar if status is PUBLISHED (Scheduled) or COMPLETED
+    if (exam.status !== "PUBLISHED" && exam.status !== "COMPLETED") {
+        return;
+    }
+
     const classKey = `${exam.standard}-${exam.section}`;
     const schedule = Array.isArray(exam.schedule) ? exam.schedule : [];
+    
+    // Get current date at midnight for "automatic removal" of past items
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
-    const events = schedule.map((item) => {
-        const start = buildDateTime(item.examDate, item.startTime);
-        const end = buildDateTime(item.examDate, item.endTime || item.startTime);
-        const allDay = !(item.startTime && item.endTime);
+    const events = schedule
+        .filter((item) => {
+            const examDate = new Date(item.examDate);
+            examDate.setHours(0, 0, 0, 0);
+            return examDate >= today; // Only add future or current exams
+        })
+        .map((item) => {
+            const start = buildDateTime(item.examDate, item.startTime);
+            const end = buildDateTime(item.examDate, item.endTime || item.startTime);
+            const allDay = !(item.startTime && item.endTime);
 
-        return {
-            title: item.subject,
-            description: item.syllabus || "",
-            start,
-            end,
-            allDay,
-            type: "exam",
-            targetAudience: "classes",
-            targetClasses: [classKey],
-            createdBy: exam.createdBy,
-            schoolId,
-            sourceType: "exam",
-            sourceId: exam._id
-        };
-    });
+            return {
+                title: item.subject,
+                description: item.syllabus || "",
+                start,
+                end,
+                allDay,
+                type: "exam",
+                targetAudience: "classes",
+                targetClasses: [classKey],
+                createdBy: exam.createdBy,
+                schoolId,
+                sourceType: "exam",
+                sourceId: exam._id,
+                examStatus: exam.status
+            };
+        });
 
     if (events.length) {
         await CalendarEvent.insertMany(events);
@@ -364,12 +390,9 @@ export const updateStatus = async (schoolId, examId, newStatus, user) => {
     exam.status = newStatus;
     await exam.save();
 
-    if (newStatus === "PUBLISHED") {
-        await createExamCalendarEvents(exam, schoolId);
-    }
-    if (newStatus === "COMPLETED") {
-        await deleteExamCalendarEvents(exam);
-    }
+    // Unified sync logic for all status transitions 
+    // (Takes care of addition for PUBLISHED and removal for COMPLETED/CANCELLED)
+    await syncExamCalendarEvents(exam, schoolId);
 
     logger.info(`Exam status changed: ${examId} → ${newStatus}`);
     return exam;
