@@ -7,7 +7,7 @@ import {
 import { useProfile, useStudents } from '../attendance';
 import { useSchoolClasses } from '../../hooks/useSchoolClasses';
 import ExamModal from '../../components/examination/ExamModal';
-import { FaPlus, FaEdit, FaTrash, FaEye, FaCalendarAlt, FaClock,
+import { FaPlus, FaEdit, FaTrash, FaCalendarAlt, FaClock,
   FaChalkboardTeacher, FaCheckCircle, FaExclamationTriangle, FaBan, FaSearch, FaTimes, FaInfoCircle, FaLayerGroup, FaCalendarCheck, FaPaperclip } from 'react-icons/fa';
 import { TabButton } from '../../components/ui/NoticeUIComponents';
 import { EmptyState } from '../../components/ui/EmptyState';
@@ -455,7 +455,7 @@ const ExaminationPage = () => {
                       );
 
                     return (
-                      <tr key={exam._id} className="group hover:bg-slate-50/80 transition-all duration-200">
+                      <tr key={exam._id} onClick={() => setSelectedExam(exam)} className="group cursor-pointer hover:bg-slate-50/80 transition-all duration-200">
                         <td className="px-4 py-5">
                           <div className="min-w-0">
                             <div className="font-bold text-slate-900 text-sm leading-snug truncate" title={exam.name}>{exam.name}</div>
@@ -519,18 +519,11 @@ const ExaminationPage = () => {
                         </td>
                         <td className="px-3 py-5">
                           <div className="flex items-center justify-center gap-3">
-                            <button
-                              onClick={() => setSelectedExam(exam)}
-                              className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-all"
-                              title="View Details"
-                            >
-                              <FaEye size={18} />
-                            </button>
                             {canFullEdit && (
                               <>
                                 {canFullEdit && exam.status !== 'COMPLETED' && activeTab !== 'all' && (
                                   <button
-                                    onClick={() => handleStatusUpdate(exam._id, exam.status === 'DRAFT' ? 'PUBLISHED' : 'COMPLETED')}
+                                    onClick={(e) => { e.stopPropagation(); handleStatusUpdate(exam._id, exam.status === 'DRAFT' ? 'PUBLISHED' : 'COMPLETED'); }}
                                     className="p-2 text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 rounded-lg transition-all"
                                     title={exam.status === 'DRAFT' ? "Publish Exam" : "Mark as Completed"}
                                   >
@@ -538,14 +531,14 @@ const ExaminationPage = () => {
                                   </button>
                                 )}
                                 <button
-                                  onClick={() => setShowModal({ type: 'edit', open: true, data: exam })}
+                                  onClick={(e) => { e.stopPropagation(); setShowModal({ type: 'edit', open: true, data: exam }); }}
                                   className="p-2 text-slate-400 hover:text-orange-500 hover:bg-orange-50 rounded-lg transition-all"
                                   title="Edit Exam"
                                 >
                                   <FaEdit size={18} />
                                 </button>
                                 <button
-                                  onClick={() => setDeleteConfirm({ open: true, examId: exam._id })}
+                                  onClick={(e) => { e.stopPropagation(); setDeleteConfirm({ open: true, examId: exam._id }); }}
                                   className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all"
                                   title="Delete Exam"
                                 >
