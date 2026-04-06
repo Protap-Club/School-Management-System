@@ -1,0 +1,28 @@
+{
+  "classTestTemplate": {
+    "nameTemplate": "Class Test - {classLabel}",
+    "descriptionTemplate": "Internal class test planned for {classLabel}.",
+    "examType": "CLASS_TEST",
+    "category": "CLASS_TEST",
+    "status": "DRAFT",
+    "daysFromNow": 10,
+    "subjectsPerExam": 1,
+    "startTime": "09:30",
+    "durationMinutes": 60,
+    "totalMarks": 25,
+    "passingMarks": 8
+  },
+  "termExamTemplate": {
+    "nameTemplate": "Unit Test - {classLabel}",
+    "descriptionTemplate": "Formal assessment schedule prepared for {classLabel}.",
+    "examType": "TERM_EXAM",
+    "category": "UNIT_TEST",
+    "status": "PUBLISHED",
+    "daysFromNow": 18,
+    "subjectsPerExam": 3,
+    "startTime": "10:00",
+    "durationMinutes": 90,
+    "totalMarks": 50,
+    "passingMarks": 18
+  }
+}

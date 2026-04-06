@@ -1,0 +1,105 @@
+{
+  "teacherNamePool": [
+    "Aarohi Deshmukh",
+    "Nilesh Trivedi",
+    "Rupal Vora",
+    "Smit Patel",
+    "Heena Bhargav",
+    "Jatin Solanki",
+    "Mansi Shukla",
+    "Tapan Desai",
+    "Ishita Pathak",
+    "Yogesh Chavda",
+    "Pallavi Mehta",
+    "Hardik Soni",
+    "Krupa Bhatt",
+    "Nirav Thakkar",
+    "Rachana Pandya",
+    "Tejal Kapadia",
+    "Mitesh Parmar",
+    "Bhumi Rawal",
+    "Harshal Jani",
+    "Priti Kulshrestha",
+    "Naman Awasthi",
+    "Hetvi Shah",
+    "Kishan Tiwari",
+    "Monika Dholakia",
+    "Rakesh Solanki",
+    "Neelam Pathare",
+    "Prerna Dubey",
+    "Ujjwal Srivastava",
+    "Falguni Gohil",
+    "Ritesh Vyas",
+    "Nisha Upadhyay",
+    "Ketan Rajput",
+    "Dhwani Gandhi",
+    "Ankur Choksi",
+    "Sonal Prajapati",
+    "Mayur Bhandari",
+    "Rupal Saxena",
+    "Devansh Tandon",
+    "Bhavika Raval",
+    "Nikhita Menon"
+  ],
+  "teacherContactStarts": {
+    "JNV": "9879013000",
+    "NV": "9825023000",
+    "AV": "7926033000"
+  },
+  "qualifications": [
+    "B.Ed.",
+    "M.Ed.",
+    "B.Sc., B.Ed.",
+    "M.Sc., B.Ed.",
+    "B.A., B.Ed.",
+    "M.A., B.Ed.",
+    "B.Com., B.Ed.",
+    "M.Com., B.Ed."
+  ],
+  "subjectBands": {
+    "primary": [
+      "English",
+      "Mathematics",
+      "EVS",
+      "Hindi",
+      "Art",
+      "General Knowledge",
+      "Physical Education"
+    ],
+    "middle": [
+      "English",
+      "Mathematics",
+      "Science",
+      "Social Science",
+      "Hindi",
+      "Computer Science",
+      "Physical Education"
+    ],
+    "secondary": [
+      "English",
+      "Mathematics",
+      "Science",
+      "Social Science",
+      "Computer Science",
+      "Gujarati",
+      "Physical Education"
+    ],
+    "senior": [
+      "English",
+      "Mathematics",
+      "Physics",
+      "Chemistry",
+      "Biology",
+      "Computer Science",
+      "Physical Education"
+    ]
+  },
+  "daysOfWeek": [
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday"
+  ]
+}

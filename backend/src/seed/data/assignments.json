@@ -1,0 +1,16 @@
+{
+  "templates": [
+    {
+      "titleTemplate": "{subject} Practice Set",
+      "descriptionTemplate": "Complete the guided practice for Class {classLabel}, review the chapter work, and bring your notebook for checking.",
+      "dueInDays": 7,
+      "requiresSubmission": true
+    },
+    {
+      "titleTemplate": "{subject} Revision Worksheet",
+      "descriptionTemplate": "Revise the key ideas covered this week for Class {classLabel}. Students should finish the worksheet neatly and be ready for discussion in the next period.",
+      "dueInDays": 12,
+      "requiresSubmission": false
+    }
+  ]
+}

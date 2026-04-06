@@ -1,0 +1,791 @@
+import mongoose from "mongoose";
+import { FeeStructure, FeeAssignment, FeePayment } from "./Fee.model.js";
+import { FeeType } from "./FeeType.model.js";
+import StudentProfile from "../user/model/StudentProfile.model.js";
+import TeacherProfile from "../user/model/TeacherProfile.model.js";
+import { USER_ROLES } from "../../constants/userRoles.js";
+import { NotFoundError, ConflictError, BadRequestError, ForbiddenError } from "../../utils/customError.js";
+import logger from "../../config/logger.js";
+import {
+    assertClassSectionExists,
+    buildClassSectionKey,
+    getConfiguredClassSections,
+} from "../../utils/classSection.util.js";
+
+// ═══════════════════════════════════════════════════════════════
+// ADMIN — Fee Structure CRUD
+// ═══════════════════════════════════════════════════════════════
+
+export const createFeeStructure = async (schoolId, data, userId) => {
+    const normalizedClass = await assertClassSectionExists(
+        schoolId,
+        data.standard,
+        data.section,
+        { message: "Class is not configured in School Settings" }
+    );
+    const payload = {
+        ...data,
+        standard: normalizedClass.standard,
+        section: normalizedClass.section,
+    };
+
+    const exists = await FeeStructure.exists({
+        schoolId,
+        academicYear: payload.academicYear,
+        standard: payload.standard,
+        section: payload.section,
+        feeType: payload.feeType,
+    });
+
+    if (exists) {
+        throw new ConflictError(
+            `${payload.feeType} fee already exists for ${payload.standard} - ${payload.section}(${payload.academicYear})`
+        );
+    }
+
+    const structure = await FeeStructure.create({
+        schoolId,
+        ...payload,
+        createdBy: userId,
+    });
+
+    logger.info(`FeeStructure created: ${structure._id} (${structure.feeType} for ${structure.standard} - ${structure.section})`);
+    return structure;
+};
+
+export const getFeeStructures = async (schoolId, filters = {}) => {
+    const query = { schoolId };
+
+    // Admin filters
+    if (filters.standard) query.standard = String(filters.standard).trim();
+    if (filters.section) query.section = String(filters.section).trim().toUpperCase();
+
+    if (filters.academicYear) query.academicYear = Number(filters.academicYear);
+    if (filters.feeType) query.feeType = filters.feeType;
+    if (filters.isActive !== undefined) query.isActive = filters.isActive === "true";
+
+    const page = Math.max(0, Number(filters.page) || 0);
+    const pageSize = Math.min(100, Math.max(1, Number(filters.pageSize) || 50));
+    const totalCount = await FeeStructure.countDocuments(query);
+
+    const structures = await FeeStructure.find(query)
+        .sort({ standard: 1, section: 1, feeType: 1 })
+        .skip(page * pageSize)
+        .limit(pageSize)
+        .lean();
+
+    return {
+        structures,
+        pagination: { page, pageSize, totalCount, totalPages: Math.ceil(totalCount / pageSize) },
+    };
+};
+
+export const updateFeeStructure = async (schoolId, id, data) => {
+    // Prevent updating key fields that define uniqueness
+    const { schoolId: _, feeType: __, standard: ___, section: ____, academicYear: _____, ...safeUpdates } = data;
+
+    const query = { _id: id, schoolId };
+
+    const structure = await FeeStructure.findOneAndUpdate(
+        query,
+        safeUpdates,
+        { new: true, runValidators: true }
+    );
+
+    if (!structure) throw new NotFoundError("Fee structure not found");
+    logger.info(`FeeStructure updated: ${id} `);
+    return structure;
+};
+
+export const deleteFeeStructure = async (schoolId, id) => {
+    const query = { _id: id, schoolId };
+
+    const structure = await FeeStructure.findOneAndDelete(query);
+    if (!structure) throw new NotFoundError("Fee structure not found");
+
+    // Cascade-delete associated assignments and their payments
+    const assignments = await FeeAssignment.find({ feeStructureId: id }).select('_id').lean();
+    if (assignments.length > 0) {
+        const assignmentIds = assignments.map(a => a._id);
+        await FeePayment.deleteMany({ feeAssignmentId: { $in: assignmentIds } });
+        await FeeAssignment.deleteMany({ feeStructureId: id });
+        logger.info(`Cascade-deleted ${assignments.length} assignments and related payments for FeeStructure ${id}`);
+    }
+
+    logger.info(`FeeStructure deleted: ${id}`);
+};
+
+// ═══════════════════════════════════════════════════════════════
+// ADMIN — Assignment Generation
+// ═══════════════════════════════════════════════════════════════
+
+export const generateAssignments = async (schoolId, feeStructureId, month, year, userId, user) => {
+    const session = await mongoose.startSession();
+    session.startTransaction();
+
+    try {
+        const query = { _id: feeStructureId, schoolId, isActive: true };
+
+        // Teacher check
+        if (user && user.role === USER_ROLES.TEACHER) {
+            const profile = await TeacherProfile.findOne({ userId: user._id, schoolId }).lean().session(session);
+            if (!profile) throw new ForbiddenError("Teacher profile not found");
+            const classFilters = profile.assignedClasses.map(c => ({ standard: c.standard, section: c.section }));
+            if (classFilters.length === 0) throw new ForbiddenError("No classes assigned to you");
+            query.$or = classFilters;
+        }
+
+    const structure = await FeeStructure.findOne(query);
+    if (!structure) throw new NotFoundError("Active fee structure not found");
+
+        // Find all students in this class
+        const students = await StudentProfile.find({
+            schoolId,
+            standard: structure.standard,
+            section: structure.section,
+        })
+            .select("userId")
+            .lean()
+            .session(session);
+
+        if (students.length === 0) {
+            await session.commitTransaction();
+            return { total: 0, created: 0, skipped: 0, message: "No students found in this class" };
+        }
+
+        // Calculate due date
+        const dueDate = new Date(year, month - 1, structure.dueDay || 10);
+
+        // Step 1: Find existing assignments in one query
+        const existingAssignments = await FeeAssignment.find({
+            schoolId,
+            feeStructureId: structure._id,
+            academicYear: year,
+            month,
+            studentId: { $in: students.map(s => s.userId) },
+        }).select("studentId").lean().session(session);
+
+        const existingStudentIds = new Set(
+            existingAssignments.map(a => String(a.studentId))
+        );
+
+        // Step 2: Build new assignment documents
+        const newAssignments = students
+            .filter(s => !existingStudentIds.has(String(s.userId)))
+            .map(student => ({
+                schoolId,
+                studentId: student.userId,
+                feeStructureId: structure._id,
+                academicYear: year,
+                month,
+                amount: structure.amount,
+                discount: 0,
+                netAmount: structure.amount,
+                paidAmount: 0,
+                status: "PENDING",
+                dueDate,
+                createdBy: userId,
+            }));
+
+        // Step 3: Bulk insert
+        if (newAssignments.length > 0) {
+            await FeeAssignment.insertMany(newAssignments, { session, ordered: false });
+        }
+
+        const created = newAssignments.length;
+        const skipped = existingStudentIds.size;
+
+        await session.commitTransaction();
+        logger.info(`Assignments generated for FeeStructure ${feeStructureId}: ${created} created, ${skipped} skipped`);
+        return { created, skipped, total: students.length };
+    } catch (error) {
+        await session.abortTransaction();
+        throw error;
+    } finally {
+        session.endSession();
+    }
+};
+
+// ═══════════════════════════════════════════════════════════════
+// ADMIN — Assignment Management
+// ═══════════════════════════════════════════════════════════════
+
+export const updateAssignment = async (schoolId, assignmentId, data) => {
+    const assignment = await FeeAssignment.findOne({ _id: assignmentId, schoolId });
+    if (!assignment) throw new NotFoundError("Fee assignment not found");
+
+    // Allow updating discount, remarks, status (waived)
+    if (data.discount !== undefined) {
+        assignment.discount = data.discount;
+        assignment.netAmount = assignment.amount - data.discount;
+
+        // Recalculate status based on new netAmount
+        if (assignment.paidAmount >= assignment.netAmount) {
+            assignment.status = "PAID";
+        } else if (assignment.paidAmount > 0) {
+            assignment.status = "PARTIAL";
+        }
+    }
+
+    if (data.remarks !== undefined) assignment.remarks = data.remarks;
+
+    if (data.status === "WAIVED") {
+        assignment.status = "WAIVED";
+    }
+
+    await assignment.save();
+    logger.info(`FeeAssignment updated: ${assignmentId} `);
+    return assignment;
+};
+
+// ═══════════════════════════════════════════════════════════════
+// ADMIN — Payment Recording
+// ═══════════════════════════════════════════════════════════════
+
+// Generates a unique receipt number: RCP-SCHOOLID_SHORT-TIMESTAMP
+const generateReceiptNumber = (schoolId) => {
+    const shortId = String(schoolId).slice(-4).toUpperCase();
+    const timestamp = Date.now().toString(36).toUpperCase();
+    return `RCP - ${shortId} -${timestamp} `;
+};
+
+export const recordPayment = async (schoolId, assignmentId, paymentData, recordedBy) => {
+    const assignment = await FeeAssignment.findOne({ _id: assignmentId, schoolId });
+    if (!assignment) throw new NotFoundError("Fee assignment not found");
+
+    if (assignment.status === "PAID") {
+        throw new ConflictError("This fee is already fully paid");
+    }
+    if (assignment.status === "WAIVED") {
+        throw new ConflictError("This fee has been waived");
+    }
+
+    const session = await mongoose.startSession();
+    session.startTransaction();
+
+    try {
+        // Create payment record
+        const [payment] = await FeePayment.create([{
+            schoolId,
+            feeAssignmentId: assignmentId,
+            studentId: assignment.studentId,
+            amount: paymentData.amount,
+            paymentDate: paymentData.paymentDate || new Date(),
+            paymentMode: paymentData.paymentMode,
+            transactionRef: paymentData.transactionRef,
+            receiptNumber: generateReceiptNumber(schoolId),
+            remarks: paymentData.remarks,
+            recordedBy,
+        }], { session });
+
+        // Update assignment
+        assignment.paidAmount += paymentData.amount;
+        assignment.status = assignment.paidAmount >= assignment.netAmount ? "PAID" : "PARTIAL";
+        await assignment.save({ session });
+
+        await session.commitTransaction();
+        logger.info(`Payment recorded: ${payment.receiptNumber} — ₹${payment.amount} for assignment ${assignmentId}`);
+        return { payment, updatedAssignment: assignment };
+    } catch (error) {
+        await session.abortTransaction();
+        throw error;
+    } finally {
+        session.endSession();
+    }
+};
+
+// ═══════════════════════════════════════════════════════════════
+// ADMIN — Dashboard & Reports  
+// ═══════════════════════════════════════════════════════════════
+
+// Class-level fee overview for a specific month (Admin & Teacher view)
+export const getClassFeeOverview = async (schoolId, academicYear, month, standard, section) => {
+    const pipeline = [
+        // Match student profiles for this class
+        {
+            $match: {
+                schoolId: new mongoose.Types.ObjectId(schoolId),
+                standard,
+                section,
+            },
+        },
+        // Look up fee assignments for each student
+        {
+            $lookup: {
+                from: "feeassignments",
+                let: { studentId: "$userId" },
+                pipeline: [
+                    {
+                        $match: {
+                            $expr: {
+                                $and: [
+                                    { $eq: ["$studentId", "$$studentId"] },
+                                    { $eq: ["$schoolId", new mongoose.Types.ObjectId(schoolId)] },
+                                    { $eq: ["$academicYear", Number(academicYear)] },
+                                    { $eq: ["$month", Number(month)] },
+                                ],
+                            },
+                        },
+                    },
+                    // Look up fee structure info
+                    {
+                        $lookup: {
+                            from: "feestructures",
+                            localField: "feeStructureId",
+                            foreignField: "_id",
+                            as: "structure",
+                            pipeline: [{ $project: { feeType: 1, name: 1 } }],
+                        },
+                    },
+                    { $unwind: { path: "$structure", preserveNullAndEmptyArrays: false } },
+                ],
+                as: "assignments",
+            },
+        },
+        // Only include students who have assignments
+        { $match: { "assignments.0": { $exists: true } } },
+        // Look up user name/email
+        {
+            $lookup: {
+                from: "users",
+                localField: "userId",
+                foreignField: "_id",
+                as: "user",
+                pipeline: [{ $project: { name: 1, email: 1 } }],
+            },
+        },
+        { $unwind: "$user" },
+        // Project final shape
+        {
+            $project: {
+                _id: 0,
+                studentId: "$userId",
+                name: "$user.name",
+                email: "$user.email",
+                fees: {
+                    $map: {
+                        input: "$assignments",
+                        as: "a",
+                        in: {
+                            assignmentId: "$$a._id",
+                            feeType: "$$a.structure.feeType",
+                            name: "$$a.structure.name",
+                            amount: "$$a.netAmount",
+                            paid: "$$a.paidAmount",
+                            status: "$$a.status",
+                            dueDate: "$$a.dueDate",
+                        },
+                    },
+                },
+            },
+        },
+        // Final stage: Facet to get both student list and summary totals in one call
+        {
+            $facet: {
+                students: [{ $match: {} }], // Use the existing projection
+                summary: [
+                    { $unwind: "$fees" },
+                    {
+                        $group: {
+                            _id: null,
+                            totalStudents: { $sum: 1 },
+                            totalCollected: { $sum: "$fees.paid" },
+                            totalPending: {
+                                $sum: {
+                                    $cond: [
+                                        { $in: ["$fees.status", ["PENDING", "PARTIAL"]] },
+                                        { $subtract: ["$fees.amount", "$fees.paid"] },
+                                        0,
+                                    ],
+                                },
+                            },
+                            totalOverdue: {
+                                $sum: {
+                                    $cond: [
+                                        { $eq: ["$fees.status", "OVERDUE"] },
+                                        { $subtract: ["$fees.amount", "$fees.paid"] },
+                                        0,
+                                    ],
+                                },
+                            },
+                        },
+                    },
+                ],
+            },
+        },
+    ];
+
+    const [result] = await StudentProfile.aggregate(pipeline);
+
+    // Extract summary from facet result (default to 0s if no records)
+    const summary = result.summary[0] || {
+        totalStudents: 0,
+        totalCollected: 0,
+        totalPending: 0,
+        totalOverdue: 0,
+    };
+
+    // If there were students but summary count is off due to unwind, fix it back to student count
+    summary.totalStudents = result.students.length;
+
+    return { summary, students: result.students };
+};
+
+// All-classes summary for a specific month (Admin only)
+export const getAllClassesFeeOverview = async (schoolId, academicYear, month) => {
+    const { keySet } = await getConfiguredClassSections(schoolId);
+
+    const pipeline = [
+        {
+            $match: {
+                schoolId: new mongoose.Types.ObjectId(schoolId),
+                academicYear: Number(academicYear),
+                month: Number(month),
+            },
+        },
+        {
+            $lookup: {
+                from: "feestructures",
+                localField: "feeStructureId",
+                foreignField: "_id",
+                as: "structure",
+                pipeline: [{ $project: { standard: 1, section: 1, feeType: 1, name: 1 } }],
+            },
+        },
+        { $unwind: "$structure" },
+        {
+            $group: {
+                _id: { standard: "$structure.standard", section: "$structure.section" },
+                totalDue: { $sum: "$netAmount" },
+                totalCollected: { $sum: "$paidAmount" },
+                totalPending: {
+                    $sum: {
+                        $cond: [
+                            { $in: ["$status", ["PENDING", "PARTIAL", "OVERDUE"]] },
+                            { $max: [{ $subtract: ["$netAmount", "$paidAmount"] }, 0] },
+                            0,
+                        ],
+                    },
+                },
+                totalWaived: {
+                    $sum: {
+                        $cond: [
+                            { $in: ["$status", ["WAIVED", "PAID"]] },
+                            { $max: [{ $subtract: ["$netAmount", "$paidAmount"] }, 0] },
+                            0,
+                        ],
+                    },
+                },
+                studentCount: { $addToSet: "$studentId" },
+            },
+        },
+        {
+            $project: {
+                _id: 0,
+                standard: "$_id.standard",
+                section: "$_id.section",
+                totalDue: 1,
+                totalCollected: 1,
+                totalPending: 1,
+                totalWaived: 1,
+                studentCount: { $size: "$studentCount" },
+            },
+        },
+        { $sort: { standard: 1, section: 1 } },
+    ];
+
+    const classes = (await FeeAssignment.aggregate(pipeline))
+        .filter((c) => keySet.has(buildClassSectionKey(c.standard, c.section)));
+
+    return { classes };
+};
+
+// Yearly fee summary across all months (Admin only)
+export const getYearlyFeeSummary = async (schoolId, academicYear) => {
+    const MONTH_LABELS = ["", "January", "February", "March", "April", "May", "June",
+        "July", "August", "September", "October", "November", "December"];
+
+    // Monthly breakdown — single aggregation
+    const monthlyPipeline = [
+        {
+            $match: {
+                schoolId: new mongoose.Types.ObjectId(schoolId),
+                academicYear: Number(academicYear),
+            },
+        },
+        {
+            $group: {
+                _id: "$month",
+                totalDue: { $sum: "$netAmount" },
+                totalCollected: { $sum: "$paidAmount" },
+                totalPending: {
+                    $sum: {
+                        $cond: [
+                            { $in: ["$status", ["PENDING", "PARTIAL", "OVERDUE"]] },
+                            { $max: [{ $subtract: ["$netAmount", "$paidAmount"] }, 0] },
+                            0,
+                        ],
+                    },
+                },
+                totalWaived: {
+                    $sum: {
+                        $cond: [
+                            { $in: ["$status", ["WAIVED", "PAID"]] },
+                            { $max: [{ $subtract: ["$netAmount", "$paidAmount"] }, 0] },
+                            0,
+                        ],
+                    },
+                },
+            },
+        },
+        { $sort: { _id: 1 } },
+    ];
+
+    // Type breakdown — single aggregation
+    const typePipeline = [
+        {
+            $match: {
+                schoolId: new mongoose.Types.ObjectId(schoolId),
+                academicYear: Number(academicYear),
+            },
+        },
+        {
+            $lookup: {
+                from: "feestructures",
+                localField: "feeStructureId",
+                foreignField: "_id",
+                as: "structure",
+                pipeline: [{ $project: { feeType: 1 } }],
+            },
+        },
+        { $unwind: { path: "$structure", preserveNullAndEmptyArrays: true } },
+        {
+            $group: {
+                _id: { $ifNull: ["$structure.feeType", "OTHER"] },
+                totalDue: { $sum: "$netAmount" },
+                totalCollected: { $sum: "$paidAmount" },
+                totalPending: {
+                    $sum: {
+                        $cond: [
+                            { $in: ["$status", ["PENDING", "PARTIAL", "OVERDUE"]] },
+                            { $max: [{ $subtract: ["$netAmount", "$paidAmount"] }, 0] },
+                            0,
+                        ],
+                    },
+                },
+                totalWaived: {
+                    $sum: {
+                        $cond: [
+                            { $in: ["$status", ["WAIVED", "PAID"]] },
+                            { $max: [{ $subtract: ["$netAmount", "$paidAmount"] }, 0] },
+                            0,
+                        ],
+                    },
+                },
+            },
+        },
+        { $sort: { totalDue: -1 } },
+    ];
+
+    const [monthlyRows, typeRows] = await Promise.all([
+        FeeAssignment.aggregate(monthlyPipeline),
+        FeeAssignment.aggregate(typePipeline),
+    ]);
+
+    const monthlyBreakdown = monthlyRows.map((row) => {
+        const collectionRate = row.totalDue > 0
+            ? Number(((row.totalCollected / row.totalDue) * 100).toFixed(2)) : 0;
+        return {
+            month: row._id,
+            label: MONTH_LABELS[row._id],
+            totalDue: row.totalDue,
+            totalCollected: row.totalCollected,
+            totalPending: row.totalPending,
+            totalWaived: row.totalWaived,
+            collectionRate,
+        };
+    });
+
+    const typeBreakdown = typeRows.map((row) => ({
+        type: row._id,
+        totalDue: row.totalDue,
+        totalCollected: row.totalCollected,
+        totalPending: row.totalPending,
+        totalWaived: row.totalWaived,
+        collectionRate: row.totalDue > 0
+            ? Number(((row.totalCollected / row.totalDue) * 100).toFixed(2)) : 0,
+    }));
+
+    const yearTotal = {
+        totalDue: monthlyBreakdown.reduce((s, m) => s + m.totalDue, 0),
+        totalCollected: monthlyBreakdown.reduce((s, m) => s + m.totalCollected, 0),
+        totalPending: monthlyBreakdown.reduce((s, m) => s + m.totalPending, 0),
+        totalWaived: monthlyBreakdown.reduce((s, m) => s + m.totalWaived, 0),
+    };
+    yearTotal.collectionRate = yearTotal.totalDue > 0
+        ? Number(((yearTotal.totalCollected / yearTotal.totalDue) * 100).toFixed(2)) : 0;
+
+    return { academicYear: Number(academicYear), monthlyBreakdown, typeBreakdown, yearTotal };
+};
+
+// ═══════════════════════════════════════════════════════════════
+// ADMIN + TEACHER — Student Fee History
+// ═══════════════════════════════════════════════════════════════
+
+export const getStudentFeeHistory = async (schoolId, studentId, academicYear) => {
+    const query = { schoolId, studentId };
+    if (academicYear) query.academicYear = Number(academicYear);
+
+    const assignments = await FeeAssignment.find(query)
+        .populate("feeStructureId", "feeType name frequency")
+        .sort({ academicYear: -1, month: 1 })
+        .lean();
+
+    // Fetch related payments
+    const assignmentIds = assignments.map((a) => a._id);
+    const payments = await FeePayment.find({
+        feeAssignmentId: { $in: assignmentIds },
+    })
+        .sort({ paymentDate: -1 })
+        .lean();
+
+    // Map payments to assignments
+    const paymentMap = {};
+    for (const p of payments) {
+        const aid = String(p.feeAssignmentId);
+        if (!paymentMap[aid]) paymentMap[aid] = [];
+        paymentMap[aid].push({
+            amount: p.amount,
+            date: p.paymentDate,
+            mode: p.paymentMode,
+            receiptNumber: p.receiptNumber,
+            transactionRef: p.transactionRef,
+        });
+    }
+
+    const fees = assignments.map((a) => ({
+        assignmentId: a._id,
+        month: a.month,
+        academicYear: a.academicYear,
+        feeType: a.feeStructureId?.feeType,
+        name: a.feeStructureId?.name,
+        amount: a.netAmount,
+        paid: a.paidAmount,
+        status: a.status,
+        dueDate: a.dueDate,
+        payments: paymentMap[String(a._id)] || [],
+    }));
+
+    // Summary
+    const summary = {
+        totalDue: fees.reduce((s, f) => s + f.amount, 0),
+        totalPaid: fees.reduce((s, f) => s + f.paid, 0),
+        totalPending: fees.filter(f => !["PAID", "WAIVED"].includes((f.status || "").toUpperCase()))
+            .reduce((s, f) => s + Math.max(0, f.amount - f.paid), 0),
+        totalWaived: fees.filter(f => ["PAID", "WAIVED"].includes((f.status || "").toUpperCase()))
+            .reduce((s, f) => s + Math.max(0, f.amount - f.paid), 0),
+    };
+
+    return { summary, fees };
+};
+
+// ═══════════════════════════════════════════════════════════════
+// STUDENT — My Fees (mobile + web)
+// ═══════════════════════════════════════════════════════════════
+
+export const getMyFees = async (schoolId, studentId, filters = {}, platform) => {
+    const query = { schoolId, studentId };
+    if (filters.academicYear) query.academicYear = Number(filters.academicYear);
+    if (filters.month) query.month = Number(filters.month);
+
+    const assignments = await FeeAssignment.find(query)
+        .populate("feeStructureId", "feeType name frequency")
+        .sort({ academicYear: -1, month: 1 })
+        .lean();
+
+    const fees = assignments.map((a) => ({
+        assignmentId: a._id,
+        month: a.month,
+        academicYear: a.academicYear,
+        feeType: a.feeStructureId?.feeType,
+        name: a.feeStructureId?.name,
+        amount: a.netAmount,
+        paid: a.paidAmount,
+        status: a.status,
+        dueDate: a.dueDate,
+    }));
+
+    // Summary
+    const summary = {
+        totalDue: fees.reduce((s, f) => s + f.amount, 0),
+        totalPaid: fees.reduce((s, f) => s + f.paid, 0),
+        totalPending: fees.reduce((s, f) => s + (f.amount - f.paid), 0),
+    };
+
+    // On web or if detailed=true, include payment history
+    if (platform !== "mobile" || filters.detailed === "true") {
+        const assignmentIds = assignments.map((a) => a._id);
+        const payments = await FeePayment.find({
+            feeAssignmentId: { $in: assignmentIds },
+        })
+            .sort({ paymentDate: -1 })
+            .lean();
+
+        const paymentMap = {};
+        for (const p of payments) {
+            const aid = String(p.feeAssignmentId);
+            if (!paymentMap[aid]) paymentMap[aid] = [];
+            paymentMap[aid].push({
+                amount: p.amount,
+                date: p.paymentDate,
+                mode: p.paymentMode,
+                receiptNumber: p.receiptNumber,
+            });
+        }
+
+        fees.forEach((f) => {
+            f.payments = paymentMap[String(f.assignmentId)] || [];
+        });
+    }
+
+    return { summary, fees };
+};
+
+// ═══════════════════════════════════════════════════════════════
+// ADMIN — Fee Type Management
+// ═══════════════════════════════════════════════════════════════
+
+const DEFAULT_FEE_TYPES = [
+    { name: "TUITION", label: "Tuition", isDefault: true },
+    { name: "EXAM", label: "Exam", isDefault: true },
+    { name: "LAB", label: "Lab", isDefault: true },
+    { name: "LIBRARY", label: "Library", isDefault: true },
+    { name: "TRANSPORT", label: "Transport", isDefault: true },
+    { name: "SPORTS", label: "Sports", isDefault: true },
+];
+
+export const getFeeTypes = async (schoolId) => {
+    const customTypes = await FeeType.find({ schoolId, isActive: true }).lean();
+    return [...DEFAULT_FEE_TYPES, ...customTypes];
+};
+
+export const createFeeType = async (schoolId, data, userId) => {
+    // Check if it's in default list
+    if (DEFAULT_FEE_TYPES.some(t => t.name === data.name)) {
+        throw new ConflictError(`Fee type ${data.name} is a system default`);
+    }
+
+    const exists = await FeeType.exists({ schoolId, name: data.name });
+    if (exists) {
+        throw new ConflictError(`Fee type ${data.name} already exists`);
+    }
+
+    const feeType = await FeeType.create({
+        schoolId,
+        ...data,
+        createdBy: userId,
+    });
+
+    logger.info(`FeeType created: ${feeType._id} (${feeType.name}) for school ${schoolId}`);
+    return feeType;
+};
