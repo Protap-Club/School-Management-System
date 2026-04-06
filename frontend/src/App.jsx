@@ -5,6 +5,7 @@ import RequireFeature from './components/RequireFeature';
 
 // Lazy-loaded pages from routes config
 import { pages, PageLoader } from './routes';
+import UpdatePassword from './pages/UpdatePassword';
 
 function App() {
     // Destructure lazy-loaded page components
@@ -51,6 +52,16 @@ function App() {
                 <Routes>
                     {/* Public Routes */}
                     <Route path="/login" element={<Login />} />
+
+                    {/* Update Password Route - Protected */}
+                    <Route
+                        path="/update-password"
+                        element={
+                            <ProtectedRoute allowedRoles={['super_admin', 'admin', 'teacher']}>
+                                <UpdatePassword />
+                            </ProtectedRoute>
+                        }
+                    />
 
                     {/* Dashboard Route */}
                     <Route

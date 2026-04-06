@@ -53,4 +53,10 @@ export const authApi = {
         }
         clearAccessToken();
     },
+
+    // Update password for users with system-generated passwords
+    updatePassword: async ({ currentPassword, newPassword }) => {
+        const response = await api.post('/auth/update-password', { currentPassword, newPassword });
+        return response.data;
+    },
 };
