@@ -15,6 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../../../components/ui/select';
+import { formatValue } from '../../../utils';
 
 const INITIAL_FORM = {
   title: '',
@@ -562,7 +563,7 @@ export const AssignmentModal = ({ isOpen, onClose, assignmentToEdit = null }) =>
                       </div>
                       <div className="rounded-xl border border-indigo-100 bg-indigo-50 px-4 py-3">
                         <p className="text-[10px] font-bold uppercase tracking-wide text-indigo-600">Assigned Teacher</p>
-                        <p className="mt-1 text-sm font-semibold text-indigo-900">{detailedAssignment?.assignedTeacher?.name || 'Not assigned'}</p>
+                        <p className="mt-1 text-sm font-semibold text-indigo-900">{formatValue(detailedAssignment?.assignedTeacher?.name, 'Not assigned')}</p>
                       </div>
                       <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
                         <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Submissions</p>

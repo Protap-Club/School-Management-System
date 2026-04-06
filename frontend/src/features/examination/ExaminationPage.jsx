@@ -14,6 +14,7 @@ import { EmptyState } from '../../components/ui/EmptyState';
 import { ButtonSpinner } from '../../components/ui/Spinner';
 import { useToastMessage } from '../../hooks/useToastMessage';
 import { PaginationControls } from '../../components/ui/PaginationControls';
+import { formatValue } from '../../utils';
 
 // Constants
 const EXAM_TYPES = {
@@ -440,7 +441,7 @@ const ExaminationPage = () => {
                             <div className="text-[11px] font-medium text-slate-500 whitespace-nowrap">
                               {exam.schedule?.length > 1 
                                 ? (allSameTime ? `${exam.schedule[0].startTime} - ${exam.schedule[0].endTime}` : `${exam.schedule.length} Sessions`)
-                                : (firstSchedule ? `${firstSchedule.startTime} - ${firstSchedule.endTime || 'N/A'}` : 'No schedule')}
+                                : (firstSchedule ? `${firstSchedule.startTime} - ${formatValue(firstSchedule.endTime)}` : 'No schedule')}
                             </div>
                           </div>
                         </td>

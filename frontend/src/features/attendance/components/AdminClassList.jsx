@@ -9,6 +9,7 @@ import { FaUserTie, FaSearch, FaArrowLeft, FaExchangeAlt } from 'react-icons/fa'
 import { Switch } from "@/components/ui/switch";
 import { useAuth } from '../../auth';
 import { PaginationControls } from '../../../components/ui/PaginationControls';
+import { formatValue } from '../../../utils';
 
 const AdminClassList = ({
     groupedClasses,
@@ -221,9 +222,7 @@ const AdminClassList = ({
                                                                 </div>
                                                             </TableCell>
                                                             <TableCell className="text-center">
-                                                                <Badge variant="outline" className="bg-slate-50 text-slate-600 border-slate-200 font-black px-3 py-1 rounded-lg">
-                                                                    {student.profile?.rollNumber || '-'}
-                                                                </Badge>
+                                                                <Badge variant="outline" className="bg-slate-50 text-slate-600 border-slate-200 font-black px-3 py-1 rounded-lg">{formatValue(student.profile?.rollNumber)}</Badge>
                                                             </TableCell>
                                                             <TableCell className="text-center">
                                                                 <Badge variant="outline" className={`font-black uppercase tracking-[0.1em] text-[10px] px-3 py-1.5 rounded-xl ${STATUS_STYLES[status]}`}>

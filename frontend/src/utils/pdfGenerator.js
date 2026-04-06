@@ -1,5 +1,6 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { formatValue } from './index.js';
 
 const MONTH_LABELS = {
     1: 'January', 2: 'February', 3: 'March', 4: 'April', 5: 'May', 6: 'June',
@@ -23,7 +24,7 @@ export const generateFeeReport = (classStudents, summary, classInfo, month, year
 
         doc.setFontSize(12);
         doc.setTextColor(100, 100, 100);
-        doc.text(`Class: ${classInfo?.standard || '-'}-${classInfo?.section || '-'}`, 14, 30);
+        doc.text(`Class: ${formatValue(classInfo?.standard)}-${formatValue(classInfo?.section)}`, 14, 30);
         doc.text(`Date: ${MONTH_LABELS[month] || ''} ${year || ''}`, 14, 37);
         doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 14, 44);
 
@@ -125,9 +126,9 @@ export const generateSalaryReceipt = (salary, teacher) => {
 
         doc.setFont(undefined, 'normal');
         doc.setFontSize(10);
-        doc.text(`Name: ${teacher?.name || '-'}`, 14, 65);
-        doc.text(`Email: ${teacher?.email || '-'}`, 14, 72);
-        doc.text(`Contact No: ${teacher?.contactNo || '-'}`, 14, 79);
+        doc.text(`Name: ${formatValue(teacher?.name)}`, 14, 65);
+        doc.text(`Email: ${formatValue(teacher?.email)}`, 14, 72);
+        doc.text(`Contact No: ${formatValue(teacher?.contactNo)}`, 14, 79);
 
         doc.setFont(undefined, 'bold');
         doc.setFontSize(11);
@@ -136,8 +137,8 @@ export const generateSalaryReceipt = (salary, teacher) => {
 
         doc.setFont(undefined, 'normal');
         doc.setFontSize(10);
-        doc.text(`Receipt No: PAY-${salary?._id?.substring(salary._id.length - 6).toUpperCase() || 'N/A'}`, pageWidth / 2 + 10, 65);
-        doc.text(`Month/Year: ${MONTH_LABELS[salary?.month] || ''} ${salary?.year || ''}`, pageWidth / 2 + 10, 72);
+        doc.text(`Receipt No: PAY-${formatValue(salary?._id?.substring(salary._id.length - 6).toUpperCase(), 'N/A')}`, pageWidth / 2 + 10, 65);
+        doc.text(`Month/Year: ${formatValue(MONTH_LABELS[salary?.month], '')} ${formatValue(salary?.year, '')}`, pageWidth / 2 + 10, 72);
         doc.text(`Payment Date: ${salary?.paidDate ? new Date(salary.paidDate).toLocaleDateString() : 'N/A'}`, pageWidth / 2 + 10, 79);
 
         // Summary Table

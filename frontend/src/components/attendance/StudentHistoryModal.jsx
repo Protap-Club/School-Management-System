@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { FaUserGraduate, FaIdCard, FaBuilding, FaLayerGroup, FaChevronLeft, FaChevronRight, FaClock, FaCheck, FaTimesCircle } from 'react-icons/fa';
+import { formatValue } from '../../utils';
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const STATUS_CONFIG = {
@@ -139,7 +140,7 @@ const StudentHistoryModal = ({ student, onClose }) => {
           {profileBadges.map(({ icon, label, value }) => (
             <div key={label} className="flex items-center gap-2 px-3 py-1.5 bg-white rounded-xl border border-gray-200 text-sm shadow-sm">
               {icon}<span className="text-gray-500">{label}</span>
-              <span className="font-semibold text-gray-800">{value || '-'}</span>
+              <span className="font-semibold text-gray-800">{formatValue(value)}</span>
             </div>
           ))}
           <div className={`ml-auto flex items-center gap-2 px-3 py-1.5 rounded-xl text-sm font-semibold shadow-sm border

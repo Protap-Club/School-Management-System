@@ -4,6 +4,7 @@ import {
 } from 'react-icons/fa';
 import { useUpdateUser, useUsers } from '../api/queries';
 import { useSchoolClasses } from '../../../hooks/useSchoolClasses';
+import { formatValue } from '../../../utils';
 
 const LIGHT_SELECT_CLASS = 'w-full bg-white text-gray-900 rounded px-2 py-1.5 text-xs font-black outline-none border border-gray-100 focus:border-blue-300 transition-all';
 
@@ -320,7 +321,7 @@ const UserDetailModal = ({ user, onClose, initialMode = 'view', onSuccess }) => 
                       />
                     ) : (
                       <span className="text-sm font-black text-gray-900 break-all">
-                        {isAdmin ? (formData.profile?.department || 'N/A') : isTeacher ? getTeacherClass() : (formData.profile?.rollNumber || `#${user._id?.slice(-6)?.toUpperCase()}`)}
+                        {isAdmin ? formatValue(formData.profile?.department) : isTeacher ? getTeacherClass() : (formData.profile?.rollNumber || `#${user._id?.slice(-6)?.toUpperCase()}`)}
                       </span>
                     )}
                   </div>
@@ -355,7 +356,7 @@ const UserDetailModal = ({ user, onClose, initialMode = 'view', onSuccess }) => 
                         onChange={(e) => setFormData({ ...formData, contactNo: e.target.value.replace(/\D/g, '') })}
                       />
                     ) : (
-                      <span className="text-sm font-black text-gray-900 break-all">{formData.contactNo || 'N/A'}</span>
+                      <span className="text-sm font-black text-gray-900 break-all">{formatValue(formData.contactNo)}</span>
                     )}
                   </div>
                 </div>
@@ -386,7 +387,7 @@ const UserDetailModal = ({ user, onClose, initialMode = 'view', onSuccess }) => 
                           {standards.map(std => <option key={std} value={std} className="bg-white text-gray-900">{std}</option>)}
                         </select>
                       ) : (
-                        <span className="text-sm font-black text-gray-900">{formData.profile?.standard || 'N/A'}</span>
+                        <span className="text-sm font-black text-gray-900">{formatValue(formData.profile?.standard)}</span>
                       )}
                     </div>
                     <div className="p-4 bg-white rounded-2xl border border-gray-100 shadow-sm flex flex-col gap-1">
@@ -405,7 +406,7 @@ const UserDetailModal = ({ user, onClose, initialMode = 'view', onSuccess }) => 
                           {sections.map(sec => <option key={sec} value={sec} className="bg-white text-gray-900">{sec}</option>)}
                         </select>
                       ) : (
-                        <span className="text-sm font-black text-gray-900">{formData.profile?.section || 'N/A'}</span>
+                        <span className="text-sm font-black text-gray-900">{formatValue(formData.profile?.section)}</span>
                       )}
                     </div>
                   </div>
@@ -523,7 +524,7 @@ const UserDetailModal = ({ user, onClose, initialMode = 'view', onSuccess }) => 
                               onChange={(e) => setFormData({ ...formData, profile: { ...formData.profile, fatherName: e.target.value } })}
                             />
                           ) : (
-                            <p className="text-sm font-bold text-gray-800">{formData.profile?.fatherName || 'N/A'}</p>
+                            <p className="text-sm font-bold text-gray-800">{formatValue(formData.profile?.fatherName)}</p>
                           )}
                         </div>
                         <div>
@@ -537,7 +538,7 @@ const UserDetailModal = ({ user, onClose, initialMode = 'view', onSuccess }) => 
                               onChange={(e) => setFormData({ ...formData, profile: { ...formData.profile, fatherContact: e.target.value.replace(/\D/g, '') } })}
                             />
                           ) : (
-                            <p className="text-sm font-bold text-gray-800">{formData.profile?.fatherContact || 'N/A'}</p>
+                            <p className="text-sm font-bold text-gray-800">{formatValue(formData.profile?.fatherContact)}</p>
                           )}
                         </div>
                       </div>
@@ -559,7 +560,7 @@ const UserDetailModal = ({ user, onClose, initialMode = 'view', onSuccess }) => 
                               onChange={(e) => setFormData({ ...formData, profile: { ...formData.profile, motherName: e.target.value } })}
                             />
                           ) : (
-                            <p className="text-sm font-bold text-gray-800">{formData.profile?.motherName || 'N/A'}</p>
+                            <p className="text-sm font-bold text-gray-800">{formatValue(formData.profile?.motherName)}</p>
                           )}
                         </div>
                         <div>
@@ -573,7 +574,7 @@ const UserDetailModal = ({ user, onClose, initialMode = 'view', onSuccess }) => 
                               onChange={(e) => setFormData({ ...formData, profile: { ...formData.profile, motherContact: e.target.value.replace(/\D/g, '') } })}
                             />
                           ) : (
-                            <p className="text-sm font-bold text-gray-800">{formData.profile?.motherContact || 'N/A'}</p>
+                            <p className="text-sm font-bold text-gray-800">{formatValue(formData.profile?.motherContact)}</p>
                           )}
                         </div>
                       </div>
@@ -596,7 +597,7 @@ const UserDetailModal = ({ user, onClose, initialMode = 'view', onSuccess }) => 
                             onChange={(e) => setFormData({ ...formData, profile: { ...formData.profile, guardianName: e.target.value } })}
                           />
                         ) : (
-                          <p className="text-sm font-bold text-gray-800">{formData.profile?.guardianName || 'N/A'}</p>
+                          <p className="text-sm font-bold text-gray-800">{formatValue(formData.profile?.guardianName)}</p>
                         )}
                       </div>
                       <div>
@@ -610,7 +611,7 @@ const UserDetailModal = ({ user, onClose, initialMode = 'view', onSuccess }) => 
                             onChange={(e) => setFormData({ ...formData, profile: { ...formData.profile, guardianContact: e.target.value.replace(/\D/g, '') } })}
                           />
                         ) : (
-                          <p className="text-sm font-bold text-gray-800">{formData.profile?.guardianContact || 'N/A'}</p>
+                          <p className="text-sm font-bold text-gray-800">{formatValue(formData.profile?.guardianContact)}</p>
                         )}
                       </div>
                     </div>
