@@ -142,7 +142,7 @@ const AdminClassList = ({
                                     </div>
                                     <div>
                                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] leading-tight mb-0.5">Class Teacher</p>
-                                        <p className="text-base font-black text-slate-900 leading-tight tracking-tight">{group.teacher?.name || 'Unassigned'}</p>
+                                        <p className="text-base font-black text-slate-900 leading-tight tracking-tight">{formatValue(group.teacher?.name)}</p>
                                     </div>
                                     <Button
                                         type="button"
@@ -292,7 +292,7 @@ const AdminClassList = ({
                                         <FaUserTie className="text-slate-500" />
                                     </div>
                                     <div className="text-sm hidden sm:block">
-                                        <p className="font-bold text-slate-900">{group.teacher?.name || 'Unassigned'}</p>
+                                        <p className="font-bold text-slate-900">{formatValue(group.teacher?.name)}</p>
                                         <p className="font-medium text-muted-foreground text-xs uppercase tracking-widest">Class Teacher</p>
                                     </div>
                                 </div>
@@ -306,7 +306,7 @@ const AdminClassList = ({
                     <div className="w-full max-w-md rounded-2xl bg-white border border-slate-200 shadow-xl p-5">
                         <h3 className="text-lg font-black text-slate-900 tracking-tight">Replace Class Teacher</h3>
                         <p className="mt-1 text-sm text-slate-500">
-                            Class {replaceModalClass.id} currently has <span className="font-semibold text-slate-700">{replaceModalClass.teacher?.name || "no teacher"}</span> as class teacher.
+                            Class {replaceModalClass.id} currently has <span className="font-semibold text-slate-700">{formatValue(replaceModalClass.teacher?.name)}</span> as class teacher.
                         </p>
                         {replaceError && (
                             <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
