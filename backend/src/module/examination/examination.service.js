@@ -1,14 +1,13 @@
 import Exam from "./Exam.model.js";
 import { CalendarEvent } from "../calendar/calendar.model.js";
 import Result from "../result/result.model.js";
+import { Notice } from "../notice/Notice.model.js";
+import User from "../user/model/User.model.js";
 import TeacherProfile from "../user/model/TeacherProfile.model.js";
 import StudentProfile from "../user/model/StudentProfile.model.js";
 import { USER_ROLES } from "../../constants/userRoles.js";
-import {
-    NotFoundError,
-    ConflictError,
-    BadRequestError,
-    ForbiddenError,
+import { deleteFromCloudinary } from "../../middlewares/upload.middleware.js";
+import {NotFoundError,ConflictError,BadRequestError,ForbiddenError,
 } from "../../utils/customError.js";
 import logger from "../../config/logger.js";
 import { assertClassSectionExists } from "../../utils/classSection.util.js";
@@ -17,18 +16,6 @@ import { ensureActiveTeacher } from "../../utils/teacher.util.js";
 // ═══════════════════════════════════════════════════════════════
 // Helper — Validate teacher has access to a class
 // ═══════════════════════════════════════════════════════════════
-
-const assertTeacherClassAccess = async (userId, schoolId, standard, section) => {
-    const profile = await TeacherProfile.findOne({ userId, schoolId }).lean();
-    if (!profile) throw new ForbiddenError("Teacher profile not found");
-
-    const hasAccess = profile.assignedClasses?.some(
-        (c) => c.standard === standard && c.section === section
-    );
-    if (!hasAccess) {
-        throw new ForbiddenError("You can only manage exams for your assigned classes");
-    }
-};
 
 const assertExamAssignedTeachersAreActive = async (schoolId, schedule = []) => {
     const teacherIds = [
@@ -53,6 +40,268 @@ const assertExamAssignedTeachersAreActive = async (schoolId, schedule = []) => {
     );
 };
 
+const isExamCreator = (exam, user) =>
+    String(exam?.createdBy?._id || exam?.createdBy || "") === String(user?._id || "");
+
+const canManageExam = (exam, user) =>
+    [USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN].includes(user?.role) || isExamCreator(exam, user);
+
+const assertCanManageExam = (
+    exam,
+    user,
+    message = "Only the exam creator or an admin can modify this exam"
+) => {
+    if (canManageExam(exam, user)) {
+        return;
+    }
+
+    throw new ForbiddenError(message);
+};
+
+const buildCreatorSnapshot = (user, standard, section) => ({
+    name: user?.name || "Staff",
+    role: user?.role || "admin",
+    classLabel:
+        user?.role === USER_ROLES.TEACHER
+            ? `Class ${standard}-${section}`
+            : null,
+});
+
+const normalizeDocumentType = (file = {}) => {
+    const originalName = file.originalname || file.name || "";
+    const extension = originalName.includes(".")
+        ? originalName.split(".").pop().toLowerCase()
+        : "";
+
+    if (file.mimetype === "application/pdf" || extension === "pdf") return "pdf";
+    if (file.mimetype === "image/jpeg" || extension === "jpg" || extension === "jpeg") return "jpeg";
+    if (file.mimetype === "image/png" || extension === "png") return "png";
+    if (file.mimetype === "application/vnd.ms-powerpoint" || extension === "ppt") return "ppt";
+    if (
+        file.mimetype === "application/vnd.openxmlformats-officedocument.presentationml.presentation" ||
+        extension === "pptx"
+    ) return "pptx";
+    if (file.mimetype === "application/msword" || extension === "doc") return "doc";
+    if (
+        file.mimetype === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+        extension === "docx"
+    ) return "docx";
+    if (
+        file.mimetype === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
+        extension === "xlsx"
+    ) return "xlsx";
+    if (file.mimetype === "application/vnd.ms-excel" || extension === "xls") return "xls";
+    if (file.mimetype === "text/csv" || extension === "csv") return "csv";
+    if (file.mimetype === "application/rtf" || extension === "rtf") return "rtf";
+    if (file.mimetype === "text/plain" || extension === "txt") return "txt";
+    if (file.mimetype === "application/vnd.oasis.opendocument.text" || extension === "odt") return "odt";
+
+    return extension || (file.mimetype ? file.mimetype.split("/").pop() : null);
+};
+
+const mapSyllabusDocument = (file = {}) => {
+    const originalName = file.originalname || file.name || "document";
+
+    return {
+        url: file.path || file.secure_url,
+        publicId: file.filename || file.public_id,
+        name: originalName,
+        originalName,
+        fileType: normalizeDocumentType(file),
+        mimeType: file.mimetype || null,
+        size: Number.isFinite(file.size) ? file.size : null,
+        uploadedAt: new Date(),
+    };
+};
+
+const getScheduleAttachmentUrls = (schedule = []) => {
+    if (!Array.isArray(schedule)) {
+        return [];
+    }
+
+    return schedule.flatMap((item) =>
+        (Array.isArray(item?.attachments) ? item.attachments : [])
+            .map((attachment) => attachment?.url)
+            .filter(Boolean)
+    );
+};
+
+const normalizeTextKey = (value) => String(value || "").trim().toLowerCase();
+
+const isSameClassSection = (item, standard, section) =>
+    String(item?.standard || "") === String(standard || "") &&
+    String(item?.section || "") === String(section || "");
+
+const formatNoticeDate = (dateValue) => {
+    if (!dateValue) return "N/A";
+    const date = new Date(dateValue);
+    if (Number.isNaN(date.getTime())) return "N/A";
+    return date.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" });
+};
+
+const formatAttachmentEntry = (attachment) =>
+    attachment?.name || attachment?.originalName || "Attachment";
+
+const buildNoticeAttachment = (attachment, scheduleItem, index) => {
+    const fileUrl = attachment?.url || attachment?.secure_url || attachment?.path;
+    if (!fileUrl) {
+        return null;
+    }
+
+    return {
+        filename: attachment?.publicId || attachment?.public_id || attachment?.filename,
+        originalName: attachment?.name || attachment?.originalName || `Attachment ${index + 1}`,
+        path: fileUrl,
+        secure_url: fileUrl,
+        public_id: attachment?.publicId || attachment?.public_id || attachment?.filename,
+        size: Number.isFinite(attachment?.size) ? attachment.size : undefined,
+        mimetype: attachment?.mimeType || attachment?.mimetype,
+        label: scheduleItem?.subject || undefined,
+    };
+};
+
+const getExamNoticeAttachments = (schedule = []) =>
+    (Array.isArray(schedule) ? schedule : []).flatMap((item) =>
+        (Array.isArray(item?.attachments) ? item.attachments : [])
+            .map((attachment, index) => buildNoticeAttachment(attachment, item, index))
+            .filter(Boolean)
+    );
+
+const buildExamNoticeTitle = (exam, isUpdate) => {
+    const classLabel = `${exam.standard}-${exam.section}`;
+    return isUpdate
+        ? `Exam Updated: ${exam.name} (${classLabel})`
+        : `Exam Published: ${exam.name} (${classLabel})`;
+};
+
+const buildExamNoticeMessage = (exam, { isUpdate = false, changedByName = "Staff" } = {}) => {
+    const schedule = Array.isArray(exam?.schedule) ? exam.schedule : [];
+    const heading = isUpdate
+        ? `${changedByName} updated exam syllabus/attachments.`
+        : "A new exam schedule has been published.";
+
+    const lines = schedule.map((item, index) => {
+        const timeRange = item?.startTime || item?.endTime
+            ? `${item?.startTime || "N/A"} - ${item?.endTime || "N/A"}`
+            : "N/A";
+        const attachmentsText = Array.isArray(item?.attachments) && item.attachments.length
+            ? item.attachments.map(formatAttachmentEntry).join("; ")
+            : "None";
+
+        return [
+            `${index + 1}. Subject: ${item?.subject || "N/A"}`,
+            `   Date: ${formatNoticeDate(item?.examDate)}`,
+            `   Time: ${timeRange}`,
+            `   Total Marks: ${item?.totalMarks ?? "N/A"} | Passing Marks: ${item?.passingMarks ?? 0}`,
+            `   Syllabus: ${item?.syllabus || "Not specified"}`,
+            `   Attachments: ${attachmentsText}`,
+        ].join("\n");
+    });
+
+    return [
+        heading,
+        `Exam: ${exam?.name || "N/A"}`,
+        `Class: ${exam?.standard || "N/A"}-${exam?.section || "N/A"}`,
+        `Academic Year: ${exam?.academicYear || "N/A"}`,
+        "",
+        "Paper Details:",
+        lines.length ? lines.join("\n\n") : "No paper details available.",
+    ].join("\n");
+};
+
+const resolveExamNoticeRecipients = async (schoolId, exam) => {
+    const schedule = Array.isArray(exam?.schedule) ? exam.schedule : [];
+    const admins = await User.find({
+        schoolId,
+        role: { $in: [USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN] },
+        isArchived: false,
+        isActive: true,
+    }).select("_id").lean();
+
+    const classProfiles = await TeacherProfile.find({
+        schoolId,
+        assignedClasses: {
+            $elemMatch: {
+                standard: exam.standard,
+                section: exam.section,
+            },
+        },
+    }).select("userId assignedClasses").lean();
+
+    const scheduleAssignedTeacherIds = new Set(
+        schedule
+            .map((item) => item?.assignedTeacher)
+            .filter(Boolean)
+            .map((id) => String(id))
+    );
+
+    const relevantTeacherIds = new Set([...scheduleAssignedTeacherIds]);
+    for (const profile of classProfiles) {
+        const classAssignments = (profile.assignedClasses || []).filter((assignment) =>
+            isSameClassSection(assignment, exam.standard, exam.section)
+        );
+
+        const hasSubjectMatch = classAssignments.some((assignment) => {
+            const subjects = Array.isArray(assignment?.subjects)
+                ? assignment.subjects.map(normalizeTextKey).filter(Boolean)
+                : [];
+
+            if (subjects.length === 0) {
+                return true;
+            }
+
+            return schedule.some((paper) => subjects.includes(normalizeTextKey(paper?.subject)));
+        });
+
+        if (hasSubjectMatch && profile?.userId) {
+            relevantTeacherIds.add(String(profile.userId));
+        }
+    }
+
+    const recipients = new Set(admins.map((admin) => String(admin._id)));
+    relevantTeacherIds.forEach((id) => recipients.add(id));
+
+    return [...recipients];
+};
+
+const createExamNoticeBroadcast = async (schoolId, exam, actorUser, { isUpdate = false } = {}) => {
+    const classKey = `${exam.standard}-${exam.section}`;
+    const createdBy = actorUser?._id || exam.createdBy;
+    const changedByName = actorUser?.name || "Staff";
+    const title = buildExamNoticeTitle(exam, isUpdate);
+    const message = buildExamNoticeMessage(exam, { isUpdate, changedByName });
+    const attachments = getExamNoticeAttachments(exam.schedule);
+    const userRecipients = await resolveExamNoticeRecipients(schoolId, exam);
+
+    await Notice.create({
+        schoolId,
+        createdBy,
+        title,
+        message,
+        recipientType: "classes",
+        recipients: [classKey],
+        type: "notice",
+        attachments,
+        status: "sent",
+        requiresAcknowledgment: false,
+    });
+
+    if (userRecipients.length > 0) {
+        await Notice.create({
+            schoolId,
+            createdBy,
+            title,
+            message,
+            recipientType: "users",
+            recipients: userRecipients,
+            type: "notice",
+            attachments,
+            status: "sent",
+            requiresAcknowledgment: false,
+        });
+    }
+};
+
 // ═══════════════════════════════════════════════════════════════
 // CREATE EXAM — Unified for admin (TERM_EXAM) & teacher (CLASS_TEST)
 // ═══════════════════════════════════════════════════════════════
@@ -71,21 +320,6 @@ export const createExam = async (schoolId, data, user) => {
         data.section,
         { message: "Exam class-section is not configured in Settings" }
     );
-
-    // Role-based exam type enforcement
-    if (user.role === USER_ROLES.TEACHER) {
-        await assertTeacherClassAccess(
-            user._id,
-            activeSchoolId,
-            normalizedClassSection.standard,
-            normalizedClassSection.section
-        );
-    } else if (user.role === USER_ROLES.ADMIN) {
-        if (data.examType !== "TERM_EXAM") {
-            throw new ForbiddenError("Admins should create TERM_EXAM exams");
-        }
-    }
-    // SUPER_ADMIN has no restrictions on examType
 
     // Check for duplicate (Only conflict with DRAFT or PUBLISHED exams with same name)
     const activeConflict = await Exam.findOne({
@@ -115,6 +349,11 @@ export const createExam = async (schoolId, data, user) => {
         section: normalizedClassSection.section,
         createdBy: user._id,
         createdByRole: user.role,
+        creatorSnapshot: buildCreatorSnapshot(
+            user,
+            normalizedClassSection.standard,
+            normalizedClassSection.section
+        ),
     };
 
     const exam = await Exam.create(createData);
@@ -133,49 +372,40 @@ export const createExam = async (schoolId, data, user) => {
 // ═══════════════════════════════════════════════════════════════
 
 export const getExams = async (schoolId, filters = {}, user) => {
-    const query = { isActive: true };
-    if (schoolId) query.schoolId = schoolId;
+    const summaryQuery = { isActive: true };
+    if (schoolId) summaryQuery.schoolId = schoolId;
 
     // Super Admin can filter by schoolId from params if not in context
     if (user.role === USER_ROLES.SUPER_ADMIN && !schoolId && filters.schoolId) {
-        query.schoolId = filters.schoolId;
-    }
-
-    // Role-based filtering
-    if (user.role === USER_ROLES.TEACHER) {
-        const profile = await TeacherProfile.findOne({ userId: user._id, schoolId }).lean();
-
-        if (profile?.assignedClasses?.length) {
-            const classFilters = profile.assignedClasses.map((c) => ({
-                standard: c.standard,
-                section: c.section,
-            }));
-            query.$or = classFilters;
-        } else {
-            // Fallback: if teacher has no assigned classes, at least show exams they created
-            query.createdBy = user._id;
-        }
+        summaryQuery.schoolId = filters.schoolId;
     }
 
     // Apply filters
-    if (filters.examType) query.examType = filters.examType;
-    if (filters.academicYear) query.academicYear = Number(filters.academicYear);
-    if (filters.standard) query.standard = filters.standard;
-    if (filters.section) query.section = filters.section;
+    if (filters.examType) summaryQuery.examType = filters.examType;
+    if (filters.academicYear) summaryQuery.academicYear = Number(filters.academicYear);
+    if (filters.standard) summaryQuery.standard = filters.standard;
+    if (filters.section) summaryQuery.section = filters.section;
+
+    const query = { ...summaryQuery };
     if (filters.status) query.status = filters.status;
 
     const page = Math.max(0, Number(filters.page) || 0);
     const pageSize = Math.min(100, Math.max(1, Number(filters.pageSize) || 25));
 
-    const totalCount = await Exam.countDocuments(query);
-
-    const exams = await Exam.find(query)
-        .populate("createdBy", "name email isArchived")
-        .populate("schedule.assignedTeacher", "name email isArchived")
-        .sort({ createdAt: -1 })
-        .skip(page * pageSize)
-        .limit(pageSize)
-        .lean();
+    const [totalCount, totalAcrossFilters, upcomingCount, completedCount, draftCount, exams] = await Promise.all([
+        Exam.countDocuments(query),
+        Exam.countDocuments(summaryQuery),
+        Exam.countDocuments({ ...summaryQuery, status: "PUBLISHED" }),
+        Exam.countDocuments({ ...summaryQuery, status: "COMPLETED" }),
+        Exam.countDocuments({ ...summaryQuery, status: "DRAFT" }),
+        Exam.find(query)
+            .populate("createdBy", "name email isArchived")
+            .populate("schedule.assignedTeacher", "name email isArchived")
+            .sort({ createdAt: -1 })
+            .skip(page * pageSize)
+            .limit(pageSize)
+            .lean(),
+    ]);
 
     return {
         exams,
@@ -185,6 +415,12 @@ export const getExams = async (schoolId, filters = {}, user) => {
             totalCount,
             totalPages: Math.ceil(totalCount / pageSize),
         },
+        summary: {
+            total: totalAcrossFilters,
+            upcoming: upcomingCount,
+            completed: completedCount,
+            drafts: draftCount,
+        },
     };
 };
 
@@ -192,7 +428,7 @@ export const getExams = async (schoolId, filters = {}, user) => {
 // GET EXAM BY ID — With role-based access check
 // ═══════════════════════════════════════════════════════════════
 
-export const getExamById = async (schoolId, examId, user) => {
+export const getExamById = async (schoolId, examId, _user) => {
     const query = { _id: examId, isActive: true };
     if (schoolId) query.schoolId = schoolId;
 
@@ -202,17 +438,6 @@ export const getExamById = async (schoolId, examId, user) => {
         .lean();
 
     if (!exam) throw new NotFoundError("Exam not found");
-
-    // Access check for teacher
-    if (user.role === USER_ROLES.TEACHER) {
-        const profile = await TeacherProfile.findOne({ userId: user._id, schoolId }).lean();
-        const hasAccess = profile?.assignedClasses?.some(
-            (c) => c.standard === exam.standard && c.section === exam.section
-        );
-        if (!hasAccess) throw new ForbiddenError("You don't have access to this exam");
-    }
-    // ADMIN and SUPER_ADMIN have full access
-
 
     return exam;
 };
@@ -225,23 +450,14 @@ export const updateExam = async (schoolId, examId, data, user) => {
     const exam = await Exam.findOne({ _id: examId, schoolId, isActive: true });
     if (!exam) throw new NotFoundError("Exam not found");
 
-    if (user.role === USER_ROLES.TEACHER) {
-        // Teacher can only update if they have access to the class
-        await assertTeacherClassAccess(user._id, schoolId, exam.standard, exam.section);
-        
-        // Removed strict examType and creator check to allow scheduling/managing any exam assigned to their class
-    }
-    // Admins and Super Admins can update any exam (term or class test)
-
-    // Can only update DRAFT or PUBLISHED exams (Teachers only restricted for CANCELLED)
-    if (user.role === USER_ROLES.TEACHER && exam.status === "CANCELLED") {
-        throw new BadRequestError(`Cannot update a cancelled exam`);
-    }
+    assertCanManageExam(exam, user, "Only the exam creator or an admin can update this exam");
 
     // Apply safe updates (don't allow changing examType, standard, section, academicYear)
     if (data.schedule !== undefined) {
         await assertExamAssignedTeachersAreActive(schoolId, data.schedule);
     }
+
+    const previousScheduleAttachmentUrls = getScheduleAttachmentUrls(exam.schedule);
 
     if (data.name !== undefined) exam.name = data.name;
     if (data.category !== undefined) exam.category = data.category;
@@ -252,11 +468,148 @@ export const updateExam = async (schoolId, examId, data, user) => {
     if (data.status !== undefined) exam.status = data.status;
 
     await exam.save();
-    
-    // Re-sync calendar events if the schedule or status changed
-    await syncExamCalendarEvents(exam, schoolId);
+
+    if (data.schedule !== undefined) {
+        const nextScheduleAttachmentUrls = new Set(getScheduleAttachmentUrls(exam.schedule));
+        const removedAttachmentUrls = previousScheduleAttachmentUrls.filter(
+            (url) => !nextScheduleAttachmentUrls.has(url)
+        );
+
+        if (removedAttachmentUrls.length > 0) {
+            await Promise.allSettled(
+                removedAttachmentUrls.map((url) => deleteFromCloudinary(url))
+            );
+        }
+    }
+
+    if (exam.status === "PUBLISHED" && data.schedule !== undefined) {
+        try {
+            await createExamNoticeBroadcast(schoolId, exam, user, { isUpdate: true });
+        } catch (noticeError) {
+            logger.error(`Failed to broadcast exam update notice for ${examId}: ${noticeError.message}`);
+        }
+    }
 
     logger.info(`Exam updated: ${examId}`);
+    return exam;
+};
+
+export const uploadSyllabusDocument = async (schoolId, examId, file, user) => {
+    if (!file) {
+        throw new BadRequestError("Syllabus document file is required");
+    }
+
+    const exam = await Exam.findOne({ _id: examId, schoolId, isActive: true });
+    if (!exam) throw new NotFoundError("Exam not found");
+
+    assertCanManageExam(exam, user, "Only the exam creator or an admin can update this exam");
+
+    const nextDocument = mapSyllabusDocument(file);
+    if (!nextDocument.url) {
+        throw new BadRequestError("Unable to process syllabus document");
+    }
+
+    const previousDocumentUrl = exam.syllabusDocument?.url;
+    exam.syllabusDocument = nextDocument;
+    await exam.save();
+
+    if (previousDocumentUrl && previousDocumentUrl !== nextDocument.url) {
+        await deleteFromCloudinary(previousDocumentUrl);
+    }
+
+    logger.info(`Syllabus document uploaded for exam: ${examId}`);
+    return exam;
+};
+
+export const uploadScheduleAttachments = async (schoolId, examId, scheduleItemId, files, user) => {
+    if (!Array.isArray(files) || files.length === 0) {
+        throw new BadRequestError("At least one attachment is required");
+    }
+
+    const exam = await Exam.findOne({ _id: examId, schoolId, isActive: true });
+    if (!exam) throw new NotFoundError("Exam not found");
+
+    const scheduleItem = exam.schedule.id(scheduleItemId);
+    if (!scheduleItem) {
+        throw new NotFoundError("Exam schedule item not found");
+    }
+    assertCanManageExam(exam, user, "Only the exam creator or an admin can update this exam");
+
+    const mappedAttachments = files.map((file) => {
+        const mapped = mapSyllabusDocument(file);
+        if (!mapped.url) {
+            throw new BadRequestError("Unable to process one or more attachment files");
+        }
+        return mapped;
+    });
+
+    const currentAttachments = Array.isArray(scheduleItem.attachments) ? scheduleItem.attachments : [];
+    if ((currentAttachments.length + mappedAttachments.length) > 10) {
+        throw new BadRequestError("Maximum 10 attachments allowed per exam paper");
+    }
+
+    scheduleItem.attachments = [...currentAttachments, ...mappedAttachments];
+    await exam.save();
+
+    if (exam.status === "PUBLISHED") {
+        try {
+            await createExamNoticeBroadcast(schoolId, exam, user, { isUpdate: true });
+        } catch (noticeError) {
+            logger.error(`Failed to broadcast attachment update notice for ${examId}: ${noticeError.message}`);
+        }
+    }
+
+    logger.info(`Schedule attachments uploaded for exam: ${examId}, schedule item: ${scheduleItemId}`);
+    return exam;
+};
+
+export const patchScheduleSyllabus = async (schoolId, examId, scheduleItemId, data, user) => {
+    const exam = await Exam.findOne({ _id: examId, schoolId, isActive: true });
+    if (!exam) throw new NotFoundError("Exam not found");
+
+    const scheduleItem = exam.schedule.id(scheduleItemId);
+    if (!scheduleItem) {
+        throw new NotFoundError("Exam schedule item not found");
+    }
+
+    assertCanManageExam(exam, user, "Only the exam creator or an admin can update this exam");
+
+    const previousAttachmentUrls = Array.isArray(scheduleItem.attachments)
+        ? scheduleItem.attachments.map((attachment) => attachment?.url).filter(Boolean)
+        : [];
+
+    if (data.syllabus !== undefined) {
+        scheduleItem.syllabus = data.syllabus;
+    }
+    if (data.attachments !== undefined) {
+        if (Array.isArray(data.attachments) && data.attachments.length > 10) {
+            throw new BadRequestError("Maximum 10 attachments allowed per exam paper");
+        }
+        scheduleItem.attachments = Array.isArray(data.attachments) ? data.attachments : [];
+    }
+
+    await exam.save();
+
+    if (data.attachments !== undefined) {
+        const nextAttachmentUrls = new Set(
+            (Array.isArray(scheduleItem.attachments) ? scheduleItem.attachments : [])
+                .map((attachment) => attachment?.url)
+                .filter(Boolean)
+        );
+        const removedUrls = previousAttachmentUrls.filter((url) => !nextAttachmentUrls.has(url));
+        if (removedUrls.length > 0) {
+            await Promise.allSettled(removedUrls.map((url) => deleteFromCloudinary(url)));
+        }
+    }
+
+    if (!data.suppressNotice && exam.status === "PUBLISHED") {
+        try {
+            await createExamNoticeBroadcast(schoolId, exam, user, { isUpdate: true });
+        } catch (noticeError) {
+            logger.error(`Failed to broadcast syllabus update notice for ${examId}: ${noticeError.message}`);
+        }
+    }
+
     return exam;
 };
 
@@ -268,8 +621,15 @@ export const deleteExam = async (schoolId, examId, user) => {
     const exam = await Exam.findOne({ _id: examId, schoolId, isActive: true });
     if (!exam) throw new NotFoundError("Exam not found");
 
-    if (user.role === USER_ROLES.TEACHER) {
-        await assertTeacherClassAccess(user._id, schoolId, exam.standard, exam.section);
+    assertCanManageExam(exam, user, "Only the exam creator or an admin can delete this exam");
+
+    const cleanupUrls = [
+        ...(exam.syllabusDocument?.url ? [exam.syllabusDocument.url] : []),
+        ...getScheduleAttachmentUrls(exam.schedule),
+    ];
+
+    if (cleanupUrls.length > 0) {
+        await Promise.allSettled(cleanupUrls.map((url) => deleteFromCloudinary(url)));
     }
 
     await deleteExamCalendarEvents(exam);
@@ -370,10 +730,7 @@ export const updateStatus = async (schoolId, examId, newStatus, user) => {
     const exam = await Exam.findOne({ _id: examId, schoolId, isActive: true });
     if (!exam) throw new NotFoundError("Exam not found");
 
-    if (user.role === USER_ROLES.TEACHER) {
-        await assertTeacherClassAccess(user._id, schoolId, exam.standard, exam.section);
-    }
-    // Admins and Super Admins can change status of any exam
+    assertCanManageExam(exam, user, "Only the exam creator or an admin can change this exam status");
 
     const allowed = VALID_TRANSITIONS[exam.status];
     if (!allowed || !allowed.includes(newStatus)) {
@@ -390,9 +747,17 @@ export const updateStatus = async (schoolId, examId, newStatus, user) => {
     exam.status = newStatus;
     await exam.save();
 
-    // Unified sync logic for all status transitions 
-    // (Takes care of addition for PUBLISHED and removal for COMPLETED/CANCELLED)
-    await syncExamCalendarEvents(exam, schoolId);
+    if (newStatus === "PUBLISHED") {
+        await createExamCalendarEvents(exam, schoolId);
+        try {
+            await createExamNoticeBroadcast(schoolId, exam, user, { isUpdate: false });
+        } catch (noticeError) {
+            logger.error(`Failed to broadcast exam publish notice for ${examId}: ${noticeError.message}`);
+        }
+    }
+    if (newStatus === "COMPLETED") {
+        await deleteExamCalendarEvents(exam);
+    }
 
     logger.info(`Exam status changed: ${examId} → ${newStatus}`);
     return exam;
