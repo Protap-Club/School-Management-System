@@ -396,14 +396,34 @@ const CalendarPage = () => {
 
   const calendarDays = useMemo(() => {
     const cells = [];
-    for (let i = 0; i < firstDay; i++) cells.push(<div key={`empty-${i}`} className="h-28 bg-gray-50/40 border-b border-r border-gray-100"></div>);
+    const totalCells = firstDay + daysInMonth;
+    const rows = Math.ceil(totalCells / 7);
+    
+    for (let i = 0; i < firstDay; i++) {
+      const isFirstRow = i < 7;
+      const isFirstCol = i % 7 === 0;
+      cells.push(
+        <div 
+          key={`empty-${i}`} 
+          className={`h-28 bg-gray-50/40 border-b border-r border-gray-200 ${isFirstRow ? 'border-t' : ''} ${isFirstCol ? 'border-l' : ''}`}
+        />
+      );
+    }
+    
     for (let day = 1; day <= daysInMonth; day++) {
+      const cellIndex = firstDay + day - 1;
+      const isFirstRow = cellIndex < 7;
+      const isFirstCol = cellIndex % 7 === 0;
       const dateStr = formatDate(new Date(currentDate.getFullYear(), currentDate.getMonth(), day));
       const dayEvents = getEventsForDate[dateStr] || [];
       const isToday = dateStr === formatDate(new Date());
+      
       cells.push(
-        <div key={day} onClick={() => handleDayClick(dateStr)}
-          className={`h-28 border-b border-r border-gray-200 p-1.5 transition-all group relative overflow-hidden cursor-pointer hover:bg-gray-50 ${isToday ? 'bg-indigo-50/30' : 'bg-transparent'}`}>
+        <div 
+          key={day} 
+          onClick={() => handleDayClick(dateStr)}
+          className={`h-28 border-b border-r border-gray-200 p-1.5 transition-all group relative overflow-hidden cursor-pointer hover:bg-gray-50 ${isFirstRow ? 'border-t' : ''} ${isFirstCol ? 'border-l' : ''} ${isToday ? 'bg-indigo-50/30' : 'bg-transparent'}`}
+        >
           <div className="flex items-center justify-between mb-1">
             <span className={`text-[11px] font-semibold w-6 h-6 flex items-center justify-center rounded-full ${isToday ? 'bg-indigo-600 text-white shadow-sm' : 'text-gray-700'}`}>{day}</span>
             {canEdit && <FaPlus className="text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity text-[10px]" onClick={(e) => { e.stopPropagation(); openCreateEventModal(dateStr); }} />}
