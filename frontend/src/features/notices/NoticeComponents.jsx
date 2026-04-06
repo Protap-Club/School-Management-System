@@ -12,6 +12,71 @@ const ALLOWED_EXTENSIONS = ['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png', 'ppt', '
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const MAX_FILES = 3;
 
+const getNoticeAttachments = (item) => {
+    const attachments = [];
+
+    if (item?.attachment?.filename || item?.attachment?.path || item?.attachment?.secure_url) {
+        attachments.push(item.attachment);
+    }
+
+    if (Array.isArray(item?.attachments) && item.attachments.length > 0) {
+        attachments.push(...item.attachments);
+    }
+
+    return attachments.filter(Boolean);
+};
+
+export const NoticeAttachmentList = ({ item, handleDownload, title = 'Attachments' }) => {
+    const attachments = getNoticeAttachments(item);
+
+    if (attachments.length === 0) {
+        return null;
+    }
+
+    return (
+        <div>
+            <h5 className="text-sm font-medium text-gray-900 mb-3">
+                {title} {attachments.length > 1 ? `(${attachments.length})` : ''}
+            </h5>
+            <div className="space-y-2">
+                {attachments.map((attachment, index) => {
+                    const fileName = attachment.originalName || attachment.filename || `Attachment ${index + 1}`;
+                    const label = attachment.label || '';
+
+                    return (
+                        <button
+                            key={`${attachment.public_id || attachment.filename || attachment.path || fileName}-${index}`}
+                            onClick={() => handleDownload(
+                                attachment.secure_url || attachment.path,
+                                fileName
+                            )}
+                            className="w-full flex items-center justify-between gap-3 p-3 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors cursor-pointer group text-left overflow-hidden"
+                        >
+                            <div className="flex items-center gap-3 min-w-0 flex-1 overflow-hidden">
+                                <div className="w-10 h-10 bg-white border border-gray-100 rounded-lg flex items-center justify-center shrink-0">
+                                    {getFileIcon(fileName)}
+                                </div>
+                                <div className="min-w-0 overflow-hidden">
+                                    <p className="text-sm font-medium text-gray-900 group-hover:text-primary transition-colors truncate" title={fileName}>
+                                        {fileName}
+                                    </p>
+                                    <p className="text-xs text-gray-500 uppercase tracking-wide">
+                                        {label ? `${label} • ` : ''}
+                                        {((fileName || '').split('.').pop()) || 'File'}
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="p-2 text-gray-400 group-hover:text-primary group-hover:bg-primary/5 rounded-lg transition-colors shrink-0">
+                                <FaDownload size={14} />
+                            </div>
+                        </button>
+                    );
+                })}
+            </div>
+        </div>
+    );
+};
+
 export const ReceiverAckButton = ({ noticeId, currentUserId, acknowledgments = [] }) => {
     const isAcknowledged = acknowledgments.some(a =>
         a.userId === currentUserId || (a.userId && a.userId._id === currentUserId)
@@ -404,33 +469,7 @@ export const ViewItemModal = ({ viewItem, setViewItem, handleDownload }) => {
                         </div>
                     </div>
                     <div className="bg-gray-50 rounded-xl p-4 text-gray-700 text-sm leading-relaxed whitespace-pre-wrap">{viewItem.message}</div>
-                    {viewItem.attachment && viewItem.attachment.filename && (
-                        <div>
-                            <h5 className="text-sm font-medium text-gray-900 mb-3">Attachment</h5>
-                            <div className="space-y-2">
-                                <button
-                                    onClick={() => handleDownload(
-                                        viewItem.attachment.secure_url || viewItem.attachment.path,
-                                        viewItem.attachment.originalName || viewItem.attachment.filename
-                                    )}
-                                    className="w-full flex items-center justify-between gap-3 p-3 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors cursor-pointer group text-left overflow-hidden"
-                                >
-                                    <div className="flex items-center gap-3 min-w-0 flex-1 overflow-hidden">
-                                        <div className="w-10 h-10 bg-white border border-gray-100 rounded-lg flex items-center justify-center shrink-0">
-                                            {getFileIcon(viewItem.attachment.originalName || viewItem.attachment.filename)}
-                                        </div>
-                                        <div className="min-w-0 overflow-hidden">
-                                            <p className="text-sm font-medium text-gray-900 group-hover:text-primary transition-colors truncate" title={viewItem.attachment.originalName || viewItem.attachment.filename}>{viewItem.attachment.originalName || viewItem.attachment.filename}</p>
-                                            <p className="text-xs text-gray-500 uppercase tracking-wide">{((viewItem.attachment.originalName || viewItem.attachment.filename || '').split('.').pop()) || 'File'}</p>
-                                        </div>
-                                    </div>
-                                    <div className="p-2 text-gray-400 group-hover:text-primary group-hover:bg-primary/5 rounded-lg transition-colors shrink-0">
-                                        <FaDownload size={14} />
-                                    </div>
-                                </button>
-                            </div>
-                        </div>
-                    )}
+                    <NoticeAttachmentList item={viewItem} handleDownload={handleDownload} />
 
                     {/* Acknowledgment Status Panel — sender view */}
                     {viewItem.requiresAcknowledgment === true && (
