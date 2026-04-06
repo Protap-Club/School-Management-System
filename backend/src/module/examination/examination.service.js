@@ -10,7 +10,7 @@ import { deleteFromCloudinary } from "../../middlewares/upload.middleware.js";
 import {NotFoundError,ConflictError,BadRequestError,ForbiddenError,
 } from "../../utils/customError.js";
 import logger from "../../config/logger.js";
-import { assertClassSectionExists } from "../../utils/classSection.util.js";
+import { assertClassSectionExists, buildClassSectionKey } from "../../utils/classSection.util.js";
 import { ensureActiveTeacher } from "../../utils/teacher.util.js";
 
 // ═══════════════════════════════════════════════════════════════
@@ -45,6 +45,39 @@ const isExamCreator = (exam, user) =>
 
 const canManageExam = (exam, user) =>
     [USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN].includes(user?.role) || isExamCreator(exam, user);
+
+const isTeacherAssignedToExamClass = (assignedClasses = [], exam = {}) => {
+    const examClassKey = buildClassSectionKey(exam.standard, exam.section);
+
+    return (Array.isArray(assignedClasses) ? assignedClasses : []).some((item) =>
+        buildClassSectionKey(item?.standard, item?.section) === examClassKey
+    );
+};
+
+const buildTeacherExamScope = async (schoolId, userId) => {
+    const profile = await TeacherProfile.findOne({ schoolId, userId })
+        .select("assignedClasses")
+        .lean();
+
+    const classScope = Array.isArray(profile?.assignedClasses) ? profile.assignedClasses : [];
+    const scopeClauses = classScope
+        .map((item) => {
+            const standard = String(item?.standard || "").trim();
+            const section = String(item?.section || "").trim().toUpperCase();
+
+            if (!standard || !section) {
+                return null;
+            }
+
+            return { standard, section };
+        })
+        .filter(Boolean);
+
+    return {
+        classScope,
+        scopeClauses,
+    };
+};
 
 const assertCanManageExam = (
     exam,
@@ -357,9 +390,13 @@ export const createExam = async (schoolId, data, user) => {
     };
 
     const exam = await Exam.create(createData);
-    
-    // Sync to calendar (DRAFT and PUBLISHED)
-    await syncExamCalendarEvents(exam, activeSchoolId);
+
+    try {
+        await syncExamCalendarEvents(exam, activeSchoolId);
+    } catch (error) {
+        await Exam.deleteOne({ _id: exam._id });
+        throw error;
+    }
 
     logger.info(
         `Exam created: ${exam._id} (${exam.examType}: "${exam.name}" for ${exam.standard}-${exam.section})`
@@ -385,6 +422,13 @@ export const getExams = async (schoolId, filters = {}, user) => {
     if (filters.academicYear) summaryQuery.academicYear = Number(filters.academicYear);
     if (filters.standard) summaryQuery.standard = filters.standard;
     if (filters.section) summaryQuery.section = filters.section;
+
+    if (user.role === USER_ROLES.TEACHER) {
+        const { scopeClauses } = await buildTeacherExamScope(summaryQuery.schoolId, user._id);
+        summaryQuery.$or = scopeClauses.length > 0
+            ? [{ createdBy: user._id }, ...scopeClauses]
+            : [{ createdBy: user._id }];
+    }
 
     const query = { ...summaryQuery };
     if (filters.status) query.status = filters.status;
@@ -428,7 +472,7 @@ export const getExams = async (schoolId, filters = {}, user) => {
 // GET EXAM BY ID — With role-based access check
 // ═══════════════════════════════════════════════════════════════
 
-export const getExamById = async (schoolId, examId, _user) => {
+export const getExamById = async (schoolId, examId, user) => {
     const query = { _id: examId, isActive: true };
     if (schoolId) query.schoolId = schoolId;
 
@@ -438,6 +482,16 @@ export const getExamById = async (schoolId, examId, _user) => {
         .lean();
 
     if (!exam) throw new NotFoundError("Exam not found");
+
+    if (user?.role === USER_ROLES.TEACHER) {
+        const { classScope } = await buildTeacherExamScope(schoolId, user._id);
+        const canAccessExam =
+            isExamCreator(exam, user) || isTeacherAssignedToExamClass(classScope, exam);
+
+        if (!canAccessExam) {
+            throw new ForbiddenError("You do not have access to this exam");
+        }
+    }
 
     return exam;
 };
@@ -468,6 +522,7 @@ export const updateExam = async (schoolId, examId, data, user) => {
     if (data.status !== undefined) exam.status = data.status;
 
     await exam.save();
+    await syncExamCalendarEvents(exam, schoolId);
 
     if (data.schedule !== undefined) {
         const nextScheduleAttachmentUrls = new Set(getScheduleAttachmentUrls(exam.schedule));
@@ -550,6 +605,7 @@ export const uploadScheduleAttachments = async (schoolId, examId, scheduleItemId
 
     scheduleItem.attachments = [...currentAttachments, ...mappedAttachments];
     await exam.save();
+    await syncExamCalendarEvents(exam, schoolId);
 
     if (exam.status === "PUBLISHED") {
         try {
@@ -589,6 +645,7 @@ export const patchScheduleSyllabus = async (schoolId, examId, scheduleItemId, da
     }
 
     await exam.save();
+    await syncExamCalendarEvents(exam, schoolId);
 
     if (data.attachments !== undefined) {
         const nextAttachmentUrls = new Set(
@@ -664,11 +721,11 @@ const buildDateTime = (dateValue, timeValue) => {
 };
 
 export const syncExamCalendarEvents = async (exam, schoolId) => {
-    // 1. Always clear existing events for this exam
+    const activeSchoolId = schoolId || exam.schoolId;
+
     await deleteExamCalendarEvents(exam);
 
-    // 2. Only add to calendar if status is PUBLISHED (Scheduled) or COMPLETED
-    if (exam.status !== "PUBLISHED" && exam.status !== "COMPLETED") {
+    if (!["DRAFT", "PUBLISHED"].includes(exam.status)) {
         return;
     }
 
@@ -692,7 +749,13 @@ export const syncExamCalendarEvents = async (exam, schoolId) => {
 
             return {
                 title: item.subject,
-                description: item.syllabus || "",
+                description: [
+                    exam.name ? `Exam: ${exam.name}` : null,
+                    `Class: ${classKey}`,
+                    item.syllabus || exam.description || null,
+                ]
+                    .filter(Boolean)
+                    .join("\n"),
                 start,
                 end,
                 allDay,
@@ -700,7 +763,7 @@ export const syncExamCalendarEvents = async (exam, schoolId) => {
                 targetAudience: "classes",
                 targetClasses: [classKey],
                 createdBy: exam.createdBy,
-                schoolId,
+                schoolId: activeSchoolId,
                 sourceType: "exam",
                 sourceId: exam._id,
                 examStatus: exam.status
@@ -714,14 +777,27 @@ export const syncExamCalendarEvents = async (exam, schoolId) => {
 
 const deleteExamCalendarEvents = async (exam) => {
     const classKey = `${exam.standard}-${exam.section}`;
-    const deleted = await CalendarEvent.deleteMany({ sourceType: "exam", sourceId: exam._id });
+    const deleted = await CalendarEvent.deleteMany({
+        schoolId: exam.schoolId,
+        sourceType: "exam",
+        sourceId: exam._id
+    });
 
     // Backward-compatible cleanup for older exam calendar events
     if ((deleted?.deletedCount ?? 0) === 0) {
+        const legacySubjects = (Array.isArray(exam.schedule) ? exam.schedule : [])
+            .map((item) => item?.subject)
+            .filter(Boolean);
+        const legacyStarts = (Array.isArray(exam.schedule) ? exam.schedule : [])
+            .map((item) => buildDateTime(item?.examDate, item?.startTime))
+            .filter((value) => value instanceof Date && !Number.isNaN(value.getTime()));
+
         await CalendarEvent.deleteMany({
+            schoolId: exam.schoolId,
             type: "exam",
-            title: exam.name,
-            targetClasses: [classKey]
+            targetClasses: [classKey],
+            ...(legacySubjects.length > 0 ? { title: { $in: legacySubjects } } : {}),
+            ...(legacyStarts.length > 0 ? { start: { $in: legacyStarts } } : {})
         });
     }
 };
@@ -744,19 +820,25 @@ export const updateStatus = async (schoolId, examId, newStatus, user) => {
         throw new BadRequestError("Cannot publish an exam without at least one schedule entry");
     }
 
+    const previousStatus = exam.status;
+
     exam.status = newStatus;
     await exam.save();
 
+    try {
+        await syncExamCalendarEvents(exam, schoolId);
+    } catch (error) {
+        exam.status = previousStatus;
+        await exam.save();
+        throw error;
+    }
+
     if (newStatus === "PUBLISHED") {
-        await createExamCalendarEvents(exam, schoolId);
         try {
             await createExamNoticeBroadcast(schoolId, exam, user, { isUpdate: false });
         } catch (noticeError) {
             logger.error(`Failed to broadcast exam publish notice for ${examId}: ${noticeError.message}`);
         }
-    }
-    if (newStatus === "COMPLETED") {
-        await deleteExamCalendarEvents(exam);
     }
 
     logger.info(`Exam status changed: ${examId} → ${newStatus}`);

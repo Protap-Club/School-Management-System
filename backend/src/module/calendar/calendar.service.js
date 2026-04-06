@@ -222,12 +222,7 @@ export const fetchCalendarEvents = async (queryData, user) => {
         const startDate = new Date(e.start);
         const endDate = new Date(e.end);
         
-        // 1. Hide draft exams from students (visible only to teachers/admins)
-        if (userRole === USER_ROLES.STUDENT && e.type === "exam" && e.examStatus === "DRAFT") {
-            return false;
-        }
-
-        // 2. Automatic removal of past exams from the calendar view (as requested)
+        // Automatic removal of past exams from the calendar view (as requested)
         if (e.type === "exam" && endDate < now) {
             return false;
         }
