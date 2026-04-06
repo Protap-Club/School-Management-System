@@ -1,5 +1,4 @@
 import express from "express";
-import rateLimit from "express-rate-limit";
 import authRoutes from "../module/auth/auth.route.js";
 import userRoutes from "../module/user/user.route.js";
 import schoolRoutes from "../module/school/school.route.js";
@@ -18,28 +17,11 @@ import extractSchoolId from "../middlewares/school.middleware.js";
 
 const router = express.Router();
 
-// Rate limiters — brute-force protection
-const authLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000,   // 15 minutes
-    max: 20,                     // 20 attempts per window per IP
-    standardHeaders: true,       // Return rate limit info in RateLimit-* headers
-    legacyHeaders: false,
-    message: { success: false, error: { message: 'Too many requests, please try again later.', code: 'RATE_LIMIT_EXCEEDED' } },
-});
-
-const generalLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000,
-    max: 200,
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: { success: false, error: { message: 'Too many requests, please try again later.', code: 'RATE_LIMIT_EXCEEDED' } },
-});
-
-// Apply general rate limiter to all API routes
-router.use(generalLimiter);
-
 // Public
-router.use("/auth", authLimiter, authRoutes);
+// Auth routes already have dedicated login/refresh rate limiters inside auth.route.js.
+// Avoid stacking extra auth/general limiters here because that makes refresh/login
+// flows hit multiple independent 429 thresholds for the same request.
+router.use("/auth", authRoutes);
 
 // NFC device endpoint — uses its own device-key auth, must come before global checkAuth
 router.use("/attendance", attendanceRoutes);
