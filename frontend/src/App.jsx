@@ -9,7 +9,7 @@ import UpdatePassword from './pages/UpdatePassword';
 
 function App() {
     // Destructure lazy-loaded page components
-    const { Login, Dashboard, UsersPage, Settings, Attendance, Notice, TimetablePage, Calendar, Notifications, Fees, Examination, Assignments, Result } = pages;
+    const { Login, Dashboard, UsersPage, Settings, Attendance, Notice, TimetablePage, Calendar, Notifications, Profile, Fees, Examination, Assignments, Result } = pages;
 
     const rolePathMap = {
         super_admin: 'superadmin',
@@ -88,6 +88,15 @@ function App() {
                         element={
                             <ProtectedRoute allowedRoles={['super_admin', 'admin', 'teacher']}>
                                 <Notifications />
+                            </ProtectedRoute>
+                        }
+                    />
+
+                    <Route
+                        path="/profile"
+                        element={
+                            <ProtectedRoute allowedRoles={['super_admin', 'admin', 'teacher']}>
+                                <Profile />
                             </ProtectedRoute>
                         }
                     />

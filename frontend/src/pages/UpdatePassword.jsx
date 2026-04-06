@@ -3,8 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { FaLock, FaEye, FaEyeSlash } from 'react-icons/fa';
 import { useMutation } from '@tanstack/react-query';
 import { authApi } from '../features/auth/api/api';
+import { useAuth } from '../features/auth';
 
 const UpdatePassword = () => {
+    const { user, loading: authLoading } = useAuth();
     const [currentPassword, setCurrentPassword] = useState('');
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
@@ -102,6 +104,15 @@ const UpdatePassword = () => {
                 )}
 
                 <form onSubmit={handleSubmit} className="space-y-5">
+                    {authLoading && (
+                        <div className="p-3 rounded-lg bg-blue-50 text-blue-600 text-sm flex items-center gap-2">
+                            <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            Restoring session...
+                        </div>
+                    )}
                     <div className="relative">
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                             <FaLock className="text-gray-400" />
@@ -164,7 +175,7 @@ const UpdatePassword = () => {
 
                     <button
                         type="submit"
-                        disabled={updatePasswordMutation.isPending}
+                        disabled={updatePasswordMutation.isPending || authLoading}
                         className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-xl shadow-lg shadow-blue-600/30 transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed disabled:transform-none"
                     >
                         {updatePasswordMutation.isPending ? (
