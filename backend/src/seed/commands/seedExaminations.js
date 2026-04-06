@@ -52,13 +52,17 @@ const buildDateTime = (dateValue, timeValue) => {
   return date;
 };
 
-const buildSchedule = (teacherProfile, template, teacherIdx, classIdx, teacherId, classRef) => {
-  const subjects = classRef.subjects;
+const buildSchedule = (template, classIdx, classRef, subjects, assignmentMap, adminId) => {
+  const classKey = `${classRef.standard}-${classRef.section}`.toUpperCase();
   const totalSubjects = Math.min(template.subjectsPerExam || 1, subjects.length);
 
   return Array.from({ length: totalSubjects }, (_, subjectIndex) => {
-    const examDate = addSchoolDays(template.daysFromNow + teacherIdx + classIdx + subjectIndex);
-    const subject = subjects[(teacherIdx + classIdx + subjectIndex) % subjects.length];
+    // Generate dates based on class + subject offset
+    const examDate = addSchoolDays(template.daysFromNow + classIdx + subjectIndex);
+    const subject = subjects[subjectIndex % subjects.length];
+    
+    // Find the actual teacher handling this subject for this class
+    const teacherId = assignmentMap.get(`${classKey}-${subject}`) || adminId;
 
     return {
       subject,
@@ -92,6 +96,8 @@ const buildCalendarEvents = (exam, schoolId) =>
 const seedExaminations = async () => {
   logger.info("=== Seeding Examinations ===");
 
+  const { getSchoolClassSections, getSubjectsForStandard } = await import("../lib/generatedAcademicSeed.js");
+
   for (const schoolDef of schoolsDef) {
     const code = schoolDef.code;
     const school = await School.findOne({ code });
@@ -109,7 +115,6 @@ const seedExaminations = async () => {
       sourceType: "exam",
     });
 
-    // ✅ 🔥 FIX: USE TEACHER PROFILES TO GET CLASS ASSIGNMENTS
     const teacherProfiles = await TeacherProfile.find({
       schoolId: school._id,
     }).populate("userId").lean();
@@ -123,39 +128,58 @@ const seedExaminations = async () => {
       logger.warn(`[${code}] No admin found. Skipping examinations.`);
       continue;
     }
+    
+    // Map: "standard-section-subject" -> teacherUserId
+    const assignmentMap = new Map();
+    teacherProfiles.forEach(profile => {
+      profile.assignedClasses?.forEach(ac => {
+        const classKey = `${ac.standard}-${ac.section}`.toUpperCase();
+        ac.subjects?.forEach(sub => {
+          assignmentMap.set(`${classKey}-${sub}`, profile.userId?._id);
+        });
+      });
+    });
 
     const examRecords = [];
+    const classSections = getSchoolClassSections(code);
 
-    teacherProfiles.forEach((profile, teacherIdx) => {
-      if (!profile.assignedClasses?.length) return;
+    classSections.forEach((classRef, classIdx) => {
+      if (examRecords.length >= 100) return;
 
-      const teacherUser = profile.userId;
-      if (!teacherUser) return;
+      const classLabel = `${classRef.standard}-${classRef.section}`;
+      const classKey = classLabel.toUpperCase();
+      const subjects = getSubjectsForStandard(classRef.standard);
+      const templates = [examData.classTestTemplate, examData.termExamTemplate];
 
-      // Iterate through every class this teacher is assigned to
-      profile.assignedClasses.forEach((classRef, classIdx) => {
-        const classLabel = `${classRef.standard}-${classRef.section}`;
-        const templates = [examData.classTestTemplate, examData.termExamTemplate];
+      templates.forEach((template) => {
+        if (examRecords.length >= 100) return;
 
-        templates.forEach((template) => {
-          const createdBy = template.examType === "CLASS_TEST" ? teacherUser._id : admin._id;
-          const createdByRole = template.examType === "CLASS_TEST" ? "teacher" : admin.role;
+        // Try to find a teacher for this class to serve as creator for class tests.
+        // We select the teacher of the first subject.
+        const defaultSubject = subjects[0];
+        const teacherUserId = assignmentMap.get(`${classKey}-${defaultSubject}`);
 
-          examRecords.push({
-            schoolId: school._id,
-            name: fillTemplate(template.nameTemplate, { classLabel }),
-            examType: template.examType,
-            category: template.category,
-            academicYear: getAcademicYear(),
-            standard: classRef.standard,
-            section: classRef.section,
-            description: fillTemplate(template.descriptionTemplate, { classLabel }),
-            schedule: buildSchedule(profile, template, teacherIdx, classIdx, teacherUser._id, classRef),
-            status: template.status,
-            createdBy,
-            createdByRole,
-            isActive: true,
-          });
+        if (template.examType === "CLASS_TEST" && !teacherUserId) {
+          return; // skip if we can't tie it to a teacher
+        }
+
+        const createdBy = template.examType === "CLASS_TEST" ? teacherUserId : admin._id;
+        const createdByRole = template.examType === "CLASS_TEST" ? "teacher" : admin.role;
+
+        examRecords.push({
+          schoolId: school._id,
+          name: fillTemplate(template.nameTemplate, { classLabel }),
+          examType: template.examType,
+          category: template.category,
+          academicYear: getAcademicYear(),
+          standard: classRef.standard,
+          section: classRef.section,
+          description: fillTemplate(template.descriptionTemplate, { classLabel }),
+          schedule: buildSchedule(template, classIdx, classRef, subjects, assignmentMap, admin._id),
+          status: template.status,
+          createdBy,
+          createdByRole,
+          isActive: true,
         });
       });
     });

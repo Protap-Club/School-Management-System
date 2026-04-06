@@ -32,7 +32,7 @@ export const createAssignment = asyncHandler(async (req, res) => {
         data: result,
     });
 
-    logger.info(`Assignment created by ${req.user._id}: ${result._id}`);
+    logger.info(`Assignment created by ${req.user._id}: ${result.createdCount} assignment(s)`);
 });
 
 // GET /assignments/meta/metadata

@@ -27,6 +27,8 @@ export const createUserSchema = z.object({
         fatherContact: z.string().optional(),
         motherName: z.string().optional(),
         motherContact: z.string().optional(),
+        guardianName: z.string().optional(),
+        guardianContact: z.string().optional(),
         address: z.string().optional(),
 
         // Teacher profile fields
@@ -86,6 +88,15 @@ export const getUsersSchema = z.object({
         // Server-side search (e.g., admin user search in notice flows)
         // keeps large user lists off the client while still allowing lookup.
         search: z.string().optional(),
+    }),
+});
+
+// ─── Get Subject Teacher (query params) ─────────────────────────────
+export const getSubjectTeacherSchema = z.object({
+    query: z.object({
+        standard: z.string().min(1, 'Standard is required'),
+        section: z.string().min(1, 'Section is required'),
+        subject: z.string().min(1, 'Subject is required'),
     }),
 });
 

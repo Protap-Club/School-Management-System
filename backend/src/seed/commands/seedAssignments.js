@@ -25,6 +25,9 @@ const addDays = (days) => {
 const seedAssignments = async () => {
   logger.info("=== Seeding Assignments ===");
 
+  const { getSchoolClassSections, getSubjectsForStandard } = await import("../lib/generatedAcademicSeed.js");
+  const TeacherProfile = (await import("../../module/user/model/TeacherProfile.model.js")).default;
+
   for (const schoolDef of schoolsDef) {
     const code = schoolDef.code;
     const school = await School.findOne({ code });
@@ -36,48 +39,63 @@ const seedAssignments = async () => {
     await Submission.deleteMany({ schoolId: school._id });
     await Assignment.deleteMany({ schoolId: school._id });
 
-    const teachers = buildTeacherSeedData(code);
-    const teacherUsers = await User.find({
-      schoolId: school._id,
-      email: { $in: teachers.map((teacher) => teacher.email) },
-    }).select("_id email");
-
-    const teacherIdByEmail = new Map(teacherUsers.map((teacher) => [teacher.email, teacher._id]));
-    const records = [];
-
-    teachers.forEach((teacher, teacherIndex) => {
-      const createdBy = teacherIdByEmail.get(teacher.email);
-      if (!createdBy) {
-        logger.warn(`[${code}] Teacher not found for assignments: ${teacher.email}`);
-        return;
-      }
-
-      // Iterate through every class assigned to this teacher
-      teacher.assignedClasses.forEach((assignedClassRef, classIdx) => {
-        const { standard, section, subjects } = assignedClassRef;
-        const classLabel = `${standard}-${section}`;
-
-        // Create assignment for each template
-        assignmentData.templates.forEach((template, templateIndex) => {
-          // Select subject from the teacher's specialization group for this specific class
-          const subject = subjects[(teacherIndex + classIdx + templateIndex) % subjects.length];
-
-          records.push({
-            schoolId: school._id,
-            createdBy,
-            title: fillTemplate(template.titleTemplate, { classLabel, subject }),
-            description: fillTemplate(template.descriptionTemplate, { classLabel, subject }),
-            subject,
-            standard: String(standard),
-            section: String(section),
-            dueDate: addDays(template.dueInDays + (teacherIndex % 3)),
-            requiresSubmission: Boolean(template.requiresSubmission),
-            status: "active",
-            attachments: [],
-          });
+    // Fetch teacher profiles to know who teaches what
+    const teacherProfiles = await TeacherProfile.find({ schoolId: school._id }).lean();
+    
+    // Map: "standard-section-subject" -> teacherUserId
+    const assignmentMap = new Map();
+    teacherProfiles.forEach(profile => {
+      profile.assignedClasses?.forEach(ac => {
+        const classKey = `${ac.standard}-${ac.section}`.toUpperCase();
+        ac.subjects?.forEach(sub => {
+          assignmentMap.set(`${classKey}-${sub}`, profile.userId);
         });
       });
     });
+
+    const classSections = getSchoolClassSections(code);
+    const records = [];
+
+    // Iterate through classes instead of teachers to prevent explosion
+    for (const cls of classSections) {
+      if (records.length >= 100) break; // stay within max limit
+
+      const classLabel = `${cls.standard}-${cls.section}`;
+      const classKey = classLabel.toUpperCase();
+      const subjects = getSubjectsForStandard(cls.standard);
+
+      // Create exactly one or two assignments per class to keep it lean
+      const numAssignmentsToCreate = Math.min(2, assignmentData.templates.length);
+
+      for (let i = 0; i < numAssignmentsToCreate; i++) {
+        if (records.length >= 100) break;
+
+        const template = assignmentData.templates[i];
+        // Pick a subject for the assignment (rotate based on index)
+        const subject = subjects[i % subjects.length];
+        
+        // Find the teacher assigned to this subject for this class
+        const createdBy = assignmentMap.get(`${classKey}-${subject}`);
+
+        if (!createdBy) {
+          continue; // skip if no teacher is assigned to this subject for this class
+        }
+
+        records.push({
+          schoolId: school._id,
+          createdBy,
+          title: fillTemplate(template.titleTemplate, { classLabel, subject }),
+          description: fillTemplate(template.descriptionTemplate, { classLabel, subject }),
+          subject,
+          standard: String(cls.standard),
+          section: String(cls.section),
+          dueDate: addDays(template.dueInDays + i),
+          requiresSubmission: Boolean(template.requiresSubmission),
+          status: "active",
+          attachments: [],
+        });
+      }
+    }
 
     if (records.length) {
       await Assignment.insertMany(records, { ordered: false });

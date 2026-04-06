@@ -212,12 +212,26 @@ export const fetchCalendarEvents = async (queryData, user) => {
         .limit(parsedLimit)   // 0 = no limit (web default)
         .lean();
 
-    // ── Sunday exclusion ─────────────────────────────────────────────────────
-    // Single-day events that land exactly on Sunday are excluded.
-    // Multi-day events that merely span a Sunday are kept.
+    // ── Sunday exclusion & Past Exam Filtering ──────────────────────────────
+    // 1. Single-day events that land exactly on Sunday are excluded.
+    // 2. Exams that have already passed their end date are excluded (as requested).
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+
     return events.filter((e) => {
         const startDate = new Date(e.start);
         const endDate = new Date(e.end);
+        
+        // 1. Hide draft exams from students (visible only to teachers/admins)
+        if (userRole === USER_ROLES.STUDENT && e.type === "exam" && e.examStatus === "DRAFT") {
+            return false;
+        }
+
+        // 2. Automatic removal of past exams from the calendar view (as requested)
+        if (e.type === "exam" && endDate < now) {
+            return false;
+        }
+
         const isSameDay = startDate.toDateString() === endDate.toDateString();
         return !(isSameDay && startDate.getDay() === 0);
     });

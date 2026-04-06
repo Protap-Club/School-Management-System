@@ -125,8 +125,8 @@ export const AssignmentTable = ({
                                             {assignment.description || 'No description'}
                                         </div>
                                         <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide">
-                                            <span className={`rounded-full px-2 py-0.5 ${assignment.requiresSubmission ? 'bg-amber-50 text-amber-700' : 'bg-slate-100 text-slate-500'}`}>
-                                                {assignment.requiresSubmission ? 'Submission' : 'No Upload'}
+                                            <span className="rounded-full bg-amber-50 px-2 py-0.5 text-amber-700">
+                                                Submission Required
                                             </span>
                                             <span className="rounded-full bg-slate-100 px-2 py-0.5 text-slate-500">
                                                 {assignment.attachmentsCount || 0} File{assignment.attachmentsCount === 1 ? '' : 's'}
@@ -137,7 +137,10 @@ export const AssignmentTable = ({
                                         </div>
                                     </TableCell>
                                     <TableCell className="px-4 py-3.5 text-sm font-medium text-slate-600">
-                                        {assignment.subject}
+                                        <div>{assignment.subject}</div>
+                                        <div className="mt-1 text-xs text-slate-400">
+                                            {assignment.assignedTeacher?.name || assignment.createdBy?.name || 'Staff'}
+                                        </div>
                                     </TableCell>
                                     <TableCell className="px-4 py-3.5">
                                         <div className="inline-flex items-center justify-center rounded-md border border-indigo-100 bg-indigo-50 px-2 py-0.5 text-[11px] font-bold uppercase tracking-tight text-indigo-700">

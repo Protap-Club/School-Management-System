@@ -82,11 +82,12 @@ const INITIAL_FORM = {
 const buildClassKey = ({ standard, section } = {}) =>
     `${String(standard || '').trim()}::${String(section || '').trim().toUpperCase()}`;
 
-const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
+const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess, initialData }) => {
     const { user } = useAuth();
     const navigate = useNavigate();
     const isSuperAdmin = user?.role === 'super_admin';
     const isAdmin = user?.role === 'admin';
+    const isTeacher = user?.role === 'teacher';
     const rolePrefix = useMemo(
         () => isSuperAdmin ? 'superadmin' : (isAdmin ? 'admin' : (user?.role || 'student')),
         [isSuperAdmin, isAdmin, user?.role]
@@ -118,15 +119,35 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
         }
         return null;
     }, [formData.section, formData.standard, occupiedTeacherMap, roleToAdd]);
-    const sections = formData.standard ? getSectionsForStandard(formData.standard) : allUniqueSections;
     const teacherAssignmentLoading = classesLoading || teachersQuery.isLoading;
+
+    // Augment standards/sections if we are in "Pending Class" mode
+    const finalStandards = useMemo(() => {
+        if (initialData?.isPending && initialData.standard && !standards.includes(initialData.standard)) {
+            return [...standards, initialData.standard];
+        }
+        return standards;
+    }, [standards, initialData]);
+
+    const finalSections = useMemo(() => {
+        const baseSections = formData.standard ? getSectionsForStandard(formData.standard) : allUniqueSections;
+        if (initialData?.isPending && formData.standard === initialData.standard && !baseSections.includes(initialData.section)) {
+            return [...baseSections, initialData.section];
+        }
+        return baseSections;
+    }, [formData.standard, getSectionsForStandard, allUniqueSections, initialData]);
 
     const roleLabel = roleToAdd?.charAt(0).toUpperCase() + roleToAdd?.slice(1);
 
     useEffect(() => {
         if (!isOpen) return;
-        // Reset form on open
-        setFormData({ ...INITIAL_FORM, schoolId: '' });
+        // Reset form on open, but preserve initialData if provided (for class/section)
+        setFormData({ 
+            ...INITIAL_FORM, 
+            schoolId: '',
+            ...(initialData?.standard ? { standard: initialData.standard } : {}),
+            ...(initialData?.section ? { section: initialData.section } : {})
+        });
         setError('');
         setActiveGuardianTab('parents');
 
@@ -159,6 +180,23 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
         setLoading(true);
         setError('');
         try {
+            // DEFERRED CLASS CREATION: If this class doesn't exist yet, create it now!
+            if (initialData?.isPending && formData.standard === initialData.standard && formData.section === initialData.section) {
+                try {
+                    await api.post('/school/classes', { 
+                        standard: formData.standard, 
+                        section: formData.section 
+                    });
+                    // Note: We don't necessarily need to refresh the global list here 
+                    // because we are navigating away or the student creation will trigger a refresh.
+                } catch (err) {
+                    // If it already exists (e.g. concurrent action), we can ignore and proceed
+                    if (err.response?.status !== 400 && err.response?.status !== 409) {
+                        throw new Error(err.response?.data?.message || 'Failed to initialize class');
+                    }
+                }
+            }
+
             const fullName = `${formData.firstName}${formData.middleName ? ' ' + formData.middleName : ''} ${formData.lastName}`.trim();
 
             const payload = {
@@ -205,6 +243,25 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
                     setError('A student must have at least one parent or guardian detail provided');
                     setLoading(false);
                     return;
+                }
+
+                // New: Requirement for Admin/Super Admin to provide contact number if name is provided
+                if (!isTeacher) {
+                    if (formData.fatherName?.trim() && !formData.fatherContact?.trim()) {
+                        setError("Father's contact number is required.");
+                        setLoading(false);
+                        return;
+                    }
+                    if (formData.motherName?.trim() && !formData.motherContact?.trim()) {
+                        setError("Mother's contact number is required.");
+                        setLoading(false);
+                        return;
+                    }
+                    if (formData.guardianName?.trim() && !formData.guardianContact?.trim()) {
+                        setError("Guardian's contact number is required.");
+                        setLoading(false);
+                        return;
+                    }
                 }
 
                 const studentFields = [
@@ -290,14 +347,14 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
                                     <SelectField
                                         label="Primary Standard" name="standard" value={formData.standard}
                                         onChange={handleChange} required
-                                        options={standards} placeholder="Choose Standard"
+                                        options={finalStandards} placeholder="Choose Standard"
                                         loading={classesLoading}
                                         disabled={classesLoading}
                                     />
                                     <SelectField
                                         label="Primary Section" name="section" value={formData.section}
                                         onChange={handleChange} required
-                                        options={sections} placeholder="Choose Section"
+                                        options={finalSections} placeholder="Choose Section"
                                         loading={classesLoading}
                                         disabled={classesLoading || !formData.standard}
                                     />
@@ -357,14 +414,14 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
                                     <SelectField
                                         label="Standard" name="standard" value={formData.standard}
                                         onChange={handleChange} required
-                                        options={standards}
+                                        options={finalStandards}
                                         loading={classesLoading}
                                         disabled={classesLoading}
                                     />
                                     <SelectField
                                         label="Section" name="section" value={formData.section}
                                         onChange={handleChange} required
-                                        options={sections}
+                                        options={finalSections}
                                         loading={classesLoading}
                                         disabled={classesLoading || !formData.standard}
                                     />
@@ -396,7 +453,15 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
                                                 <h5 className={`text-[10px] font-black ${p.textColor} uppercase tracking-widest`}>{p.label}</h5>
                                                 <div className="space-y-4">
                                                     <InputField label="Full Name" name={p.nameField} value={formData[p.nameField]} onChange={handleChange} />
-                                                    <InputField label="Contact No." name={p.contactField} value={formData[p.contactField]} onChange={handleChange} isNumeric maxLength={10} />
+                                                    <InputField 
+                                                        label={`Contact No. ${isTeacher ? '(optional)' : ''}`} 
+                                                        name={p.contactField} 
+                                                        value={formData[p.contactField]} 
+                                                        onChange={handleChange} 
+                                                        isNumeric 
+                                                        maxLength={10}
+                                                        required={!isTeacher && Boolean(formData[p.nameField]?.trim())}
+                                                    />
                                                 </div>
                                             </div>
                                         ))}
@@ -406,7 +471,15 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess }) => {
                                         <h5 className={`text-[10px] font-black ${GUARDIAN_SECTION.textColor} uppercase tracking-widest`}>{GUARDIAN_SECTION.label}</h5>
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                             <InputField label="Full Name" name={GUARDIAN_SECTION.nameField} value={formData[GUARDIAN_SECTION.nameField]} onChange={handleChange} />
-                                            <InputField label="Contact No." name={GUARDIAN_SECTION.contactField} value={formData[GUARDIAN_SECTION.contactField]} onChange={handleChange} isNumeric maxLength={10} />
+                                            <InputField 
+                                                label={`Contact No. ${isTeacher ? '(optional)' : ''}`} 
+                                                name={GUARDIAN_SECTION.contactField} 
+                                                value={formData[GUARDIAN_SECTION.contactField]} 
+                                                onChange={handleChange} 
+                                                isNumeric 
+                                                maxLength={10}
+                                                required={!isTeacher && Boolean(formData[GUARDIAN_SECTION.nameField]?.trim())}
+                                            />
                                         </div>
                                     </div>
                                 )}
