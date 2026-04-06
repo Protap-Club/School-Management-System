@@ -14,7 +14,7 @@ export const useNoticeHandlers = () => {
     const isAdmin = ['admin', 'super_admin'].includes(currentUser?.role);
     const isTeacher = currentUser?.role === 'teacher';
     const fileInputRef = useRef(null);
-    const PAGE_SIZE = 12;
+    const PAGE_SIZE = 25;
 
     // Compose state
     const [activeTab, setActiveTab] = useState('compose');
