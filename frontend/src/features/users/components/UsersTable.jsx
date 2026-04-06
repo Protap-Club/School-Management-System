@@ -9,46 +9,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-
-const ITEMS_PER_PAGE = 25;
-
-const PaginationControls = ({ currentPage, totalItems, onPageChange }) => {
-    const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
-    if (totalPages <= 1) return null;
-    const start = currentPage * ITEMS_PER_PAGE + 1;
-    const end = Math.min((currentPage + 1) * ITEMS_PER_PAGE, totalItems);
-    return (
-        <div className="px-4 py-3 border-t border-gray-100 flex flex-col sm:flex-row justify-between items-center gap-3 bg-gray-50/50">
-            <div className="text-xs text-gray-500">
-                Showing <span className="font-medium text-gray-700">{start}</span> to <span className="font-medium text-gray-700">{end}</span> of <span className="font-medium text-gray-700">{totalItems}</span>
-            </div>
-            <div className="flex items-center gap-1">
-                <button onClick={() => onPageChange(Math.max(0, currentPage - 1))} disabled={currentPage === 0}
-                    className="px-2.5 py-1.5 text-xs text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:hover:bg-transparent rounded-md transition-colors font-medium">
-                    <FaChevronLeft size={10} />
-                </button>
-                {[...Array(Math.min(5, totalPages))].map((_, i) => {
-                    let pageNum;
-                    if (totalPages <= 5) pageNum = i;
-                    else if (currentPage < 3) pageNum = i;
-                    else if (currentPage > totalPages - 4) pageNum = totalPages - 5 + i;
-                    else pageNum = currentPage - 2 + i;
-                    if (pageNum >= totalPages) return null;
-                    return (
-                        <button key={pageNum} onClick={() => onPageChange(pageNum)}
-                            className={`min-w-[28px] h-7 px-2 flex items-center justify-center rounded-md text-xs font-medium transition-colors ${currentPage === pageNum ? 'bg-gray-900 text-white' : 'text-gray-600 hover:bg-gray-100'}`}>
-                            {pageNum + 1}
-                        </button>
-                    );
-                })}
-                <button onClick={() => onPageChange(Math.min(totalPages - 1, currentPage + 1))} disabled={currentPage >= totalPages - 1}
-                    className="px-2.5 py-1.5 text-xs text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:hover:bg-transparent rounded-md transition-colors font-medium">
-                    <FaChevronRight size={10} />
-                </button>
-            </div>
-        </div>
-    );
-};
+import { PaginationControls } from '@/components/ui/PaginationControls';
 
 export const UsersTable = ({
     users,
@@ -72,7 +33,9 @@ export const UsersTable = ({
     roleLabels,
     currentPage = 0,
     totalItems = 0,
+    pageSize = 25,
     onPageChange,
+    onPageSizeChange,
 }) => {
     if (loading) {
         return (
@@ -250,13 +213,13 @@ export const UsersTable = ({
                     </TableBody>
                 </Table>
             </div>
-            {onPageChange && (
-                <PaginationControls
-                    currentPage={currentPage}
-                    totalItems={totalItems}
-                    onPageChange={onPageChange}
-                />
-            )}
+            <PaginationControls
+                currentPage={currentPage}
+                totalItems={totalItems}
+                pageSize={pageSize}
+                onPageChange={onPageChange}
+                onPageSizeChange={onPageSizeChange}
+            />
         </>
     );
 };

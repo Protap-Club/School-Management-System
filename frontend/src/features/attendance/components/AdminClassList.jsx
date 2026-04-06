@@ -26,6 +26,7 @@ const AdminClassList = ({
     teachers = [],
     onReplaceClassTeacher,
     replaceTeacherPending = false,
+    onPageSizeChange,
 }) => {
     const navigate = useNavigate();
     const { user: currentUser } = useAuth();
@@ -257,6 +258,7 @@ const AdminClassList = ({
                                     ).length}
                                     itemsPerPage={itemsPerPage}
                                     onPageChange={(p) => setClassPage(group.id, p)}
+                                    onPageSizeChange={onPageSizeChange}
                                 />
                             </div>
                         </div>
