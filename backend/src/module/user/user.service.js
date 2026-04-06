@@ -914,12 +914,29 @@ export const updateTeacherProfile = async (creator, userId, data) => {
 
 // UPDATE USER (admin/super admin)
 export const updateUser = async (creator, userId, payload = {}) => {
-    if (![USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN].includes(creator.role)) {
-        throw new ForbiddenError("Only admins can update users");
-    }
-
     const user = await User.findOne({ _id: userId, schoolId: creator.schoolId });
     if (!user) throw new NotFoundError("User not found");
+
+    // Allow Teachers to update Students if they are in their assigned classes
+    if (![USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN].includes(creator.role)) {
+        if (creator.role === USER_ROLES.TEACHER && user.role === USER_ROLES.STUDENT) {
+            const assignedClasses = await getTeacherAssignedClasses(creator._id);
+            const studentProfile = await StudentProfile.findOne({ userId: user._id, schoolId: creator.schoolId });
+            
+            if (!studentProfile) throw new NotFoundError("Student profile not found");
+
+            const isAssigned = assignedClasses.some(cls =>
+                cls.standard === studentProfile.standard &&
+                cls.section === studentProfile.section
+            );
+            
+            if (!isAssigned) {
+                throw new ForbiddenError("This student is not in your assigned classes");
+            }
+        } else {
+            throw new ForbiddenError("Only admins can update users");
+        }
+    }
 
     if (!canManageRole(creator.role, user.role)) {
         throw new ForbiddenError(`You cannot update a user with role '${user.role}'.`);
@@ -974,6 +991,8 @@ export const updateUser = async (creator, userId, payload = {}) => {
             applyUpdate("fatherContact", profileInput.fatherContact);
             applyUpdate("motherName", profileInput.motherName);
             applyUpdate("motherContact", profileInput.motherContact);
+            applyUpdate("guardianName", profileInput.guardianName);
+            applyUpdate("guardianContact", profileInput.guardianContact);
             applyUpdate("address", profileInput.address);
 
             if (Object.prototype.hasOwnProperty.call(classPayload, "standard")) {

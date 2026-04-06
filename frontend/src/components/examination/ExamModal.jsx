@@ -273,7 +273,7 @@ const ExamModal = ({ isOpen, onClose, onSubmit, editData, isLoading, userRole, u
             } else {
                 // Role-based default exam type and class
                 if (isTeacher) {
-                    base.examType = 'CLASS_TEST';
+                    base.examType = 'TERM_EXAM'; // Default to Term Exam to feel more like "scheduling"
                     base.standard = '';
                     base.section = '';
                 } else if (isAdmin) {
@@ -514,35 +514,19 @@ const ExamModal = ({ isOpen, onClose, onSubmit, editData, isLoading, userRole, u
                                             {errors.academicYear && <p className="text-red-500 text-[11px] font-medium mt-1.5 ml-1">{errors.academicYear}</p>}
                                         </div>
 
-                                        {!isTeacher && (
+                                        {(isTeacher || !isEdit && !isAdmin) && (
                                             <div>
                                                 <label className={labelClasses}>Exam Type *</label>
                                                 <select
                                                     value={form.examType}
                                                     onChange={(e) => handleChange('examType', e.target.value)}
                                                     className={inputClasses('examType')}
-                                                    disabled={isEdit || isAdmin}
                                                 >
                                                     <option value="">Select Type</option>
                                                     <option value="TERM_EXAM">Term Exam (Formal)</option>
                                                     <option value="CLASS_TEST">Class Test (Informal)</option>
                                                 </select>
                                                 {errors.examType && <p className="text-red-500 text-[11px] font-medium mt-1.5 ml-1">{errors.examType}</p>}
-                                                {(isEdit || isAdmin) && (
-                                                    <p className="text-amber-600 text-[10px] mt-1 italic">
-                                                        Exam type is fixed for existing records and admins.
-                                                    </p>
-                                                )}
-                                            </div>
-                                        )}
-
-                                        {isTeacher && (
-                                            <div>
-                                                <label className={labelClasses}>Exam Type</label>
-                                                <div className={`${inputClasses('examType')} flex items-center bg-slate-50 text-slate-700`}>
-                                                    <span className="text-[11px] font-semibold text-slate-500 mr-2">Fixed:</span>
-                                                    <span className="text-sm font-medium">Class Test (your class only)</span>
-                                                </div>
                                             </div>
                                         )}
 

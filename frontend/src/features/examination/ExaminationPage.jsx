@@ -472,7 +472,11 @@ const ExaminationPage = () => {
                             >
                               <FaEye size={18} />
                             </button>
-                            {(isAdmin || (isTeacher && String(exam.createdBy?._id || exam.createdBy) === String(user?._id))) && (
+                            {(isAdmin || (isTeacher && (
+                              String(exam.createdBy?._id || exam.createdBy) === String(user?._id) ||
+                              availableStandards.includes(String(exam.standard)) && 
+                              (!exam.section || availableSections.includes(String(exam.section)))
+                            ))) && (
                               <>
                                 {exam.status !== 'COMPLETED' && activeTab !== 'all' && (
                                   <button

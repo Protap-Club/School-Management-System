@@ -91,7 +91,7 @@ router.patch(
 router.patch(
     "/:id",
     checkWebOnly,
-    checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN]),
+    checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN, USER_ROLES.TEACHER]),
     validate(updateUserSchema),
     updateUser
 );

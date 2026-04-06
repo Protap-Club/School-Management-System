@@ -27,6 +27,8 @@ export const createUserSchema = z.object({
         fatherContact: z.string().optional(),
         motherName: z.string().optional(),
         motherContact: z.string().optional(),
+        guardianName: z.string().optional(),
+        guardianContact: z.string().optional(),
         address: z.string().optional(),
 
         // Teacher profile fields

@@ -1,5 +1,6 @@
 import React, { useState, useRef, useMemo, useCallback, useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import { useLocation } from 'react-router-dom';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import AddUserModal from './components/AddUserModal';
 import UserDetailModal from './components/UserDetailModal';
@@ -52,6 +53,7 @@ const MODAL_OVERLAY = 'modal-overlay fixed inset-0 bg-black/40 backdrop-blur-sm 
 
 const UsersPage = () => {
     const { user: currentUser } = useAuth();
+    const location = useLocation();
     const dropdownRef = useRef(null);
     const sortMenuRef = useRef(null);
 
@@ -112,6 +114,14 @@ const UsersPage = () => {
     }, [usersList, debouncedSearch, sortBy]);
 
     useEffect(() => { if (!selectionMode) setSelectedUsers([]); }, [selectionMode]);
+
+    useEffect(() => {
+        if (location.state?.autoOpenAddModal) {
+            setActiveModal(location.state.autoOpenAddModal);
+            // Clear state to prevent re-opening on refresh
+            window.history.replaceState({}, document.title);
+        }
+    }, [location.state]);
 
     // Handlers
     const exitSelectionMode = useCallback(() => { setSelectionMode(false); setSelectedUsers([]); }, []);
@@ -275,6 +285,7 @@ const UsersPage = () => {
                 isOpen={!!activeModal}
                 onClose={() => setActiveModal(null)}
                 roleToAdd={activeModal}
+                initialData={location.state?.initialClass}
                 onSuccess={() => showMessage('success', 'User created successfully')}
             />
             <UserDetailModal

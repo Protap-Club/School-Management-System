@@ -65,6 +65,12 @@ const CalendarEventSchema = new mongoose.Schema({
     sourceId: {
         type: mongoose.Schema.Types.ObjectId,
         required: false
+    },
+    // Mirroring status from the Examination module for role-based visibility
+    examStatus: {
+        type: String,
+        enum: ['DRAFT', 'PUBLISHED', 'COMPLETED', 'CANCELLED'],
+        required: false
     }
 }, { timestamps: true });
 

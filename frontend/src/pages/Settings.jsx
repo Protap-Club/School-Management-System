@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import DashboardLayout from '../layouts/DashboardLayout';
 import { useAuth } from '../features/auth';
@@ -29,7 +29,10 @@ import {
     FaTrash,
     FaCog,
     FaTimes,
-    FaLayerGroup
+    FaLayerGroup,
+    FaUserGraduate,
+    FaChalkboardTeacher,
+    FaArrowRight
 } from 'react-icons/fa';
 
 const THEME_COLORS = [
@@ -61,6 +64,7 @@ const sanitizeSectionInput = (value) => value.replace(/[^A-Za-z0-9_]/g, '');
 const Settings = () => {
     const queryClient = useQueryClient();
     const location = useLocation();
+    const navigate = useNavigate();
     const { user: currentUser } = useAuth();
     const { updateTheme, fetchBranding } = useTheme();
     const { refreshFeatures } = useFeatures();
@@ -82,6 +86,8 @@ const Settings = () => {
     const [newStandard, setNewStandard] = useState('');
     const [newSection, setNewSection] = useState('');
     const [newlyCreatedKeys, setNewlyCreatedKeys] = useState(() => new Set());
+    const [showPostCreateModal, setShowPostCreateModal] = useState(false);
+    const [createdClassInfo, setCreatedClassInfo] = useState(null);
     const [deletePrompt, setDeletePrompt] = useState(null);
     const [transferTarget, setTransferTarget] = useState({ standard: '', section: '' });
     const [teacherTransferTarget, setTeacherTransferTarget] = useState({ standard: '', section: '' });
@@ -250,27 +256,15 @@ const Settings = () => {
 
         setSavingClass(true);
         try {
-            const response = await api.post('/school/classes', normalized);
-            const snapshot = response.data?.data;
-
-            if (snapshot) {
-                queryClient.setQueryData(
-                    getSchoolClassesQueryKey(currentSchoolId),
-                    makeSchoolClassesQueryData(snapshot)
-                );
-            }
-
-            setNewlyCreatedKeys((current) => {
-                const next = new Set(current);
-                next.add(makeClassKey(normalized));
-                return next;
-            });
+            // DEFERRED: We no longer create the class in the DB here. 
+            // It will be created when the first student is added via AddUserModal.
+            setCreatedClassInfo({ ...normalized, isPending: true });
+            setShowPostCreateModal(true);
             setNewStandard('');
             setNewSection('');
-            showMessage('success', `Class ${normalized.standard} - ${normalized.section} added successfully`);
-            window.dispatchEvent(new CustomEvent('customClassesUpdated', { detail: snapshot }));
+            // window.dispatchEvent(new CustomEvent('customClassesUpdated', { detail: normalized }));
         } catch (error) {
-            showMessage('error', error?.response?.data?.message || 'Failed to add class-section');
+            showMessage('error', error?.message || 'Unexpected setup error');
         } finally {
             setSavingClass(false);
         }
@@ -588,6 +582,53 @@ const Settings = () => {
                             >
                                 {savingClass ? <ButtonSpinner /> : deleteActionLabel}
                             </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {showPostCreateModal && createdClassInfo && (
+                <div className="fixed inset-0 z-[115] flex items-center justify-center px-4">
+                    <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md animate-fadeIn" />
+                    <div className="relative w-full max-w-md rounded-[2.5rem] bg-white border border-slate-100 shadow-2xl p-8 overflow-hidden animate-scaleUp">
+                        {/* Decorative Background */}
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-50 rounded-full blur-3xl -mr-16 -mt-16 opacity-60" />
+                        
+                        <div className="relative z-10 text-center space-y-6">
+                            <div className="w-20 h-20 bg-emerald-50 rounded-3xl flex items-center justify-center mx-auto transform rotate-3 shadow-sm border border-emerald-100">
+                                <FaCheck className="text-emerald-500 text-3xl" />
+                            </div>
+                            
+                            <div className="space-y-2">
+                                <h3 className="text-2xl font-black text-slate-900 tracking-tight">Class Set!</h3>
+                                <p className="text-slate-500 text-sm leading-relaxed px-4">
+                                    Class <span className="font-bold text-slate-900">{createdClassInfo.standard}-{createdClassInfo.section}</span> requires students. 
+                                    Please add the students now to finalize the setup.
+                                </p>
+                            </div>
+
+                            <div className="grid grid-cols-1 gap-3 pt-2">
+                                <button
+                                    onClick={() => {
+                                        const rolePath = isSuperAdmin ? 'superadmin' : 'admin';
+                                        navigate(`/${rolePath}/users`, { 
+                                            state: { 
+                                                autoOpenAddModal: 'student',
+                                                initialClass: createdClassInfo 
+                                            } 
+                                        });
+                                    }}
+                                    className="group w-full flex items-center justify-between p-4 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold transition-all hover:scale-[1.02] active:scale-95 shadow-lg shadow-emerald-200"
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center">
+                                            <FaUserGraduate size={14} />
+                                        </div>
+                                        <span>Add Students</span>
+                                    </div>
+                                    <FaArrowRight className="opacity-0 group-hover:opacity-100 transition-opacity" />
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
