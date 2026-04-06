@@ -155,3 +155,39 @@ export const logout = async (refreshToken) => {
     }
     return { message: "Logged out successfully" };
 };
+
+// UPDATE PASSWORD (for users with system-generated passwords)
+export const updatePassword = async (userId, currentPassword, newPassword) => {
+    if (!currentPassword || !newPassword) {
+        throw new BadRequestError("Current password and new password are required");
+    }
+
+    if (newPassword.length < 8) {
+        throw new BadRequestError("New password must be at least 8 characters long");
+    }
+
+    const user = await User.findById(userId).select("+password");
+    if (!user) {
+        throw new NotFoundError("User not found");
+    }
+
+    // Verify current password
+    const isMatch = await bcrypt.compare(currentPassword, user.password);
+    if (!isMatch) {
+        throw new UnauthorizedError("Current password is incorrect");
+    }
+
+    // Check if new password is same as old
+    const isSamePassword = await bcrypt.compare(newPassword, user.password);
+    if (isSamePassword) {
+        throw new BadRequestError("New password cannot be the same as the current password");
+    }
+
+    // Update password and reset mustChangePassword flag
+    user.password = newPassword;
+    user.mustChangePassword = false;
+    await user.save();
+
+    logger.info("Password updated successfully", { userId });
+    return { message: "Password updated successfully" };
+};

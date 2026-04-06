@@ -105,3 +105,16 @@ export const checkAuthStatus = (req, res) => {
         user: req.user,
     });
 };
+
+// Update password for users with system-generated passwords
+export const updatePassword = asyncHandler(async (req, res) => {
+    const { currentPassword, newPassword } = req.body;
+    const userId = req.user._id;
+
+    const result = await authService.updatePassword(userId, currentPassword, newPassword);
+
+    res.status(200).json({
+        success: true,
+        message: result.message,
+    });
+});
