@@ -77,6 +77,14 @@ const getDownloadUrl = (attachment) => {
     }
 };
 
+const enrichAttachmentForDownload = (attachment) => {
+    if (!attachment) return attachment;
+    return {
+        ...attachment,
+        secure_url: getDownloadUrl(attachment),
+    };
+};
+
 /**
  * Enriches a notice (or array of notices) by replacing the attachment URL
  * with a fresh CDN download URL (with fl_attachment) so the client can download the file.
@@ -85,14 +93,20 @@ const enrichWithSignedUrls = (notices) => {
     if (Array.isArray(notices)) {
         return notices.map(n => {
             if (n.attachment) {
-                n.attachment = { ...n.attachment, secure_url: getDownloadUrl(n.attachment) };
+                n.attachment = enrichAttachmentForDownload(n.attachment);
+            }
+            if (Array.isArray(n.attachments) && n.attachments.length > 0) {
+                n.attachments = n.attachments.map(enrichAttachmentForDownload);
             }
             return n;
         });
     }
     // Single notice
     if (notices?.attachment) {
-        notices.attachment = { ...notices.attachment, secure_url: getDownloadUrl(notices.attachment) };
+        notices.attachment = enrichAttachmentForDownload(notices.attachment);
+    }
+    if (Array.isArray(notices?.attachments) && notices.attachments.length > 0) {
+        notices.attachments = notices.attachments.map(enrichAttachmentForDownload);
     }
     return notices;
 };
@@ -111,6 +125,81 @@ const normalizeClassRecipient = (recipient) => {
     if (!standard || !section) return null;
 
     return `${standard}-${section}`;
+};
+
+const buildHiddenForQuery = (userId) => ({
+    hiddenFor: { $ne: userId },
+});
+
+const buildReceivedNoticeQuery = async (schoolId, user) => {
+    const userId = user._id;
+    const role = user.role;
+    const hiddenForQuery = buildHiddenForQuery(userId);
+
+    if (role === USER_ROLES.ADMIN || role === USER_ROLES.SUPER_ADMIN) {
+        const teacherUsers = await User.find({ schoolId, role: USER_ROLES.TEACHER })
+            .select('_id')
+            .lean();
+        const teacherIds = teacherUsers.map(t => t._id);
+
+        return {
+            schoolId,
+            ...hiddenForQuery,
+            $or: [
+                ...(teacherIds.length > 0 ? [{ createdBy: { $in: teacherIds } }] : []),
+                { recipientType: "all" },
+                { recipientType: "users", recipients: { $in: [String(userId)] } },
+            ],
+        };
+    }
+
+    const targetRecipients = [userId.toString()];
+    const userGroups = await NoticeGroup.find({ schoolId, members: userId, isActive: true }).select('_id').lean();
+    userGroups.forEach(g => targetRecipients.push(g._id.toString()));
+
+    let myTeacherIds = [];
+
+    if (role === USER_ROLES.STUDENT) {
+        const profile = await StudentProfile.findOne({ schoolId, userId }).lean();
+        if (profile && profile.standard && profile.section) {
+            targetRecipients.push(`${profile.standard}-${profile.section}`);
+
+            const teachers = await TeacherProfile.find({
+                schoolId,
+                assignedClasses: {
+                    $elemMatch: { standard: profile.standard, section: profile.section }
+                }
+            }).select('userId').lean();
+            myTeacherIds = teachers.map(t => t.userId);
+        }
+    } else if (role === USER_ROLES.TEACHER) {
+        const profile = await TeacherProfile.findOne({ schoolId, userId }).lean();
+        if (profile && Array.isArray(profile.assignedClasses)) {
+            profile.assignedClasses.forEach(c => {
+                targetRecipients.push(`${c.standard}-${c.section}`);
+            });
+        }
+    }
+
+    const orConditions = [
+        { recipientType: 'all' },
+        { recipients: { $in: targetRecipients } }
+    ];
+
+    if (role === USER_ROLES.STUDENT && myTeacherIds.length > 0) {
+        orConditions.push({
+            recipientType: 'students',
+            recipients: { $size: 0 },
+            createdBy: { $in: myTeacherIds }
+        });
+    }
+
+    return {
+        schoolId,
+        ...hiddenForQuery,
+        createdBy: { $ne: userId },
+        $or: orConditions
+    };
 };
 
 // NOTICE SERVICES
@@ -246,84 +335,8 @@ export const getNotices = async (user, platform, filters = {}) => {
 
 // Get notices received by a user
 export const getReceivedNotices = async (schoolId, user) => {
-    const userId = user._id;
-    const role = user.role;
-
-    if (role === USER_ROLES.ADMIN || role === USER_ROLES.SUPER_ADMIN) {
-        const teacherUsers = await User.find({ schoolId, role: USER_ROLES.TEACHER })
-            .select('_id')
-            .lean();
-        const teacherIds = teacherUsers.map(t => t._id);
-
-        if (teacherIds.length === 0) {
-            return [];
-        }
-
-        const results = await Notice.find({
-            schoolId,
-            createdBy: { $in: teacherIds }
-        })
-            .populate("createdBy", "name email role isArchived")
-            .sort({ createdAt: -1 })
-            .limit(50)
-            .lean();
-
-        return enrichWithSignedUrls(results);
-    }
-
-    // 1. Gather all target strings/IDs the user is a part of
-    const targetRecipients = [userId.toString()]; // User's own ID
-
-    // 2. Fetch User's Groups
-    const userGroups = await NoticeGroup.find({ schoolId, members: userId, isActive: true }).select('_id').lean();
-    userGroups.forEach(g => targetRecipients.push(g._id.toString()));
-
-    let myTeacherIds = [];
-
-    // 3. Fetch User's Classes (if student or teacher)
-    if (role === USER_ROLES.STUDENT) {
-        const profile = await StudentProfile.findOne({ schoolId, userId }).lean();
-        if (profile && profile.standard && profile.section) {
-            targetRecipients.push(`${profile.standard}-${profile.section}`);
-            
-            // Allow student to receive 'All Students' notices sent implicitly by their own assigned teachers
-            const teachers = await TeacherProfile.find({
-                schoolId,
-                assignedClasses: {
-                    $elemMatch: { standard: profile.standard, section: profile.section }
-                }
-            }).select('userId').lean();
-            myTeacherIds = teachers.map(t => t.userId);
-        }
-    } else if (role === USER_ROLES.TEACHER) {
-        const profile = await TeacherProfile.findOne({ schoolId, userId }).lean();
-        if (profile && Array.isArray(profile.assignedClasses)) {
-            profile.assignedClasses.forEach(c => {
-                targetRecipients.push(`${c.standard}-${c.section}`);
-            });
-        }
-    }
-
-    const orConditions = [
-        { recipientType: 'all' }, // Sent to entire school
-        { recipients: { $in: targetRecipients } } // explicitly sent to me, my class, or my group
-    ];
-
-    // If teacher sent to "All Students", it's implicit (recipients is empty array).
-    // Only fetch these if the sender is actually one of my assigned teachers.
-    if (role === USER_ROLES.STUDENT && myTeacherIds.length > 0) {
-        orConditions.push({
-            recipientType: 'students',
-            recipients: { $size: 0 },
-            createdBy: { $in: myTeacherIds }
-        });
-    }
-
-    const results = await Notice.find({
-        schoolId,
-        createdBy: { $ne: userId },
-        $or: orConditions
-    })
+    const query = await buildReceivedNoticeQuery(schoolId, user);
+    const results = await Notice.find(query)
         .populate("createdBy", "name email role isArchived")
         .sort({ createdAt: -1 })
         .limit(50)
@@ -371,8 +384,56 @@ export const deleteNotice = async (schoolId, noticeId, userId) => {
         await deleteFromCloudinary(publicIdToDelete);
     }
 
+    if (Array.isArray(notice.attachments) && notice.attachments.length > 0) {
+        await Promise.allSettled(
+            notice.attachments.map((attachment) =>
+                deleteFromCloudinary(attachment.public_id || attachment.path)
+            )
+        );
+    }
+
     logger.info(`Notice deleted: ${noticeId}`);
     return notice;
+};
+
+export const deleteReceivedNotice = async (schoolId, noticeId, user) => {
+    if (!mongoose.Types.ObjectId.isValid(noticeId)) {
+        throw new BadRequestError("Invalid notice ID");
+    }
+
+    const receivedQuery = await buildReceivedNoticeQuery(schoolId, user);
+    const notice = await Notice.findOneAndUpdate(
+        { ...receivedQuery, _id: noticeId },
+        { $addToSet: { hiddenFor: user._id } },
+        { new: true }
+    );
+
+    if (!notice) {
+        throw new NotFoundError("Received notice not found");
+    }
+
+    return { deletedCount: 1 };
+};
+
+export const bulkDeleteReceivedNotices = async (schoolId, noticeIds = [], user) => {
+    const uniqueNoticeIds = [...new Set((noticeIds || []).map((id) => String(id)).filter(Boolean))];
+
+    if (uniqueNoticeIds.length === 0) {
+        throw new BadRequestError("Please select at least one notice");
+    }
+
+    const invalidId = uniqueNoticeIds.find((id) => !mongoose.Types.ObjectId.isValid(id));
+    if (invalidId) {
+        throw new BadRequestError("One or more notice ids are invalid");
+    }
+
+    const receivedQuery = await buildReceivedNoticeQuery(schoolId, user);
+    const result = await Notice.updateMany(
+        { ...receivedQuery, _id: { $in: uniqueNoticeIds } },
+        { $addToSet: { hiddenFor: user._id } }
+    );
+
+    return { deletedCount: result.modifiedCount || 0 };
 };
 
 // GROUP SERVICES
