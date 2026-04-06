@@ -35,7 +35,7 @@ const STATUS_STYLES = {
     unmarked: 'bg-slate-100 text-slate-500 hover:bg-slate-200 border-slate-200',
 };
 const STATUS_LABELS = { present: 'Present', late: 'Late', absent: 'Absent', unmarked: 'Unmarked' };
-const ITEMS_PER_PAGE = 15;
+// const ITEMS_PER_PAGE = 25; // Removed in favor of dynamic state
 
 // ─── Helpers ────────────────────────────────────────────
 const buildAttendanceMap = (records = []) => {
@@ -130,6 +130,18 @@ const AttendancePage = () => {
     const [expandedClasses, setExpandedClasses] = useState({});
     const [selectedStudent, setSelectedStudent] = useState(null);
     const [teacherPage, setTeacherPage] = useState(0);
+    const [pageSize, setPageSize] = useState(() => {
+        const saved = localStorage.getItem('attendance_pageSize');
+        return saved ? parseInt(saved, 10) : 25;
+    });
+    const handlePageSizeChange = (size) => {
+        setPageSize(size);
+        localStorage.setItem('attendance_pageSize', size);
+        setTeacherPage(0);
+        setStatsModalPage(0);
+        // Also reset all class pages
+        setClassPages({});
+    };
     const [classPages, setClassPages] = useState({});
     const [searchQuery, setSearchQuery] = useState("");
     const [classSearchQuery, setClassSearchQuery] = useState("");
@@ -355,7 +367,8 @@ const AttendancePage = () => {
                 ) : isAdmin ? (
                     <AdminClassList
                         groupedClasses={groupedClasses} expandedClasses={expandedClasses} setExpandedClasses={setExpandedClasses}
-                        getClassPage={getClassPage} setClassPage={setClassPage} itemsPerPage={ITEMS_PER_PAGE}
+                        getClassPage={getClassPage} setClassPage={setClassPage} itemsPerPage={pageSize}
+                        onPageSizeChange={handlePageSizeChange}
                         setSelectedStudent={setSelectedStudent} getStudentStatus={getStudentStatus}
                         STATUS_STYLES={STATUS_STYLES} STATUS_LABELS={STATUS_LABELS}
                         handleManualToggle={handleManualToggle} manualMutation={manualMutation}
@@ -366,7 +379,8 @@ const AttendancePage = () => {
                 ) : (
                     <TeacherStudentList
                         filteredStudents={filteredStudents} teacherPage={teacherPage} setTeacherPage={setTeacherPage}
-                        itemsPerPage={ITEMS_PER_PAGE} getStudentStatus={getStudentStatus} handleManualToggle={handleManualToggle}
+                        itemsPerPage={pageSize} onPageSizeChange={handlePageSizeChange}
+                        getStudentStatus={getStudentStatus} handleManualToggle={handleManualToggle}
                         manualMutation={manualMutation} setSelectedStudent={setSelectedStudent}
                         STATUS_STYLES={STATUS_STYLES} STATUS_LABELS={STATUS_LABELS}
                     />
@@ -415,8 +429,8 @@ const AttendancePage = () => {
                                         s.name.toLowerCase().includes(statsModalSearch.toLowerCase()) ||
                                         s.profile?.rollNumber?.toLowerCase().includes(statsModalSearch.toLowerCase())
                                     );
-                                    const modalTotalPages = Math.ceil(filteredList.length / ITEMS_PER_PAGE);
-                                    const paginatedList = filteredList.slice(statsModalPage * ITEMS_PER_PAGE, (statsModalPage + 1) * ITEMS_PER_PAGE);
+                                    const modalTotalPages = Math.ceil(filteredList.length / pageSize);
+                                    const paginatedList = filteredList.slice(statsModalPage * pageSize, (statsModalPage + 1) * pageSize);
 
                                     if (paginatedList.length === 0) {
                                         return (
@@ -462,8 +476,9 @@ const AttendancePage = () => {
                                                 <PaginationControls
                                                     currentPage={statsModalPage}
                                                     totalItems={filteredList.length}
-                                                    itemsPerPage={ITEMS_PER_PAGE}
+                                                    itemsPerPage={pageSize}
                                                     onPageChange={setStatsModalPage}
+                                                    onPageSizeChange={handlePageSizeChange}
                                                 />
                                             )}
                                         </div>
