@@ -119,24 +119,37 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess, initialData }) =>
         }
         return null;
     }, [formData.section, formData.standard, occupiedTeacherMap, roleToAdd]);
-    const teacherAssignmentLoading = classesLoading || teachersQuery.isLoading;
-
     // Augment standards/sections if we are in "Pending Class" mode
     const finalStandards = useMemo(() => {
+        if (isTeacher && roleToAdd === 'student') {
+            const assignedClasses = user?.profile?.assignedClasses || [];
+            const teacherStandards = [...new Set(assignedClasses.map(c => c.standard))];
+            return teacherStandards;
+        }
+
         if (initialData?.isPending && initialData.standard && !standards.includes(initialData.standard)) {
             return [...standards, initialData.standard];
         }
         return standards;
-    }, [standards, initialData]);
+    }, [standards, initialData, isTeacher, roleToAdd, user?.profile?.assignedClasses]);
 
     const finalSections = useMemo(() => {
+        if (isTeacher && roleToAdd === 'student') {
+            const assignedClasses = user?.profile?.assignedClasses || [];
+            if (formData.standard) {
+                return assignedClasses.filter(c => String(c.standard) === String(formData.standard)).map(c => c.section);
+            }
+            return [...new Set(assignedClasses.map(c => c.section))];
+        }
+
         const baseSections = formData.standard ? getSectionsForStandard(formData.standard) : allUniqueSections;
         if (initialData?.isPending && formData.standard === initialData.standard && !baseSections.includes(initialData.section)) {
             return [...baseSections, initialData.section];
         }
         return baseSections;
-    }, [formData.standard, getSectionsForStandard, allUniqueSections, initialData]);
+    }, [formData.standard, getSectionsForStandard, allUniqueSections, initialData, isTeacher, roleToAdd, user?.profile?.assignedClasses]);
 
+    const teacherAssignmentLoading = classesLoading || teachersQuery.isLoading;
     const roleLabel = roleToAdd?.charAt(0).toUpperCase() + roleToAdd?.slice(1);
 
     useEffect(() => {
