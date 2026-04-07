@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import Exam from "./Exam.model.js";
 import { CalendarEvent } from "../calendar/calendar.model.js";
 import Result from "../result/result.model.js";
@@ -340,68 +341,78 @@ const createExamNoticeBroadcast = async (schoolId, exam, actorUser, { isUpdate =
 // ═══════════════════════════════════════════════════════════════
 
 export const createExam = async (schoolId, data, user) => {
-    // Use schoolId from data if not provided (for Super Admin)
     const activeSchoolId = schoolId || data.schoolId;
+    if (!activeSchoolId) throw new BadRequestError("School ID is required");
 
-    if (!activeSchoolId) {
-        throw new BadRequestError("School ID is required");
+    const standards = Array.isArray(data.standard) ? data.standard : [data.standard];
+    const sections = Array.isArray(data.section) ? data.section : [data.section];
+
+    if (standards.length === 0 || sections.length === 0) {
+        throw new BadRequestError("At least one class and section must be selected");
     }
 
-    const normalizedClassSection = await assertClassSectionExists(
-        activeSchoolId,
-        data.standard,
-        data.section,
-        { message: "Exam class-section is not configured in Settings" }
-    );
-
-    // Check for duplicate (Only conflict with DRAFT or PUBLISHED exams with same name)
-    const activeConflict = await Exam.findOne({
-        schoolId: activeSchoolId,
-        name: data.name,
-        academicYear: data.academicYear,
-        standard: normalizedClassSection.standard,
-        section: normalizedClassSection.section,
-        examType: data.examType,
-        status: { $in: ["DRAFT", "PUBLISHED"] },
-        isActive: true,
-    }).lean();
-    
-    if (activeConflict) {
-        throw new ConflictError(
-            `An active exam "${data.name}" already exists for ${data.standard}-${data.section}. Please complete or cancel it before creating another with the same name.`
-        );
-    }
-
-    // Prepare create data
+    // Validate teachers once for the shared schedule
     await assertExamAssignedTeachersAreActive(activeSchoolId, data.schedule);
 
-    const createData = {
-        ...data,
-        schoolId: activeSchoolId,
-        standard: normalizedClassSection.standard,
-        section: normalizedClassSection.section,
-        createdBy: user._id,
-        createdByRole: user.role,
-        creatorSnapshot: buildCreatorSnapshot(
-            user,
-            normalizedClassSection.standard,
-            normalizedClassSection.section
-        ),
-    };
-
-    const exam = await Exam.create(createData);
+    const session = await mongoose.startSession();
+    session.startTransaction();
 
     try {
-        await syncExamCalendarEvents(exam, activeSchoolId);
-    } catch (error) {
-        await Exam.deleteOne({ _id: exam._id });
-        throw error;
-    }
+        const createdCount = standards.length * sections.length;
+        const exams = [];
 
-    logger.info(
-        `Exam created: ${exam._id} (${exam.examType}: "${exam.name}" for ${exam.standard}-${exam.section})`
-    );
-    return exam;
+        for (const standard of standards) {
+            for (const section of sections) {
+                const normalized = await assertClassSectionExists(
+                    activeSchoolId,
+                    standard,
+                    section,
+                    { message: `Class ${standard}-${section} is not configured` }
+                );
+
+                const activeConflict = await Exam.findOne({
+                    schoolId: activeSchoolId,
+                    name: data.name,
+                    academicYear: data.academicYear,
+                    standard: normalized.standard,
+                    section: normalized.section,
+                    examType: data.examType,
+                    status: { $in: ["DRAFT", "PUBLISHED"] },
+                    isActive: true,
+                }).session(session).lean();
+
+                if (activeConflict) {
+                    throw new ConflictError(
+                        `An active exam "${data.name}" already exists for ${standard}-${section}`
+                    );
+                }
+
+                const createData = {
+                    ...data,
+                    schoolId: activeSchoolId,
+                    standard: normalized.standard,
+                    section: normalized.section,
+                    createdBy: user._id,
+                    createdByRole: user.role,
+                    creatorSnapshot: buildCreatorSnapshot(user, normalized.standard, normalized.section),
+                };
+
+                const [exam] = await Exam.create([createData], { session });
+                await syncExamCalendarEvents(exam, activeSchoolId);
+                exams.push(exam);
+            }
+        }
+
+        await session.commitTransaction();
+        logger.info(`Bulk Exam created: ${exams.length} exams for "${data.name}" across ${standards.length} classes and ${sections.length} sections`);
+        
+        return exams[0]; // Return the first one for the frontend to handle completion
+    } catch (error) {
+        await session.abortTransaction();
+        throw error;
+    } finally {
+        session.endSession();
+    }
 };
 
 // ═══════════════════════════════════════════════════════════════
