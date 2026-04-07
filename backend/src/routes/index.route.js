@@ -17,6 +17,26 @@ import extractSchoolId from "../middlewares/school.middleware.js";
 
 const router = express.Router();
 
+// Rate limiters — brute-force protection
+const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,   // 15 minutes
+    max: 20,                     // 20 attempts per window per IP
+    standardHeaders: true,       // Return rate limit info in RateLimit-* headers
+    legacyHeaders: false,
+    message: { success: false, error: { message: 'Too many requests, please try again later.', code: 'RATE_LIMIT_EXCEEDED' } },
+});
+
+const generalLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 1000,                    // Raised from 200 — admin batch ops (multi-class fee creation) legitimately need more headroom
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { success: false, error: { message: 'Too many requests, please try again later.', code: 'RATE_LIMIT_EXCEEDED' } },
+});
+
+// Apply general rate limiter to all API routes
+router.use(generalLimiter);
+
 // Public
 // Auth routes already have dedicated login/refresh rate limiters inside auth.route.js.
 // Avoid stacking extra auth/general limiters here because that makes refresh/login

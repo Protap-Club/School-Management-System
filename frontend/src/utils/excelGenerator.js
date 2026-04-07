@@ -16,7 +16,7 @@ export const generateFeeExcel = async (classStudents, summary, classInfo, month,
                 name: student.name,
                 feeType: fee.name || fee.feeType,
                 amount: fee.amount || 0,
-                paid: fee.paid || 0,
+                paid: fee.status === 'WAIVED' ? '—' : (fee.paid || 0),
                 status: fee.status,
                 dueDate: fee.dueDate ? new Date(fee.dueDate).toLocaleDateString() : '-'
             }))
@@ -34,8 +34,8 @@ export const generateFeeExcel = async (classStudents, summary, classInfo, month,
         sheet.columns = [
             { header: 'Student Name',      key: 'name',    width: 25 },
             { header: 'Fee Type',           key: 'feeType', width: 20 },
-            { header: 'Total Amount (INR)', key: 'amount',  width: 18 },
-            { header: 'Paid (INR)',         key: 'paid',    width: 15 },
+            { header: 'Total Amount (INR)', key: 'amount',  width: 18, style: { alignment: { horizontal: 'left' } } },
+            { header: 'Paid (INR)',         key: 'paid',    width: 15, style: { alignment: { horizontal: 'left' } } },
             { header: 'Status',             key: 'status',  width: 12 },
             { header: 'Due Date',           key: 'dueDate', width: 12 },
         ];

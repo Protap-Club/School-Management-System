@@ -53,7 +53,7 @@ export const generateFeeReport = (classStudents, summary, classInfo, month, year
                 idx === 0 ? student.name : '',
                 fee.name || fee.feeType,
                 `INR ${fee.amount?.toLocaleString() || 0}`,
-                `INR ${fee.paid?.toLocaleString() || 0}`,
+                fee.status === 'WAIVED' ? '—' : `INR ${fee.paid?.toLocaleString() || 0}`,
                 fee.status,
                 fee.dueDate ? new Date(fee.dueDate).toLocaleDateString() : '-'
             ])
@@ -68,8 +68,6 @@ export const generateFeeReport = (classStudents, summary, classInfo, month, year
                 headStyles: { fillColor: [79, 70, 229], textColor: [255, 255, 255], fontStyle: 'bold' },
                 styles: { fontSize: 9, cellPadding: 4 },
                 columnStyles: {
-                    2: { halign: 'right' },
-                    3: { halign: 'right' },
                     4: { fontStyle: 'bold' }
                 },
                 alternateRowStyles: { fillColor: [250, 250, 250] }
@@ -194,6 +192,226 @@ export const generateSalaryReceipt = (salary, teacher) => {
     } catch (error) {
         console.error('Failed to generate Salary Receipt PDF:', error);
         alert('Could not generate receipt PDF. Please check the console for details.');
+    }
+};
+
+/**
+ * Generates a PDF receipt for a student's fee payment
+ */
+export const generateFeeReceipt = (fee, student) => {
+    console.log('Generating Fee Receipt...', { fee, student });
+    
+    try {
+        const doc = new jsPDF();
+        const pageWidth = doc.internal.pageSize.width;
+        const latestPayment = fee.payments?.[0] || {};
+
+        // Design Elements
+        doc.setFontSize(16);
+        doc.setTextColor(40, 40, 40);
+        doc.text('FEE PAYMENT RECEIPT', 14, 25);
+
+        // School Info
+        doc.setFontSize(16);
+        doc.setTextColor(40, 40, 40);
+        doc.setFont(undefined, 'bold');
+        doc.text('Navrachna International School', pageWidth - 14, 22, { align: 'right' });
+        doc.setFontSize(10);
+        doc.setFont(undefined, 'normal');
+        doc.setTextColor(100, 100, 100);
+        doc.text('Academic Year 2026', pageWidth - 14, 29, { align: 'right' });
+
+        // Subtle Header Divider
+        doc.setDrawColor(220, 220, 220);
+        doc.setLineWidth(0.5);
+        doc.line(14, 38, pageWidth - 14, 38);
+
+        // Details Section
+        doc.setTextColor(40, 40, 40);
+        doc.setFontSize(11);
+        doc.setFont(undefined, 'bold');
+        doc.text('STUDENT DETAILS', 14, 55);
+        doc.line(14, 57, 60, 57);
+
+        doc.setFont(undefined, 'normal');
+        doc.setFontSize(10);
+        doc.text(`Name: ${student?.name || '-'}`, 14, 65);
+        doc.text(`Email: ${student?.email || '-'}`, 14, 72);
+        doc.text(`Class: ${fee.standard || '-'}-${fee.section || '-'}`, 14, 79);
+
+        doc.setFont(undefined, 'bold');
+        doc.setFontSize(11);
+        doc.text('PAYMENT DETAILS', pageWidth / 2 + 10, 55);
+        doc.line(pageWidth / 2 + 10, 57, pageWidth / 2 + 60, 57);
+
+        doc.setFont(undefined, 'normal');
+        doc.setFontSize(10);
+        doc.text(`Receipt No: ${latestPayment.receiptNumber || 'N/A'}`, pageWidth / 2 + 10, 65);
+        doc.text(`Fee Type: ${fee.name || fee.feeType || '-'}`, pageWidth / 2 + 10, 72);
+        doc.text(`Payment Date: ${latestPayment.paymentDate ? new Date(latestPayment.paymentDate).toLocaleDateString() : 'N/A'}`, pageWidth / 2 + 10, 79);
+        doc.text(`Payment Mode: ${latestPayment.paymentMode || '-'}`, pageWidth / 2 + 10, 86);
+
+        // Summary Table
+        autoTable(doc, {
+            startY: 105,
+            head: [['Description', 'Status', 'Amount']],
+            body: [
+                [`${fee.name || fee.feeType} Fee${MONTH_LABELS[fee.month] ? ` (${MONTH_LABELS[fee.month]})` : ''}`, fee.status || 'PAID', `INR ${fee.amount?.toLocaleString() || 0}`],
+                ['Total Paid', 'SUCCESS', `INR ${fee.paid?.toLocaleString() || 0}`]
+            ],
+            theme: 'grid',
+            headStyles: { fillColor: [243, 244, 246], textColor: [40, 40, 40], fontStyle: 'bold', lineWidth: 0.1 },
+            styles: { cellPadding: 6, lineColor: [229, 231, 235], lineWidth: 0.1 },
+            columnStyles: {
+                2: { halign: 'center', fontStyle: 'bold' }
+            },
+            didParseCell: function(data) {
+                if (data.section === 'head' && data.column.index === 2) {
+                    data.cell.styles.halign = 'center';
+                }
+            }
+        });
+
+        // Total Amount Box
+        const finalY = (doc.lastAutoTable?.finalY || 130) + 15;
+        const boxWidth = 80;
+        const boxX = pageWidth - 14 - boxWidth;
+        
+        doc.setFillColor(249, 250, 251);
+        doc.setDrawColor(229, 231, 235);
+        doc.roundedRect(boxX, finalY, boxWidth, 24, 2, 2, 'FD');
+        
+        doc.setTextColor(100, 100, 100);
+        doc.setFontSize(9);
+        doc.setFont(undefined, 'bold');
+        doc.text('TOTAL PAID', boxX + (boxWidth / 2), finalY + 9, { align: 'center' });
+        
+        doc.setTextColor(16, 185, 129); // emerald-600
+        doc.setFontSize(14);
+        doc.setFont(undefined, 'bold');
+        doc.text(`INR ${fee.paid?.toLocaleString() || 0}`, boxX + (boxWidth / 2), finalY + 18, { align: 'center' });
+
+        // Footer
+        doc.setTextColor(150, 150, 150);
+        doc.setFontSize(8);
+        doc.setFont(undefined, 'normal');
+        doc.text('This is a computer generated receipt and does not require a physical signature.', PAGE_CENTER(doc, 'This is a computer generated receipt and does not require a physical signature.'), 280);
+
+        doc.save(`Fee_Receipt_${MONTH_LABELS[fee.month] ? `${MONTH_LABELS[fee.month]}_` : ''}${(student?.name || 'student').replace(/\s+/g, '_')}.pdf`);
+        console.log('Fee Receipt Generated Successfully');
+    } catch (error) {
+        console.error('Failed to generate Fee Receipt PDF:', error);
+        alert('Could not generate receipt PDF. Please check the console for details.');
+    }
+};
+
+/**
+ * Generates a PDF waiver note for a student's excused fee
+ */
+export const generateWaiverNote = (fee, student) => {
+    console.log('Generating Waiver Note...', { fee, student });
+    
+    try {
+        const doc = new jsPDF();
+        const pageWidth = doc.internal.pageSize.width;
+
+        // Design Elements
+        doc.setFontSize(16);
+        doc.setTextColor(245, 158, 11); // amber-600
+        doc.text('FEE WAIVER NOTE', 14, 25);
+
+        // School Info
+        doc.setFontSize(16);
+        doc.setTextColor(40, 40, 40);
+        doc.setFont(undefined, 'bold');
+        doc.text('Navrachna International School', pageWidth - 14, 22, { align: 'right' });
+        doc.setFontSize(10);
+        doc.setFont(undefined, 'normal');
+        doc.setTextColor(100, 100, 100);
+        doc.text('Academic Year 2026', pageWidth - 14, 29, { align: 'right' });
+
+        // Subtle Header Divider
+        doc.setDrawColor(220, 220, 220);
+        doc.setLineWidth(0.5);
+        doc.line(14, 38, pageWidth - 14, 38);
+
+        // Details Section
+        doc.setTextColor(40, 40, 40);
+        doc.setFontSize(11);
+        doc.setFont(undefined, 'bold');
+        doc.text('STUDENT DETAILS', 14, 55);
+        doc.line(14, 57, 60, 57);
+
+        doc.setFont(undefined, 'normal');
+        doc.setFontSize(10);
+        doc.text(`Name: ${student?.name || '-'}`, 14, 65);
+        doc.text(`Email: ${student?.email || '-'}`, 14, 72);
+        doc.text(`Class: ${fee.standard || '-'}-${fee.section || '-'}`, 14, 79);
+
+        doc.setFont(undefined, 'bold');
+        doc.setFontSize(11);
+        doc.text('WAIVER DETAILS', pageWidth / 2 + 10, 55);
+        doc.line(pageWidth / 2 + 10, 57, pageWidth / 2 + 60, 57);
+
+        doc.setFont(undefined, 'normal');
+        doc.setFontSize(10);
+        doc.text(`Ref No: WAV-${Math.random().toString(36).substring(7).toUpperCase()}`, pageWidth / 2 + 10, 65);
+        doc.text(`Fee Type: ${fee.name || fee.feeType || '-'}`, pageWidth / 2 + 10, 72);
+        doc.text(`Waiver Date: ${new Date().toLocaleDateString()}`, pageWidth / 2 + 10, 79);
+
+        // Official Statement
+        doc.setDrawColor(245, 158, 11); // amber-600
+        doc.setFillColor(255, 251, 235); // amber-50
+        doc.roundedRect(14, 100, pageWidth - 28, 40, 3, 3, 'FD');
+        
+        doc.setTextColor(146, 64, 14); // amber-800
+        doc.setFontSize(11);
+        doc.setFont(undefined, 'bold');
+        doc.text('OFFICIAL MANAGEMENT STATEMENT:', 20, 112);
+        
+        doc.setFont(undefined, 'normal');
+        doc.setFontSize(10);
+        doc.text('This is to certify that the aforementioned fee has been officially waived by the', 20, 120);
+        doc.text('school management. No further payment is required for this specific fee assignment.', 20, 125);
+        
+        if (fee.remarks) {
+            doc.setFont(undefined, 'italic');
+            doc.setTextColor(100, 100, 100);
+            doc.text(`Remarks: "${fee.remarks}"`, 20, 135);
+        }
+
+        // Summary Table
+        autoTable(doc, {
+            startY: 150,
+            head: [['Description', 'Status', 'Original Amount']],
+            body: [
+                [`${fee.name || fee.feeType} Fee${MONTH_LABELS[fee.month] ? ` (${MONTH_LABELS[fee.month]})` : ''}`, 'WAIVED', `INR ${fee.amount?.toLocaleString() || 0}`],
+                ['Net Payable', 'N/A', 'INR 0']
+            ],
+            theme: 'grid',
+            headStyles: { fillColor: [243, 244, 246], textColor: [40, 40, 40], fontStyle: 'bold', lineWidth: 0.1 },
+            styles: { cellPadding: 6, lineColor: [229, 231, 235], lineWidth: 0.1 },
+            columnStyles: {
+                2: { halign: 'center', fontStyle: 'bold' }
+            },
+            didParseCell: function(data) {
+                if (data.section === 'head' && data.column.index === 2) {
+                    data.cell.styles.halign = 'center';
+                }
+            }
+        });
+
+        // Footer
+        doc.setTextColor(150, 150, 150);
+        doc.setFontSize(8);
+        doc.setFont(undefined, 'normal');
+        doc.text('This is a computer generated waiver note and does not require a physical signature.', PAGE_CENTER(doc, 'This is a computer generated waiver note and does not require a physical signature.'), 280);
+
+        doc.save(`Fee_Waiver_${MONTH_LABELS[fee.month] || ''}_${(student?.name || 'student').replace(/\s+/g, '_')}.pdf`);
+        console.log('Waiver Note Generated Successfully');
+    } catch (error) {
+        console.error('Failed to generate Waiver Note PDF:', error);
+        alert('Could not generate waiver note PDF. Please check the console for details.');
     }
 };
 

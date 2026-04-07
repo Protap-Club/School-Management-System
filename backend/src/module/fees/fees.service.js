@@ -10,6 +10,7 @@ import {
     assertClassSectionExists,
     buildClassSectionKey,
     getConfiguredClassSections,
+    sortClassSections,
 } from "../../utils/classSection.util.js";
 
 // ═══════════════════════════════════════════════════════════════
@@ -17,40 +18,101 @@ import {
 // ═══════════════════════════════════════════════════════════════
 
 export const createFeeStructure = async (schoolId, data, userId) => {
-    const normalizedClass = await assertClassSectionExists(
-        schoolId,
-        data.standard,
-        data.section,
-        { message: "Class is not configured in School Settings" }
-    );
-    const payload = {
-        ...data,
-        standard: normalizedClass.standard,
-        section: normalizedClass.section,
-    };
+    const standards = Array.isArray(data.standard) ? data.standard : [data.standard];
+    const sections = Array.isArray(data.section) ? data.section : [data.section];
 
-    const exists = await FeeStructure.exists({
-        schoolId,
-        academicYear: payload.academicYear,
-        standard: payload.standard,
-        section: payload.section,
-        feeType: payload.feeType,
-    });
+    const results = [];
+    const summary = { total: standards.length * sections.length, created: 0, skipped: 0, errors: [] };
 
-    if (exists) {
-        throw new ConflictError(
-            `${payload.feeType} fee already exists for ${payload.standard} - ${payload.section}(${payload.academicYear})`
-        );
+    for (const std of standards) {
+        for (const sect of sections) {
+            try {
+                const normalizedClass = await assertClassSectionExists(
+                    schoolId,
+                    std,
+                    sect,
+                    { message: `Class ${std}-${sect} is not configured in School Settings` }
+                );
+
+                const payload = {
+                    ...data,
+                    standard: normalizedClass.standard,
+                    section: normalizedClass.section,
+                };
+
+                // Check for duplicate months across all structures of the same type/std/sect
+                const existingStructures = await FeeStructure.find({
+                    schoolId,
+                    academicYear: payload.academicYear,
+                    standard: payload.standard,
+                    section: payload.section,
+                    feeType: payload.feeType,
+                });
+
+                if (existingStructures.length > 0) {
+                    const occupied = new Set();
+                    existingStructures.forEach(st => (st.applicableMonths || []).forEach(m => occupied.add(m)));
+                    
+                    const duplicateMonths = (payload.applicableMonths || []).filter(m => occupied.has(m));
+                    
+                    if (duplicateMonths.length > 0) {
+                        const monthNames = duplicateMonths.map(m => new Date(2000, m-1).toLocaleString('default', { month: 'long' }));
+                        throw new ConflictError(
+                            `${payload.feeType} fee already created for ${monthNames.join(', ')} in ${payload.standard}-${payload.section}`
+                        );
+                    }
+                    
+                    // If no month overlap, we can't create a secondary structure because of the unique index constraint
+                    // Unless we were to merge them, which is out of scope for 'minimal changes'.
+                    // For now, if no overlap, we still check the primary index.
+                }
+
+                const exists = await FeeStructure.exists({
+                    schoolId,
+                    academicYear: payload.academicYear,
+                    standard: payload.standard,
+                    section: payload.section,
+                    feeType: payload.feeType,
+                });
+
+                if (exists) {
+                    summary.skipped++;
+                    continue;
+                }
+
+                const structure = await FeeStructure.create({
+                    schoolId,
+                    ...payload,
+                    createdBy: userId,
+                });
+
+                logger.info(`FeeStructure created: ${structure._id} (${structure.feeType} for ${structure.standard} - ${structure.section})`);
+                results.push(structure);
+                summary.created++;
+            } catch (error) {
+                summary.errors.push({ standard: std, section: sect, error: error.message });
+                logger.error(`Error creating fee structure for ${std}-${sect}: ${error.message}`);
+            }
+        }
     }
 
-    const structure = await FeeStructure.create({
-        schoolId,
-        ...payload,
-        createdBy: userId,
-    });
+    const isMultiMode = Array.isArray(data.standard) || Array.isArray(data.section);
 
-    logger.info(`FeeStructure created: ${structure._id} (${structure.feeType} for ${structure.standard} - ${structure.section})`);
-    return structure;
+    if (isMultiMode) {
+        return { summary, structures: results };
+    }
+
+    // Existing behavior for single class/section: throw if skipped or error
+    if (summary.skipped > 0) {
+        throw new ConflictError(
+            `${data.feeType} fee already exists for ${data.standard} - ${data.section}(${data.academicYear})`
+        );
+    }
+    if (summary.errors.length > 0) {
+        throw new BadRequestError(summary.errors[0].error);
+    }
+
+    return results[0];
 };
 
 export const getFeeStructures = async (schoolId, filters = {}) => {
@@ -338,6 +400,16 @@ export const getClassFeeOverview = async (schoolId, academicYear, month, standar
                         },
                     },
                     { $unwind: { path: "$structure", preserveNullAndEmptyArrays: false } },
+                    // Look up payments for this assignment
+                    {
+                        $lookup: {
+                            from: "feepayments",
+                            localField: "_id",
+                            foreignField: "feeAssignmentId",
+                            as: "payments",
+                            pipeline: [{ $project: { receiptNumber: 1, paymentDate: 1, paymentMode: 1 } }, { $sort: { paymentDate: -1 } }],
+                        },
+                    },
                 ],
                 as: "assignments",
             },
@@ -374,6 +446,8 @@ export const getClassFeeOverview = async (schoolId, academicYear, month, standar
                             paid: "$$a.paidAmount",
                             status: "$$a.status",
                             dueDate: "$$a.dueDate",
+                            remarks: "$$a.remarks",
+                            payments: "$$a.payments",
                         },
                     },
                 },
@@ -433,7 +507,113 @@ export const getClassFeeOverview = async (schoolId, academicYear, month, standar
 
 // All-classes summary for a specific month (Admin only)
 export const getAllClassesFeeOverview = async (schoolId, academicYear, month) => {
-    const { keySet } = await getConfiguredClassSections(schoolId);
+    // Get unique standard+section pairs from fee structures for this year
+    const structurePairs = await FeeStructure.aggregate([
+        {
+            $match: {
+                schoolId: new mongoose.Types.ObjectId(schoolId),
+                academicYear: Number(academicYear),
+                isActive: true,
+            },
+        },
+        {
+            $group: {
+                _id: { standard: "$standard", section: "$section" },
+            },
+        },
+        {
+            $project: {
+                _id: 0,
+                standard: "$_id.standard",
+                section: "$_id.section",
+            },
+        },
+    ]);
+
+    const sortedPairs = sortClassSections(structurePairs);
+
+    // Fetch actual student counts per class from StudentProfile with absolute normalization
+    // We only count students whose User account is Active, not Archived, and matches the current Academic Year
+    const studentCounts = await StudentProfile.aggregate([
+        {
+            $match: {
+                schoolId: new mongoose.Types.ObjectId(schoolId),
+                year: Number(academicYear),
+            },
+        },
+        {
+            $lookup: {
+                from: "users",
+                localField: "userId",
+                foreignField: "_id",
+                as: "user",
+            },
+        },
+        { $unwind: "$user" },
+        {
+            $match: {
+                "user.isActive": true,
+                "user.isArchived": false,
+            },
+        },
+        {
+            $project: {
+                // Regex-based cleaning for standard (e.g. "Class 8" -> "8")
+                std_clean: {
+                    $trim: {
+                        input: {
+                            $toLower: { $toString: "$standard" }
+                        }
+                    }
+                },
+                sect_clean: {
+                    $trim: {
+                        input: {
+                            $toUpper: { $toString: { $ifNull: ["$section", ""] } }
+                        }
+                    }
+                },
+            },
+        },
+        {
+            $project: {
+                // Strip common prefixes like "class ", "standard ", "std "
+                std_final: {
+                    $replaceAll: {
+                        input: {
+                            $replaceAll: {
+                                input: {
+                                    $replaceAll: {
+                                        input: "$std_clean",
+                                        find: "class ",
+                                        replacement: ""
+                                    }
+                                },
+                                find: "standard ",
+                                replacement: ""
+                            }
+                        },
+                        find: "std ",
+                        replacement: ""
+                    }
+                },
+                sect_final: "$sect_clean"
+            }
+        },
+        {
+            $group: {
+                _id: { standard: "$std_final", section: "$sect_final" },
+                count: { $sum: 1 },
+            },
+        },
+    ]);
+
+    const studentCountMap = new Map();
+    for (const item of studentCounts) {
+        // Use the normalized values to build the key
+        const key = buildClassSectionKey(item._id.standard, item._id.section);
+        studentCountMap.set(key, item.count);
+    }
 
     const pipeline = [
         {
@@ -476,7 +656,6 @@ export const getAllClassesFeeOverview = async (schoolId, academicYear, month) =>
                         ],
                     },
                 },
-                studentCount: { $addToSet: "$studentId" },
             },
         },
         {
@@ -488,14 +667,38 @@ export const getAllClassesFeeOverview = async (schoolId, academicYear, month) =>
                 totalCollected: 1,
                 totalPending: 1,
                 totalWaived: 1,
-                studentCount: { $size: "$studentCount" },
             },
         },
-        { $sort: { standard: 1, section: 1 } },
     ];
 
-    const classes = (await FeeAssignment.aggregate(pipeline))
-        .filter((c) => keySet.has(buildClassSectionKey(c.standard, c.section)));
+    const rawClasses = await FeeAssignment.aggregate(pipeline);
+
+    // Build a lookup map from assignment aggregation results
+    const classMap = new Map();
+    for (const c of rawClasses) {
+        classMap.set(buildClassSectionKey(c.standard, c.section), c);
+    }
+
+    // Merge with fee-structure-derived classes (zeros if no assignments yet)
+    const classes = sortedPairs.map((cs) => {
+        const key = buildClassSectionKey(cs.standard, cs.section);
+        const data = classMap.get(key);
+        const count = studentCountMap.get(key) || 0;
+
+        if (count === 0 && (cs.standard === "8" || Number(cs.standard) > 8)) {
+            logger.info(`Debug: No students found for key [${key}]. Map keys: [...${Array.from(studentCountMap.keys()).slice(0, 5)}]`);
+        }
+
+        return {
+            standard: cs.standard,
+            section: cs.section,
+            studentCount: count,
+            totalDue: data?.totalDue || 0,
+            totalCollected: data?.totalCollected || 0,
+            totalPending: data?.totalPending || 0,
+            totalWaived: data?.totalWaived || 0,
+        };
+    });
 
     return { classes };
 };

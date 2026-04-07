@@ -1,6 +1,7 @@
 // Fees TanStack Query Hooks
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { feesApi } from './api';
+import { useAuth } from '../../auth';
 
 export const feeKeys = {
     all: ['fees'],
@@ -20,10 +21,12 @@ export const feeKeys = {
 // ── Fee Type Queries ──────────────────────────────────────────
 
 export const useFeeTypes = (config = {}) => {
+    const { user, accessToken } = useAuth();
     return useQuery({
         queryKey: feeKeys.feeTypes(),
         queryFn: feesApi.getFeeTypes,
         ...config,
+        enabled: (config.enabled !== false) && !!user && !!accessToken,
     });
 };
 
@@ -40,30 +43,27 @@ export const useCreateFeeType = () => {
 // ── Fee Structure Queries ─────────────────────────────────────
 
 export const useFeeStructures = (filters = {}, enabled = false) => {
+    const { accessToken } = useAuth();
     return useQuery({
         queryKey: feeKeys.structureList(filters),
         queryFn: () => feesApi.getFeeStructures(filters),
-        enabled: enabled,
+        enabled: enabled && !!accessToken,
     });
 };
 
 export const useCreateFeeStructure = () => {
-    const queryClient = useQueryClient();
     return useMutation({
         mutationFn: feesApi.createFeeStructure,
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: feeKeys.structures() });
-        },
+        // NOTE: No onSuccess invalidation — handleCreateStructure batch-invalidates
+        // after all generate calls complete, preventing request floods.
     });
 };
 
 export const useUpdateFeeStructure = () => {
-    const queryClient = useQueryClient();
     return useMutation({
         mutationFn: feesApi.updateFeeStructure,
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: feeKeys.structures() });
-        },
+        // NOTE: No onSuccess invalidation — handleUpdateStructure batch-invalidates
+        // after all generate calls complete, preventing request floods.
     });
 };
 
@@ -80,12 +80,10 @@ export const useDeleteFeeStructure = () => {
 // ── Assignment Mutations ──────────────────────────────────────
 
 export const useGenerateAssignments = () => {
-    const queryClient = useQueryClient();
     return useMutation({
         mutationFn: feesApi.generateAssignments,
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: feeKeys.all });
-        },
+        // NOTE: No onSuccess invalidation here — callers (handleCreateStructure, handleUpdateStructure)
+        // batch-invalidate once after all generate calls complete, preventing request floods.
     });
 };
 
@@ -114,44 +112,51 @@ export const useRecordPayment = () => {
 // ── Dashboard Queries ─────────────────────────────────────────
 
 export const useAllClassesOverview = (academicYear, month, isAdmin = false) => {
+    const { accessToken } = useAuth();
     return useQuery({
         queryKey: feeKeys.allClassesOverview(academicYear, month),
         queryFn: () => feesApi.getAllClassesOverview({ academicYear, month }),
-        enabled: !!academicYear && !!month && isAdmin,
+        enabled: !!academicYear && !!month && isAdmin && !!accessToken,
     });
 };
 
 export const useClassOverview = (standard, section, academicYear, month) => {
+    const { user, accessToken } = useAuth();
+    const isAdmin = ['admin', 'super_admin'].includes(user?.role);
     return useQuery({
         queryKey: feeKeys.classOverview(standard, section, academicYear, month),
         queryFn: () => feesApi.getClassOverview({ standard, section, academicYear, month }),
-        enabled: !!standard && !!section && !!academicYear && !!month,
+        enabled: !!standard && !!section && !!academicYear && !!month && isAdmin && !!accessToken,
     });
 };
 
 export const useYearlySummary = (academicYear, isAdmin = false) => {
+    const { accessToken } = useAuth();
     return useQuery({
         queryKey: feeKeys.yearlySummary(academicYear),
         queryFn: () => feesApi.getYearlySummary({ academicYear }),
-        enabled: !!academicYear && isAdmin,
+        enabled: !!academicYear && isAdmin && !!accessToken,
     });
 };
 
 // ── Student History Query ─────────────────────────────────────
 
 export const useStudentFeeHistory = (studentId, academicYear) => {
+    const { user, accessToken } = useAuth();
+    const isAuthorized = ['admin', 'super_admin', 'student'].includes(user?.role);
     return useQuery({
         queryKey: feeKeys.studentHistory(studentId, academicYear),
         queryFn: () => feesApi.getStudentFeeHistory({ studentId, academicYear }),
-        enabled: !!studentId,
+        enabled: !!studentId && !!academicYear && isAuthorized && !!accessToken,
     });
 };
 
 export const useMyFees = (filters = {}, isStudent = false) => {
+    const { accessToken } = useAuth();
     return useQuery({
         queryKey: feeKeys.myFees(filters),
         queryFn: () => feesApi.getMyFees(filters),
-        enabled: isStudent,
+        enabled: isStudent && !!accessToken,
     });
 };
 
@@ -171,10 +176,11 @@ export const useCreateSalary = () => {
 };
 
 export const useSalaries = (filters = {}, enabled = true) => {
+    const { accessToken } = useAuth();
     return useQuery({
         queryKey: feeKeys.salaryList(filters),
         queryFn: () => salaryApi.getSalaries(filters),
-        enabled: enabled,
+        enabled: enabled && !!accessToken,
     });
 };
 
@@ -190,10 +196,11 @@ export const useUpdateSalaryStatus = () => {
 };
 
 export const useMySalary = (filters = {}, enabled = true) => {
+    const { accessToken } = useAuth();
     return useQuery({
         queryKey: feeKeys.mySalary(filters),
         queryFn: () => salaryApi.getMySalary(filters),
-        enabled: enabled,
+        enabled: enabled && !!accessToken,
     });
 };
 

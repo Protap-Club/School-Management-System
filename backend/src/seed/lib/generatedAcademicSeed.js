@@ -144,6 +144,10 @@ export const buildTeacherSeedData = (code) => {
       };
     }
 
+    const profilesData = loadSeedJson("profiles.json");
+    const schoolProfiles = profilesData[code]?.teacherProfiles || [];
+    const jsonProfile = schoolProfiles.find(p => p.email === teacherBase.email);
+
     teachers.push({
       ...teacherBase,
       role: "teacher",
@@ -154,6 +158,7 @@ export const buildTeacherSeedData = (code) => {
       specialization: teacherSpecializations[i],
       subjects: [teacherSpecializations[i]],
       assignedClasses: [],
+      expectedSalary: jsonProfile?.expectedSalary || 15000,
     });
   }
 
