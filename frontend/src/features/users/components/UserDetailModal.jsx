@@ -4,6 +4,7 @@ import {
 } from 'react-icons/fa';
 import { useUpdateUser, useUsers } from '../api/queries';
 import { useSchoolClasses } from '../../../hooks/useSchoolClasses';
+import { useAuth } from '../../../features/auth';
 import { formatValue } from '../../../utils';
 
 const LIGHT_SELECT_CLASS = 'w-full bg-white text-gray-900 rounded px-2 py-1.5 text-xs font-black outline-none border border-gray-100 focus:border-blue-300 transition-all';
@@ -18,7 +19,7 @@ const buildClassKey = ({ standard, section } = {}) =>
   `${String(standard || '').trim()}::${String(section || '').trim().toUpperCase()}`;
 
 const UserDetailModal = ({ user, onClose, initialMode = 'view', onSuccess }) => {
-  const currentUser = useMemo(() => JSON.parse(localStorage.getItem('auth_user') || '{}')?.user, []);
+  const { user: currentUser } = useAuth();
   const isTeacherLoggedIn = currentUser?.role === 'teacher';
   const canViewContacts = ['admin', 'super_admin'].includes(currentUser?.role);
 
