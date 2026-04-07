@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import CreatableSelect from 'react-select/creatable';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import DashboardLayout from '../layouts/DashboardLayout';
@@ -60,6 +61,61 @@ const CLASS_STANDARD_REGEX = /^[A-Za-z0-9_]+$/;
 const CLASS_SECTION_REGEX =  /^[A-Za-z0-9_]+$/;
 const sanitizeStandardInput = (value) => value.replace(/[^A-Za-z0-9_]/g, '');
 const sanitizeSectionInput = (value) => value.replace(/[^A-Za-z0-9_]/g, '');
+
+const REACT_SELECT_STYLES = {
+    control: (base, state) => ({
+        ...base,
+        minHeight: '44px',
+        borderRadius: '0.75rem',
+        borderColor: state.isFocused ? '#2563eb' : '#e5e7eb',
+        boxShadow: state.isFocused ? '0 0 0 2px rgba(37, 99, 235, 0.2)' : 'none',
+        '&:hover': {
+            borderColor: state.isFocused ? '#2563eb' : '#d1d5db',
+        },
+        backgroundColor: '#ffffff',
+    }),
+    valueContainer: (base) => ({
+        ...base,
+        padding: '0.25rem 0.75rem',
+    }),
+    multiValue: (base) => ({
+        ...base,
+        backgroundColor: '#f3f4f6',
+        borderRadius: '0.375rem',
+        margin: '0.125rem 0.25rem 0.125rem 0',
+    }),
+    multiValueLabel: (base) => ({
+        ...base,
+        color: '#374151',
+        fontSize: '0.875rem',
+        fontWeight: '500',
+        padding: '2px 6px',
+    }),
+    multiValueRemove: (base) => ({
+        ...base,
+        color: '#6b7280',
+        '&:hover': {
+            backgroundColor: '#fee2e2',
+            color: '#ef4444',
+        },
+    }),
+    menu: (base) => ({
+        ...base,
+        borderRadius: '0.75rem',
+        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+        overflow: 'hidden',
+        zIndex: 50,
+    }),
+    option: (base, state) => ({
+        ...base,
+        backgroundColor: state.isFocused ? '#eff6ff' : 'transparent',
+        color: state.isFocused ? '#1d4ed8' : '#374151',
+        cursor: 'pointer',
+        '&:active': {
+            backgroundColor: '#dbeafe',
+        },
+    }),
+};
     
 const Settings = () => {
     const queryClient = useQueryClient();
@@ -85,6 +141,7 @@ const Settings = () => {
     const [savingClass, setSavingClass] = useState(false);
     const [newStandard, setNewStandard] = useState('');
     const [newSection, setNewSection] = useState('');
+    const [newSubjects, setNewSubjects] = useState([]);
     const [newlyCreatedKeys, setNewlyCreatedKeys] = useState(() => new Set());
     const [showPostCreateModal, setShowPostCreateModal] = useState(false);
     const [createdClassInfo, setCreatedClassInfo] = useState(null);
@@ -234,7 +291,7 @@ const Settings = () => {
     const handleCreateClassSection = async () => {
         if (savingClass) return;
 
-        const normalized = normalizeClassSection({ standard: newStandard, section: newSection });
+        const normalized = normalizeClassSection({ standard: newStandard, section: newSection, subjects: newSubjects?.map((s) => s.value) || [] });
         if (!normalized.standard || !normalized.section) {
             showMessage('error', 'Please enter both class and section');
             return;
@@ -245,6 +302,10 @@ const Settings = () => {
         }
         if (!CLASS_SECTION_REGEX.test(normalized.section)) {
             showMessage('error', 'Section can contain only letters, numbers, and underscore');
+            return;
+        }
+        if (normalized.subjects.length === 0) {
+            showMessage('error', 'Please enter at least one subject for the class');
             return;
         }
 
@@ -262,6 +323,7 @@ const Settings = () => {
             setShowPostCreateModal(true);
             setNewStandard('');
             setNewSection('');
+            setNewSubjects([]);
             // window.dispatchEvent(new CustomEvent('customClassesUpdated', { detail: normalized }));
         } catch (error) {
             showMessage('error', error?.message || 'Unexpected setup error');
@@ -736,8 +798,8 @@ const Settings = () => {
                                 </div>
 
                                 <div className="p-6 space-y-5">
-                                    <div className="rounded-2xl border border-gray-200 bg-gray-50/70 p-4">
-                                        <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr_auto_auto] gap-3 items-center">
+                                    <div className="rounded-2xl border border-gray-200 bg-gray-50/70 p-4 space-y-4">
+                                        <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] gap-3 items-center">
                                             <input
                                                 type="text"
                                                 value={newStandard}
@@ -755,19 +817,34 @@ const Settings = () => {
                                                 placeholder="Section (e.g. A)"
                                                 className="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                                             />
-                                            <div className="px-3 py-2.5 rounded-xl bg-white border border-gray-200 text-xs font-bold text-gray-600 text-center">
-                                                Preview: <span className="text-gray-900">{newStandard.trim() || '--'} - {(newSection.trim() || '--').toUpperCase()}</span>
+                                        </div>
+                                        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                                            <div className="flex-1 w-full md:max-w-xl">
+                                                <CreatableSelect
+                                                    isMulti
+                                                    placeholder="Type subject and press Enter (e.g. Mathematics, Science)"
+                                                    value={newSubjects}
+                                                    onChange={setNewSubjects}
+                                                    styles={REACT_SELECT_STYLES}
+                                                    className="w-full"
+                                                />
+                                                <p className="text-xs text-gray-500 mt-1.5 font-medium px-1">At least one subject is required.</p>
                                             </div>
-                                            <button
-                                                type="button"
-                                                onClick={handleCreateClassSection}
-                                                disabled={savingClass}
-                                                className="px-4 py-2.5 rounded-xl text-white font-semibold transition-opacity hover:opacity-90 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                                                style={{ backgroundColor: accentColor }}
-                                            >
-                                                {savingClass ? <ButtonSpinner /> : <FaPlus size={12} />}
-                                                Create
-                                            </button>
+                                            <div className="flex items-center gap-3 w-full md:w-auto">
+                                                <div className="flex-1 md:flex-none px-3 py-2.5 rounded-xl bg-white border border-gray-200 text-xs font-bold text-gray-600 text-center whitespace-nowrap overflow-hidden text-ellipsis">
+                                                    Preview: <span className="text-gray-900">{newStandard.trim() || '--'} - {(newSection.trim() || '--').toUpperCase()}</span>
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={handleCreateClassSection}
+                                                    disabled={savingClass}
+                                                    className="px-5 py-2.5 rounded-xl text-white font-semibold transition-opacity hover:opacity-90 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 whitespace-nowrap shadow-sm"
+                                                    style={{ backgroundColor: accentColor }}
+                                                >
+                                                    {savingClass ? <ButtonSpinner /> : <FaPlus size={12} />}
+                                                    Create
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
 
@@ -794,11 +871,23 @@ const Settings = () => {
                                                 classSections.map((pair) => (
                                                     <div key={makeClassKey(pair)} className="px-4 py-3.5 border-b border-gray-100 last:border-b-0 flex items-center justify-between">
                                                         <div className="flex items-center gap-3">
-                                                            <span className="w-2 h-2 rounded-full" style={{ backgroundColor: accentColor }}></span>
-                                                            <span className="font-semibold text-gray-900">{pair.standard} - {pair.section}</span>
+                                                            <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: accentColor }}></span>
+                                                            <span className="font-semibold text-gray-900 whitespace-nowrap">{pair.standard} - {pair.section}</span>
                                                             {newlyCreatedKeys.has(makeClassKey(pair)) && (
                                                                 <span className="px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-full bg-emerald-100 text-emerald-700">New</span>
                                                             )}
+                                                            <div className="hidden sm:flex gap-1 flex-wrap ml-2 overflow-hidden items-center">
+                                                                {(pair.subjects || []).slice(0, 3).map((sub, idx) => (
+                                                                    <span key={idx} className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded text-[10px] font-medium truncate max-w-20" title={sub}>
+                                                                        {sub}
+                                                                    </span>
+                                                                ))}
+                                                                {(pair.subjects || []).length > 3 && (
+                                                                    <span className="bg-slate-50 border border-slate-200 text-slate-500 px-1.5 py-0.5 rounded text-[10px] font-bold">
+                                                                        +{(pair.subjects.length - 3)}
+                                                                    </span>
+                                                                )}
+                                                            </div>
                                                         </div>
                                                         <button
                                                             type="button"

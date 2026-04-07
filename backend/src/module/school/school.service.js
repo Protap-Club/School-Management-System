@@ -286,6 +286,30 @@ export const addSchoolClassSection = async (schoolId, data) => {
         throw new BadRequestError("Section must be alphanumeric (letters, numbers, underscore only)");
     }
 
+    if (!Array.isArray(normalized.subjects) || normalized.subjects.length === 0) {
+        throw new BadRequestError("At least one subject is required");
+    }
+
+    // Deduplicate subjects case-insensitively
+    const seenSubjects = new Set();
+    const deduplicatedSubjects = [];
+    for (const sub of normalized.subjects) {
+        const trimmed = String(sub).trim();
+        if (!trimmed) continue;
+        const lower = trimmed.toLowerCase();
+        if (!seenSubjects.has(lower)) {
+            seenSubjects.add(lower);
+            deduplicatedSubjects.push(trimmed);
+        }
+    }
+
+    if (deduplicatedSubjects.length === 0) {
+        throw new BadRequestError("At least one valid subject is required");
+    }
+    
+    // Assign back the cleaned array
+    normalized.subjects = deduplicatedSubjects;
+
     const existing = school.academic?.classSections || [];
     const alreadyExists = existing.some(
         (item) =>
