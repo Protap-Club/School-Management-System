@@ -121,21 +121,14 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess, initialData }) =>
     }, [formData.section, formData.standard, occupiedTeacherMap, roleToAdd]);
     const teacherAssignmentLoading = classesLoading || teachersQuery.isLoading;
 
-    // Augment standards/sections if we are in "Pending Class" mode
-    const finalStandards = useMemo(() => {
-        if (initialData?.isPending && initialData.standard && !standards.includes(initialData.standard)) {
-            return [...standards, initialData.standard];
-        }
-        return standards;
-    }, [standards, initialData]);
+    // Standard/section lists from backend — no pending-class augmentation needed;
+    // classes are always persisted before AddUserModal is opened.
+    const finalStandards = standards;
 
     const finalSections = useMemo(() => {
-        const baseSections = formData.standard ? getSectionsForStandard(formData.standard) : allUniqueSections;
-        if (initialData?.isPending && formData.standard === initialData.standard && !baseSections.includes(initialData.section)) {
-            return [...baseSections, initialData.section];
-        }
-        return baseSections;
-    }, [formData.standard, getSectionsForStandard, allUniqueSections, initialData]);
+        return formData.standard ? getSectionsForStandard(formData.standard) : allUniqueSections;
+    }, [formData.standard, getSectionsForStandard, allUniqueSections]);
+
 
     const roleLabel = roleToAdd?.charAt(0).toUpperCase() + roleToAdd?.slice(1);
 
@@ -180,23 +173,6 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess, initialData }) =>
         setLoading(true);
         setError('');
         try {
-            // DEFERRED CLASS CREATION: If this class doesn't exist yet, create it now!
-            if (initialData?.isPending && formData.standard === initialData.standard && formData.section === initialData.section) {
-                try {
-                    await api.post('/school/classes', { 
-                        standard: formData.standard, 
-                        section: formData.section 
-                    });
-                    // Note: We don't necessarily need to refresh the global list here 
-                    // because we are navigating away or the student creation will trigger a refresh.
-                } catch (err) {
-                    // If it already exists (e.g. concurrent action), we can ignore and proceed
-                    if (err.response?.status !== 400 && err.response?.status !== 409) {
-                        throw new Error(err.response?.data?.message || 'Failed to initialize class');
-                    }
-                }
-            }
-
             const fullName = `${formData.firstName}${formData.middleName ? ' ' + formData.middleName : ''} ${formData.lastName}`.trim();
 
             const payload = {
