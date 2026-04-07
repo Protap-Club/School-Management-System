@@ -45,6 +45,16 @@ export const noticesApi = {
         return response.data;
     },
 
+    deleteReceivedNotice: async (id) => {
+        const response = await api.delete(`/notices/received/${id}`);
+        return response.data;
+    },
+
+    bulkDeleteReceivedNotices: async (ids = []) => {
+        const response = await api.post('/notices/received/delete-many', { ids });
+        return response.data;
+    },
+
     // Get students list
     // Bug 4 fix: Use /notices/my-students instead of /users?role=student&pageSize=100
     // The old endpoint was capped at 100 records — teachers with >100 students (e.g. Priya with 122)

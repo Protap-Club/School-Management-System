@@ -16,7 +16,8 @@ const TeacherStudentList = ({
     manualMutation,
     setSelectedStudent,
     STATUS_STYLES,
-    STATUS_LABELS
+    STATUS_LABELS,
+    onPageSizeChange,
 }) => {
     return (
         <Card className="border-slate-200 shadow-sm overflow-hidden">
@@ -82,6 +83,7 @@ const TeacherStudentList = ({
                     totalItems={filteredStudents.length}
                     itemsPerPage={itemsPerPage}
                     onPageChange={setTeacherPage}
+                    onPageSizeChange={onPageSizeChange}
                 />
             )}
         </Card>

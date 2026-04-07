@@ -1,5 +1,19 @@
 import mongoose from "mongoose";
 
+const noticeAttachmentSchema = new mongoose.Schema(
+  {
+    filename: { type: String },
+    originalName: { type: String },
+    path: { type: String },
+    size: { type: Number },
+    mimetype: { type: String },
+    secure_url: { type: String },
+    public_id: { type: String },
+    label: { type: String },
+  },
+  { _id: false, id: false }
+);
+
 // Notice Schema
 const noticeSchema = new mongoose.Schema(
   {
@@ -40,13 +54,12 @@ const noticeSchema = new mongoose.Schema(
       default: [],
     },
     attachment: {
-      filename: { type: String },
-      originalName: { type: String },
-      path: { type: String },
-      size: { type: Number },
-      mimetype: { type: String },
-      secure_url: { type: String },
-      public_id: { type: String },
+      type: noticeAttachmentSchema,
+      default: null,
+    },
+    attachments: {
+      type: [noticeAttachmentSchema],
+      default: [],
     },
     status: {
       type: String,
@@ -56,6 +69,15 @@ const noticeSchema = new mongoose.Schema(
     isActive: {
       type: Boolean,
       default: true,
+    },
+    hiddenFor: {
+      type: [
+        {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "User",
+        },
+      ],
+      default: [],
     },
     requiresAcknowledgment: {
       type: Boolean,
@@ -83,17 +105,7 @@ const noticeSchema = new mongoose.Schema(
           maxlength: 500,
         },
         attachments: {
-          type: [
-            {
-              filename: { type: String },
-              originalName: { type: String },
-              path: { type: String },
-              size: { type: Number },
-              mimetype: { type: String },
-              secure_url: { type: String },
-              public_id: { type: String },
-            },
-          ],
+          type: [noticeAttachmentSchema],
           default: [],
         },
       },

@@ -711,7 +711,7 @@ const ResultPage = () => {
                     </tbody>
                   </table>
                 </div>
-                {filteredResults.length > 25 && (
+                {filteredResults.length > pageSize && (
                   <PaginationControls
                     currentPage={currentPage}
                     totalItems={filteredResults.length}

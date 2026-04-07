@@ -50,6 +50,33 @@ export const examApi = {
     return ensureSuccess(response, 'Failed to update exam');
   },
 
+  // Upload one or more attachments for a specific schedule item
+  uploadScheduleAttachments: async (examId, scheduleItemId, files = []) => {
+    const formData = new FormData();
+    files.forEach((file) => {
+      formData.append('attachments', file);
+    });
+
+    const response = await api.post(
+      `${EXAM_BASE_URL}/${examId}/schedule/${scheduleItemId}/attachments`,
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      }
+    );
+    return ensureSuccess(response, 'Failed to upload schedule attachments');
+  },
+
+  patchScheduleSyllabus: async (examId, scheduleItemId, updateData) => {
+    const response = await api.patch(
+      `${EXAM_BASE_URL}/${examId}/schedule/${scheduleItemId}/syllabus`,
+      updateData
+    );
+    return ensureSuccess(response, 'Failed to update schedule syllabus');
+  },
+
   // Delete exam (soft delete, DRAFT status only)
   deleteExam: async (examId) => {
     const response = await api.delete(`${EXAM_BASE_URL}/${examId}`);
