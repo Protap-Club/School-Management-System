@@ -94,3 +94,47 @@ export const sendCredentialsEmail = async ({ to, name, role, password, schoolNam
         return { success: false, error: error.message };
     }
 };
+
+// Sends password reset email with reset token and link
+export const sendPasswordResetEmail = async ({ to, name, resetToken, schoolName }) => {
+    try {
+        // ── DEV GUARD ────────────────────────────────────────────────────────────
+        // In local development we skip real email delivery and just log
+        // the reset token to the console.
+        if (process.env.NODE_ENV !== 'production') {
+            logger.warn(`[DEV] Password reset email sending skipped.`);
+            logger.warn(`[DEV]   Recipient : ${to}`);
+            logger.warn(`[DEV]   Name      : ${name}`);
+            logger.warn(`[DEV]   Reset Token: ${resetToken}`);
+            return { success: true };
+        }
+        // ─────────────────────────────────────────────────────────────────────────
+
+        if (!conf.SMTP_USER || !conf.SMTP_PASS) {
+            logger.warn("SMTP not configured. Password reset email skipped.");
+            return { success: false };
+        }
+
+        const displaySchool = schoolName || "School Management System";
+        // Default to frontend URL if not provided - uses query param format for the token
+        const resetUrl = `${conf.FRONTEND_URL || 'http://localhost:5173'}/reset-password?token=${resetToken}`;
+
+        const rawHtml = await getTemplate('password-reset.template.html');
+        const htmlContent = parseTemplate(rawHtml, { name, resetToken, schoolName: displaySchool, resetUrl });
+
+        const mailOptions = {
+            from: `"${displaySchool}" <${conf.SMTP_FROM || conf.SMTP_USER}>`,
+            to,
+            subject: `Password Reset Request - ${displaySchool}`,
+            html: htmlContent,
+            text: `Hello ${name},\n\nYou requested to reset your password for ${displaySchool}.\n\nYour reset code is: ${resetToken}\n\nThis code will expire in 15 minutes.\n\nYou can also use this link: ${resetUrl}\n\nIf you didn't request this, you can safely ignore this email.`
+        };
+
+        const info = await transporter.sendMail(mailOptions);
+        logger.info(`Password Reset Email Sent: ${info.messageId} to ${to}`);
+        return { success: true };
+    } catch (error) {
+        logger.error(`Password Reset Email Failure: ${error.message}`);
+        return { success: false, error: error.message };
+    }
+};

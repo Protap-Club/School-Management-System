@@ -6,6 +6,8 @@ import RequireFeature from './components/RequireFeature';
 // Lazy-loaded pages from routes config
 import { pages, PageLoader } from './routes';
 import UpdatePassword from './pages/UpdatePassword';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 
 function App() {
     // Destructure lazy-loaded page components
@@ -52,6 +54,8 @@ function App() {
                 <Routes>
                     {/* Public Routes */}
                     <Route path="/login" element={<Login />} />
+                    <Route path="/forgot-password" element={<ForgotPassword />} />
+                    <Route path="/reset-password" element={<ResetPassword />} />
 
                     {/* Update Password Route - Protected */}
                     <Route
