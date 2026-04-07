@@ -4,7 +4,7 @@ import { useAuth } from '../features/auth';
 import { useReceivedNotices } from '../features/notices';
 import { useNavigate } from 'react-router-dom';
 import { FaBell, FaInfoCircle, FaClock, FaChevronDown, FaFileAlt, FaArrowRight, FaPaperclip } from 'react-icons/fa';
-import { getRelativeTime } from '../utils';
+import { getRelativeTime, formatValue } from '../utils';
 
 const NOTIFICATION_TYPE_CONFIG = {
   file: { icon: <FaFileAlt className="text-purple-500" size={20} />, bg: 'bg-purple-50 border-purple-100', border: 'border-l-purple-500' },
@@ -24,7 +24,7 @@ const NotificationItem = ({ notification, onNavigate }) => {
         </div>
         <div className="flex-1">
           <div className="flex justify-between items-start">
-            <h3 className="font-semibold text-gray-900">{notification.title || 'Notice'}</h3>
+            <h3 className="font-semibold text-gray-900">{formatValue(notification.title, 'Notice')}</h3>
             <span className="text-xs text-gray-500 flex items-center gap-1 bg-white px-2 py-1 rounded-full border border-gray-100">
               <FaClock size={10} /> {getRelativeTime(notification.createdAt)}
             </span>

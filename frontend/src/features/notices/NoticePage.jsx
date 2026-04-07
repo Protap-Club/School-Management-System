@@ -9,6 +9,7 @@ import { useNoticeHandlers } from './useNoticeHandlers';
 import { ReceiverAckButton, ViewItemModal, SendModal, NoticeAttachmentList } from './NoticeComponents';
 import { getFileIcon, getRecipientLabel } from './NoticeUtils';
 import { SectionHeader, TabButton, FilterSelect, SearchableList, MemberList } from '../../components/ui/NoticeUIComponents';
+import { formatValue } from '../../utils';
 
 const NoticePage = () => {
     const handlers = useNoticeHandlers();
@@ -501,7 +502,7 @@ const NoticePage = () => {
                                         </div>
                                         <div className="flex-1 w-full min-w-0 pr-2">
                                             <h3 className="text-[18px] font-extrabold text-gray-900 mb-1.5 leading-tight tracking-tight">
-                                                {item.title || 'Notice'}
+                                                {formatValue(item.title, 'Notice')}
                                             </h3>
                                             <p className="text-[15px] text-gray-600 leading-relaxed whitespace-pre-wrap mb-5">
                                                 {item.message}

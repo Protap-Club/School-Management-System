@@ -25,6 +25,7 @@ import { CircularProgress, Sparkline } from '../components/dashboard/SvgCharts';
 import { useMySchedule, DAY_MAP } from '../features/timetable';
 import { useNotices } from '../features/notices';
 import { useUsers } from '../features/users';
+import { formatValue } from '../utils';
 
 const Dashboard = () => {
   const { user, accessToken } = useAuth();
@@ -376,7 +377,7 @@ const Dashboard = () => {
                             </div>
                             <div className="space-y-1">
                               <p className="text-base font-black tracking-tight text-gray-900 group-hover/timetable-item:text-primary transition-colors duration-300">{session.subject || 'Subject'}</p>
-                              <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Room {session.roomNumber || 'N/A'}</p>
+                              <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Room {formatValue(session.roomNumber)}</p>
                             </div>
                           </div>
                           <div className="text-right">

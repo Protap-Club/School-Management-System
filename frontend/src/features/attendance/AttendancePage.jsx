@@ -13,6 +13,7 @@ import {
     useMarkManualAttendance,
     useReplaceClassTeacher,
 } from './index';
+import { formatValue } from '../../utils';
 
 // Components
 import StudentHistoryModal from './components/StudentHistoryModal';
@@ -455,7 +456,7 @@ const AttendancePage = () => {
                                                             <div>
                                                                 <h3 className="font-bold text-slate-800">{student.name}</h3>
                                                                 <div className="flex items-center gap-3 mt-1 text-xs font-medium text-slate-500">
-                                                                    <span className="bg-slate-100 px-2.5 py-0.5 flex items-center rounded-md">Roll: {student.profile?.rollNumber || '-'}</span>
+                                                                    <span className="bg-slate-100 px-2.5 py-0.5 flex items-center rounded-md">Roll: {formatValue(student.profile?.rollNumber)}</span>
                                                                     {student.profile?.standard && (
                                                                         <span className="bg-slate-100 px-2.5 py-0.5 flex items-center rounded-md text-primary font-semibold">Class {student.profile.standard} {student.profile.section}</span>
                                                                     )}

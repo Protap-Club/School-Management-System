@@ -9,6 +9,7 @@ import { FaUserTie, FaSearch, FaArrowLeft, FaExchangeAlt } from 'react-icons/fa'
 import { Switch } from "@/components/ui/switch";
 import { useAuth } from '../../auth';
 import { PaginationControls } from '../../../components/ui/PaginationControls';
+import { formatValue } from '../../../utils';
 
 const AdminClassList = ({
     groupedClasses,
@@ -142,7 +143,7 @@ const AdminClassList = ({
                                     </div>
                                     <div>
                                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] leading-tight mb-0.5">Class Teacher</p>
-                                        <p className="text-base font-black text-slate-900 leading-tight tracking-tight">{group.teacher?.name || 'Unassigned'}</p>
+                                        <p className="text-base font-black text-slate-900 leading-tight tracking-tight">{formatValue(group.teacher?.name)}</p>
                                     </div>
                                     <Button
                                         type="button"
@@ -222,9 +223,7 @@ const AdminClassList = ({
                                                                 </div>
                                                             </TableCell>
                                                             <TableCell className="text-center">
-                                                                <Badge variant="outline" className="bg-slate-50 text-slate-600 border-slate-200 font-black px-3 py-1 rounded-lg">
-                                                                    {student.profile?.rollNumber || '-'}
-                                                                </Badge>
+                                                                <Badge variant="outline" className="bg-slate-50 text-slate-600 border-slate-200 font-black px-3 py-1 rounded-lg">{formatValue(student.profile?.rollNumber)}</Badge>
                                                             </TableCell>
                                                             <TableCell className="text-center">
                                                                 <Badge variant="outline" className={`font-black uppercase tracking-[0.1em] text-[10px] px-3 py-1.5 rounded-xl ${STATUS_STYLES[status]}`}>
@@ -295,7 +294,7 @@ const AdminClassList = ({
                                         <FaUserTie className="text-slate-500" />
                                     </div>
                                     <div className="text-sm hidden sm:block">
-                                        <p className="font-bold text-slate-900">{group.teacher?.name || 'Unassigned'}</p>
+                                        <p className="font-bold text-slate-900">{formatValue(group.teacher?.name)}</p>
                                         <p className="font-medium text-muted-foreground text-xs uppercase tracking-widest">Class Teacher</p>
                                     </div>
                                 </div>
@@ -309,7 +308,7 @@ const AdminClassList = ({
                     <div className="w-full max-w-md rounded-2xl bg-white border border-slate-200 shadow-xl p-5">
                         <h3 className="text-lg font-black text-slate-900 tracking-tight">Replace Class Teacher</h3>
                         <p className="mt-1 text-sm text-slate-500">
-                            Class {replaceModalClass.id} currently has <span className="font-semibold text-slate-700">{replaceModalClass.teacher?.name || "no teacher"}</span> as class teacher.
+                            Class {replaceModalClass.id} currently has <span className="font-semibold text-slate-700">{formatValue(replaceModalClass.teacher?.name)}</span> as class teacher.
                         </p>
                         {replaceError && (
                             <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
