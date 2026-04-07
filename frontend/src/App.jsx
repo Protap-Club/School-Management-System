@@ -5,10 +5,13 @@ import RequireFeature from './components/RequireFeature';
 
 // Lazy-loaded pages from routes config
 import { pages, PageLoader } from './routes';
+import UpdatePassword from './pages/UpdatePassword';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 
 function App() {
     // Destructure lazy-loaded page components
-    const { Login, Dashboard, UsersPage, Settings, Attendance, Notice, TimetablePage, Calendar, Notifications, Fees, Examination, Assignments, Result } = pages;
+    const { Login, Dashboard, UsersPage, Settings, Attendance, Notice, TimetablePage, Calendar, Notifications, Profile, Fees, Examination, Assignments, Result } = pages;
 
     const rolePathMap = {
         super_admin: 'superadmin',
@@ -51,6 +54,18 @@ function App() {
                 <Routes>
                     {/* Public Routes */}
                     <Route path="/login" element={<Login />} />
+                    <Route path="/forgot-password" element={<ForgotPassword />} />
+                    <Route path="/reset-password" element={<ResetPassword />} />
+
+                    {/* Update Password Route - Protected */}
+                    <Route
+                        path="/update-password"
+                        element={
+                            <ProtectedRoute allowedRoles={['super_admin', 'admin', 'teacher']}>
+                                <UpdatePassword />
+                            </ProtectedRoute>
+                        }
+                    />
 
                     {/* Dashboard Route */}
                     <Route
@@ -77,6 +92,15 @@ function App() {
                         element={
                             <ProtectedRoute allowedRoles={['super_admin', 'admin', 'teacher']}>
                                 <Notifications />
+                            </ProtectedRoute>
+                        }
+                    />
+
+                    <Route
+                        path="/profile"
+                        element={
+                            <ProtectedRoute allowedRoles={['super_admin', 'admin', 'teacher']}>
+                                <Profile />
                             </ProtectedRoute>
                         }
                     />
