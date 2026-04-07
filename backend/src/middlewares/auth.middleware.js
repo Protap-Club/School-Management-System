@@ -44,8 +44,6 @@ const checkAuth = async (req, res, next) => {
         next();
 
     } catch (error) {
-        // Log errors only (keeps logs clean of "success" noise)
-        logger.error(`Auth Middleware Error: ${error.message}`);
         next(error);
     }
 };
