@@ -165,9 +165,25 @@ const Dashboard = () => {
         rate: c.rate.toString()
       }))
       .sort((a, b) => {
-        const stdA = parseInt(a.standard, 10);
-        const stdB = parseInt(b.standard, 10);
-        if (stdA !== stdB) return stdA - stdB;
+        const numA = parseInt(a.standard, 10);
+        const numB = parseInt(b.standard, 10);
+        
+        const isNumA = !isNaN(numA);
+        const isNumB = !isNaN(numB);
+
+        // Case 1: Both are numeric standards
+        if (isNumA && isNumB) {
+          if (numA !== numB) return numA - numB;
+          return a.section.localeCompare(b.section);
+        }
+        
+        // Case 2: One is numeric, prioritize it over non-numeric (like CSE)
+        if (isNumA) return -1;
+        if (isNumB) return 1;
+        
+        // Case 3: Both are non-numeric, sort alphabetically
+        const stdCompare = a.standard.toString().localeCompare(b.standard.toString());
+        if (stdCompare !== 0) return stdCompare;
         return a.section.localeCompare(b.section);
       });
 
