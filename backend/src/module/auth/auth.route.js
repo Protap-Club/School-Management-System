@@ -6,7 +6,7 @@ import { validate } from "../../middlewares/validation.middleware.js";
 import { loginSchema, updatePasswordSchema, forgotPasswordSchema, resetPasswordSchema } from "./auth.validation.js";
 
 const router = express.Router();
-const isProduction = conf.NODE_ENV === "production";
+const isProduction = process.env.NODE_ENV === "production";
 
 // Rate limiters for auth endpoints
 const loginLimiter = rateLimit({
