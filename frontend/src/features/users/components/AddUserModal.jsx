@@ -119,17 +119,26 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess, initialData }) =>
         }
         return null;
     }, [formData.section, formData.standard, occupiedTeacherMap, roleToAdd]);
-    const teacherAssignmentLoading = classesLoading || teachersQuery.isLoading;
-
-    // Standard/section lists from backend — no pending-class augmentation needed;
-    // classes are always persisted before AddUserModal is opened.
-    const finalStandards = standards;
+    const finalStandards = useMemo(() => {
+        if (isTeacher && roleToAdd === 'student') {
+            const assignedClasses = user?.profile?.assignedClasses || [];
+            return [...new Set(assignedClasses.map(c => c.standard))];
+        }
+        return standards;
+    }, [standards, isTeacher, roleToAdd, user?.profile?.assignedClasses]);
 
     const finalSections = useMemo(() => {
+        if (isTeacher && roleToAdd === 'student') {
+            const assignedClasses = user?.profile?.assignedClasses || [];
+            if (formData.standard) {
+                return assignedClasses.filter(c => String(c.standard) === String(formData.standard)).map(c => c.section);
+            }
+            return [...new Set(assignedClasses.map(c => c.section))];
+        }
         return formData.standard ? getSectionsForStandard(formData.standard) : allUniqueSections;
-    }, [formData.standard, getSectionsForStandard, allUniqueSections]);
+    }, [formData.standard, getSectionsForStandard, allUniqueSections, isTeacher, roleToAdd, user?.profile?.assignedClasses]);
 
-
+    const teacherAssignmentLoading = classesLoading || teachersQuery.isLoading;
     const roleLabel = roleToAdd?.charAt(0).toUpperCase() + roleToAdd?.slice(1);
 
     useEffect(() => {

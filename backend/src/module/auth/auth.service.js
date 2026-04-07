@@ -1,6 +1,8 @@
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import User from "../user/model/User.model.js";
+import TeacherProfile from "../user/model/TeacherProfile.model.js";
+import StudentProfile from "../user/model/StudentProfile.model.js";
 import { USER_ROLES } from "../../constants/userRoles.js";
 import {
     BadRequestError,
@@ -88,6 +90,19 @@ export const login = async (email, password, platform, metadata = {}) => {
         avatarPublicId: user.avatarPublicId,
         updatedAt: user.updatedAt,
     };
+
+    // Attach role-specific profile data (e.g. assignedClasses for teachers)
+    if (user.role === USER_ROLES.TEACHER) {
+        const teacherProfile = await TeacherProfile.findOne({ userId: user._id })
+            .select("assignedClasses expectedSalary")
+            .lean();
+        userResponse.profile = teacherProfile || null;
+    } else if (user.role === USER_ROLES.STUDENT) {
+        const studentProfile = await StudentProfile.findOne({ userId: user._id })
+            .select("standard section rollNumber")
+            .lean();
+        userResponse.profile = studentProfile || null;
+    }
 
     return { user: userResponse, accessToken, refreshToken };
 };
