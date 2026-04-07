@@ -153,14 +153,23 @@ const Dashboard = () => {
   const stats = useMemo(() => {
     if (!statsRes) return { overall: { total: 0, present: 0, late: 0, absent: 0, rate: "0" }, matrix: [], trend: [10, 10, 10] };
     
-    const matrix = (statsRes.classMatrix || []).map(c => ({
-      name: `${c.standard} ${c.section}`,
-      total: c.total,
-      present: c.present,
-      late: c.late,
-      absent: c.absent,
-      rate: c.rate.toString()
-    }));
+    const matrix = (statsRes.classMatrix || [])
+      .map(c => ({
+        standard: c.standard,
+        section: c.section,
+        name: `${c.standard} ${c.section}`,
+        total: c.total,
+        present: c.present,
+        late: c.late,
+        absent: c.absent,
+        rate: c.rate.toString()
+      }))
+      .sort((a, b) => {
+        const stdA = parseInt(a.standard, 10);
+        const stdB = parseInt(b.standard, 10);
+        if (stdA !== stdB) return stdA - stdB;
+        return a.section.localeCompare(b.section);
+      });
 
     const rateNum = statsRes.totalStudents > 0 ? (statsRes.todayAttendance.present / statsRes.totalStudents) * 100 : 0;
     const rateStr = rateNum > 0 ? rateNum.toFixed(1) : "0";
