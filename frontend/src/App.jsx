@@ -37,7 +37,7 @@ function App() {
         { suffix: 'users', roles: ['super_admin', 'admin', 'teacher'], component: <UsersPage /> },
         { suffix: 'settings', roles: ['super_admin', 'admin'], component: <Settings /> },
         { suffix: 'attendance', roles: ['super_admin', 'admin', 'teacher'], component: <Attendance />, feature: 'attendance' },
-        { suffix: 'attendance/:classId', roles: ['super_admin', 'admin'], component: <Attendance />, feature: 'attendance' },
+        { suffix: 'attendance/:classId', roles: ['super_admin', 'admin', 'teacher'], component: <Attendance />, feature: 'attendance' },
         { suffix: 'notice', roles: ['super_admin', 'admin', 'teacher'], component: <Notice />, feature: 'notice' },
         { suffix: 'timetable', roles: ['super_admin', 'admin', 'teacher'], component: <TimetablePage />, feature: 'timetable' },
         { suffix: 'calendar', roles: ['super_admin', 'admin', 'teacher'], component: <Calendar />, feature: 'calendar' },

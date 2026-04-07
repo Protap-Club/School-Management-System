@@ -1,14 +1,11 @@
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
-import { 
-    FaTimes, FaPlus, FaTrash, FaCalendarAlt, FaClock, 
-    FaBookOpen, FaInfoCircle, FaCheckCircle, FaExclamationTriangle,
-    FaSearch, FaChevronDown
-} from 'react-icons/fa';
+import { FaTimes, FaPlus, FaTrash, FaCalendarAlt, FaClock, FaBookOpen, FaInfoCircle, FaCheckCircle, FaExclamationTriangle, FaSearch, FaChevronDown, FaPaperclip } from 'react-icons/fa';
 import { useSchoolClasses } from '../../hooks/useSchoolClasses';
 import { useUsers } from '../../features/users/api/queries';
-import { ButtonSpinner } from '../../components/ui/Spinner';
-
+import { ButtonSpinner, PageSpinner } from '../../components/ui/Spinner';
 import { createPortal } from 'react-dom';
+import { downloadFile } from '../../utils/downloadFile';
+// cspell:ignore msword openxmlformats officedocument wordprocessingml opendocument
 
 const TeacherSelectDropdown = ({ value, onChange, options, className }) => {
     const [isOpen, setIsOpen] = useState(false);
@@ -23,14 +20,17 @@ const TeacherSelectDropdown = ({ value, onChange, options, className }) => {
         }
     }, []);
 
+    const closeDropdown = useCallback(() => {
+        setIsOpen(false);
+        setSearch('');
+    }, []);
+
     useEffect(() => {
         if (isOpen) {
             updateRect();
             window.addEventListener('resize', updateRect);
             // Capture scroll events from any scrollable parent to update position on scroll.
-            window.addEventListener('scroll', updateRect, true); 
-        } else {
-            setSearch('');
+            window.addEventListener('scroll', updateRect, true);
         }
         return () => {
             window.removeEventListener('resize', updateRect);
@@ -45,14 +45,14 @@ const TeacherSelectDropdown = ({ value, onChange, options, className }) => {
                 dropdownRef.current && !dropdownRef.current.contains(event.target) &&
                 menuRef.current && !menuRef.current.contains(event.target)
             ) {
-                setIsOpen(false);
+                closeDropdown();
             }
         };
         if (isOpen) {
             document.addEventListener("mousedown", handleClickOutside);
         }
         return () => document.removeEventListener("mousedown", handleClickOutside);
-    }, [isOpen]);
+    }, [closeDropdown, isOpen]);
 
     const filteredOptions = useMemo(() => {
         return options.filter(opt => opt.label.toLowerCase().includes(search.toLowerCase()));
@@ -90,7 +90,7 @@ const TeacherSelectDropdown = ({ value, onChange, options, className }) => {
                     type="button"
                     onClick={() => {
                         onChange('');
-                        setIsOpen(false);
+                        closeDropdown();
                     }}
                     className={`w-full text-left px-3 py-2.5 rounded-lg text-sm transition-colors hover:bg-gray-50 ${!value ? 'bg-primary/5 text-primary font-bold' : 'text-gray-600'}`}
                 >
@@ -103,7 +103,7 @@ const TeacherSelectDropdown = ({ value, onChange, options, className }) => {
                             type="button"
                             onClick={() => {
                                 onChange(opt.value);
-                                setIsOpen(false);
+                                closeDropdown();
                             }}
                             className={`w-full text-left px-3 py-2.5 rounded-lg text-sm transition-colors hover:bg-gray-50 ${value === opt.value ? 'bg-primary/5 text-primary font-bold' : 'text-gray-700 truncate'}`}
                         >
@@ -123,7 +123,13 @@ const TeacherSelectDropdown = ({ value, onChange, options, className }) => {
         <div ref={dropdownRef} className={`relative ${className}`} style={{ padding: 0, border: 'none', background: 'transparent' }}>
             <button
                 type="button"
-                onClick={() => setIsOpen(!isOpen)}
+                onClick={() => {
+                    if (isOpen) {
+                        closeDropdown();
+                        return;
+                    }
+                    setIsOpen(true);
+                }}
                 className={`flex items-center justify-between w-full text-left focus:outline-none`}
                 style={{ padding: '0.625rem 1rem', background: 'transparent' }}
             >
@@ -138,6 +144,20 @@ const TeacherSelectDropdown = ({ value, onChange, options, className }) => {
     );
 };
 
+const createEmptyScheduleItem = () => ({
+    _id: '',
+    subject: '',
+    examDate: '',
+    startTime: '',
+    endTime: '',
+    totalMarks: '',
+    passingMarks: '',
+    assignedTeacher: '',
+    syllabus: '',
+    attachments: [],
+    attachmentFiles: [],
+});
+
 const INITIAL_FORM = {
     name: '',
     examType: '',
@@ -148,18 +168,7 @@ const INITIAL_FORM = {
     section: '',
     description: '',
     schoolId: '',
-    schedule: [
-        {
-            subject: '',
-            examDate: '',
-            startTime: '',
-            endTime: '',
-            totalMarks: '',
-            passingMarks: '',
-            assignedTeacher: '',
-            syllabus: ''
-        }
-    ]
+    schedule: [createEmptyScheduleItem()]
 };
 
 const EXAM_CATEGORIES = [
@@ -173,24 +182,55 @@ const EXAM_CATEGORIES = [
     { value: 'OTHER', label: 'Other' },
 ];
 
-const ExamModal = ({ isOpen, onClose, onSubmit, editData, isLoading, userRole, user }) => {
+const SCHEDULE_ATTACHMENT_ALLOWED_MIME_TYPES = [
+    'image/jpeg',
+    'image/png',
+    'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'application/vnd.ms-excel',
+    'text/csv',
+    'text/plain',
+];
+
+const SCHEDULE_ATTACHMENT_ALLOWED_FILE_EXTENSIONS = ['jpg', 'jpeg', 'pdf', 'png', 'doc', 'docx', 'xlsx', 'xls', 'csv', 'txt'];
+const SCHEDULE_ATTACHMENT_ACCEPT = '.jpg,.jpeg,.pdf,.png,.doc,.docx,.xlsx,.xls,.csv,.txt';
+const SCHEDULE_ATTACHMENT_MAX_FILES = 10;
+const SCHEDULE_ATTACHMENT_MAX_FILE_SIZE = 10 * 1024 * 1024;
+
+const ExamModal = ({ isOpen, onClose, onSubmit, editData, isLoading, userRole, user, syllabusOnly = false }) => {
     const isEdit = !!editData;
     const isTeacher = userRole === 'teacher';
     const isAdmin = ['admin', 'super_admin'].includes(userRole);
     const isSuperAdmin = userRole === 'super_admin';
     const [form, setForm] = useState(INITIAL_FORM);
+    const [initialFormSnapshot, setInitialFormSnapshot] = useState(INITIAL_FORM);
     const [errors, setErrors] = useState({});
-    const initialFormRef = React.useRef(INITIAL_FORM);
     const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
+    const [submitIntent, setSubmitIntent] = useState('');
     const {
         availableStandards: schoolAvailableStandards,
         getSectionsForStandard,
         allUniqueSections,
     } = useSchoolClasses();
 
-    const { data: teachersData } = useUsers({ role: 'teacher', pageSize: 1500, enabled: isOpen });
+    const { data: teachersData } = useUsers({
+        role: 'teacher',
+        pageSize: 1500,
+        enabled: isOpen && !isTeacher,
+    });
     
     const teacherOptions = useMemo(() => {
+        if (isTeacher) {
+            return user?._id
+                ? [{
+                    value: user._id,
+                    label: user.name || 'You',
+                }]
+                : [];
+        }
+
         const list = teachersData?.data?.users || teachersData?.users || [];
         return [...list]
             .sort((a, b) => a.name.localeCompare(b.name))
@@ -198,51 +238,21 @@ const ExamModal = ({ isOpen, onClose, onSubmit, editData, isLoading, userRole, u
                 value: t._id,
                 label: `${t.name} ${t.staffId ? `(${t.staffId})` : ''}`
             }));
-    }, [teachersData]);
+    }, [isTeacher, teachersData, user]);
 
-    // Filtered options based on teacher assignments
-    const availableStandards = useMemo(() => {
-        const classes = user?.profile?.assignedClasses || user?.assignedClasses || [];
-        if (isTeacher) {
-            if (classes.length) {
-                return [...new Set(classes.map(c => String(c.standard)))].sort((a, b) => Number(a) - Number(b));
-            }
-            return []; // Return empty for teachers with no assignments
-        }
-        return schoolAvailableStandards;
-    }, [isTeacher, user, schoolAvailableStandards]);
+    const availableStandards = useMemo(() => schoolAvailableStandards, [schoolAvailableStandards]);
 
-    const availableSections = useMemo(() => {
-        const classes = user?.profile?.assignedClasses || user?.assignedClasses || [];
-        if (isTeacher) {
-            if (classes.length) {
-                // If a standard is selected, only show sections for that standard
-                if (form.standard) {
-                    return [...new Set(classes
-                        .filter(c => String(c.standard) === String(form.standard))
-                        .map(c => String(c.section)))]
-                        .sort();
-                }
-                return [...new Set(classes.map(c => String(c.section)))].sort();
-            }
-            return []; // Return empty for teachers with no assignments
-        }
-        if (form.standard) {
-            return getSectionsForStandard(form.standard);
+    const getSectionsForStandardValue = useCallback((standardValue) => {
+        if (standardValue) {
+            return getSectionsForStandard(standardValue);
         }
         return allUniqueSections;
-    }, [isTeacher, user, form.standard, getSectionsForStandard, allUniqueSections]);
+    }, [allUniqueSections, getSectionsForStandard]);
 
-    useEffect(() => {
-        if (form.standard && !availableStandards.includes(form.standard)) {
-            setForm((prev) => ({ ...prev, standard: '', section: '' }));
-            return;
-        }
-
-        if (form.section && !availableSections.includes(form.section)) {
-            setForm((prev) => ({ ...prev, section: '' }));
-        }
-    }, [availableSections, availableStandards, form.section, form.standard]);
+    const availableSections = useMemo(
+        () => getSectionsForStandardValue(form.standard),
+        [form.standard, getSectionsForStandardValue]
+    );
 
     // Initialize form with edit data or reset to initial
     useEffect(() => {
@@ -260,6 +270,7 @@ const ExamModal = ({ isOpen, onClose, onSubmit, editData, isLoading, userRole, u
                     description: editData.description || '',
                     schoolId: editData.schoolId || '',
                     schedule: editData.schedule?.length > 0 ? editData.schedule.map(s => ({
+                        _id: s._id || '',
                         subject: s.subject || '',
                         examDate: s.examDate ? s.examDate.split('T')[0] : '',
                         startTime: s.startTime || '',
@@ -267,15 +278,15 @@ const ExamModal = ({ isOpen, onClose, onSubmit, editData, isLoading, userRole, u
                         totalMarks: String(s.totalMarks || ''),
                         passingMarks: String(s.passingMarks || ''),
                         assignedTeacher: s.assignedTeacher?._id || s.assignedTeacher || '',
-                        syllabus: s.syllabus || ''
-                    })) : [{ ...INITIAL_FORM.schedule[0] }]
+                        syllabus: s.syllabus || '',
+                        attachments: Array.isArray(s.attachments) ? s.attachments : [],
+                        attachmentFiles: [],
+                    })) : [createEmptyScheduleItem()]
                 };
             } else {
                 // Role-based default exam type and class
                 if (isTeacher) {
-                    base.examType = 'TERM_EXAM'; // Default to Term Exam to feel more like "scheduling"
-                    base.standard = '';
-                    base.section = '';
+                    base.examType = 'CLASS_TEST';
                 } else if (isAdmin) {
                     base.examType = 'TERM_EXAM';
                 }
@@ -286,16 +297,24 @@ const ExamModal = ({ isOpen, onClose, onSubmit, editData, isLoading, userRole, u
                     base.schoolId = '';
                 }
             }
+            // eslint-disable-next-line react-hooks/set-state-in-effect -- opening/editing modal intentionally rehydrates local draft form state
             setForm(base);
-            initialFormRef.current = base;
+            setInitialFormSnapshot(base);
             setErrors({});
             setShowDiscardConfirm(false);
+            setSubmitIntent('');
         }
     }, [isOpen, editData, isTeacher, isAdmin, isSuperAdmin, user]);
 
+    useEffect(() => {
+        if (!isLoading) {
+            setSubmitIntent('');
+        }
+    }, [isLoading]);
+
     const isDirty = useMemo(() => {
-        return JSON.stringify(form) !== JSON.stringify(initialFormRef.current);
-    }, [form]);
+        return JSON.stringify(form) !== JSON.stringify(initialFormSnapshot);
+    }, [form, initialFormSnapshot]);
 
     const handleCloseRequest = useCallback(() => {
         if (isDirty) {
@@ -306,15 +325,37 @@ const ExamModal = ({ isOpen, onClose, onSubmit, editData, isLoading, userRole, u
     }, [isDirty, onClose]);
 
     const handleReset = useCallback(() => {
-        setForm(initialFormRef.current);
+        setForm(initialFormSnapshot);
         setShowDiscardConfirm(false);
         setErrors({});
-    }, []);
+    }, [initialFormSnapshot]);
 
     const handleChange = useCallback((field, value) => {
-        setForm(prev => ({ ...prev, [field]: value }));
+        setForm((prev) => {
+            if (field === 'standard') {
+                const nextSectionOptions = getSectionsForStandardValue(value);
+
+                const shouldResetSection = !nextSectionOptions.includes(String(prev.section));
+                return {
+                    ...prev,
+                    standard: value,
+                    section: shouldResetSection ? '' : prev.section,
+                };
+            }
+
+            if (field === 'section') {
+                const nextSectionOptions = getSectionsForStandardValue(prev.standard);
+
+                return {
+                    ...prev,
+                    section: nextSectionOptions.includes(String(value)) ? value : '',
+                };
+            }
+
+            return { ...prev, [field]: value };
+        });
         setErrors(prev => ({ ...prev, [field]: '' }));
-    }, []);
+    }, [getSectionsForStandardValue]);
 
     const handleScheduleChange = useCallback((index, field, value) => {
         let finalValue = value;
@@ -339,24 +380,95 @@ const ExamModal = ({ isOpen, onClose, onSubmit, editData, isLoading, userRole, u
         setErrors(prev => ({ ...prev, [errorKey]: errorMessage }));
     }, []);
 
+    const handleScheduleAttachmentChange = useCallback((index, selectedFiles) => {
+        const filesToAdd = Array.isArray(selectedFiles) ? selectedFiles : [];
+        if (filesToAdd.length === 0) return;
+
+        let attachmentError = '';
+
+        setForm((prev) => ({
+            ...prev,
+            schedule: prev.schedule.map((item, i) =>
+                i === index
+                    ? (() => {
+                        const existingAttachments = Array.isArray(item.attachments) ? item.attachments : [];
+                        const pendingAttachments = Array.isArray(item.attachmentFiles) ? item.attachmentFiles : [];
+                        const remainingSlots = Math.max(
+                            0,
+                            SCHEDULE_ATTACHMENT_MAX_FILES - existingAttachments.length - pendingAttachments.length
+                        );
+
+                        if (remainingSlots === 0) {
+                            attachmentError = `Maximum ${SCHEDULE_ATTACHMENT_MAX_FILES} attachments allowed per paper`;
+                            return item;
+                        }
+
+                        const nextFiles = filesToAdd.slice(0, remainingSlots);
+                        if (nextFiles.length < filesToAdd.length) {
+                            attachmentError = `Only ${remainingSlots} more attachment${remainingSlots === 1 ? '' : 's'} can be added. Maximum ${SCHEDULE_ATTACHMENT_MAX_FILES} per paper.`;
+                        }
+
+                        return {
+                            ...item,
+                            attachmentFiles: [...pendingAttachments, ...nextFiles],
+                        };
+                    })()
+                    : item
+            ),
+        }));
+        setErrors((prev) => ({ ...prev, [`schedule_${index}_attachmentFiles`]: attachmentError }));
+    }, []);
+
+    const removePendingAttachment = useCallback((index, fileIndex) => {
+        setForm((prev) => ({
+            ...prev,
+            schedule: prev.schedule.map((item, i) =>
+                i === index
+                    ? {
+                        ...item,
+                        attachmentFiles: (item.attachmentFiles || []).filter((_, currentIndex) => currentIndex !== fileIndex),
+                    }
+                    : item
+            ),
+        }));
+        setErrors((prev) => ({ ...prev, [`schedule_${index}_attachmentFiles`]: '' }));
+    }, []);
+
+    const removeExistingAttachment = useCallback((index, attachmentIndex) => {
+        setForm((prev) => ({
+            ...prev,
+            schedule: prev.schedule.map((item, i) =>
+                i === index
+                    ? {
+                        ...item,
+                        attachments: (item.attachments || []).filter((_, currentIndex) => currentIndex !== attachmentIndex),
+                    }
+                    : item
+            ),
+        }));
+        setErrors((prev) => ({ ...prev, [`schedule_${index}_attachmentFiles`]: '' }));
+    }, []);
+
     const addScheduleItem = useCallback(() => {
         setForm(prev => {
             const lastItem = prev.schedule[prev.schedule.length - 1];
             const newItem = {
-                ...INITIAL_FORM.schedule[0],
+                ...createEmptyScheduleItem(),
                 // Carry over values from the last item to improve UX
                 startTime: lastItem?.startTime || '',
                 endTime: lastItem?.endTime || '',
                 totalMarks: lastItem?.totalMarks || '',
                 passingMarks: lastItem?.passingMarks || '',
-                examDate: ''
+                examDate: '',
+                attachments: [],
+                attachmentFiles: [],
             };
             return {
                 ...prev,
                 schedule: [...prev.schedule, newItem]
             };
         });
-    }, [INITIAL_FORM.schedule]);
+    }, []);
 
     const removeScheduleItem = useCallback((index) => {
         setForm(prev => ({
@@ -367,36 +479,59 @@ const ExamModal = ({ isOpen, onClose, onSubmit, editData, isLoading, userRole, u
 
     const validate = () => {
         const e = {};
-        if (!form.name.trim()) e.name = 'Examination name is required';
-        if (!form.examType) e.examType = 'Please select an exam type';
-        if (form.category === 'OTHER' && !form.categoryDescription.trim()) {
-            e.categoryDescription = 'Please describe the exam category';
-        }
-        if (!form.standard) e.standard = 'Please select a class';
-        if (!form.section) e.section = 'Please select a section';
-        if (isSuperAdmin && !form.schoolId) e.schoolId = 'School ID is required for Super Admins';
-        if (!form.academicYear || form.academicYear < 2000) e.academicYear = 'Enter a valid academic year';
-        
-        form.schedule.forEach((item, index) => {
-            if (!item.subject.trim()) e[`schedule_${index}_subject`] = 'Subject name required';
-            if (!item.examDate) {
-                e[`schedule_${index}_examDate`] = 'Date is required';
-            } else {
-                const selectedDay = new Date(item.examDate + 'T00:00:00').getDay();
-                if (selectedDay === 0) e[`schedule_${index}_examDate`] = 'Sundays are not allowed.';
-            }
-            
-            const total = Number(item.totalMarks);
-            const pass = Number(item.passingMarks);
 
-            if (isNaN(total) || total <= 0) {
-                e[`schedule_${index}_totalMarks`] = 'Valid total marks required';
+        if (!syllabusOnly) {
+            if (!form.name.trim()) e.name = 'Examination name is required';
+            if (!form.examType) e.examType = 'Please select an exam type';
+            if (form.category === 'OTHER' && !form.categoryDescription.trim()) {
+                e.categoryDescription = 'Please describe the exam category';
             }
-            if (isNaN(pass) || pass < 0) {
-                e[`schedule_${index}_passingMarks`] = 'Valid passing marks required';
+            if (!form.standard) e.standard = 'Please select a class';
+            if (!form.section) e.section = 'Please select a section';
+            if (isSuperAdmin && !form.schoolId) e.schoolId = 'School ID is required for Super Admins';
+            if (!form.academicYear || form.academicYear < 2000) e.academicYear = 'Enter a valid academic year';
+        }
+
+        form.schedule.forEach((item, index) => {
+            if (!syllabusOnly) {
+                if (!item.subject.trim()) e[`schedule_${index}_subject`] = 'Subject name required';
+                if (!item.examDate) {
+                    e[`schedule_${index}_examDate`] = 'Date is required';
+                } else {
+                    const selectedDay = new Date(item.examDate + 'T00:00:00').getDay();
+                    if (selectedDay === 0) e[`schedule_${index}_examDate`] = 'Sundays are not allowed.';
+                }
+
+                const total = Number(item.totalMarks);
+                const pass = Number(item.passingMarks);
+
+                if (isNaN(total) || total <= 0) {
+                    e[`schedule_${index}_totalMarks`] = 'Valid total marks required';
+                }
+                if (isNaN(pass) || pass < 0) {
+                    e[`schedule_${index}_passingMarks`] = 'Valid passing marks required';
+                }
+                if (!isNaN(total) && !isNaN(pass) && pass > total) {
+                    e[`schedule_${index}_passingMarks`] = 'Cannot exceed total marks';
+                }
             }
-            if (!isNaN(total) && !isNaN(pass) && pass > total) {
-                e[`schedule_${index}_passingMarks`] = 'Cannot exceed total marks';
+
+            const hasInvalidFile = (item.attachmentFiles || []).some((file) => {
+                const extension = file.name.includes('.')
+                    ? file.name.split('.').pop().toLowerCase()
+                    : '';
+                const isAllowedMime = SCHEDULE_ATTACHMENT_ALLOWED_MIME_TYPES.includes(file.type);
+                const isAllowedExtension = SCHEDULE_ATTACHMENT_ALLOWED_FILE_EXTENSIONS.includes(extension);
+                return !isAllowedMime && !isAllowedExtension;
+            });
+
+            if (hasInvalidFile) {
+                e[`schedule_${index}_attachmentFiles`] =
+                    'Supported formats: JPG, JPEG, PDF, PNG, DOC, DOCX, XLSX, XLS, CSV, TXT';
+            } else if ((item.attachmentFiles || []).some((file) => file.size > SCHEDULE_ATTACHMENT_MAX_FILE_SIZE)) {
+                e[`schedule_${index}_attachmentFiles`] = 'Each file size should be 10MB or less';
+            } else if (((item.attachments || []).length + (item.attachmentFiles || []).length) > SCHEDULE_ATTACHMENT_MAX_FILES) {
+                e[`schedule_${index}_attachmentFiles`] = `Maximum ${SCHEDULE_ATTACHMENT_MAX_FILES} attachments allowed per paper`;
             }
         });
 
@@ -404,8 +539,23 @@ const ExamModal = ({ isOpen, onClose, onSubmit, editData, isLoading, userRole, u
         return Object.keys(e).length === 0;
     };
 
-    const handleFormSubmit = (targetStatus) => {
+    const handleFormSubmit = (targetStatus, nextSubmitIntent = '') => {
         if (!validate()) return;
+
+        setSubmitIntent(nextSubmitIntent);
+
+        if (syllabusOnly) {
+            onSubmit({
+                schedule: form.schedule.map((item) => ({
+                    _id: item._id || undefined,
+                    subject: item.subject,
+                    syllabus: item.syllabus?.trim() || '',
+                    attachments: Array.isArray(item.attachments) ? item.attachments : [],
+                    attachmentFiles: Array.isArray(item.attachmentFiles) ? item.attachmentFiles : [],
+                })),
+            });
+            return;
+        }
 
         const payload = {
             ...form,
@@ -425,6 +575,9 @@ const ExamModal = ({ isOpen, onClose, onSubmit, editData, isLoading, userRole, u
                     endTime: item.endTime || undefined,
                     assignedTeacher: item.assignedTeacher?._id || item.assignedTeacher || undefined,
                     syllabus: item.syllabus?.trim() || undefined,
+                    _id: item._id || undefined,
+                    attachments: Array.isArray(item.attachments) ? item.attachments : [],
+                    attachmentFiles: Array.isArray(item.attachmentFiles) ? item.attachmentFiles : [],
                 };
                 return normalized;
             }),
@@ -432,7 +585,36 @@ const ExamModal = ({ isOpen, onClose, onSubmit, editData, isLoading, userRole, u
         onSubmit(payload);
     };
 
+    const handleExistingAttachmentDownload = useCallback(async (attachment) => {
+        try {
+            await downloadFile(
+                attachment?.url,
+                attachment?.name || attachment?.originalName || 'attachment'
+            );
+        } catch (error) {
+            console.error('Attachment download failed:', error);
+        }
+    }, []);
+
     if (!isOpen) return null;
+
+    const loadingOverlayTitle =
+        submitIntent === 'draft'
+            ? 'Saving draft...'
+            : submitIntent === 'save'
+            ? 'Saving updates...'
+            : submitIntent === 'syllabus'
+            ? 'Saving syllabus changes...'
+            : 'Saving exam...';
+
+    const loadingOverlayMessage =
+        submitIntent === 'draft'
+            ? 'Please wait while we save this examination as draft.'
+            : submitIntent === 'save'
+            ? 'Please wait while we save your latest exam changes.'
+            : submitIntent === 'syllabus'
+            ? 'Please wait while we save syllabus and attachment changes.'
+            : 'Please wait while we process your request.';
 
     const inputClasses = (field) =>
         `w-full px-4 py-2.5 bg-white border rounded-xl text-sm transition-all outline-none ${
@@ -444,8 +626,8 @@ const ExamModal = ({ isOpen, onClose, onSubmit, editData, isLoading, userRole, u
     const labelClasses = "block text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wider";
 
     return (
-        <div className="modal-overlay fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[60] p-4 sm:p-6 overflow-hidden">
-            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col animate-fadeIn">
+        <div className="modal-overlay fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-60 p-4 sm:p-6 overflow-hidden">
+            <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col animate-fadeIn">
                 <div className="px-6 py-5 sm:px-8 border-b border-gray-100 flex items-center justify-between shrink-0 bg-white">
                     <div className="flex items-center gap-4">
                         <div className="w-11 h-11 rounded-xl bg-primary/10 flex items-center justify-center shadow-inner">
@@ -453,18 +635,18 @@ const ExamModal = ({ isOpen, onClose, onSubmit, editData, isLoading, userRole, u
                         </div>
                         <div>
                             <h2 className="text-xl font-bold text-gray-900 tracking-tight">
-                                {isEdit
+                                {syllabusOnly
+                                    ? 'Edit Exam Syllabus'
+                                    : isEdit
                                     ? 'Update Examination'
-                                    : isTeacher
-                                        ? 'Create Class Test'
-                                        : 'New Examination'}
+                                    : 'New Examination'}
                             </h2>
                             <p className="text-gray-500 text-xs sm:text-sm">
-                                {isEdit
+                                {syllabusOnly
+                                    ? `Update syllabus and attachments for ${form.name}`
+                                    : isEdit
                                     ? `Modifying ${form.name}`
-                                    : isTeacher
-                                        ? 'Setup schedule and details for your class test'
-                                        : 'Setup schedule and details for the upcoming exam'}
+                                    : 'Setup schedule and details for the upcoming exam'}
                             </p>
                         </div>
                     </div>
@@ -478,6 +660,7 @@ const ExamModal = ({ isOpen, onClose, onSubmit, editData, isLoading, userRole, u
 
                 <div className="flex-1 overflow-y-auto custom-scrollbar bg-slate-50/50">
                     <form className="p-6 sm:p-8 space-y-8">
+                        {!syllabusOnly && (
                         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
                             <div className="lg:col-span-12">
                                 <div className="flex items-center gap-2 mb-4">
@@ -514,21 +697,25 @@ const ExamModal = ({ isOpen, onClose, onSubmit, editData, isLoading, userRole, u
                                             {errors.academicYear && <p className="text-red-500 text-[11px] font-medium mt-1.5 ml-1">{errors.academicYear}</p>}
                                         </div>
 
-                                        {(isTeacher || !isEdit && !isAdmin) && (
-                                            <div>
-                                                <label className={labelClasses}>Exam Type *</label>
-                                                <select
-                                                    value={form.examType}
-                                                    onChange={(e) => handleChange('examType', e.target.value)}
-                                                    className={inputClasses('examType')}
-                                                >
-                                                    <option value="">Select Type</option>
-                                                    <option value="TERM_EXAM">Term Exam (Formal)</option>
-                                                    <option value="CLASS_TEST">Class Test (Informal)</option>
-                                                </select>
-                                                {errors.examType && <p className="text-red-500 text-[11px] font-medium mt-1.5 ml-1">{errors.examType}</p>}
-                                            </div>
-                                        )}
+                                        <div>
+                                            <label className={labelClasses}>Exam Type *</label>
+                                            <select
+                                                value={form.examType}
+                                                onChange={(e) => handleChange('examType', e.target.value)}
+                                                className={inputClasses('examType')}
+                                                disabled={isEdit}
+                                            >
+                                                <option value="">Select Type</option>
+                                                <option value="TERM_EXAM">Term Exam (Formal)</option>
+                                                <option value="CLASS_TEST">Class Test (Informal)</option>
+                                            </select>
+                                            {errors.examType && <p className="text-red-500 text-[11px] font-medium mt-1.5 ml-1">{errors.examType}</p>}
+                                            {isEdit && (
+                                                <p className="text-amber-600 text-[10px] mt-1 italic">
+                                                    Exam type is fixed for existing records.
+                                                </p>
+                                            )}
+                                        </div>
 
                                         <div>
                                             <label className={labelClasses}>Category</label>
@@ -596,13 +783,27 @@ const ExamModal = ({ isOpen, onClose, onSubmit, editData, isLoading, userRole, u
                                             <textarea
                                                 value={form.description}
                                                 onChange={(e) => handleChange('description', e.target.value)}
-                                                className={`${inputClasses('description')} min-h-[80px] py-3`}
+                                                className={`${inputClasses('description')} min-h-20 py-3`}
                                             />
                                         </div>
+
                                     </div>
                                 </div>
                             </div>
                         </div>
+                        )}
+
+                        {syllabusOnly && (
+                            <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-sm ring-1 ring-slate-100">
+                                <div className="text-sm font-semibold text-slate-800">{form.name}</div>
+                                <p className="mt-1 text-xs text-slate-500">
+                                    Class {form.standard} - Section {form.section} | Academic Year {form.academicYear}
+                                </p>
+                                <p className="mt-2 text-xs text-slate-500">
+                                    You can edit only syllabus text and attachments for each paper.
+                                </p>
+                            </div>
+                        )}
 
                         <div className="space-y-6 mt-2">
                             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -613,14 +814,16 @@ const ExamModal = ({ isOpen, onClose, onSubmit, editData, isLoading, userRole, u
                                         <p className="text-[11px] text-slate-500 font-medium">Add subjects and time slots for the examination</p>
                                     </div>
                                 </div>
-                                <button
-                                    type="button"
-                                    onClick={addScheduleItem}
-                                    className="flex items-center justify-center gap-2 px-6 py-2.5 bg-primary text-white rounded-2xl hover:bg-primary-hover transition-all font-bold text-sm shadow-md shadow-primary/20 active:scale-95"
-                                >
-                                    <FaPlus size={12} />
-                                    <span>Add Subject</span>
-                                </button>
+                                {!syllabusOnly && (
+                                    <button
+                                        type="button"
+                                        onClick={addScheduleItem}
+                                        className="flex items-center justify-center gap-2 px-6 py-2.5 bg-primary text-white rounded-2xl hover:bg-primary-hover transition-all font-bold text-sm shadow-md shadow-primary/20 active:scale-95"
+                                    >
+                                        <FaPlus size={12} />
+                                        <span>Add Subject</span>
+                                    </button>
+                                )}
                             </div>
 
                             <div className="grid grid-cols-1 gap-6">
@@ -636,7 +839,7 @@ const ExamModal = ({ isOpen, onClose, onSubmit, editData, isLoading, userRole, u
                                                     </div>
                                                     <h4 className="font-bold text-slate-700 tracking-tight">Paper Configuration</h4>
                                                 </div>
-                                                {form.schedule.length > 1 && (
+                                                {!syllabusOnly && form.schedule.length > 1 && (
                                                     <button
                                                         type="button"
                                                         onClick={() => removeScheduleItem(index)}
@@ -649,6 +852,8 @@ const ExamModal = ({ isOpen, onClose, onSubmit, editData, isLoading, userRole, u
                                             </div>
 
                                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                                                {!syllabusOnly && (
+                                                <>
                                                 <div>
                                                     <label className={labelClasses}>Subject Name *</label>
                                                     <div className="relative group/input">
@@ -742,14 +947,103 @@ const ExamModal = ({ isOpen, onClose, onSubmit, editData, isLoading, userRole, u
                                                         }`}
                                                     />
                                                 </div>
+                                                </>
+                                                )}
 
                                                 <div className="md:col-span-2 lg:col-span-3 xl:col-span-4">
                                                     <label className={labelClasses}>Specific Syllabus / Topics</label>
                                                     <textarea
                                                         value={item.syllabus}
                                                         onChange={(e) => handleScheduleChange(index, 'syllabus', e.target.value)}
-                                                        className={`${inputClasses(`schedule_${index}_syllabus`)} min-h-[60px] resize-none py-2.5`}
+                                                        className={`${inputClasses(`schedule_${index}_syllabus`)} min-h-15 resize-none py-2.5`}
                                                     />
+                                                </div>
+
+                                                <div className="md:col-span-2 lg:col-span-3 xl:col-span-4">
+                                                    <label className={labelClasses}>Syllabus Attachments (Optional)</label>
+                                                    <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                                                        <label className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700 transition-all hover:border-primary hover:text-primary">
+                                                            <FaPaperclip size={13} />
+                                                            <span>Upload Attachment Files</span>
+                                                            <input
+                                                                type="file"
+                                                                multiple
+                                                                accept={SCHEDULE_ATTACHMENT_ACCEPT}
+                                                                className="hidden"
+                                                                onChange={(event) => {
+                                                                    handleScheduleAttachmentChange(index, Array.from(event.target.files || []));
+                                                                    event.target.value = '';
+                                                                }}
+                                                            />
+                                                        </label>
+                                                        <p className="mt-2 text-[11px] text-slate-500">
+                                                            Supported: JPG, JPEG, PDF, PNG, DOC, DOCX, XLSX, XLS, CSV, TXT. Max 10 files per paper, 10MB each.
+                                                        </p>
+                                                        <p className="mt-1 text-[11px] text-slate-400">
+                                                            {(item.attachments?.length || 0) + (item.attachmentFiles?.length || 0)} / {SCHEDULE_ATTACHMENT_MAX_FILES} attachment slots used
+                                                        </p>
+
+                                                        {item.attachments?.length > 0 && (
+                                                            <div className="mt-3">
+                                                                <p className="text-[11px] font-semibold text-slate-600 mb-2">Current attachments</p>
+                                                                <div className="flex flex-wrap gap-2">
+                                                                    {item.attachments.map((attachment, attachmentIndex) => (
+                                                                        <div
+                                                                            key={attachment.publicId || attachment.url || `${index}-${attachmentIndex}`}
+                                                                            className="inline-flex items-center gap-2 rounded-lg bg-slate-100 px-2.5 py-1.5 text-xs text-slate-700"
+                                                                        >
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => handleExistingAttachmentDownload(attachment)}
+                                                                                className="font-semibold text-primary hover:underline"
+                                                                            >
+                                                                                {attachment.name || attachment.originalName || `Attachment ${attachmentIndex + 1}`}
+                                                                            </button>
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => removeExistingAttachment(index, attachmentIndex)}
+                                                                                className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-red-200 bg-red-50 text-red-600 transition-all hover:bg-red-100 hover:text-red-700 focus:outline-none focus:ring-2 focus:ring-red-300"
+                                                                                title="Remove attachment"
+                                                                                aria-label="Remove attachment"
+                                                                            >
+                                                                                <FaTimes size={12} />
+                                                                            </button>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            </div>
+                                                        )}
+
+                                                        {item.attachmentFiles?.length > 0 && (
+                                                            <div className="mt-3">
+                                                                <p className="text-[11px] font-semibold text-slate-600 mb-2">New attachments to upload</p>
+                                                                <div className="flex flex-wrap gap-2">
+                                                                    {item.attachmentFiles.map((file, fileIndex) => (
+                                                                        <div
+                                                                            key={`${file.name}-${file.lastModified}-${fileIndex}`}
+                                                                            className="inline-flex items-center gap-2 rounded-lg bg-emerald-50 px-2.5 py-1.5 text-xs text-emerald-700"
+                                                                        >
+                                                                            <span className="font-semibold">{file.name}</span>
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => removePendingAttachment(index, fileIndex)}
+                                                                                className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-red-200 bg-red-50 text-red-600 transition-all hover:bg-red-100 hover:text-red-700 focus:outline-none focus:ring-2 focus:ring-red-300"
+                                                                                title="Remove file"
+                                                                                aria-label="Remove file"
+                                                                            >
+                                                                                <FaTimes size={12} />
+                                                                            </button>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    {errors[`schedule_${index}_attachmentFiles`] && (
+                                                        <p className="text-red-500 text-[11px] font-medium mt-1.5 ml-1">
+                                                            {errors[`schedule_${index}_attachmentFiles`]}
+                                                        </p>
+                                                    )}
                                                 </div>
                                             </div>
                                         </div>
@@ -770,10 +1064,10 @@ const ExamModal = ({ isOpen, onClose, onSubmit, editData, isLoading, userRole, u
                     </button>
                     
                     <div className="flex gap-3">
-                        {!isEdit ? (
+                        {!isEdit && !syllabusOnly ? (
                             <button
                                 type="button"
-                                onClick={() => handleFormSubmit('DRAFT')}
+                                onClick={() => handleFormSubmit('DRAFT', 'draft')}
                                 disabled={isLoading}
                                 className="px-8 py-3 bg-primary text-white rounded-xl transition-all font-bold text-sm hover:bg-primary-hover shadow-lg shadow-primary/20 disabled:opacity-50 flex items-center gap-2"
                             >
@@ -783,7 +1077,12 @@ const ExamModal = ({ isOpen, onClose, onSubmit, editData, isLoading, userRole, u
                         ) : (
                             <button
                                 type="button"
-                                onClick={() => handleFormSubmit(editData.status === 'DRAFT' ? 'PUBLISHED' : editData.status)}
+                                onClick={() => handleFormSubmit(
+                                    syllabusOnly
+                                        ? (editData?.status || 'DRAFT')
+                                        : (editData?.status || 'DRAFT'),
+                                    syllabusOnly ? 'syllabus' : 'save'
+                                )}
                                 disabled={isLoading}
                                 className={`px-8 py-3 text-white rounded-xl transition-all font-bold text-sm shadow-lg disabled:opacity-50 disabled:grayscale ${
                                     'bg-primary hover:bg-primary-hover shadow-primary/20'
@@ -798,7 +1097,9 @@ const ExamModal = ({ isOpen, onClose, onSubmit, editData, isLoading, userRole, u
                                     <div className="flex items-center gap-2">
                                         <FaCheckCircle />
                                         <span>
-                                            {editData.status === 'DRAFT' ? 'Publish Now' : 'Update Examination'}
+                                            {syllabusOnly
+                                                ? 'Save Syllabus Changes'
+                                                : 'Save Updates'}
                                         </span>
                                     </div>
                                 )}
@@ -806,11 +1107,23 @@ const ExamModal = ({ isOpen, onClose, onSubmit, editData, isLoading, userRole, u
                         )}
                     </div>
                 </div>
+
+                {isLoading && (
+                    <div className="absolute inset-0 z-20 flex items-center justify-center bg-white/80 backdrop-blur-[2px]">
+                        <div className="mx-6 w-full max-w-sm rounded-3xl border border-slate-200 bg-white px-8 py-10 text-center shadow-2xl">
+                            <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                                <PageSpinner size="h-8 w-8" className="h-8 w-8 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
+                            </div>
+                            <h3 className="text-xl font-bold text-slate-900">{loadingOverlayTitle}</h3>
+                            <p className="mt-2 text-sm text-slate-500">{loadingOverlayMessage}</p>
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* Discard Changes Confirmation */}
             {showDiscardConfirm && (
-                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4 animate-in fade-in duration-300">
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-100 p-4 animate-in fade-in duration-300">
                     <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl p-8 animate-in zoom-in-95 duration-300">
                         <div className="w-16 h-16 bg-amber-50 rounded-2xl flex items-center justify-center text-amber-500 mb-6 mx-auto border border-amber-100">
                             <FaExclamationTriangle size={24} />

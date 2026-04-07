@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { PaginationControls } from '../../../components/ui/PaginationControls';
+import { formatValue } from '../../../utils';
 
 const formatDateTime = (value) => {
     const parsed = new Date(value);
@@ -89,7 +90,7 @@ export const AssignmentSubmissionTable = ({
                                         </div>
                                         <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide">
                                             <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-indigo-700">
-                                                {submission.assignment?.standard || '-'}-{submission.assignment?.section || '-'}
+                                                {formatValue(submission.assignment?.standard)}-{formatValue(submission.assignment?.section)}
                                             </span>
                                             <span className={`rounded-full px-2 py-0.5 ${submission.assignment?.status === 'closed' ? 'bg-gray-100 text-gray-600' : 'bg-emerald-50 text-emerald-700'}`}>
                                                 {submission.assignment?.status || 'active'}

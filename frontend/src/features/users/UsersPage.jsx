@@ -59,7 +59,7 @@ const UsersPage = () => {
 
     // View state
     const [selectedRole, setSelectedRole] = useState('all');
-    const pageSize = 25;
+    const [pageSize, setPageSize] = useState(25);
     const [page, setPage] = useState(0);
     const [showArchived, setShowArchived] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
@@ -99,6 +99,7 @@ const UsersPage = () => {
     const currentData = showArchived ? archivedData?.data : usersData?.data;
     const loading = showArchived ? archivedLoading : usersLoading;
     const usersList = useMemo(() => (Array.isArray(currentData?.users) ? currentData.users : []), [currentData]);
+
     // Filter, Sort Logic
     const filteredUsers = useMemo(() => {
         if (!usersList) return [];
@@ -275,7 +276,9 @@ const UsersPage = () => {
                         roleLabels={ROLE_LABELS}
                         currentPage={page}
                         totalItems={currentData?.totalCount || filteredUsers.length}
+                        pageSize={pageSize}
                         onPageChange={setPage}
+                        onPageSizeChange={(newSize) => { setPageSize(newSize); setPage(0); }}
                     />
                 </div>
             </div>

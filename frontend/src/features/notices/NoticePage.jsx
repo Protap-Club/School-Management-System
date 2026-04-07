@@ -2,13 +2,14 @@ import React from 'react';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import {
     FaPaperPlane, FaUsers, FaPaperclip, FaTimes, FaCheck, FaTrash, FaPlus, FaUserFriends,
-    FaHistory, FaEye, FaDownload, FaBell, FaSearch
+    FaHistory, FaEye, FaBell, FaSearch
 } from 'react-icons/fa';
 
 import { useNoticeHandlers } from './useNoticeHandlers';
-import { ReceiverAckButton, ViewItemModal, SendModal } from './NoticeComponents';
+import { ReceiverAckButton, ViewItemModal, SendModal, NoticeAttachmentList } from './NoticeComponents';
 import { getFileIcon, getRecipientLabel } from './NoticeUtils';
 import { SectionHeader, TabButton, FilterSelect, SearchableList, MemberList } from '../../components/ui/NoticeUIComponents';
+import { formatValue } from '../../utils';
 
 const NoticePage = () => {
     const handlers = useNoticeHandlers();
@@ -25,9 +26,22 @@ const NoticePage = () => {
         isSending, students, teachers, allUsers, classes, groups, receivedItems, filteredHistory,
         historyPage, setHistoryPage, totalHistoryPages, pagedHistory,
         receivedPage, setReceivedPage, totalReceivedPages, pagedReceivedItems,
+        selectedReceivedNoticeIds, toggleReceivedNoticeSelection, toggleSelectAllReceivedOnPage,
+        handleDeleteReceivedNotice, handleBulkDeleteReceivedNotices, isDeletingReceived,
         toggleSelection, handleFileUpload, removeAttachment, handleSendClick, handleFinalSend, handleDeleteHistory, handleCreateGroup, handleDeleteGroup, handleDownload,
         currentUser
     } = handlers;
+
+    const getNoticeAttachmentCount = (item) => {
+        const directAttachmentCount = item?.attachment ? 1 : 0;
+        const structuredAttachmentCount = Array.isArray(item?.attachments) ? item.attachments.length : 0;
+        return directAttachmentCount + structuredAttachmentCount;
+    };
+
+    const pagedReceivedNoticeIds = pagedReceivedItems.map((item) => item._id);
+    const allReceivedOnPageSelected =
+        pagedReceivedNoticeIds.length > 0 &&
+        pagedReceivedNoticeIds.every((id) => selectedReceivedNoticeIds.includes(id));
 
     return (
         <DashboardLayout>
@@ -75,7 +89,7 @@ const NoticePage = () => {
                                     </div>
                                     <div>
                                         <h2 className="text-lg font-semibold text-gray-900">Attachment</h2>
-                                        <p className="text-sm text-gray-500">JPG, JPEG, PNG, PPT, PPTX, DOC, DOCX, XLSX, XLS, MP4, MOV, AVI, CSV, TXT (Max 10MB)</p>
+                                        <p className="text-sm text-gray-500">JPG, JPEG, PDF, PNG, PPT, PPTX, DOC, DOCX, XLSX, XLS, MP4, MOV, AVI, CSV, TXT (Max 10MB)</p>
                                     </div>
                                 </div>
                                 <div className="p-6">
@@ -286,10 +300,10 @@ const NoticePage = () => {
                                                 <div className="md:col-span-5">
                                                     <div className="flex items-center gap-2 mb-1">
                                                         <h3 className="text-base font-semibold text-gray-900 truncate">{item.title}</h3>
-                                                        {item.attachment && item.attachment.filename && (
+                                                        {getNoticeAttachmentCount(item) > 0 && (
                                                             <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">
                                                                 <FaPaperclip className="mr-1" size={10} />
-                                                                1
+                                                                {getNoticeAttachmentCount(item)}
                                                             </span>
                                                         )}
                                                     </div>
@@ -372,6 +386,34 @@ const NoticePage = () => {
                             <SectionHeader icon={<FaPaperclip />} iconBg="from-violet-100 to-purple-100" iconColor="text-violet-500" title="Received Notices" subtitle="Notices sent to you by admin or teachers" />
                         </div>
 
+                        {receivedItems.length > 0 && (
+                            <div className="bg-white rounded-2xl border border-gray-200 p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                                <label className="inline-flex items-center gap-3 text-sm text-gray-700 font-medium">
+                                    <input
+                                        type="checkbox"
+                                        checked={allReceivedOnPageSelected}
+                                        onChange={() => toggleSelectAllReceivedOnPage(pagedReceivedNoticeIds)}
+                                        className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary/30"
+                                    />
+                                    <span>Select all on this page</span>
+                                </label>
+
+                                <div className="flex items-center gap-3">
+                                    <span className="text-sm text-gray-500">
+                                        {selectedReceivedNoticeIds.length} selected
+                                    </span>
+                                    <button
+                                        onClick={handleBulkDeleteReceivedNotices}
+                                        disabled={selectedReceivedNoticeIds.length === 0 || isDeletingReceived}
+                                        className="inline-flex items-center gap-2 rounded-xl bg-red-50 px-4 py-2.5 text-sm font-semibold text-red-600 transition-colors hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
+                                    >
+                                        <FaTrash size={13} />
+                                        <span>{isDeletingReceived ? 'Removing...' : 'Delete Selected'}</span>
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
                         {receivedItems.length === 0 ? (
                             <div className="bg-white rounded-2xl border border-gray-200 p-12 text-center">
                                 <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -382,11 +424,17 @@ const NoticePage = () => {
                             </div>
                         ) : (
                             pagedReceivedItems.map(item => (
-                                <div key={item._id} className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 hover:shadow-md transition-shadow">
+                                <div key={item._id} className={`bg-white rounded-2xl border shadow-sm p-5 hover:shadow-md transition-shadow ${selectedReceivedNoticeIds.includes(item._id) ? 'border-primary/40 ring-2 ring-primary/10' : 'border-gray-200'}`}>
                                     {/* Top Row */}
                                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 py-1 mb-4 border-b border-gray-100 pb-3">
                                         {/* Sender Info */}
                                         <div className="flex items-center gap-3">
+                                            <input
+                                                type="checkbox"
+                                                checked={selectedReceivedNoticeIds.includes(item._id)}
+                                                onChange={() => toggleReceivedNoticeSelection(item._id)}
+                                                className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary/30"
+                                            />
                                             {item.createdBy?.avatar ? (
                                                 <img src={item.createdBy.avatar} alt={item.createdBy.name} className="w-9 h-9 rounded-full object-cover shadow-sm" />
                                             ) : (
@@ -426,6 +474,21 @@ const NoticePage = () => {
                                                     <div className="w-px h-3.5 bg-gray-200 hidden sm:block"></div>
                                                 </>
                                             )}
+                                            <button
+                                                onClick={() => setViewItem(item)}
+                                                className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                                title="View Details"
+                                            >
+                                                <FaEye size={15} />
+                                            </button>
+                                            <button
+                                                onClick={() => handleDeleteReceivedNotice(item._id)}
+                                                disabled={isDeletingReceived}
+                                                className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+                                                title="Delete Notice"
+                                            >
+                                                <FaTrash size={15} />
+                                            </button>
                                             <span className="text-gray-400 font-medium text-[13px] whitespace-nowrap">
                                                 {new Date(item.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })} • {new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                             </span>
@@ -439,39 +502,14 @@ const NoticePage = () => {
                                         </div>
                                         <div className="flex-1 w-full min-w-0 pr-2">
                                             <h3 className="text-[18px] font-extrabold text-gray-900 mb-1.5 leading-tight tracking-tight">
-                                                {item.title || 'Notice'}
+                                                {formatValue(item.title, 'Notice')}
                                             </h3>
                                             <p className="text-[15px] text-gray-600 leading-relaxed whitespace-pre-wrap mb-5">
                                                 {item.message}
                                             </p>
 
                                             {/* Attachment Box */}
-                                            {item.attachment?.filename && (
-                                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-2xl border border-gray-200 bg-white shadow-sm cursor-pointer hover:border-gray-300 transition-colors"
-                                                     onClick={() => handleDownload(
-                                                         item.attachment.secure_url || item.attachment.path,
-                                                         item.attachment.originalName || item.attachment.filename
-                                                     )}>
-                                                     <div className="flex items-center gap-4 min-w-0 flex-1">
-                                                        <div className="w-12 h-12 bg-red-50 text-red-500 rounded-[10px] flex items-center justify-center shrink-0">
-                                                            {getFileIcon(item.attachment.originalName || item.attachment.filename, 22)}
-                                                        </div>
-                                                        <div className="min-w-0">
-                                                            <h4 className="text-[15px] font-semibold text-gray-800 truncate tracking-tight">
-                                                                {item.attachment.originalName || item.attachment.filename}
-                                                            </h4>
-                                                            <p className="text-[13px] text-gray-400 mt-0.5 font-medium tracking-wide">
-                                                                {item.attachment.size ? `${(item.attachment.size / (1024 * 1024)).toFixed(1)} MB` : 'Attachment'}
-                                                            </p>
-                                                        </div>
-                                                    </div>
-                                                    
-                                                    <div className="flex items-center justify-center gap-2 font-bold text-blue-600 shrink-0 w-full sm:w-auto mt-2 sm:mt-0 text-[14px] px-2">
-                                                        <FaDownload size={13} />
-                                                        <span>Download</span>
-                                                    </div>
-                                                </div>
-                                            )}
+                                            <NoticeAttachmentList item={item} handleDownload={handleDownload} />
                                         </div>
                                     </div>
                                 </div>

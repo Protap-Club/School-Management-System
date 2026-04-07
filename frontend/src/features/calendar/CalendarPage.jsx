@@ -167,51 +167,18 @@ const CalendarPage = () => {
       setLoading(true);
       const startOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
       const endOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
-      
-      const [calRes, examRes] = await Promise.all([
-        api.get('/calendar', { params: { start: startOfMonth.toISOString(), end: endOfMonth.toISOString() } }),
-        !isAdmin ? api.get('/examinations', { params: { status: 'PUBLISHED' } }) : Promise.resolve({ data: { success: false } })
-      ]);
 
-      let allEvents = [];
-      if (calRes.data.success) {
-        allEvents = [...calRes.data.data];
-      }
+      const calRes = await api.get('/calendar', {
+        params: { start: startOfMonth.toISOString(), end: endOfMonth.toISOString() }
+      });
 
-      if (examRes.data.success && Array.isArray(examRes.data.data)) {
-        const exams = examRes.data.data;
-        exams.forEach(exam => {
-          if (exam.schedule && Array.isArray(exam.schedule)) {
-            exam.schedule.forEach((s, idx) => {
-              if (s.examDate) {
-                const start = new Date(`${s.examDate.split('T')[0]}T${s.startTime || '09:00'}:00`);
-                const end = new Date(`${s.examDate.split('T')[0]}T${s.endTime || s.startTime || '10:00'}:00`);
-                
-                allEvents.push({
-                  _id: `exam-${exam._id}-${idx}`,
-                  title: s.subject,
-                  start: start.toISOString(),
-                  end: end.toISOString(),
-                  type: 'exam',
-                  description: exam.description || `Class ${exam.standard} - ${exam.section}`,
-                  allDay: false,
-                  targetAudience: 'classes',
-                  targetClasses: [`${exam.standard}-${exam.section}`],
-                  sourceType: 'exam' // Mark as coming from exams module
-                });
-              }
-            });
-          }
-        });
-      }
-
-      setEvents(allEvents);
+      setEvents(calRes.data?.success && Array.isArray(calRes.data?.data) ? calRes.data.data : []);
     } catch (error) { 
       console.error('Failed to fetch events:', error); 
       showMessage('Failed to load calendar events', 'error'); 
     }
     finally { setLoading(false); }
-  }, [currentDate]);
+  }, [currentDate, showMessage]);
 
   useEffect(() => { fetchEvents(); }, [fetchEvents]);
 
