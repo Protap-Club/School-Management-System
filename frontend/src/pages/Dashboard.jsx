@@ -542,11 +542,6 @@ const Dashboard = () => {
                 <h2 className="text-2xl font-black text-gray-900 tracking-tight uppercase">Classroom <span className="text-primary">Attendance Matrix</span></h2>
                 <p className="text-[10px] text-gray-400 font-bold tracking-widest uppercase">Live Attendance Heatmap</p>
               </div>
-              <div className="flex gap-2">
-                {['Floor 1', 'Floor 2', 'Lab Wing'].map(f => (
-                  <button key={f} className="px-3 py-1.5 rounded-lg border border-gray-100 text-[9px] font-black uppercase tracking-widest text-gray-400 hover:text-gray-900 hover:border-primary/20 transition-all">{f}</button>
-                ))}
-              </div>
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
