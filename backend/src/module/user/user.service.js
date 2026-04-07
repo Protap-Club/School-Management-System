@@ -285,6 +285,19 @@ export const createUser = async (creator, userData) => {
 
     await normalizeUserClassAssignments(targetSchoolId, role, userData);
 
+    if (creator.role === USER_ROLES.TEACHER && role === USER_ROLES.STUDENT) {
+        const teacherProfile = await TeacherProfile.findOne({ userId: creator._id, schoolId: targetSchoolId }).lean();
+        const assignedClasses = teacherProfile?.assignedClasses || [];
+        
+        const isAssigned = assignedClasses.some(cls => 
+            cls.standard === userData.standard && cls.section === userData.section
+        );
+        
+        if (!isAssigned) {
+            throw new ForbiddenError("You can only add students to classes currently assigned to you.");
+        }
+    }
+
     // Check for duplicate email
     const existing = await User.findOne({ email });
     if (existing) throw new ConflictError("Email already registered");
@@ -518,6 +531,7 @@ export const getMyProfile = async (userId) => {
 export const toggleArchive = async (creator, userIds, isArchived, options = {}) => {
     const ids = Array.isArray(userIds) ? userIds : [userIds];
     const replacementTeacherId = options.replacementTeacherId || null;
+    const skipReplacement = options.skipReplacement || false;
 
     // 2. BUILD QUERY WITH ACCESS CONTROL
     const query = buildAccessQuery(creator, {
@@ -579,7 +593,7 @@ export const toggleArchive = async (creator, userIds, isArchived, options = {}) 
             (item) => !conflictingPrimaryClassKeys.has(`${item.standard}::${item.section}`)
         );
 
-        if (archiveSummary.requiresReplacement && !replacementTeacherId) {
+        if (archiveSummary.requiresReplacement && !replacementTeacherId && !skipReplacement) {
             throw new BadRequestError(
                 "This teacher still has active classes or academic work. Please assign a temporary replacement teacher before archiving.",
                 "TEACHER_REPLACEMENT_REQUIRED",
