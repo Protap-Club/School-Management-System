@@ -1,4 +1,4 @@
-  import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { FaTimes, FaChevronDown, FaSearch } from 'react-icons/fa';
 import { ButtonSpinner } from '../../../components/ui/Spinner';
 import { DAY_MAP_REVERSE } from '..';

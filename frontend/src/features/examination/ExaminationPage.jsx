@@ -1,19 +1,21 @@
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import { useAuth } from '../auth';
 import {
-  useExams, useCreateExam, useUpdateExam, useDeleteExam, useUpdateExamStatus,
+  useExams, useCreateExam, useUpdateExam, useUploadScheduleAttachments, usePatchScheduleSyllabus, useDeleteExam, useUpdateExamStatus,
 } from './index';
 import { useProfile, useStudents } from '../attendance';
 import { useSchoolClasses } from '../../hooks/useSchoolClasses';
 import ExamModal from '../../components/examination/ExamModal';
-import { FaPlus, FaEdit, FaTrash, FaEye, FaCalendarAlt, FaClock,
-  FaChalkboardTeacher, FaCheckCircle, FaExclamationTriangle, FaBan, FaSearch, FaTimes, FaInfoCircle, FaLayerGroup, FaCalendarCheck } from 'react-icons/fa';
+import { FaPlus, FaEdit, FaTrash, FaCalendarAlt, FaClock,
+  FaChalkboardTeacher, FaCheckCircle, FaExclamationTriangle, FaBan, FaSearch, FaTimes, FaInfoCircle, FaLayerGroup, FaCalendarCheck, FaPaperclip, FaUsers } from 'react-icons/fa';
 import { TabButton } from '../../components/ui/NoticeUIComponents';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { ButtonSpinner } from '../../components/ui/Spinner';
 import { useToastMessage } from '../../hooks/useToastMessage';
 import { PaginationControls } from '../../components/ui/PaginationControls';
+import { formatValue } from '../../utils';
+import { downloadFile } from '../../utils/downloadFile';
 
 // Constants
 const EXAM_TYPES = {
@@ -23,9 +25,127 @@ const EXAM_TYPES = {
 
 const STATUS_STYLES = {
   DRAFT: { label: 'Draft', color: 'text-slate-600', bg: 'bg-slate-50', border: 'border-slate-200', icon: FaExclamationTriangle },
-  PUBLISHED: { label: 'Published', color: 'text-primary', bg: 'bg-primary/10', border: 'border-primary/20', icon: FaCalendarAlt },
+  PUBLISHED: { label: 'Upcoming', color: 'text-amber-600', bg: 'bg-amber-50', border: 'border-amber-200', icon: FaCalendarAlt },
   COMPLETED: { label: 'Completed', color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-200', icon: null },
   CANCELLED: { label: 'Cancelled', color: 'text-rose-600', bg: 'bg-rose-50', border: 'border-rose-200', icon: null },
+};
+
+const STATUS_DOT_STYLES = {
+  DRAFT: 'bg-slate-400',
+  PUBLISHED: 'bg-amber-500 animate-pulse',
+  COMPLETED: 'bg-emerald-500',
+  CANCELLED: 'bg-rose-500',
+};
+
+const sanitizeAttachmentForApi = (attachment = {}) => {
+  const sanitized = {
+    url: attachment.url,
+  };
+
+  if (attachment.publicId) sanitized.publicId = attachment.publicId;
+  if (attachment.name) sanitized.name = attachment.name;
+  if (attachment.originalName) sanitized.originalName = attachment.originalName;
+  if (attachment.fileType) sanitized.fileType = attachment.fileType;
+  if (attachment.mimeType) sanitized.mimeType = attachment.mimeType;
+  if (typeof attachment.size === 'number') sanitized.size = attachment.size;
+  if (attachment.uploadedAt) sanitized.uploadedAt = attachment.uploadedAt;
+
+  return sanitized;
+};
+
+const resolveEntityId = (entity) =>
+  String(entity?._id || entity?.id || entity?.userId || '');
+
+const formatCreatorRoleLabel = (role) => {
+  if (role === 'super_admin') return 'Super Admin';
+  if (role === 'admin') return 'Admin';
+  if (role === 'teacher') return 'Teacher';
+  return 'Staff';
+};
+
+const ACTIVE_TAB_STATUS_MAP = {
+  all: '',
+  upcoming: 'PUBLISHED',
+  drafts: 'DRAFT',
+  completed: 'COMPLETED',
+};
+
+const getScheduleDurationInMinutes = (slot = {}) => {
+  if (!slot.startTime || !slot.endTime) return 0;
+
+  const [startHours, startMinutes] = String(slot.startTime).split(':').map(Number);
+  const [endHours, endMinutes] = String(slot.endTime).split(':').map(Number);
+
+  if (
+    Number.isNaN(startHours) ||
+    Number.isNaN(startMinutes) ||
+    Number.isNaN(endHours) ||
+    Number.isNaN(endMinutes)
+  ) {
+    return 0;
+  }
+
+  const durationInMinutes = (endHours * 60 + endMinutes) - (startHours * 60 + startMinutes);
+  return durationInMinutes > 0 ? durationInMinutes : 0;
+};
+
+const formatDurationLabel = (durationInMinutes) => {
+  if (!durationInMinutes) return 'N/A';
+
+  const hours = Math.floor(durationInMinutes / 60);
+  const minutes = durationInMinutes % 60;
+
+  if (!hours) return `${minutes} min`;
+  if (!minutes) return `${hours} hr${hours > 1 ? 's' : ''}`;
+  return `${hours} hr ${minutes} min`;
+};
+
+const formatDateRangeLabel = (minDate, maxDate) => {
+  if (!minDate) return 'N/A';
+
+  if (!maxDate || minDate.toDateString() === maxDate.toDateString()) {
+    return minDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  }
+
+  return `${minDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${maxDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+};
+
+const getExamPresentation = (exam = {}) => {
+  const schedule = Array.isArray(exam.schedule) ? exam.schedule.filter(Boolean) : [];
+  const subjects = schedule.map((item) => item.subject).filter(Boolean);
+  const dates = schedule
+    .map((item) => item.examDate)
+    .filter(Boolean)
+    .sort((a, b) => new Date(a) - new Date(b));
+  const minDate = dates.length > 0 ? new Date(dates[0]) : null;
+  const maxDate = dates.length > 0 ? new Date(dates[dates.length - 1]) : null;
+  const firstSchedule = schedule[0] || null;
+  const allSameTime = schedule.length > 1 && schedule.every(
+    (item) => item.startTime === firstSchedule?.startTime && item.endTime === firstSchedule?.endTime
+  );
+  const totalDurationMinutes = schedule.reduce(
+    (sum, item) => sum + getScheduleDurationInMinutes(item),
+    0
+  );
+
+  let timeLabel = 'No schedule';
+  if (schedule.length === 1 && firstSchedule) {
+    timeLabel = `${firstSchedule.startTime || 'N/A'} - ${firstSchedule.endTime || 'N/A'}`;
+  } else if (schedule.length > 1) {
+    if (allSameTime && firstSchedule?.startTime && firstSchedule?.endTime) {
+      timeLabel = `${firstSchedule.startTime} - ${firstSchedule.endTime} each day`;
+    } else {
+      timeLabel = `${schedule.length} sessions`;
+    }
+  }
+
+  return {
+    subjects,
+    dateLabel: formatDateRangeLabel(minDate, maxDate),
+    timeLabel,
+    sessionCount: schedule.length,
+    totalDurationLabel: formatDurationLabel(totalDurationMinutes),
+  };
 };
 
 // Dynamic options for standards and sections are handled by useSchoolClasses
@@ -38,31 +158,44 @@ const CustomBadge = ({ styles, icon: Icon, label }) => (
 );
 
 
-const StatsCard = ({ label, value, icon: Icon, colorClass, bgClass }) => (
-  <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex items-center gap-5 transition-all hover:shadow-md">
-    <div className={`w-14 h-14 rounded-2xl ${bgClass} flex items-center justify-center ${colorClass} shadow-inner`}>
-      <Icon size={24} />
+const StatsCard = ({ label, value, icon, colorClass, bgClass }) => {
+  const IconComponent = icon;
+
+  return (
+    <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex items-center gap-5 transition-all hover:shadow-md">
+      <div className={`w-14 h-14 rounded-2xl ${bgClass} flex items-center justify-center ${colorClass} shadow-inner`}>
+        {IconComponent ? <IconComponent size={24} /> : null}
+      </div>
+      <div>
+        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">{label}</p>
+        <h3 className="text-2xl font-black text-slate-900 leading-tight">{value}</h3>
+      </div>
     </div>
-    <div>
-      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">{label}</p>
-      <h3 className="text-2xl font-black text-slate-900 leading-tight">{value}</h3>
-    </div>
-  </div>
-);
+  );
+};
 
 const ExaminationPage = () => {
   const { user } = useAuth();
   const { data: profileRes } = useProfile();
   const isAdmin = ['admin', 'super_admin'].includes(user?.role);
   const isTeacher = user?.role === 'teacher';
+  const showCandidatesInList = isAdmin;
+  const showSubjectsInList = !showCandidatesInList;
 
   const teacherProfile = useMemo(() => {
     if (!isTeacher || !profileRes?.data) return null;
     return profileRes.data.data || profileRes.data;
   }, [isTeacher, profileRes]);
 
+  const currentUserId = useMemo(() => {
+    return (
+      resolveEntityId(user) ||
+      resolveEntityId(teacherProfile?.userId) ||
+      resolveEntityId(teacherProfile)
+    );
+  }, [teacherProfile, user]);
+
   const [activeTab, setActiveTab] = useState('all');
-  const [teacherTab, setTeacherTab] = useState('schedule'); // 'schedule' | 'create'
   const [filters, setFilters] = useState({
     examType: '',
     // Leave academicYear empty so backend returns all years by default
@@ -83,29 +216,34 @@ const ExaminationPage = () => {
     allUniqueSections,
   } = useSchoolClasses();
 
-  // Queries & Mutations
-  // Build query filters including pagination and active tab mapping
-  const activeTabStatusMap = {
-    'all': '',
-    'upcoming': 'PUBLISHED',
-    'drafts': 'DRAFT',
-    'completed': 'COMPLETED'
-  };
+  const handleActiveTabChange = useCallback((nextTab) => {
+    setActiveTab(nextTab);
+    setCurrentPage(0);
+  }, []);
 
   const queryFilters = useMemo(() => {
     return {
       ...filters,
-      status: activeTabStatusMap[activeTab] || filters.status,
+      status: ACTIVE_TAB_STATUS_MAP[activeTab] || filters.status,
       page: currentPage,
       pageSize: pageSize
     };
   }, [filters, activeTab, currentPage, pageSize]);
 
-  const { data: examsData = { exams: [], pagination: { totalCount: 0 } }, isLoading: examsLoading } = useExams(queryFilters);
-  const exams = examsData.exams || [];
-  const paginationInfo = examsData.pagination || { page: 0, pageSize: 25, totalCount: 0, totalPages: 0 };
+  const { data: examsData, isLoading: examsLoading } = useExams(queryFilters);
+  const exams = useMemo(() => examsData?.exams ?? [], [examsData]);
+  const paginationInfo = useMemo(
+    () => examsData?.pagination ?? { page: 0, pageSize: 25, totalCount: 0, totalPages: 0 },
+    [examsData]
+  );
+  const examSummary = useMemo(
+    () => examsData?.summary ?? null,
+    [examsData]
+  );
   const createExamMutation = useCreateExam();
   const updateExamMutation = useUpdateExam();
+  const uploadScheduleAttachmentsMutation = useUploadScheduleAttachments();
+  const patchScheduleSyllabusMutation = usePatchScheduleSyllabus();
   const deleteExamMutation = useDeleteExam();
   const updateStatusMutation = useUpdateExamStatus();
   const { data: studentsRes } = useStudents();
@@ -122,49 +260,36 @@ const ExaminationPage = () => {
 
 
   // Filtered dropdown options
-  const availableStandards = useMemo(() => {
-    const assignedClasses = teacherProfile?.profile?.assignedClasses || teacherProfile?.assignedClasses || [];
-    if (isTeacher) {
-      if (assignedClasses.length > 0) {
-        return [...new Set(assignedClasses.map(c => String(c.standard)))].sort((a, b) => Number(a) - Number(b));
-      }
-      return []; // Return empty for teachers with no assignments
-    }
-    return schoolAvailableStandards;
-  }, [isTeacher, teacherProfile, schoolAvailableStandards]);
+  const availableStandards = useMemo(() => schoolAvailableStandards, [schoolAvailableStandards]);
 
-  const availableSections = useMemo(() => {
-    const assignedClasses = teacherProfile?.profile?.assignedClasses || teacherProfile?.assignedClasses || [];
-    if (isTeacher) {
-      if (assignedClasses.length > 0) {
-        if (filters.standard) {
-          return [...new Set(assignedClasses
-            .filter(c => String(c.standard) === String(filters.standard))
-            .map(c => String(c.section)))]
-            .sort();
-        }
-        return [...new Set(assignedClasses.map(c => String(c.section)))].sort();
-      }
-      return []; // Return empty for teachers with no assignments
-    }
-    if (filters.standard) {
-      return getSectionsForStandard(filters.standard);
-    }
-    return allUniqueSections;
-  }, [isTeacher, teacherProfile, filters.standard, getSectionsForStandard, allUniqueSections]);
+  const getSectionsForSelectedStandard = useCallback((standardValue) => {
+    if (!standardValue) return allUniqueSections;
+    return getSectionsForStandard(standardValue);
+  }, [allUniqueSections, getSectionsForStandard]);
 
-  useEffect(() => {
-    if (filters.standard && !availableStandards.includes(filters.standard)) {
-      setFilters((current) => ({ ...current, standard: '', section: '' }));
-      return;
-    }
+  const availableSections = useMemo(
+    () => getSectionsForSelectedStandard(filters.standard),
+    [filters.standard, getSectionsForSelectedStandard]
+  );
 
-    const sectionOptions = filters.standard ? availableSections : allUniqueSections;
-    if (filters.section && !sectionOptions.includes(filters.section)) {
-      setFilters((current) => ({ ...current, section: '' }));
-    }
+  const handleStandardFilterChange = useCallback((standardValue) => {
+    setFilters((current) => {
+      const nextStandard = availableStandards.includes(standardValue) ? standardValue : '';
+      const nextSections = getSectionsForSelectedStandard(nextStandard);
+      const nextSection = nextSections.includes(current.section) ? current.section : '';
+      return { ...current, standard: nextStandard, section: nextSection };
+    });
     setCurrentPage(0);
-  }, [allUniqueSections, availableSections, availableStandards, filters.section, filters.standard, searchTerm, activeTab]);
+  }, [availableStandards, getSectionsForSelectedStandard]);
+
+  const handleSectionFilterChange = useCallback((sectionValue) => {
+    setFilters((current) => {
+      const allowedSections = getSectionsForSelectedStandard(current.standard);
+      const nextSection = sectionValue && !allowedSections.includes(sectionValue) ? '' : sectionValue;
+      return { ...current, section: nextSection };
+    });
+    setCurrentPage(0);
+  }, [getSectionsForSelectedStandard]);
 
   const { message, showMessage } = useToastMessage();
 
@@ -183,31 +308,46 @@ const ExaminationPage = () => {
     return result;
   }, [exams, searchTerm]);
 
-  const paginatedExams = filteredExams; // Server-side paginated
-
   const stats = useMemo(() => {
-    const now = new Date();
+    if (examSummary) {
+      return {
+        total: examSummary.total ?? 0,
+        upcoming: examSummary.upcoming ?? 0,
+        completed: examSummary.completed ?? 0,
+      };
+    }
+
     return {
-      total: exams.length,
+      total: paginationInfo.totalCount || exams.length,
       upcoming: exams.filter(e => e.status === 'PUBLISHED').length,
-      ongoing: exams.filter(e => {
-        if (e.status !== 'PUBLISHED' || !e.schedule) return false;
-        return e.schedule.some(s => {
-          const start = new Date(s.examDate);
-          const [h1, m1] = (s.startTime || '00:00').split(':').map(Number);
-          start.setHours(h1, m1);
-          
-          const end = new Date(s.examDate);
-          const [h2, m2] = (s.endTime || '23:59').split(':').map(Number);
-          end.setHours(h2, m2);
-          
-          return now >= start && now <= end;
-        });
-      }).length,
       completed: exams.filter(e => e.status === 'COMPLETED').length,
-      drafts: exams.filter(e => e.status === 'DRAFT').length,
     };
-  }, [exams]);
+  }, [examSummary, exams, paginationInfo.totalCount]);
+
+  const selectedExamCreatorText = useMemo(() => {
+    if (!selectedExam) return '';
+
+    const snapshot = selectedExam.creatorSnapshot || {};
+    const creatorName = snapshot.name || selectedExam.createdBy?.name || 'Staff';
+    const creatorRole = snapshot.role || selectedExam.createdByRole || 'staff';
+    const roleLabel = formatCreatorRoleLabel(creatorRole);
+    const classLabel =
+      snapshot.classLabel || (creatorRole === 'teacher' ? `Class ${selectedExam.standard}-${selectedExam.section}` : '');
+    const archivedPrefix = selectedExam.createdBy?.isArchived ? 'Archived ' : '';
+
+    return classLabel
+      ? `${creatorName} • ${archivedPrefix}${roleLabel} • ${classLabel}`
+      : `${creatorName} • ${archivedPrefix}${roleLabel}`;
+  }, [selectedExam]);
+
+  const selectedExamMeta = useMemo(() => {
+    if (!selectedExam) return null;
+
+    return {
+      ...getExamPresentation(selectedExam),
+      candidateCount: getCandidateCount(selectedExam.standard, selectedExam.section),
+    };
+  }, [getCandidateCount, selectedExam]);
 
   const handleStatusUpdate = async (examId, status) => {
     try {
@@ -229,12 +369,15 @@ const ExaminationPage = () => {
     }
   };
 
-  // When teacher switches to "Create Exam" tab, open the create modal
-  useEffect(() => {
-    if (isTeacher && teacherTab === 'create') {
-      setShowModal({ type: 'create', open: true, data: null });
+  const handleAttachmentDownload = useCallback(async (url, filename) => {
+    try {
+      await downloadFile(url, filename || 'attachment');
+      showMessage('success', 'Download starting...');
+    } catch (error) {
+      console.error('Attachment download failed:', error);
+      showMessage('error', 'Download failed');
     }
-  }, [isTeacher, teacherTab]);
+  }, [showMessage]);
 
   return (
     <DashboardLayout>
@@ -294,19 +437,19 @@ const ExaminationPage = () => {
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-2">
               <div className="flex items-center gap-1 bg-slate-50 p-1.5 rounded-2xl border border-slate-100 items-stretch">
                 <TabButton 
-                  tab="all" activeTab={activeTab} setActiveTab={setActiveTab} label={`All Exams`} 
+                  tab="all" activeTab={activeTab} setActiveTab={handleActiveTabChange} label={`All Exams`} 
                   className={activeTab === 'all' ? 'bg-white shadow-sm' : ''}
                 />
                 <TabButton 
-                  tab="upcoming" activeTab={activeTab} setActiveTab={setActiveTab} label={`Schedule`}
+                  tab="upcoming" activeTab={activeTab} setActiveTab={handleActiveTabChange} label={`Schedule`}
                   className={activeTab === 'upcoming' ? 'bg-white shadow-sm' : ''}
                 />
                 <TabButton 
-                  tab="drafts" activeTab={activeTab} setActiveTab={setActiveTab} label={`Drafts`}
+                  tab="drafts" activeTab={activeTab} setActiveTab={handleActiveTabChange} label={`Drafts`}
                   className={activeTab === 'drafts' ? 'bg-white shadow-sm' : ''}
                 />
                 <TabButton 
-                  tab="completed" activeTab={activeTab} setActiveTab={setActiveTab} label={`Completed`}
+                  tab="completed" activeTab={activeTab} setActiveTab={handleActiveTabChange} label={`Completed`}
                   className={activeTab === 'completed' ? 'bg-white shadow-sm' : ''}
                 />
               </div>
@@ -318,7 +461,10 @@ const ExaminationPage = () => {
                     type="text"
                     placeholder="Search exams, classes or descriptions..."
                     value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
+                    onChange={(e) => {
+                      setSearchTerm(e.target.value);
+                      setCurrentPage(0);
+                    }}
                     className="w-full pl-12 pr-4 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:bg-white transition-all text-sm font-medium"
                   />
                 </div>
@@ -326,7 +472,7 @@ const ExaminationPage = () => {
                 <div className="flex items-center gap-2">
                   <select
                     value={filters.standard}
-                    onChange={(e) => setFilters(f => ({ ...f, standard: e.target.value, section: '' }))}
+                    onChange={(e) => handleStandardFilterChange(e.target.value)}
                     className="px-4 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-slate-700 focus:outline-none hover:bg-slate-100 transition-all cursor-pointer min-w-[130px]"
                   >
                     <option value="">All Classes</option>
@@ -336,7 +482,7 @@ const ExaminationPage = () => {
                   </select>
                   <select
                     value={filters.section}
-                    onChange={(e) => setFilters(f => ({ ...f, section: e.target.value }))}
+                    onChange={(e) => handleSectionFilterChange(e.target.value)}
                     className="px-4 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-slate-700 focus:outline-none hover:bg-slate-100 transition-all cursor-pointer min-w-[120px]"
                   >
                     <option value="">All Sections</option>
@@ -349,7 +495,6 @@ const ExaminationPage = () => {
             </div>
           </div>
 
-        {(!isTeacher || teacherTab === 'schedule') && (
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden min-h-[400px]">
           {examsLoading ? (
             <div className="p-8 space-y-4">
@@ -358,125 +503,96 @@ const ExaminationPage = () => {
               ))}
             </div>
           ) : filteredExams.length > 0 ? (
-              <table className="w-full text-left border-collapse table-fixed">
-                <colgroup>
-                  <col style={{ width: '14.28%' }} />
-                  <col style={{ width: '14.28%' }} />
-                  <col style={{ width: '16%' }} />
-                  <col style={{ width: '12.6%' }} />
-                  <col style={{ width: '14.28%' }} />
-                  <col style={{ width: '14.28%' }} />
-                  <col style={{ width: '14.28%' }} />
-                </colgroup>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[760px] text-left border-collapse">
                 <thead>
                   <tr className="bg-slate-50/50 border-b border-slate-100">
-                    <th className="px-4 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Exam Name & ID</th>
-                    <th className="px-4 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Subject</th>
-                    <th className="px-4 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Date & Time</th>
-                    <th className="px-3 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Duration</th>
-                    <th className="px-3 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Candidates</th>
+                    <th className="px-4 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Exam</th>
+                    {showSubjectsInList && (
+                      <th className="px-4 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Subject</th>
+                    )}
+                    <th className="px-4 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">When</th>
+                    {showCandidatesInList && (
+                      <th className="px-3 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Candidates</th>
+                    )}
                     <th className="px-3 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</th>
                     <th className="px-3 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {paginatedExams.map((exam) => {
-                    const firstSchedule = exam.schedule?.[0];
-                    const subjects = (exam.schedule || []).map(s => s.subject).filter(Boolean);
-                    const dates = (exam.schedule || [])
-                      .map(s => s.examDate)
-                      .filter(Boolean)
-                      .sort((a, b) => new Date(a) - new Date(b));
-                    
-                    const minDate = dates.length > 0 ? new Date(dates[0]) : null;
-                    const maxDate = dates.length > 0 ? new Date(dates[dates.length - 1]) : null;
-
-                    const allSameTime = exam.schedule?.length > 1 && 
-                      exam.schedule.every(s => s.startTime === exam.schedule[0].startTime && s.endTime === exam.schedule[0].endTime);
-
-                    const durationInMins = firstSchedule ? (() => {
-                      const [h1, m1] = (firstSchedule.startTime || '00:00').split(':').map(Number);
-                      const [h2, m2] = (firstSchedule.endTime || '00:00').split(':').map(Number);
-                      return (h2 * 60 + m2) - (h1 * 60 + m1);
-                    })() : 0;
+                  {filteredExams.map((exam) => {
+                    const examMeta = getExamPresentation(exam);
+                    const canFullEdit =
+                      isAdmin || (
+                        !!currentUserId &&
+                        resolveEntityId(exam.createdBy) === currentUserId
+                      );
+                    const statusStyle = STATUS_STYLES[exam.status] || STATUS_STYLES.DRAFT;
 
                     return (
-                      <tr key={exam._id} className="group hover:bg-slate-50/80 transition-all duration-200">
+                      <tr key={exam._id} onClick={() => setSelectedExam(exam)} className="group cursor-pointer hover:bg-slate-50/80 transition-all duration-200">
                         <td className="px-4 py-5">
-                          <div className="min-w-0">
+                          <div className="min-w-0 space-y-1">
                             <div className="font-bold text-slate-900 text-sm leading-snug truncate" title={exam.name}>{exam.name}</div>
-                            <div className="text-[11px] font-bold text-slate-500 mt-0.5">Class {exam.standard} - {exam.section || 'All'}</div>
+                            <div className="text-[11px] font-bold text-slate-500">Class {exam.standard} - {exam.section || 'All'}</div>
+                            <div className="text-[11px] text-slate-400">{EXAM_TYPES[exam.examType]?.label || 'Exam Plan'}</div>
                           </div>
                         </td>
-                        <td className="px-4 py-5">
-                          <div className="flex flex-col items-start gap-1">
-                            <div className="flex flex-wrap gap-1">
-                              {subjects.length > 0 ? (
-                                <>
-                                  {subjects.slice(0, 2).map((sub, i) => (
-                                    <span key={i} className="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-primary/10 text-primary border border-primary/20 shadow-sm whitespace-nowrap">
-                                      {sub}
-                                    </span>
-                                  ))}
-                                </>
-                              ) : (
-                                  <span className="text-slate-400 text-xs italic">—</span>
+                        {showSubjectsInList && (
+                          <td className="px-4 py-5">
+                            <div className="flex flex-col items-start gap-1">
+                              <div className="flex flex-wrap gap-1">
+                                {examMeta.subjects.length > 0 ? (
+                                  <>
+                                    {examMeta.subjects.slice(0, 2).map((subject, index) => (
+                                      <span key={`${subject}-${index}`} className="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-primary/10 text-primary border border-primary/20 shadow-sm whitespace-nowrap">
+                                        {subject}
+                                      </span>
+                                    ))}
+                                  </>
+                                ) : (
+                                  <span className="text-slate-400 text-xs italic">No subjects</span>
+                                )}
+                              </div>
+                              {examMeta.subjects.length > 2 && (
+                                <span className="text-[10px] font-bold text-slate-400">+{examMeta.subjects.length - 2} more</span>
                               )}
                             </div>
-                            {subjects.length > 2 && (
-                               <span className="text-[9px] font-bold text-slate-400">+{subjects.length - 2}</span>
-                            )}
-                          </div>
-                        </td>
+                          </td>
+                        )}
                         <td className="px-4 py-5">
                           <div className="flex flex-col gap-0.5">
                             <div className="text-sm font-bold text-slate-700 whitespace-nowrap">
-                              {minDate ? (
-                                minDate.toDateString() === maxDate.toDateString() 
-                                  ? minDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-                                  : `${minDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${maxDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`
-                              ) : 'N/A'}
+                              {examMeta.dateLabel}
                             </div>
                             <div className="text-[11px] font-medium text-slate-500 whitespace-nowrap">
-                              {exam.schedule?.length > 1 
-                                ? (allSameTime ? `${exam.schedule[0].startTime} - ${exam.schedule[0].endTime}` : `${exam.schedule.length} Sessions`)
-                                : (firstSchedule ? `${firstSchedule.startTime} - ${firstSchedule.endTime || 'N/A'}` : 'No schedule')}
+                              {examMeta.timeLabel}
                             </div>
                           </div>
                         </td>
+                        {showCandidatesInList && (
+                          <td className="px-3 py-5">
+                            <div className="inline-flex flex-col rounded-2xl bg-slate-50 border border-slate-100 px-3 py-2 min-w-[92px]">
+                              <span className="text-sm font-black text-slate-800 tracking-tight">
+                                {getCandidateCount(exam.standard, exam.section)}
+                              </span>
+                              <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">students</span>
+                            </div>
+                          </td>
+                        )}
                         <td className="px-3 py-5">
-                          <div className="text-sm font-bold text-slate-700 whitespace-nowrap">{durationInMins > 0 ? (durationInMins >= 60 ? (durationInMins % 60 === 0 ? `${durationInMins / 60}hr${durationInMins / 60 > 1 ? 's' : ''}` : `${(durationInMins / 60).toFixed(1)}hrs`) : `${durationInMins}min`) : 'N/A'}</div>
-                        </td>
-                        <td className="px-3 py-5">
-                          <div className="relative inline-block">
-                            <span className="text-sm font-black text-slate-800 tracking-tight">
-                              {getCandidateCount(exam.standard, exam.section)}
-                            </span>
-                            <div className="w-full h-1 bg-orange-500 rounded-full mt-1"></div>
+                          <div className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-[11px] font-black uppercase tracking-widest whitespace-nowrap ${statusStyle.bg} ${statusStyle.border} ${statusStyle.color}`}>
+                            <div className={`w-2 h-2 rounded-full flex-shrink-0 ${STATUS_DOT_STYLES[exam.status] || 'bg-slate-400'}`}></div>
+                            <span>{statusStyle.label}</span>
                           </div>
                         </td>
                         <td className="px-3 py-5">
-                          <div className="flex items-center gap-2">
-                            <div className={`w-2 h-2 rounded-full flex-shrink-0 ${exam.status === 'PUBLISHED' ? 'bg-orange-500 animate-pulse' : exam.status === 'COMPLETED' ? 'bg-slate-400' : 'bg-primary'}`}></div>
-                            <span className={`text-[11px] font-black uppercase tracking-widest whitespace-nowrap ${exam.status === 'PUBLISHED' ? 'text-orange-600' : exam.status === 'COMPLETED' ? 'text-slate-500' : 'text-primary'}`}>
-                              {exam.status === 'PUBLISHED' ? 'Upcoming' : exam.status === 'COMPLETED' ? 'Completed' : exam.status === 'DRAFT' ? 'Draft' : exam.status}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="px-3 py-5">
-                          <div className="flex items-center justify-center gap-3">
-                            <button
-                              onClick={() => setSelectedExam(exam)}
-                              className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-all"
-                              title="View Details"
-                            >
-                              <FaEye size={18} />
-                            </button>
-                            {(isAdmin || (isTeacher && String(exam.createdBy?._id || exam.createdBy) === String(user?._id))) && (
+                          <div className="flex items-center justify-center gap-2">
+                            {canFullEdit && (
                               <>
-                                {exam.status !== 'COMPLETED' && activeTab !== 'all' && (
+                                {canFullEdit && exam.status !== 'COMPLETED' && activeTab !== 'all' && (
                                   <button
-                                    onClick={() => handleStatusUpdate(exam._id, exam.status === 'DRAFT' ? 'PUBLISHED' : 'COMPLETED')}
+                                    onClick={(e) => { e.stopPropagation(); handleStatusUpdate(exam._id, exam.status === 'DRAFT' ? 'PUBLISHED' : 'COMPLETED'); }}
                                     className="p-2 text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 rounded-lg transition-all"
                                     title={exam.status === 'DRAFT' ? "Publish Exam" : "Mark as Completed"}
                                   >
@@ -484,14 +600,14 @@ const ExaminationPage = () => {
                                   </button>
                                 )}
                                 <button
-                                  onClick={() => setShowModal({ type: 'edit', open: true, data: exam })}
+                                  onClick={(e) => { e.stopPropagation(); setShowModal({ type: 'edit', open: true, data: exam }); }}
                                   className="p-2 text-slate-400 hover:text-orange-500 hover:bg-orange-50 rounded-lg transition-all"
                                   title="Edit Exam"
                                 >
                                   <FaEdit size={18} />
                                 </button>
                                 <button
-                                  onClick={() => setDeleteConfirm({ open: true, examId: exam._id })}
+                                  onClick={(e) => { e.stopPropagation(); setDeleteConfirm({ open: true, examId: exam._id }); }}
                                   className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all"
                                   title="Delete Exam"
                                 >
@@ -506,6 +622,7 @@ const ExaminationPage = () => {
                   })}
                 </tbody>
               </table>
+            </div>
           ) : (
             <EmptyState
               icon={FaCalendarAlt}
@@ -526,11 +643,10 @@ const ExaminationPage = () => {
             />
           )}
         </div>
-        )}
       </div>
 
-        {selectedExam && teacherTab === 'schedule' && (
-          <div className="modal-overlay fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[60] p-4 overflow-y-auto animate-in fade-in duration-300 print:static print:bg-transparent print:backdrop-blur-none print:p-0">
+        {selectedExam && (
+          <div className="modal-overlay fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-60 p-4 overflow-y-auto animate-in fade-in duration-300 print:static print:bg-transparent print:backdrop-blur-none print:p-0">
           <div className="bg-white rounded-[32px] w-full max-w-4xl shadow-2xl my-auto relative animate-in zoom-in-95 duration-300 printable-content">
               <div className="max-h-[90vh] overflow-y-auto custom-scrollbar print:max-h-none print:overflow-visible no-scrollbar">
                 <div className="p-8 md:p-10 bg-white border-b border-slate-100 flex items-center justify-between rounded-t-[32px] sticky top-0 z-10 print:static print:border-none">
@@ -556,10 +672,62 @@ const ExaminationPage = () => {
               </div>
 
               <div className="p-6 md:p-8">
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
+                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-2xl bg-white border border-slate-100 flex items-center justify-center text-primary">
+                        <FaLayerGroup size={16} />
+                      </div>
+                      <div>
+                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Sessions</div>
+                        <div className="text-lg font-black text-slate-900">{selectedExamMeta?.sessionCount || 0}</div>
+                      </div>
+                    </div>
+                    <div className="mt-3 text-xs text-slate-500">
+                      {selectedExamMeta?.subjects.length ? `${selectedExamMeta.subjects.length} subject entries planned` : 'No subject schedule yet'}
+                    </div>
+                  </div>
+                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-2xl bg-white border border-slate-100 flex items-center justify-center text-amber-600">
+                        <FaUsers size={16} />
+                      </div>
+                      <div>
+                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Candidates</div>
+                        <div className="text-lg font-black text-slate-900">{selectedExamMeta?.candidateCount || 0}</div>
+                      </div>
+                    </div>
+                    <div className="mt-3 text-xs text-slate-500">Students from the assigned class and section</div>
+                  </div>
+                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-2xl bg-white border border-slate-100 flex items-center justify-center text-emerald-600">
+                        <FaClock size={16} />
+                      </div>
+                      <div>
+                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total Duration</div>
+                        <div className="text-lg font-black text-slate-900">{selectedExamMeta?.totalDurationLabel || 'N/A'}</div>
+                      </div>
+                    </div>
+                    <div className="mt-3 text-xs text-slate-500">Combined time across all scheduled sessions</div>
+                  </div>
+                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-2xl bg-white border border-slate-100 flex items-center justify-center text-primary">
+                        <FaCalendarCheck size={16} />
+                      </div>
+                      <div>
+                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Schedule</div>
+                        <div className="text-sm font-black text-slate-900">{selectedExamMeta?.dateLabel || 'N/A'}</div>
+                      </div>
+                    </div>
+                    <div className="mt-3 text-xs text-slate-500">{selectedExamMeta?.timeLabel || 'No schedule'}</div>
+                  </div>
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                   <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
                     <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Target Audience</div>
-                    <div className="text-slate-900 font-bold">Class {selectedExam.standard} • Section {selectedExam.section}</div>
+                    <div className="text-slate-900 font-bold">Class {selectedExam.standard} • Section {selectedExam.section || 'All'}</div>
                   </div>
                   <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
                     <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Timing & Period</div>
@@ -568,7 +736,7 @@ const ExaminationPage = () => {
                   <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
                     <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Creation Details</div>
                     <div className="text-slate-900 font-bold">
-                      {selectedExam.createdBy?.name || 'Admin'} • {selectedExam.createdBy?.isArchived ? `Archived ${selectedExam.createdByRole || 'Staff'}` : (selectedExam.createdByRole || 'Staff')}
+                      {selectedExamCreatorText}
                     </div>
                   </div>
                 </div>
@@ -625,6 +793,29 @@ const ExaminationPage = () => {
                               <p className="text-[11px] text-slate-500 line-clamp-2 leading-normal">{slot.syllabus}</p>
                             </div>
                           )}
+                          {slot.attachments?.length > 0 && (
+                            <div className="mt-4 pt-3 border-t border-slate-50">
+                              <div className="text-[10px] font-bold text-slate-400 mb-2">ATTACHMENTS</div>
+                              <div className="flex flex-wrap gap-2">
+                                {slot.attachments.map((attachment, attachmentIndex) => (
+                                  <button
+                                    type="button"
+                                    key={attachment.publicId || attachment.url || `${idx}-${attachmentIndex}`}
+                                    onClick={() =>
+                                      handleAttachmentDownload(
+                                        attachment.url,
+                                        attachment.name || attachment.originalName || `Attachment ${attachmentIndex + 1}`
+                                      )
+                                    }
+                                    className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/5 px-2.5 py-1 text-[10px] font-semibold text-primary hover:bg-primary/10"
+                                  >
+                                    <FaPaperclip size={9} />
+                                    <span>{attachment.name || attachment.originalName || `Attachment ${attachmentIndex + 1}`}</span>
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -657,39 +848,204 @@ const ExaminationPage = () => {
             user={{ ...user, ...teacherProfile, _id: user?._id }}
             onClose={() => {
               setShowModal({ type: '', open: false, data: null });
-              if (isTeacher) setTeacherTab('schedule');
             }}
             onSubmit={async (data) => {
-              try {
-                if (showModal.type === 'create') await createExamMutation.mutateAsync(data);
-                else await updateExamMutation.mutateAsync({ examId: showModal.data._id, updateData: data });
-                showMessage('success', `Exam ${showModal.type === 'create' ? 'created' : 'updated'} successfully`);
+              const originalSchedule = showModal.data?.schedule || [];
+              const originalById = new Map(
+                originalSchedule.map((item) => [String(item._id || ''), item])
+              );
+              const getAttachmentSignature = (attachments = []) =>
+                (attachments || [])
+                  .map((attachment) => `${attachment?.publicId || ''}|${attachment?.url || ''}`)
+                  .sort()
+                  .join(',');
+
+              if (showModal.type === 'editSyllabus') {
+                const examId = showModal.data?._id;
+                if (!examId) {
+                  showMessage('error', 'Exam not found for syllabus update.');
+                  return;
+                }
+
+                const syllabusPatchQueue = (data.schedule || []).map((item, index) => {
+                  const scheduleItemId = item._id || originalSchedule?.[index]?._id;
+                  const originalItem = originalById.get(String(scheduleItemId || '')) || originalSchedule?.[index] || {};
+                  const syllabusChanged = String(item.syllabus || '') !== String(originalItem?.syllabus || '');
+                  const attachmentsChanged =
+                    getAttachmentSignature(item.attachments || []) !== getAttachmentSignature(originalItem?.attachments || []);
+
+                  return {
+                    index,
+                    scheduleItemId,
+                    shouldPatch: Boolean(scheduleItemId) && (syllabusChanged || attachmentsChanged),
+                    syllabus: item.syllabus || '',
+                    attachments: item.attachments || [],
+                    attachmentFiles: item.attachmentFiles || [],
+                  };
+                });
+
+                try {
+                  for (const item of syllabusPatchQueue) {
+                    if (item.shouldPatch) {
+                      await patchScheduleSyllabusMutation.mutateAsync({
+                        examId,
+                        scheduleItemId: item.scheduleItemId,
+                        updateData: {
+                          syllabus: item.syllabus,
+                          attachments: (item.attachments || []).map(sanitizeAttachmentForApi),
+                          // If we'll also upload new files right after, let the upload
+                          // broadcast the single notice — suppress the duplicate here.
+                          suppressNotice: item.attachmentFiles.length > 0,
+                        },
+                      });
+                    }
+
+                    if (item.attachmentFiles.length > 0) {
+                      if (!item.scheduleItemId) {
+                        throw new Error(`Missing schedule item id for paper #${item.index + 1}`);
+                      }
+                      await uploadScheduleAttachmentsMutation.mutateAsync({
+                        examId,
+                        scheduleItemId: item.scheduleItemId,
+                        files: item.attachmentFiles,
+                      });
+                    }
+                  }
+                } catch (error) {
+                  console.error('Syllabus update failed:', error);
+                  const updateMessage =
+                    error.response?.data?.message ||
+                    error.response?.data?.error?.message ||
+                    error.message ||
+                    'Failed to update syllabus';
+
+                  showMessage('error', updateMessage);
+                  return;
+                }
+
+                showMessage('success', 'Exam syllabus and attachments updated successfully');
                 setShowModal({ type: '', open: false, data: null });
+                return;
+              }
+
+              const scheduleAttachmentQueue = (data.schedule || [])
+                .map((item, index) => ({
+                  index,
+                  files: item.attachmentFiles || [],
+                  existingScheduleItemId: item._id || '',
+                }))
+                .filter((entry) => entry.files.length > 0);
+
+              const examPayload = {
+                ...data,
+                schedule: (data.schedule || []).map((item) => {
+                  const { attachmentFiles: _attachmentFiles, ...safeItem } = item;
+                  return {
+                    ...safeItem,
+                    attachments: (safeItem.attachments || []).map(sanitizeAttachmentForApi),
+                  };
+                }),
+              };
+
+              let savedExamId = showModal.data?._id;
+              let savedSchedule = [];
+
+              try {
+                if (showModal.type === 'create') {
+                  const createdExamResponse = await createExamMutation.mutateAsync(examPayload);
+                  savedExamId = createdExamResponse?.data?._id;
+                  savedSchedule = createdExamResponse?.data?.schedule || [];
+                } else {
+                  const updatedExamResponse = await updateExamMutation.mutateAsync({
+                    examId: showModal.data._id,
+                    updateData: examPayload,
+                  });
+                  savedExamId = updatedExamResponse?.data?._id || savedExamId;
+                  savedSchedule = updatedExamResponse?.data?.schedule || [];
+                }
               } catch (error) {
                 console.error('Failed to save exam:', error);
-                let message = error.response?.data?.message || error.message || 'Operation failed';
-                
-                // Detailed Zod error reporting for 422
-                if (error.response?.status === 422 && error.response.data.errors) {
-                  const fieldErrors = error.response.data.errors;
+                let message =
+                  error.response?.data?.message ||
+                  error.response?.data?.error?.message ||
+                  error.message ||
+                  'Operation failed';
+
+                const validationErrors = error.response?.data?.errors || error.response?.data?.error?.details;
+                if (error.response?.status === 422 && validationErrors) {
+                  const fieldErrors = validationErrors;
                   if (Array.isArray(fieldErrors)) {
-                    const detail = fieldErrors.map(e => `${e.path.split('.').pop()}: ${e.message}`).join(', ');
+                    const detail = fieldErrors.map((e) => `${(e.path || e.field || '').split('.').pop()}: ${e.message}`).join(', ');
                     message = `Validation Error: ${detail}`;
                   }
                 }
-                
+
                 showMessage('error', message);
+                return;
               }
+
+              if (scheduleAttachmentQueue.length > 0) {
+                if (!savedExamId) {
+                  showMessage(
+                    'error',
+                    'Exam was saved, but attachments could not be uploaded because the exam id is missing.'
+                  );
+                  setShowModal({ type: '', open: false, data: null });
+                  return;
+                }
+
+                try {
+                  for (const item of scheduleAttachmentQueue) {
+                    const mappedScheduleItemId = item.existingScheduleItemId || savedSchedule?.[item.index]?._id;
+
+                    if (!mappedScheduleItemId) {
+                      throw new Error(`Missing schedule item id for paper #${item.index + 1}`);
+                    }
+
+                    await uploadScheduleAttachmentsMutation.mutateAsync({
+                      examId: savedExamId,
+                      scheduleItemId: mappedScheduleItemId,
+                      files: item.files,
+                    });
+                  }
+                } catch (error) {
+                  console.error('Exam saved but schedule attachment upload failed:', error);
+                  const uploadMessage =
+                    error.response?.data?.message ||
+                    error.response?.data?.error?.message ||
+                    error.message ||
+                    'Attachment upload failed';
+
+                  showMessage(
+                    'error',
+                    `Exam ${showModal.type === 'create' ? 'created' : 'updated'}, but one or more attachments failed: ${uploadMessage}`
+                  );
+                  setShowModal({ type: '', open: false, data: null });
+                  return;
+                }
+              }
+
+              showMessage(
+                'success',
+                `Exam ${showModal.type === 'create' ? 'created' : 'updated'} successfully${scheduleAttachmentQueue.length > 0 ? ' with paper attachments' : ''}`
+              );
+              setShowModal({ type: '', open: false, data: null });
             }}
-            editData={showModal.type === 'edit' ? showModal.data : null}
-            isLoading={createExamMutation.isPending || updateExamMutation.isPending}
+            editData={showModal.type === 'edit' || showModal.type === 'editSyllabus' ? showModal.data : null}
+            syllabusOnly={showModal.type === 'editSyllabus'}
+            isLoading={
+              createExamMutation.isPending ||
+              updateExamMutation.isPending ||
+              patchScheduleSyllabusMutation.isPending ||
+              uploadScheduleAttachmentsMutation.isPending
+            }
             userRole={user?.role}
           />
         )}
 
         {/* Delete Confirmation Modal */}
         {deleteConfirm.open && (
-          <div className="modal-overlay fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4 animate-in fade-in duration-300">
+          <div className="modal-overlay fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-100 p-4 animate-in fade-in duration-300">
             <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl p-8 animate-in zoom-in-95 duration-300">
               <div className="w-16 h-16 bg-rose-50 rounded-2xl flex items-center justify-center text-rose-500 mb-6 mx-auto border border-rose-100">
                 <FaTrash size={24} />
@@ -723,7 +1079,7 @@ const ExaminationPage = () => {
         )}
 
         {message?.text && (
-          <div className={`fixed top-6 right-6 z-[100] px-5 py-3.5 rounded-xl shadow-lg flex items-center gap-3 animate-fadeIn backdrop-blur-sm ${message.type === 'success' ? 'bg-emerald-500/90 text-white' : 'bg-red-500/90 text-white'}`}>
+          <div className={`fixed top-6 right-6 z-100 px-5 py-3.5 rounded-xl shadow-lg flex items-center gap-3 animate-fadeIn backdrop-blur-sm ${message.type === 'success' ? 'bg-emerald-500/90 text-white' : 'bg-red-500/90 text-white'}`}>
             <div className="w-6 h-6 rounded-full flex items-center justify-center bg-white/20">
               {message.type === 'success' ? <FaCheckCircle size={12} /> : <FaTimes size={12} />}
             </div>

@@ -4,6 +4,8 @@ import {
 } from 'react-icons/fa';
 import { useUpdateUser, useUsers } from '../api/queries';
 import { useSchoolClasses } from '../../../hooks/useSchoolClasses';
+import { useAuth } from '../../../features/auth';
+import { formatValue } from '../../../utils';
 
 const LIGHT_SELECT_CLASS = 'w-full bg-white text-gray-900 rounded px-2 py-1.5 text-xs font-black outline-none border border-gray-100 focus:border-blue-300 transition-all';
 
@@ -17,6 +19,10 @@ const buildClassKey = ({ standard, section } = {}) =>
   `${String(standard || '').trim()}::${String(section || '').trim().toUpperCase()}`;
 
 const UserDetailModal = ({ user, onClose, initialMode = 'view', onSuccess }) => {
+  const { user: currentUser } = useAuth();
+  const isTeacherLoggedIn = currentUser?.role === 'teacher';
+  const canViewContacts = ['admin', 'super_admin'].includes(currentUser?.role);
+
   const updateUserMutation = useUpdateUser();
   const teachersQuery = useUsers({ role: 'teacher', pageSize: 5000, enabled: initialMode === 'edit' && user?.role === 'teacher' });
   const [mode, setMode] = useState(initialMode);
@@ -141,24 +147,41 @@ const UserDetailModal = ({ user, onClose, initialMode = 'view', onSuccess }) => 
 
   if (!user) return null;
 
-  const handleSave = async () => {
-    try {
-      setSaveError('');
-      await updateUserMutation.mutateAsync({
-        id: user._id,
-        payload: {
-          name: formData.name,
-          email: formData.email,
-          contactNo: formData.contactNo,
-          profile: formData.profile,
+    const handleSave = async () => {
+        try {
+            setSaveError('');
+            
+            // New Validation for Admin/Super Admin
+            if (!isTeacherLoggedIn && isStudent) {
+                if (formData.profile?.fatherName?.trim() && !formData.profile?.fatherContact?.trim()) {
+                    setSaveError("Father's contact number is required.");
+                    return;
+                }
+                if (formData.profile?.motherName?.trim() && !formData.profile?.motherContact?.trim()) {
+                    setSaveError("Mother's contact number is required.");
+                    return;
+                }
+                if (formData.profile?.guardianName?.trim() && !formData.profile?.guardianContact?.trim()) {
+                    setSaveError("Guardian's contact number is required.");
+                    return;
+                }
+            }
+
+            await updateUserMutation.mutateAsync({
+                id: user._id,
+                payload: {
+                    name: formData.name,
+                    email: formData.email,
+                    contactNo: formData.contactNo,
+                    profile: formData.profile,
+                }
+            });
+            if (onSuccess) onSuccess('User updated successfully');
+            setMode('view');
+        } catch (error) {
+            setSaveError(error?.response?.data?.message || 'Failed to update user');
         }
-      });
-      if (onSuccess) onSuccess('User updated successfully');
-      setMode('view');
-    } catch (error) {
-      setSaveError(error?.response?.data?.message || 'Failed to update user');
-    }
-  };
+    };
   const handleAddTeacherClass = () => {
     const standard = String(teacherClassDraft.standard || '').trim();
     const section = String(teacherClassDraft.section || '').trim().toUpperCase();
@@ -300,7 +323,7 @@ const UserDetailModal = ({ user, onClose, initialMode = 'view', onSuccess }) => 
                       />
                     ) : (
                       <span className="text-sm font-black text-gray-900 break-all">
-                        {isAdmin ? (formData.profile?.department || 'Not Provided') : isTeacher ? getTeacherClass() : (formData.profile?.rollNumber || `#${user._id?.slice(-6)?.toUpperCase()}`)}
+                        {isAdmin ? formatValue(formData.profile?.department) : isTeacher ? getTeacherClass() : (formData.profile?.rollNumber || `#${user._id?.slice(-6)?.toUpperCase()}`)}
                       </span>
                     )}
                   </div>
@@ -335,7 +358,7 @@ const UserDetailModal = ({ user, onClose, initialMode = 'view', onSuccess }) => 
                         onChange={(e) => setFormData({ ...formData, contactNo: e.target.value.replace(/\D/g, '') })}
                       />
                     ) : (
-                      <span className="text-sm font-black text-gray-900 break-all">{formData.contactNo || 'Not Provided'}</span>
+                      <span className="text-sm font-black text-gray-900 break-all">{formatValue(formData.contactNo)}</span>
                     )}
                   </div>
                 </div>
@@ -366,7 +389,7 @@ const UserDetailModal = ({ user, onClose, initialMode = 'view', onSuccess }) => 
                           {standards.map(std => <option key={std} value={std} className="bg-white text-gray-900">{std}</option>)}
                         </select>
                       ) : (
-                        <span className="text-sm font-black text-gray-900">{formData.profile?.standard || 'N/A'}</span>
+                        <span className="text-sm font-black text-gray-900">{formatValue(formData.profile?.standard)}</span>
                       )}
                     </div>
                     <div className="p-4 bg-white rounded-2xl border border-gray-100 shadow-sm flex flex-col gap-1">
@@ -385,7 +408,7 @@ const UserDetailModal = ({ user, onClose, initialMode = 'view', onSuccess }) => 
                           {sections.map(sec => <option key={sec} value={sec} className="bg-white text-gray-900">{sec}</option>)}
                         </select>
                       ) : (
-                        <span className="text-sm font-black text-gray-900">{formData.profile?.section || 'N/A'}</span>
+                        <span className="text-sm font-black text-gray-900">{formatValue(formData.profile?.section)}</span>
                       )}
                     </div>
                   </div>
@@ -503,19 +526,23 @@ const UserDetailModal = ({ user, onClose, initialMode = 'view', onSuccess }) => 
                               onChange={(e) => setFormData({ ...formData, profile: { ...formData.profile, fatherName: e.target.value } })}
                             />
                           ) : (
-                            <p className="text-sm font-bold text-gray-800">{formData.profile?.fatherName || 'Not Provided'}</p>
+                            <p className="text-sm font-bold text-gray-800">{formatValue(formData.profile?.fatherName)}</p>
                           )}
                         </div>
                         <div>
-                          <p className="text-[10px] font-bold text-blue-400 uppercase tracking-widest leading-none mb-1.5">Contact Number</p>
-                          {isEditing ? (
+                          <p className="text-[10px] font-bold text-blue-400 uppercase tracking-widest leading-none mb-1.5">
+                            Contact Number {isTeacher ? '(optional)' : ''}
+                          </p>
+                          {isEditing && canViewContacts ? (
                             <input
                               className="w-full bg-white/50 border border-blue-100 focus:border-blue-400 rounded-lg py-2 px-3 text-sm font-bold outline-none"
                               value={formData.profile?.fatherContact}
                               onChange={(e) => setFormData({ ...formData, profile: { ...formData.profile, fatherContact: e.target.value.replace(/\D/g, '') } })}
                             />
                           ) : (
-                            <p className="text-sm font-bold text-gray-800">{formData.profile?.fatherContact || 'Not Provided'}</p>
+                            <p className="text-sm font-bold text-gray-800">
+                              {canViewContacts ? formatValue(formData.profile?.fatherContact) : 'Hidden'}
+                            </p>
                           )}
                         </div>
                       </div>
@@ -537,19 +564,23 @@ const UserDetailModal = ({ user, onClose, initialMode = 'view', onSuccess }) => 
                               onChange={(e) => setFormData({ ...formData, profile: { ...formData.profile, motherName: e.target.value } })}
                             />
                           ) : (
-                            <p className="text-sm font-bold text-gray-800">{formData.profile?.motherName || 'Not Provided'}</p>
+                            <p className="text-sm font-bold text-gray-800">{formatValue(formData.profile?.motherName)}</p>
                           )}
                         </div>
                         <div>
-                          <p className="text-[10px] font-bold text-pink-400 uppercase tracking-widest leading-none mb-1.5">Contact Number</p>
-                          {isEditing ? (
+                          <p className="text-[10px] font-bold text-pink-400 uppercase tracking-widest leading-none mb-1.5">
+                            Contact Number {isTeacher ? '(optional)' : ''}
+                          </p>
+                          {isEditing && canViewContacts ? (
                             <input
                               className="w-full bg-white/50 border border-pink-100 focus:border-pink-400 rounded-lg py-2 px-3 text-sm font-bold outline-none"
                               value={formData.profile?.motherContact}
                               onChange={(e) => setFormData({ ...formData, profile: { ...formData.profile, motherContact: e.target.value.replace(/\D/g, '') } })}
                             />
                           ) : (
-                            <p className="text-sm font-bold text-gray-800">{formData.profile?.motherContact || 'Not Provided'}</p>
+                            <p className="text-sm font-bold text-gray-800">
+                              {canViewContacts ? formatValue(formData.profile?.motherContact) : 'Hidden'}
+                            </p>
                           )}
                         </div>
                       </div>
@@ -572,19 +603,23 @@ const UserDetailModal = ({ user, onClose, initialMode = 'view', onSuccess }) => 
                             onChange={(e) => setFormData({ ...formData, profile: { ...formData.profile, guardianName: e.target.value } })}
                           />
                         ) : (
-                          <p className="text-sm font-bold text-gray-800">{formData.profile?.guardianName || 'Not Provided'}</p>
+                          <p className="text-sm font-bold text-gray-800">{formatValue(formData.profile?.guardianName)}</p>
                         )}
                       </div>
                       <div>
-                        <p className="text-[10px] font-bold text-purple-400 uppercase tracking-widest leading-none mb-1.5">Guardian Contact</p>
-                        {isEditing ? (
+                        <p className="text-[10px] font-bold text-purple-400 uppercase tracking-widest leading-none mb-1.5">
+                          Guardian Contact {isTeacher ? '(optional)' : ''}
+                        </p>
+                        {isEditing && canViewContacts ? (
                           <input
                             className="w-full bg-white/50 border border-purple-100 focus:border-purple-400 rounded-lg py-2 px-3 text-sm font-bold outline-none"
                             value={formData.profile?.guardianContact}
                             onChange={(e) => setFormData({ ...formData, profile: { ...formData.profile, guardianContact: e.target.value.replace(/\D/g, '') } })}
                           />
                         ) : (
-                          <p className="text-sm font-bold text-gray-800">{formData.profile?.guardianContact || 'Not Provided'}</p>
+                          <p className="text-sm font-bold text-gray-800">
+                            {canViewContacts ? formatValue(formData.profile?.guardianContact) : 'Hidden'}
+                          </p>
                         )}
                       </div>
                     </div>

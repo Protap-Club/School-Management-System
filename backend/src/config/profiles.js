@@ -14,6 +14,8 @@ export const PROFILE_CONFIG = {
             fatherContact: data.fatherContact,
             motherName: data.motherName,
             motherContact: data.motherContact,
+            guardianName: data.guardianName,
+            guardianContact: data.guardianContact,
             address: data.address
         })
     },

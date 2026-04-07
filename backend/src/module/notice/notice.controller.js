@@ -57,6 +57,26 @@ export const getReceivedNotices = asyncHandler(async (req, res) => {
     });
 });
 
+export const deleteReceivedNotice = asyncHandler(async (req, res) => {
+    const result = await noticeService.deleteReceivedNotice(req.schoolId, req.params.id, req.user);
+
+    res.status(200).json({
+        success: true,
+        message: "Notice removed from received list",
+        data: result,
+    });
+});
+
+export const bulkDeleteReceivedNotices = asyncHandler(async (req, res) => {
+    const result = await noticeService.bulkDeleteReceivedNotices(req.schoolId, req.body.ids, req.user);
+
+    res.status(200).json({
+        success: true,
+        message: "Selected notices removed from received list",
+        data: result,
+    });
+});
+
 // GET /notices/:id
 // Get a single notice by ID
 

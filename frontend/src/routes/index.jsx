@@ -14,6 +14,7 @@ const Notice = lazy(() => import('../pages/Notice'));
 const TimetablePage = lazy(() => import('../features/timetable/TimetablePage'));
 const Calendar = lazy(() => import('../pages/Calendar'));
 const Notifications = lazy(() => import('../pages/Notifications'));
+const Profile = lazy(() => import('../pages/Profile'));
 const Fees = lazy(() => import('../pages/Fees'));
 const Examination = lazy(() => import('../pages/Examination'));
 const Assignments = lazy(() => import('../features/assignment/AssignmentPage'));
@@ -94,6 +95,7 @@ export const pages = {
     TimetablePage,
     Calendar,
     Notifications,
+    Profile,
     Fees,
     Examination,
     Assignments,

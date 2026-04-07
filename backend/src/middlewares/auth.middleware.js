@@ -1,5 +1,7 @@
 import jwt from "jsonwebtoken";
 import User from "../module/user/model/User.model.js";
+import TeacherProfile from "../module/user/model/TeacherProfile.model.js";
+import StudentProfile from "../module/user/model/StudentProfile.model.js";
 import { conf } from "../config/index.js";
 import logger from "../config/logger.js";
 import { NotFoundError, UnauthorizedError, ForbiddenError } from "../utils/customError.js";
@@ -30,6 +32,19 @@ const checkAuth = async (req, res, next) => {
             throw new NotFoundError("User Not Found");
         }
 
+        // Attach role-specific profile data (e.g. assignedClasses for teachers)
+        if (findUser.role === USER_ROLES.TEACHER) {
+            const teacherProfile = await TeacherProfile.findOne({ userId: findUser._id })
+                .select("assignedClasses expectedSalary")
+                .lean();
+            findUser.profile = teacherProfile || null;
+        } else if (findUser.role === USER_ROLES.STUDENT) {
+            const studentProfile = await StudentProfile.findOne({ userId: findUser._id })
+                .select("standard section rollNumber")
+                .lean();
+            findUser.profile = studentProfile || null;
+        }
+
         req.user = findUser;
 
         // Attach platform from header (default to web)
@@ -44,8 +59,6 @@ const checkAuth = async (req, res, next) => {
         next();
 
     } catch (error) {
-        // Log errors only (keeps logs clean of "success" noise)
-        logger.error(`Auth Middleware Error: ${error.message}`);
         next(error);
     }
 };

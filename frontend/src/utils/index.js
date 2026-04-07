@@ -59,3 +59,20 @@ export const getRelativeTime = (dateString) => {
     }
     return 'Just now';
 };
+
+// Format value for display - shows N/A for empty/null/undefined values
+export const formatValue = (value, fallback = 'N/A') => {
+    if (value === null || value === undefined || value === '' || value === 'null' || value === 'undefined') {
+        return fallback;
+    }
+    if (typeof value === 'string' && value.trim() === '') {
+        return fallback;
+    }
+    if (typeof value === 'number' && isNaN(value)) {
+        return fallback;
+    }
+    if (Array.isArray(value) && value.length === 0) {
+        return fallback;
+    }
+    return value;
+};

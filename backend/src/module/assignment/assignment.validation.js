@@ -11,8 +11,40 @@ const dueDateSchema = z.string().refine(
     },
     { message: "Sundays are not allowed." }
 );
-const booleanishSchema = z.union([z.boolean(), z.enum(["true", "false"])])
-    .transform((value) => value === true || value === "true");
+const parseSectionList = (value) => {
+    if (value === undefined || value === null || value === "") {
+        return undefined;
+    }
+
+    if (Array.isArray(value)) {
+        return value;
+    }
+
+    if (typeof value === "string") {
+        const trimmed = value.trim();
+        if (!trimmed) {
+            return [];
+        }
+
+        try {
+            const parsed = JSON.parse(trimmed);
+            if (Array.isArray(parsed)) {
+                return parsed;
+            }
+        } catch {
+            return [trimmed];
+        }
+
+        return [trimmed];
+    }
+
+    return value;
+};
+
+const sectionListSchema = z.preprocess(
+    parseSectionList,
+    z.array(z.string().min(1, "Section cannot be empty")).optional()
+);
 
 // Assignment Validation Schemas
 
@@ -23,9 +55,21 @@ export const createAssignmentSchema = z.object({
         description: z.string().max(2000).optional().default(""),
         subject: z.string({ required_error: "Subject is required" }).min(1, "Subject cannot be empty").max(100),
         standard: z.string({ required_error: "Standard is required" }).min(1),
-        section: z.string({ required_error: "Section is required" }).min(1),
+        section: z.string().min(1).optional(),
+        sections: sectionListSchema,
         dueDate: dueDateSchema,
-        requiresSubmission: booleanishSchema.optional().default(false),
+        assignedTeacher: objectIdSchema.optional(),
+    }).superRefine((data, ctx) => {
+        const hasSingleSection = Boolean(String(data.section || "").trim());
+        const hasSectionList = Array.isArray(data.sections) && data.sections.length > 0;
+
+        if (!hasSingleSection && !hasSectionList) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: "At least one section is required",
+                path: ["sections"],
+            });
+        }
     }),
 });
 
@@ -35,7 +79,7 @@ export const updateAssignmentSchema = z.object({
         title: z.string().min(1).max(200).optional(),
         description: z.string().max(2000).optional(),
         dueDate: dueDateSchema.optional(),
-        requiresSubmission: booleanishSchema.optional(),
+        assignedTeacher: objectIdSchema.optional(),
         status: z.enum(["active", "closed"]).optional(),
     }),
     params: z.object({

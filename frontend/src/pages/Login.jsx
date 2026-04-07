@@ -1,6 +1,6 @@
 import React, { useCallback, useState, useEffect } from 'react';
 import { useAuth } from '../features/auth';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { FaUser, FaLock } from 'react-icons/fa';
 
 const VALID_ROLES = ['super_admin', 'admin', 'teacher'];
@@ -98,6 +98,21 @@ const Login = () => {
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><FaLock className="text-gray-400" /></div>
                         <input type="password" className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 hover:bg-white disabled:opacity-50"
                             placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} required disabled={isSubmitting} />
+                    </div>
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center">
+                            <input
+                                type="checkbox"
+                                id="remember"
+                                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded cursor-pointer"
+                            />
+                            <label htmlFor="remember" className="ml-2 block text-sm text-gray-600 cursor-pointer select-none">
+                                Remember me
+                            </label>
+                        </div>
+                        <Link to="/forgot-password" className="text-sm text-blue-600 hover:text-blue-700 font-medium transition-colors">
+                            Forgot Password?
+                        </Link>
                     </div>
                     <button
                         type="submit"

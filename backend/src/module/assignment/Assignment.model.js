@@ -60,7 +60,11 @@ const assignmentSchema = new mongoose.Schema(
     },
     requiresSubmission: {
       type: Boolean,
-      default: false,
+      default: true,
+    },
+    assignedTeacher: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
     },
     status: {
       type: String,

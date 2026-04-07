@@ -31,6 +31,7 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = conf.PORT;
 const isProduction = conf.NODE_ENV === 'production';
+const isDevelopment = !isProduction;
 const missingEnv = [
     !conf.PORT && 'PORT',
     !conf.MONGO_URI && 'MONGO_URI',
@@ -119,7 +120,7 @@ app.use((req, res, next) => {
 // Rate Limiting — Protects API from flooding
 const apiLimiter = rateLimit({
     windowMs: 60 * 1000, // 1 minute
-    max: 100, // 100 requests per minute per IP
+    max: isDevelopment ? 1000 : 100,
     standardHeaders: true,
     legacyHeaders: false,
     message: { success: false, message: 'Too many requests, please try again later.' },
@@ -127,7 +128,7 @@ const apiLimiter = rateLimit({
 
 const mutationLimiter = rateLimit({
     windowMs: 60 * 1000,
-    max: 30, // 30 mutation requests per minute
+    max: isDevelopment ? 300 : 30,
     standardHeaders: true,
     legacyHeaders: false,
     message: { success: false, message: 'Too many requests, please try again later.' },

@@ -1,5 +1,4 @@
 import express from "express";
-import rateLimit from "express-rate-limit";
 import authRoutes from "../module/auth/auth.route.js";
 import userRoutes from "../module/user/user.route.js";
 import schoolRoutes from "../module/school/school.route.js";
@@ -39,7 +38,10 @@ const generalLimiter = rateLimit({
 router.use(generalLimiter);
 
 // Public
-router.use("/auth", authLimiter, authRoutes);
+// Auth routes already have dedicated login/refresh rate limiters inside auth.route.js.
+// Avoid stacking extra auth/general limiters here because that makes refresh/login
+// flows hit multiple independent 429 thresholds for the same request.
+router.use("/auth", authRoutes);
 
 // NFC device endpoint — uses its own device-key auth, must come before global checkAuth
 router.use("/attendance", attendanceRoutes);

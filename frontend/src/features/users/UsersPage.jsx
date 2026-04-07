@@ -1,5 +1,6 @@
 import React, { useState, useRef, useMemo, useCallback, useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import { useLocation } from 'react-router-dom';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import AddUserModal from './components/AddUserModal';
 import UserDetailModal from './components/UserDetailModal';
@@ -52,12 +53,13 @@ const MODAL_OVERLAY = 'modal-overlay fixed inset-0 bg-black/40 backdrop-blur-sm 
 
 const UsersPage = () => {
     const { user: currentUser } = useAuth();
+    const location = useLocation();
     const dropdownRef = useRef(null);
     const sortMenuRef = useRef(null);
 
     // View state
     const [selectedRole, setSelectedRole] = useState('all');
-    const pageSize = 25;
+    const [pageSize, setPageSize] = useState(25);
     const [page, setPage] = useState(0);
     const [showArchived, setShowArchived] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
@@ -97,6 +99,7 @@ const UsersPage = () => {
     const currentData = showArchived ? archivedData?.data : usersData?.data;
     const loading = showArchived ? archivedLoading : usersLoading;
     const usersList = useMemo(() => (Array.isArray(currentData?.users) ? currentData.users : []), [currentData]);
+
     // Filter, Sort Logic
     const filteredUsers = useMemo(() => {
         if (!usersList) return [];
@@ -112,6 +115,14 @@ const UsersPage = () => {
     }, [usersList, debouncedSearch, sortBy]);
 
     useEffect(() => { if (!selectionMode) setSelectedUsers([]); }, [selectionMode]);
+
+    useEffect(() => {
+        if (location.state?.autoOpenAddModal) {
+            setActiveModal(location.state.autoOpenAddModal);
+            // Clear state to prevent re-opening on refresh
+            window.history.replaceState({}, document.title);
+        }
+    }, [location.state]);
 
     // Handlers
     const exitSelectionMode = useCallback(() => { setSelectionMode(false); setSelectedUsers([]); }, []);
@@ -162,7 +173,7 @@ const UsersPage = () => {
         };
     }, []);
 
-    const confirmDelete = async () => {
+    const confirmDelete = async (skipReplacement = false) => {
         setArchiveError('');
         setArchiveErrorDetails(null);
         try {
@@ -173,6 +184,7 @@ const UsersPage = () => {
                 ...(isTeacherArchiveFlow && archiveReplacementTeacherId
                     ? { replacementTeacherId: archiveReplacementTeacherId }
                     : {}),
+                skipReplacement,
             });
             showMessage('success', showArchived ? 'User(s) restored successfully' : 'User(s) archived successfully');
             exitSelectionMode();
@@ -265,7 +277,9 @@ const UsersPage = () => {
                         roleLabels={ROLE_LABELS}
                         currentPage={page}
                         totalItems={currentData?.totalCount || filteredUsers.length}
+                        pageSize={pageSize}
                         onPageChange={setPage}
+                        onPageSizeChange={(newSize) => { setPageSize(newSize); setPage(0); }}
                     />
                 </div>
             </div>
@@ -275,6 +289,7 @@ const UsersPage = () => {
                 isOpen={!!activeModal}
                 onClose={() => setActiveModal(null)}
                 roleToAdd={activeModal}
+                initialData={location.state?.initialClass}
                 onSuccess={() => showMessage('success', 'User created successfully')}
             />
             <UserDetailModal
@@ -353,15 +368,26 @@ const UsersPage = () => {
                                         )}
                                     </div>
                                 )}
-                                <div className="flex gap-2.5">
-                                    <button onClick={closeArchiveModal} className="flex-1 px-4 py-2 border border-gray-200 text-gray-700 rounded-lg">Cancel</button>
-                                    <button
-                                        onClick={confirmDelete}
-                                        disabled={toggleStatusMutation.isPending}
-                                        className={`flex-1 px-4 py-2 rounded-lg text-white disabled:opacity-70 disabled:cursor-not-allowed ${showArchived ? 'bg-emerald-600' : 'bg-amber-600'}`}
-                                    >
-                                        {toggleStatusMutation.isPending ? 'Processing...' : (showArchived ? 'Restore' : 'Archive')}
-                                    </button>
+                                <div className="flex flex-col gap-2.5">
+                                    {isTeacherArchiveFlow && !showArchived && (
+                                        <button
+                                            onClick={() => confirmDelete(true)}
+                                            disabled={toggleStatusMutation.isPending}
+                                            className="w-full px-4 py-2 border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 rounded-lg text-sm font-medium transition-colors"
+                                        >
+                                            Continue Without Replacement
+                                        </button>
+                                    )}
+                                    <div className="flex gap-2.5">
+                                        <button onClick={closeArchiveModal} className="flex-1 px-4 py-2 border border-gray-200 text-gray-700 hover:bg-gray-50 rounded-lg font-medium transition-colors">Cancel</button>
+                                        <button
+                                            onClick={() => confirmDelete(false)}
+                                            disabled={toggleStatusMutation.isPending}
+                                            className={`flex-1 px-4 py-2 rounded-lg text-white font-medium transition-colors disabled:opacity-70 disabled:cursor-not-allowed ${showArchived ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-amber-600 hover:bg-amber-700'}`}
+                                        >
+                                            {toggleStatusMutation.isPending ? 'Processing...' : (showArchived ? 'Restore' : 'Archive')}
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                     </div>

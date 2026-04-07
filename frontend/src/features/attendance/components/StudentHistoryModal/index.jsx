@@ -4,6 +4,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 
 import AttendanceCalendar from './AttendanceCalendar';
 import HistorySidebar from './HistorySidebar';
+import { formatValue } from '../../../../utils';
 
 const StudentHistoryModal = ({ student, onClose }) => {
     const [currentDate, setCurrentDate] = useState(new Date());
@@ -103,7 +104,7 @@ const StudentHistoryModal = ({ student, onClose }) => {
                             <div key={label} className="bg-slate-50/80 border border-slate-200/60 text-slate-600 px-3.5 py-1.5 rounded-xl flex items-center gap-2 font-bold text-[12px] shadow-sm hover:shadow-md hover:bg-white transition-all duration-300 group/badge">
                                 <div className="group-hover/badge:scale-110 transition-transform">{icon}</div>
                                 <span className="text-slate-400 font-medium">{label}</span>
-                                <span className="text-slate-900">{value || '-'}</span>
+                                <span className="text-slate-900">{formatValue(value)}</span>
                             </div>
                         ))}
                     </div>

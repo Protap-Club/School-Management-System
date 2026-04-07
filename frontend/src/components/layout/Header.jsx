@@ -3,7 +3,7 @@ import { useAuth } from '../../features/auth';
 import { useSidebar } from '../../state';
 import { useNavigate } from 'react-router-dom';
 import { headerContent } from '../../config/headerContent.js';
-import { FaBars, FaUserCircle, FaSignOutAlt, FaBuilding, FaChevronDown, FaSearch, FaBell } from 'react-icons/fa';
+import { FaBars, FaUserCircle, FaSignOutAlt, FaBuilding, FaChevronDown, FaSearch, FaBell, FaUser } from 'react-icons/fa';
 import AvatarUploadModal from './AvatarUploadModal';
 import { useDispatch } from 'react-redux';
 import { setUser } from '../../features/auth/authSlice';
@@ -201,6 +201,12 @@ const Header = () => {
                                 <p className="text-xs text-gray-500 capitalize">{user?.role?.replace('_', ' ')}</p>
                             </div>
                             <div className="p-2">
+                                <button 
+                                    onClick={() => { setDropdownOpen(false); navigate('/profile'); }}
+                                    className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 rounded-lg transition-colors font-medium mb-1"
+                                >
+                                    <FaUser className="w-4 h-4" /> Profile
+                                </button>
                                 <button 
                                     onClick={() => { setDropdownOpen(false); logout(); navigate('/login'); }}
                                     className="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors font-medium"

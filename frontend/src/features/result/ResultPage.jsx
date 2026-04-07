@@ -10,7 +10,7 @@ import {
 import { TabButton } from '../../components/ui/NoticeUIComponents';
 import ResultEntryModal from './components/ResultEntryModal';
 import ResultDetailModal from './components/ResultDetailModal';
-import { readError } from '../../utils';
+import { readError, formatValue } from '../../utils';
 import { SkeletonRows } from '../../components/ui/SkeletonRows';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { useToastMessage } from '../../hooks/useToastMessage';
@@ -576,7 +576,7 @@ const ResultPage = () => {
                                   ) : null}
                                 </div>
                               </td>
-                              <td className="px-5 py-4 text-slate-700 font-medium">{student.rollNumber || '-'}</td>
+                              <td className="px-5 py-4 text-slate-700 font-medium">{formatValue(student.rollNumber)}</td>
                               <td className="px-5 py-4 text-center">
                                 <div className="flex items-center justify-center gap-2">
                                   <button
@@ -664,7 +664,7 @@ const ResultPage = () => {
                             <td className="px-5 py-4">
                               <div>
                                 <div className="font-semibold text-slate-900">{item.student?.name}</div>
-                                <div className="text-xs text-slate-500 mt-1">Roll {item.student?.rollNumber || '-'}</div>
+                                <div className="text-xs text-slate-500 mt-1">Roll {formatValue(item.student?.rollNumber)}</div>
                               </div>
                             </td>
                             <td className="px-5 py-4">
@@ -711,7 +711,7 @@ const ResultPage = () => {
                     </tbody>
                   </table>
                 </div>
-                {filteredResults.length > 25 && (
+                {filteredResults.length > pageSize && (
                   <PaginationControls
                     currentPage={currentPage}
                     totalItems={filteredResults.length}

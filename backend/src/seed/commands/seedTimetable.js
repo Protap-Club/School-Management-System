@@ -98,13 +98,18 @@ const seedTimetable = async () => {
       const classKey = `${timetable.standard}-${timetable.section}`.toUpperCase();
       const subjects = getSubjectsForStandard(timetable.standard);
 
+      // Create an offset so parallel sections don't get the same subject at the same time
+      const sectionOffset = timetable.section.charCodeAt(0) - 65; // A=0, B=1, etc.
+      const standardOffset = parseInt(timetable.standard, 10) || 0;
+      const classOffset = sectionOffset + standardOffset;
+
       daysOfWeek.forEach((day, dayIndex) => {
         const dayShort = DAY_MAP[day];
         if (!dayShort) return;
 
         classSlots.forEach((slot, slotIndex) => {
-          // Deterministic rotation to pick a subject for this slot
-          const subject = subjects[(slotIndex + dayIndex) % subjects.length];
+          // Deterministic rotation to pick a subject for this slot, shifted by classOffset
+          const subject = subjects[(slotIndex + dayIndex + classOffset) % subjects.length];
           const teacherId = assignmentMap.get(`${classKey}-${subject}`);
 
           if (teacherId) {
