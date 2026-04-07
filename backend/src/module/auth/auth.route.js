@@ -4,6 +4,7 @@ import { login, refresh, logout, checkAuthStatus, updatePassword, forgotPassword
 import { checkAuth } from "../../middlewares/auth.middleware.js";
 import { validate } from "../../middlewares/validation.middleware.js";
 import { loginSchema, updatePasswordSchema, forgotPasswordSchema, resetPasswordSchema } from "./auth.validation.js";
+import { conf } from "../../config/index.js";
 
 const router = express.Router();
 const isProduction = conf.NODE_ENV === "production";

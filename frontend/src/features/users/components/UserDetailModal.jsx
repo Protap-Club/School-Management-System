@@ -5,6 +5,7 @@ import {
 import { useUpdateUser, useUsers } from '../api/queries';
 import { useSchoolClasses } from '../../../hooks/useSchoolClasses';
 import { formatValue } from '../../../utils';
+import TeacherConflictModal from './TeacherConflictModal';
 
 const LIGHT_SELECT_CLASS = 'w-full bg-white text-gray-900 rounded px-2 py-1.5 text-xs font-black outline-none border border-gray-100 focus:border-blue-300 transition-all';
 
@@ -25,6 +26,9 @@ const UserDetailModal = ({ user, onClose, initialMode = 'view', onSuccess }) => 
   const [guardianTab, setGuardianTab] = useState('parents');
   const [teacherClassDraft, setTeacherClassDraft] = useState({ standard: '', section: '' });
   const [saveError, setSaveError] = useState('');
+  const [conflicts, setConflicts] = useState([]);
+  const [showConflictModal, setShowConflictModal] = useState(false);
+  const [pendingPayload, setPendingPayload] = useState(null);
 
   useEffect(() => {
     if (user) {
@@ -142,44 +146,73 @@ const UserDetailModal = ({ user, onClose, initialMode = 'view', onSuccess }) => 
 
   if (!user) return null;
 
-    const handleSave = async () => {
-        try {
-            setSaveError('');
-            
-            // New Validation for Admin/Super Admin
-            const { user: currentUser } = JSON.parse(localStorage.getItem('auth_user') || '{}');
-            const isTeacherLoggedIn = currentUser?.role === 'teacher';
+  const handleSave = async () => {
+    try {
+      setSaveError('');
 
-            if (!isTeacherLoggedIn && isStudent) {
-                if (formData.profile?.fatherName?.trim() && !formData.profile?.fatherContact?.trim()) {
-                    setSaveError("Father's contact number is required.");
-                    return;
-                }
-                if (formData.profile?.motherName?.trim() && !formData.profile?.motherContact?.trim()) {
-                    setSaveError("Mother's contact number is required.");
-                    return;
-                }
-                if (formData.profile?.guardianName?.trim() && !formData.profile?.guardianContact?.trim()) {
-                    setSaveError("Guardian's contact number is required.");
-                    return;
-                }
-            }
+      // New Validation for Admin/Super Admin
+      const { user: currentUser } = JSON.parse(localStorage.getItem('auth_user') || '{}');
+      const isTeacherLoggedIn = currentUser?.role === 'teacher';
 
-            await updateUserMutation.mutateAsync({
-                id: user._id,
-                payload: {
-                    name: formData.name,
-                    email: formData.email,
-                    contactNo: formData.contactNo,
-                    profile: formData.profile,
-                }
-            });
-            if (onSuccess) onSuccess('User updated successfully');
-            setMode('view');
-        } catch (error) {
-            setSaveError(error?.response?.data?.message || 'Failed to update user');
+      if (!isTeacherLoggedIn && isStudent) {
+        if (formData.profile?.fatherName?.trim() && !formData.profile?.fatherContact?.trim()) {
+          setSaveError("Father's contact number is required.");
+          return;
         }
-    };
+        if (formData.profile?.motherName?.trim() && !formData.profile?.motherContact?.trim()) {
+          setSaveError("Mother's contact number is required.");
+          return;
+        }
+        if (formData.profile?.guardianName?.trim() && !formData.profile?.guardianContact?.trim()) {
+          setSaveError("Guardian's contact number is required.");
+          return;
+        }
+      }
+
+      await updateUserMutation.mutateAsync({
+        id: user._id,
+        payload: {
+          name: formData.name,
+          email: formData.email,
+          contactNo: formData.contactNo,
+          profile: formData.profile,
+        }
+      });
+      if (onSuccess) onSuccess('User updated successfully');
+      setMode('view');
+    } catch (error) {
+      if (error.response?.status === 409 && error.response?.data?.code === 'CLASS_TEACHER_ALREADY_ASSIGNED') {
+        setConflicts(error.response.data.conflicts || []);
+        setPendingPayload({
+          id: user._id,
+          payload: {
+            name: formData.name,
+            email: formData.email,
+            contactNo: formData.contactNo,
+            profile: formData.profile,
+            forceOverride: true
+          }
+        });
+        setShowConflictModal(true);
+        return;
+      }
+      setSaveError(error?.response?.data?.message || 'Failed to update user');
+    }
+  };
+
+  const handleConfirmConflict = async () => {
+    if (!pendingPayload) return;
+    setShowConflictModal(false);
+    try {
+      await updateUserMutation.mutateAsync(pendingPayload);
+      if (onSuccess) onSuccess('User updated successfully after override');
+      setMode('view');
+    } catch (err) {
+      setSaveError(err.response?.data?.message || 'Failed to update user after override');
+    } finally {
+      setPendingPayload(null);
+    }
+  };
   const handleAddTeacherClass = () => {
     const standard = String(teacherClassDraft.standard || '').trim();
     const section = String(teacherClassDraft.section || '').trim().toUpperCase();
@@ -619,21 +652,28 @@ const UserDetailModal = ({ user, onClose, initialMode = 'view', onSuccess }) => 
                 )}
               </div>
             )}
-            
+
             {/* If not a student, show placeholder or role description to fill space */}
             {!isStudent && (
               <div className="lg:col-span-2 hidden lg:flex items-center justify-center border-2 border-dashed border-gray-100 rounded-3xl p-12 text-center opacity-40 grayscale group hover:opacity-100 hover:grayscale-0 transition-all duration-700">
-                  <div className="max-w-xs transition-transform group-hover:scale-105">
-                    <div className="w-24 h-24 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-6 group-hover:bg-blue-50 group-hover:rotate-12 transition-all">
-                        {isAdmin ? <FaBuilding className="text-gray-300 group-hover:text-purple-500" size={32} /> : <FaChalkboardTeacher className="text-gray-300 group-hover:text-indigo-500" size={32} />}
-                    </div>
-                    <h5 className="text-lg font-black text-gray-900 mb-2">Official Record</h5>
-                    <p className="text-xs font-medium text-gray-500 leading-relaxed uppercase tracking-wider">Authorized {user.role?.replace('_', ' ')} documents verified and integrated into school registry.</p>
+                <div className="max-w-xs transition-transform group-hover:scale-105">
+                  <div className="w-24 h-24 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-6 group-hover:bg-blue-50 group-hover:rotate-12 transition-all">
+                    {isAdmin ? <FaBuilding className="text-gray-300 group-hover:text-purple-500" size={32} /> : <FaChalkboardTeacher className="text-gray-300 group-hover:text-indigo-500" size={32} />}
                   </div>
+                  <h5 className="text-lg font-black text-gray-900 mb-2">Official Record</h5>
+                  <p className="text-xs font-medium text-gray-500 leading-relaxed uppercase tracking-wider">Authorized {user.role?.replace('_', ' ')} documents verified and integrated into school registry.</p>
+                </div>
               </div>
             )}
           </div>
         </div>
+
+        <TeacherConflictModal
+          isOpen={showConflictModal}
+          onClose={() => setShowConflictModal(false)}
+          onConfirm={handleConfirmConflict}
+          conflicts={conflicts}
+        />
       </div>
     </div>
   );

@@ -6,6 +6,18 @@ import { BadRequestError } from "../../utils/customError.js";
 // Create a new user with associated profile
 export const createUser = asyncHandler(async (req, res) => {
     const result = await userService.createUser(req.user, req.body);
+
+    // Service detected a class-teacher conflict — ask the frontend to confirm
+    if (result.conflict) {
+        return res.status(409).json({
+            success: false,
+            conflict: true,
+            code: "CLASS_TEACHER_ALREADY_ASSIGNED",
+            message: "Teacher-class assignment conflict detected",
+            conflicts: result.conflicts,
+        });
+    }
+
     logger.info(`User created: ${result.user.email}`);
     res.status(201).json({
         success: true,
@@ -35,6 +47,18 @@ export const getUserById = asyncHandler(async (req, res) => {
 // Update a user (admin/super admin)
 export const updateUser = asyncHandler(async (req, res) => {
     const result = await userService.updateUser(req.user, req.params.id, req.body);
+
+    // Service detected a class-teacher conflict — ask the frontend to confirm
+    if (result?.conflict) {
+        return res.status(409).json({
+            success: false,
+            conflict: true,
+            code: "CLASS_TEACHER_ALREADY_ASSIGNED",
+            message: "Teacher-class assignment conflict detected",
+            conflicts: result.conflicts,
+        });
+    }
+
     res.status(200).json({
         success: true,
         message: "User updated successfully",
@@ -83,6 +107,18 @@ export const uploadAvatar = asyncHandler(async (req, res) => {
 
 export const updateTeacherProfile = asyncHandler(async (req, res) => {
     const result = await userService.updateTeacherProfile(req.user, req.params.id, req.body);
+
+    // Service detected a class-teacher conflict — ask the frontend to confirm
+    if (result?.conflict) {
+        return res.status(409).json({
+            success: false,
+            conflict: true,
+            code: "CLASS_TEACHER_ALREADY_ASSIGNED",
+            message: "Teacher-class assignment conflict detected",
+            conflicts: result.conflicts,
+        });
+    }
+
     res.status(200).json({
         success: true,
         message: "Teacher profile updated successfully",
