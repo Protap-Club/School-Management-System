@@ -65,17 +65,18 @@ const SearchableSelect = ({ label, options, selectedId, onSelect, error, loading
 
             {isOpen && (
                 <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-100 rounded-2xl shadow-xl z-50 overflow-hidden animate-fadeIn slide-in-from-top-2 duration-200">
-                    <div className="p-2 border-b border-gray-50 flex items-center gap-2 bg-gray-50/30">
-                        <FaSearch size={10} className="text-gray-400 ml-2" />
+                    <div className="px-5 py-4 flex items-center gap-3 bg-white">
+                        <FaSearch size={12} className="text-gray-300" />
                         <input
                             type="text"
                             placeholder="Search teacher by name or email..."
-                            className="w-full bg-transparent border-none focus:ring-0 text-xs font-bold py-1.5 placeholder:text-gray-400"
+                            className="w-full bg-transparent border-none outline-none focus:ring-0 text-sm font-medium py-0.5 placeholder:text-gray-300 text-gray-700"
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
                             autoFocus
                         />
                     </div>
+                    <div className="h-[1px] bg-gray-50 mx-4" />
                     <div className="max-h-60 overflow-y-auto p-1 custom-scrollbar">
                         {filteredOptions.length === 0 ? (
                             <div className="px-4 py-8 text-center">
@@ -119,9 +120,22 @@ const SearchableSelect = ({ label, options, selectedId, onSelect, error, loading
     );
 };
 
-const SalaryForm = ({ onCancel, onSubmit, isLoading }) => {
+const SalaryForm = ({ onCancel, onSubmit, isLoading, salaryData = [] }) => {
     const [form, setForm] = useState({ ...INITIAL_FORM });
     const [errors, setErrors] = useState({});
+
+    // Real-time Duplicate Check
+    const duplicateRecord = React.useMemo(() => {
+        if (!form.teacherId || !form.month || !form.year) return null;
+        return salaryData.find(s => 
+            String(s.teacherId?._id || s.teacherId) === String(form.teacherId) && 
+            Number(s.month) === Number(form.month) && 
+            Number(s.year) === Number(form.year)
+        );
+    }, [form.teacherId, form.month, form.year, salaryData]);
+
+    const isPaid = duplicateRecord?.status === 'PAID';
+    const isDuplicate = !!duplicateRecord;
 
     // Fetch teachers for the dropdown
     const { data: teachersData, isLoading: teachersLoading } = useUsers({ role: 'teacher', pageSize: 150 });
@@ -238,6 +252,30 @@ const SalaryForm = ({ onCancel, onSubmit, isLoading }) => {
                     </div>
                 </div>
 
+                {/* Duplicate / Paid Warning Overlay */}
+                {isDuplicate && (
+                    <div className={`p-4 rounded-2xl border flex items-start gap-4 animate-fadeIn slide-in-from-top-2 duration-300 ${
+                        isPaid ? 'bg-emerald-50 border-emerald-100 text-emerald-800' : 'bg-amber-50 border-amber-100 text-amber-800'
+                    }`}>
+                        <div className={`w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center ${
+                            isPaid ? 'bg-emerald-200/50 text-emerald-600' : 'bg-amber-200/50 text-amber-600'
+                        }`}>
+                            {isPaid ? <FaCheck size={12} /> : <FaSearch size={12} />}
+                        </div>
+                        <div>
+                            <p className="font-black text-[10px] uppercase tracking-[0.15em] mb-0.5">
+                                {isPaid ? 'Payout Already Processed' : 'Existing record found'}
+                            </p>
+                            <p className="text-xs font-medium leading-relaxed opacity-90">
+                                {isPaid 
+                                    ? `A salary record for this month has already been marked as PAID on ${new Date(duplicateRecord.paidDate).toLocaleDateString()}.`
+                                    : 'A PENDING salary record already exists for this teacher for the selected month.'
+                                }
+                            </p>
+                        </div>
+                    </div>
+                )}
+
                 <div className="pt-8 border-t border-gray-100 flex gap-4">
                     <button 
                         type="button" 
@@ -249,7 +287,7 @@ const SalaryForm = ({ onCancel, onSubmit, isLoading }) => {
                     </button>
                     <button 
                         type="submit" 
-                        disabled={isLoading}
+                        disabled={isLoading || isDuplicate}
                         className="flex-1 px-6 py-3.5 bg-primary hover:bg-primary-hover text-white text-[11px] font-black rounded-2xl shadow-xl shadow-primary/20 transition-all flex items-center justify-center gap-2 disabled:opacity-70 group uppercase tracking-widest"
                     >
                         {isLoading ? (
@@ -257,7 +295,7 @@ const SalaryForm = ({ onCancel, onSubmit, isLoading }) => {
                         ) : (
                             <span className="flex items-center gap-2">
                                 <FaPlus size={12} className="group-hover:rotate-90 transition-transform" />
-                                Create Salary Entry
+                                {isDuplicate ? (isPaid ? 'Already Paid' : 'Exists') : 'Create Salary Entry'}
                             </span>
                         )}
                     </button>

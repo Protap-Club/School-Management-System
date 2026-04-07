@@ -84,7 +84,9 @@ export const StudentOverviewPanel = ({
                                             <td className="px-4 py-3 font-medium">{MONTH_LABELS[fee.month]}</td>
                                             <td className="px-4 py-3 text-gray-600">{fee.name || fee.feeType}</td>
                                             <td className="px-4 py-3 font-medium">₹{fee.amount?.toLocaleString()}</td>
-                                            <td className="px-4 py-3 text-emerald-600">₹{fee.paid?.toLocaleString()}</td>
+                                            <td className="px-4 py-3 text-emerald-600 font-medium">
+                                                {fee.status === 'WAIVED' ? '—' : `₹${(fee.paid || 0).toLocaleString()}`}
+                                            </td>
                                             <td className="px-4 py-3 text-red-600">₹{Math.max(0, (fee.amount || 0) - (fee.paid || 0) * (['PAID', 'WAIVED'].includes((fee.status || '').toUpperCase()) ? 1 : 0)).toLocaleString()}</td>
                                             <td className="px-4 py-3"><FeeStatusBadge status={fee.status} /></td>
                                             <td className="px-4 py-3 text-gray-500 text-xs">{fee.dueDate ? new Date(fee.dueDate).toLocaleDateString() : '-'}</td>
@@ -206,7 +208,9 @@ export const StudentOverviewPanel = ({
                                                     </td>
                                                     <td className="px-4 py-3 text-gray-600">{fee.name || fee.feeType}</td>
                                                     <td className="px-4 py-3 font-medium">₹{fee.amount?.toLocaleString()}</td>
-                                                    <td className="px-4 py-3 text-emerald-600">₹{fee.paid?.toLocaleString()}</td>
+                                                    <td className="px-4 py-3 text-emerald-600 font-medium">
+                                                        {fee.status === 'WAIVED' ? '—' : `₹${(fee.paid || 0).toLocaleString()}`}
+                                                    </td>
                                                     <td className="px-4 py-3"><FeeStatusBadge status={fee.status} /></td>
                                                     <td className="px-4 py-3 text-gray-500 text-xs">{fee.dueDate ? new Date(fee.dueDate).toLocaleDateString() : '-'}</td>
                                                     <td className="px-4 py-3">

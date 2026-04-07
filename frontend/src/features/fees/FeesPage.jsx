@@ -33,9 +33,10 @@ import { generateFeeExcel } from '../../utils/excelGenerator';
 import { SkeletonRows } from '../../components/ui/SkeletonRows';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { ButtonSpinner } from '../../components/ui/Spinner';
+import { PaginationControls } from '../../components/ui/PaginationControls';
 import { useToastMessage } from '../../hooks/useToastMessage';
 import { useSchoolClasses } from '../../hooks/useSchoolClasses';
-import { makeClassKey } from '../../utils/classSection';
+import { makeClassKey, sortClassSections } from '../../utils/classSection';
 import useDebounce from '../../hooks/useDebounce';
 
 const MODAL_OVERLAY = 'modal-overlay fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4';
@@ -124,13 +125,25 @@ const FeesPage = () => {
     }, [allUniqueSections, getSectionsForStandard, structFilters.standard, structFilters.section]);
 
     // Queries
+    // Pagination state for structures
+    const [structPage, setStructPage] = useState(0);
+    const [structPageSize, setStructPageSize] = useState(25);
+
     const cleanFilters = useMemo(() => {
-        const f = {};
+        const f = {
+            page: structPage,
+            pageSize: structPageSize
+        };
         if (structFilters.academicYear) f.academicYear = structFilters.academicYear;
         if (structFilters.standard) f.standard = structFilters.standard;
         if (structFilters.section) f.section = structFilters.section;
         if (structFilters.feeType) f.feeType = structFilters.feeType;
         return f;
+    }, [structFilters, structPage, structPageSize]);
+
+    // Reset page on filter changes
+    useEffect(() => {
+        setStructPage(0);
     }, [structFilters]);
 
     const { data: structData, isLoading: structLoading } = useFeeStructures(
@@ -169,16 +182,17 @@ const FeesPage = () => {
 
     // showToast provided by useToastMessage hook
 
-    const structures = structData?.data?.structures || [];
+    const structures = useMemo(
+        () => sortClassSections(structData?.data?.structures || []),
+        [structData]
+    );
+
+    const paginationInfo = structData?.data?.pagination || { page: 0, pageSize: 25, totalCount: 0, totalPages: 0 };
 
     const overviewClasses = useMemo(() => {
         if (!isAdmin) return [];
-
-        const configuredClassKeys = new Set(classSections.map((item) => makeClassKey(item)));
-        return (overviewData?.data?.classes || []).filter((item) =>
-            configuredClassKeys.has(makeClassKey(item))
-        );
-    }, [classSections, isAdmin, overviewData]);
+        return sortClassSections(overviewData?.data?.classes || []);
+    }, [isAdmin, overviewData]);
 
     useEffect(() => {
         if (!selectedClass) return;
@@ -407,7 +421,9 @@ const FeesPage = () => {
             });
             showToast('success', `Payout processed for ${MONTH_LABELS[payoutConfirmModal.salary.month]} ${payoutConfirmModal.salary.year}`);
             setPayoutConfirmModal({ open: false, salary: null, remarks: '' });
-        } catch (err) { showToast('error', 'Failed to update status'); }
+        } catch (err) { 
+            showToast('error', err?.response?.data?.message || 'Failed to update status'); 
+        }
     };
 
     const handleSaveSalaryAmount = async (salaryId) => {
@@ -543,7 +559,8 @@ const FeesPage = () => {
                                         </div>
                                         <input type="number" placeholder="Year" value={structFilters.academicYear}
                                             onChange={(e) => setStructFilters(p => ({ ...p, academicYear: e.target.value }))}
-                                            className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg w-24 focus:ring-primary focus:border-primary" />
+                                            className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg w-24 focus:ring-primary focus:border-primary" 
+                                            min={0} />
                                         <select value={structFilters.standard} onChange={(e) => {
                                             const nextStandard = e.target.value;
                                             const validSections = (nextStandard ? getSectionsForStandard(nextStandard) : allUniqueSections)
@@ -570,7 +587,7 @@ const FeesPage = () => {
                                         <select value={structFilters.feeType} onChange={(e) => setStructFilters(p => ({ ...p, feeType: e.target.value }))}
                                             className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:ring-primary focus:border-primary">
                                             <option value="">All Types</option>
-                                            {FEE_TYPES.map(t => <option key={t} value={t}>{FEE_TYPE_LABELS[t]}</option>)}
+                                            {feeTypesList.map(t => <option key={t.name} value={t.name}>{t.label}</option>)}
                                         </select>
                                     </div>
 
@@ -595,7 +612,9 @@ const FeesPage = () => {
                                                     structures.map(st => (
                                                         <tr key={st._id} className="hover:bg-gray-50/25 transition-colors group">
                                                             <td className="px-4 py-4">
-                                                                <span className="px-2.5 py-1 bg-primary/5 text-primary rounded-lg text-[10px] font-bold uppercase">{FEE_TYPE_LABELS[st.feeType] || st.feeType}</span>
+                                                                <span className="px-2.5 py-1 bg-primary/5 text-primary rounded-lg text-[10px] font-bold uppercase">
+                                                                    {feeTypesList.find(t => t.name === st.feeType)?.label || st.feeType}
+                                                                </span>
                                                             </td>
                                                             <td className="px-4 py-4 font-bold text-gray-900">{st.name}</td>
                                                             <td className="px-4 py-4 text-gray-600 font-medium">Std {st.standard}-{st.section}</td>
@@ -621,6 +640,20 @@ const FeesPage = () => {
                                             </tbody>
                                         </table>
                                     </div>
+                                    {paginationInfo.totalCount > structPageSize && (
+                                        <div className="border-t border-gray-100 bg-white rounded-b-3xl">
+                                            <PaginationControls
+                                                currentPage={structPage}
+                                                totalItems={paginationInfo.totalCount}
+                                                pageSize={structPageSize}
+                                                onPageChange={setStructPage}
+                                                onPageSizeChange={(newSize) => {
+                                                    setStructPageSize(newSize);
+                                                    setStructPage(0);
+                                                }}
+                                            />
+                                        </div>
+                                    )}
                                 </>
                             )}
                             {studentSubTab === 'overview' && (
@@ -988,6 +1021,7 @@ const FeesPage = () => {
                             <SalaryForm
                                 onCancel={() => setMgmtView('staff')}
                                 isLoading={createSalaryMut.isPending}
+                                salaryData={salaryData?.data || []}
                                 onSubmit={async (data) => {
                                     try {
                                         await createSalaryMut.mutateAsync(data);

@@ -205,38 +205,43 @@ const FeeStructureForm = ({ onCancel, onSubmit, editData, isLoading, isAdmin }) 
     }, [form.academicYear, currentYear, currentMonth]);
 
     const isInvalidQuarterly = useCallback((m) => {
-        if (isEdit || form.frequency !== 'QUARTERLY') return false;
-        const diff = (m - currentMonth + 12) % 12;
-        return diff % 3 !== 0;
-    }, [isEdit, form.frequency, currentMonth]);
-
-    const isInvalidHalfYearly = useCallback((m) => {
-        // Allow manual selection for Half-Yearly (just check for past months)
+        // Pattern enforcement is disabled to allow manual change (optional)
         return false;
     }, []);
 
-    // Auto-select Quarterly months (Half-Yearly is now manual)
+    const isInvalidHalfYearly = useCallback((m) => {
+        // Pattern enforcement is disabled to allow manual adjustment
+        return false;
+    }, []);
+
+    // Auto-select months based on frequency and current month
     useEffect(() => {
         if (isEdit) return;
         
-        if (form.frequency === 'QUARTERLY') {
-            const sequence = [];
-            for (let i = 0; i < 4; i++) {
-                const m = (currentMonth + i * 3 - 1) % 12 + 1;
-                sequence.push(m);
-            }
-            setForm(prev => ({ ...prev, applicableMonths: sequence }));
-        }
-    }, [form.frequency, isEdit, currentMonth]);
+        const m = currentMonth;
+        let sequence = [];
 
-    // Reset months when switching to other frequencies (except Quarterly which has its own auto-select)
-    useEffect(() => {
-        if (isEdit) return;
-        // Only Quarterly has auto-selection logic; others (including Half-Yearly) should be cleared for manual selection
-        if (form.frequency && form.frequency !== 'QUARTERLY') {
+        if (form.frequency === 'QUARTERLY') {
+            for (let i = 0; i < 4; i++) {
+                sequence.push((m + i * 3 - 1) % 12 + 1);
+            }
+        } else if (form.frequency === 'HALF_YEARLY') {
+            for (let i = 0; i < 6; i++) {
+                sequence.push((m + i - 1) % 12 + 1);
+            }
+        } else if (form.frequency === 'MONTHLY' || form.frequency === 'YEARLY' || form.frequency === 'ONE_TIME') {
+            sequence = [m];
+        }
+
+        // Filter out past months if in current year
+        const validSequence = sequence.filter(month => !isPastMonth(month));
+        
+        if (validSequence.length > 0) {
+            setForm(prev => ({ ...prev, applicableMonths: validSequence }));
+        } else {
             setForm(prev => ({ ...prev, applicableMonths: [] }));
         }
-    }, [form.frequency, isEdit]);
+    }, [form.frequency, isEdit, currentMonth, isPastMonth]);
 
     // Track occupied months to prevent duplicates
     const occupiedMonths = React.useMemo(() => {
@@ -279,7 +284,7 @@ const FeeStructureForm = ({ onCancel, onSubmit, editData, isLoading, isAdmin }) 
 
             return { ...prev, applicableMonths: nextMonths };
         });
-    }, [isPastMonth, isInvalidQuarterly]);
+    }, [isPastMonth, isInvalidQuarterly, isInvalidHalfYearly, isOccupied]);
 
     useEffect(() => {
         if (isEdit) return;

@@ -11,6 +11,10 @@ export const feesApi = {
 
     getFeeStructures: async (filters = {}) => {
         const params = new URLSearchParams();
+        // Pagination: default to 1st page, size 25
+        params.append('page', filters.page || '0');
+        params.append('pageSize', filters.pageSize || '25');
+
         if (filters.academicYear) params.append('academicYear', filters.academicYear);
         if (filters.standard) params.append('standard', filters.standard);
         if (filters.section) params.append('section', filters.section);

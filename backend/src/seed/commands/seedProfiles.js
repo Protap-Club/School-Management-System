@@ -69,6 +69,7 @@ const seedProfiles = async () => {
         employeeId: teacher.employeeId,
         qualification: teacher.qualification,
         joiningDate: new Date(teacher.joiningDate),
+        expectedSalary: teacher.expectedSalary,
         assignedClasses: teacher.assignedClasses || [],
       });
     }

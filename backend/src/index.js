@@ -139,7 +139,10 @@ app.use(compression());
 // Apply rate limits
 app.use('/api/v1', apiLimiter);
 app.use('/api/v1', (req, res, next) => {
-    if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) {
+    // Exempt fee generation from strict mutation limits to allow bulk processing
+    const isFeeGeneration = req.url.includes('/fees/structures/') && req.url.includes('/generate');
+    
+    if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method) && !isFeeGeneration) {
         return mutationLimiter(req, res, next);
     }
     next();

@@ -52,7 +52,7 @@ export const generateFeeReport = (classStudents, summary, classInfo, month, year
                 idx === 0 ? student.name : '',
                 fee.name || fee.feeType,
                 `INR ${fee.amount?.toLocaleString() || 0}`,
-                `INR ${fee.paid?.toLocaleString() || 0}`,
+                fee.status === 'WAIVED' ? '—' : `INR ${fee.paid?.toLocaleString() || 0}`,
                 fee.status,
                 fee.dueDate ? new Date(fee.dueDate).toLocaleDateString() : '-'
             ])
@@ -67,8 +67,6 @@ export const generateFeeReport = (classStudents, summary, classInfo, month, year
                 headStyles: { fillColor: [79, 70, 229], textColor: [255, 255, 255], fontStyle: 'bold' },
                 styles: { fontSize: 9, cellPadding: 4 },
                 columnStyles: {
-                    2: { halign: 'right' },
-                    3: { halign: 'right' },
                     4: { fontStyle: 'bold' }
                 },
                 alternateRowStyles: { fillColor: [250, 250, 250] }
@@ -249,16 +247,15 @@ export const generateFeeReceipt = (fee, student) => {
         doc.setFontSize(10);
         doc.text(`Receipt No: ${latestPayment.receiptNumber || 'N/A'}`, pageWidth / 2 + 10, 65);
         doc.text(`Fee Type: ${fee.name || fee.feeType || '-'}`, pageWidth / 2 + 10, 72);
-        doc.text(`Month: ${MONTH_LABELS[fee.month] || '-'}`, pageWidth / 2 + 10, 79);
-        doc.text(`Payment Date: ${latestPayment.paymentDate ? new Date(latestPayment.paymentDate).toLocaleDateString() : 'N/A'}`, pageWidth / 2 + 10, 86);
-        doc.text(`Payment Mode: ${latestPayment.paymentMode || '-'}`, pageWidth / 2 + 10, 93);
+        doc.text(`Payment Date: ${latestPayment.paymentDate ? new Date(latestPayment.paymentDate).toLocaleDateString() : 'N/A'}`, pageWidth / 2 + 10, 79);
+        doc.text(`Payment Mode: ${latestPayment.paymentMode || '-'}`, pageWidth / 2 + 10, 86);
 
         // Summary Table
         autoTable(doc, {
             startY: 105,
             head: [['Description', 'Status', 'Amount']],
             body: [
-                [`${fee.name || fee.feeType} Fee (${MONTH_LABELS[fee.month]})`, fee.status || 'PAID', `INR ${fee.amount?.toLocaleString() || 0}`],
+                [`${fee.name || fee.feeType} Fee${MONTH_LABELS[fee.month] ? ` (${MONTH_LABELS[fee.month]})` : ''}`, fee.status || 'PAID', `INR ${fee.amount?.toLocaleString() || 0}`],
                 ['Total Paid', 'SUCCESS', `INR ${fee.paid?.toLocaleString() || 0}`]
             ],
             theme: 'grid',
@@ -299,7 +296,7 @@ export const generateFeeReceipt = (fee, student) => {
         doc.setFont(undefined, 'normal');
         doc.text('This is a computer generated receipt and does not require a physical signature.', PAGE_CENTER(doc, 'This is a computer generated receipt and does not require a physical signature.'), 280);
 
-        doc.save(`Fee_Receipt_${MONTH_LABELS[fee.month] || ''}_${(student?.name || 'student').replace(/\s+/g, '_')}.pdf`);
+        doc.save(`Fee_Receipt_${MONTH_LABELS[fee.month] ? `${MONTH_LABELS[fee.month]}_` : ''}${(student?.name || 'student').replace(/\s+/g, '_')}.pdf`);
         console.log('Fee Receipt Generated Successfully');
     } catch (error) {
         console.error('Failed to generate Fee Receipt PDF:', error);
@@ -359,8 +356,7 @@ export const generateWaiverNote = (fee, student) => {
         doc.setFontSize(10);
         doc.text(`Ref No: WAV-${Math.random().toString(36).substring(7).toUpperCase()}`, pageWidth / 2 + 10, 65);
         doc.text(`Fee Type: ${fee.name || fee.feeType || '-'}`, pageWidth / 2 + 10, 72);
-        doc.text(`Month: ${MONTH_LABELS[fee.month] || '-'}`, pageWidth / 2 + 10, 79);
-        doc.text(`Waiver Date: ${new Date().toLocaleDateString()}`, pageWidth / 2 + 10, 86);
+        doc.text(`Waiver Date: ${new Date().toLocaleDateString()}`, pageWidth / 2 + 10, 79);
 
         // Official Statement
         doc.setDrawColor(245, 158, 11); // amber-600
@@ -388,7 +384,7 @@ export const generateWaiverNote = (fee, student) => {
             startY: 150,
             head: [['Description', 'Status', 'Original Amount']],
             body: [
-                [`${fee.name || fee.feeType} Fee (${MONTH_LABELS[fee.month]})`, 'WAIVED', `INR ${fee.amount?.toLocaleString() || 0}`],
+                [`${fee.name || fee.feeType} Fee${MONTH_LABELS[fee.month] ? ` (${MONTH_LABELS[fee.month]})` : ''}`, 'WAIVED', `INR ${fee.amount?.toLocaleString() || 0}`],
                 ['Net Payable', 'N/A', 'INR 0']
             ],
             theme: 'grid',
