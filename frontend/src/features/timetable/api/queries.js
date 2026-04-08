@@ -10,6 +10,7 @@ export const timetableKeys = {
     timetable: (id) => [...timetableKeys.timetables(), id],
     timetableFilters: (filters) => [...timetableKeys.timetables(), filters],
     mySchedule: () => [...timetableKeys.all, 'mySchedule'],
+    myClassSchedule: () => [...timetableKeys.all, 'myClassSchedule'],
     teacherSchedule: (id, year) => [...timetableKeys.all, 'teacherSchedule', id, year],
     teachers: () => [...timetableKeys.all, "teachers"],
 };
@@ -124,6 +125,14 @@ export const useMySchedule = (enabled = true) => {
     return useQuery({
         queryKey: timetableKeys.mySchedule(),
         queryFn: timetableApi.getMySchedule,
+        enabled,
+    });
+};
+
+export const useMyClassSchedule = (enabled = true) => {
+    return useQuery({
+        queryKey: timetableKeys.myClassSchedule(),
+        queryFn: timetableApi.getMyClassSchedule,
         enabled,
     });
 };

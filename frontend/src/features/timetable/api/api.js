@@ -66,6 +66,11 @@ export const getMySchedule = async () => {
     return response.data;
 };
 
+export const getMyClassSchedule = async () => {
+    const response = await api.get("/timetables/schedule/class");
+    return response.data;
+};
+
 export const getTeacherSchedule = async (teacherId, academicYear = null) => {
     const qs = academicYear ? `?academicYear=${academicYear}` : "";
     const response = await api.get(`/timetables/schedule/${teacherId}${qs}`);
