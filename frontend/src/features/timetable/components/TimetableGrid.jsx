@@ -6,9 +6,13 @@ const TimetableGrid = ({
   entries = [],
   timeSlots = [],
   teachers = [],
+  weekDates = {},
+  formatDateShort,
   onCellClick,
+  onMarkUnavailable,
   readOnly = false,
-  showClass = false
+  showClass = false,
+  isTeacherView = false
 }) => {
   const getSlotId = (slot) => slot._id || slot.slotNumber;
 
@@ -71,9 +75,14 @@ const TimetableGrid = ({
           {DAYS_OF_WEEK.map((day) => (
             <div
               key={day}
-              className="py-2.5 px-3 text-[12px] font-bold text-gray-800 text-center border-r border-gray-300 last:border-r-0"
+              className="py-2.5 px-3 text-center border-r border-gray-300 last:border-r-0"
             >
-              {day}
+              <div className="text-[12px] font-bold text-gray-800">{day}</div>
+              {weekDates[day] && formatDateShort && (
+                <div className="text-[10px] text-gray-500 mt-0.5">
+                  {formatDateShort(weekDates[day])}
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -114,30 +123,56 @@ const TimetableGrid = ({
                   return (
                     <div
                       key={`${day}-${slotId}`}
-                      onClick={() => !readOnly && onCellClick(day, slot, entry)}
+                      onClick={() => {
+                        // If teacher view and has entry, trigger mark unavailable (always allowed for teachers)
+                        if (isTeacherView && entry && onMarkUnavailable) {
+                          onMarkUnavailable(day, slot, entry);
+                          return;
+                        }
+                        // For other cases, respect readOnly
+                        if (readOnly) return;
+                        if (onCellClick) {
+                          onCellClick(day, slot, entry);
+                        }
+                      }}
                       className={`min-h-[85px] p-3 border-r border-gray-200/60 last:border-r-0 transition-colors relative group flex flex-col justify-start ${
                         entry 
-                          ? 'bg-white border-l-[3px] border-l-gray-800 hover:bg-gray-50 cursor-pointer shadow-sm' 
+                          ? entry.isProxy
+                            ? 'bg-amber-50 border-l-[3px] border-l-amber-500 hover:bg-amber-100 cursor-pointer shadow-sm' // Proxy styling
+                            : 'bg-white border-l-[3px] border-l-gray-800 hover:bg-gray-50 cursor-pointer shadow-sm'
                           : !readOnly ? 'cursor-pointer hover:bg-gray-50/30' : ''
                       }`}
                     >
                       {entry ? (
                           <div className="space-y-1">
-                            <h4 className="text-[13px] font-semibold text-gray-900 leading-tight line-clamp-2">
-                              {entry.subject || 'No Subject'}
-                            </h4>
-                            
+                            <div className="flex items-start justify-between gap-1">
+                              <h4 className="text-[13px] font-semibold text-gray-900 leading-tight line-clamp-2">
+                                {entry.subject || 'No Subject'}
+                              </h4>
+                              {entry.isProxy && (
+                                <span className="flex-shrink-0 px-1.5 py-0.5 text-[9px] font-bold text-amber-700 bg-amber-200 rounded">
+                                  PROXY
+                                </span>
+                              )}
+                            </div>
+
                             <div className="flex items-center gap-2 pt-0.5">
                               {showClass ? (
-                                <span className="text-[12px] font-medium text-gray-600">
+                                <span className={`text-[12px] font-medium ${entry.isProxy ? 'text-amber-700' : 'text-gray-600'}`}>
                                   {getClassDisplay(entry)}
                                 </span>
                               ) : (
-                                <span className="text-[12px] font-medium text-gray-600 truncate max-w-[120px]">
+                                <span className={`text-[12px] font-medium truncate max-w-[120px] ${entry.isProxy ? 'text-amber-700' : 'text-gray-600'}`}>
                                   {getTeacherName(entry.teacherId)}
                                 </span>
                               )}
                             </div>
+
+                            {entry.isProxy && entry.originalTeacherId?.name && (
+                              <p className="text-[10px] text-amber-600 italic">
+                                for {entry.originalTeacherId.name}
+                              </p>
+                            )}
                           </div>
 
                       ) : (

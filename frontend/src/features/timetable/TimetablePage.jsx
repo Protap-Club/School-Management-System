@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { FaCalendarAlt, FaChalkboardTeacher, FaExclamationTriangle, FaFilePdf, FaTimes } from "react-icons/fa";
+import { FaCalendarAlt, FaChalkboardTeacher, FaCheck, FaChevronLeft, FaChevronRight, FaExclamationTriangle, FaFilePdf, FaTimes, FaUserClock } from "react-icons/fa";
 import { readError } from "../../utils";
 import { generateTimetablePDF } from "../../utils/pdfGenerator";
 import { ButtonSpinner } from "../../components/ui/Spinner";
@@ -9,6 +9,8 @@ import TimetableGrid from "./components/TimetableGrid";
 import TimetableModal from "./components/TimetableModal";
 import CreateTimetableDialog from "./components/CreateTimetableDialog";
 import { useToastMessage } from "../../hooks/useToastMessage";
+import ProxyManagementPage from "../proxy/components/ProxyManagementPage";
+import MarkUnavailableModal from "../proxy/components/MarkUnavailableModal";
 import {
     useAvailableClasses,
     useCreateEntry,
@@ -48,6 +50,9 @@ const TimetablePage = () => {
     const schoolLogo = schoolData?.logoUrl || null;
 
     const [adminViewMode, setAdminViewMode] = useState("class");
+    const [activeTab, setActiveTab] = useState("timetable");  // timetable | proxy
+    const [weekOffset, setWeekOffset] = useState(0);  // 0 = current week, 1 = next week, etc.
+    const [markUnavailableModal, setMarkUnavailableModal] = useState({ open: false, slotInfo: null });
     const [selectedTeacherId, setSelectedTeacherId] = useState("");
     const [selectedClassKey, setSelectedClassKey] = useState("");
     const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -259,20 +264,51 @@ const TimetablePage = () => {
     const isLoading = timeSlotsQuery.isLoading || (isTeacher ? myScheduleQuery.isLoading : false);
     const isEntryMutationPending = createEntryMutation.isPending || updateEntryMutation.isPending || deleteEntryMutation.isPending;
 
+    // Calculate week dates based on offset
+    const getWeekDates = () => {
+        const today = new Date();
+        const currentDay = today.getDay(); // 0 = Sunday, 1 = Monday, etc.
+        // Adjust so week starts from Monday (or keep Sunday based on preference)
+        const diff = today.getDate() - currentDay + (currentDay === 0 ? -6 : 1); // Monday start
+        const monday = new Date(today.setDate(diff));
+        monday.setDate(monday.getDate() + weekOffset * 7);
+
+        const dates = {};
+        const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+        days.forEach((day, index) => {
+            const date = new Date(monday);
+            date.setDate(monday.getDate() + index);
+            dates[day] = date;
+        });
+        return dates;
+    };
+
+    const weekDates = getWeekDates();
+    const formatDateShort = (date) => {
+        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    };
+
     return (
         <DashboardLayout>
             <div className="space-y-4">
                 {toast?.text && (
-                    <div className={`fixed top-6 right-6 z-[120] px-5 py-3.5 rounded-2xl shadow-xl flex items-start gap-3 animate-fadeIn backdrop-blur-sm border ${toast?.type === 'warning'
-                        ? 'bg-amber-500/90 text-white border-amber-200/40'
-                        : 'bg-red-500/90 text-white border-red-200/40'
+                    <div className={`fixed top-6 right-6 z-[120] px-5 py-3.5 rounded-2xl shadow-xl flex items-start gap-3 animate-fadeIn backdrop-blur-sm border ${
+                        toast?.type === 'warning'
+                            ? 'bg-amber-500/90 text-white border-amber-200/40'
+                            : toast?.type === 'success'
+                                ? 'bg-emerald-500/90 text-white border-emerald-200/40'
+                                : 'bg-red-500/90 text-white border-red-200/40'
                         }`}>
                         <div className="mt-0.5 text-white/90">
-                            {toast?.type === 'warning' ? <FaExclamationTriangle size={14} /> : <FaTimes size={12} />}
+                            {toast?.type === 'warning' ? <FaExclamationTriangle size={14} />
+                                : toast?.type === 'success' ? <FaCheck size={14} />
+                                    : <FaTimes size={12} />}
                         </div>
                         <div className="text-sm">
                             <p className="font-semibold">
-                                {toast?.type === 'warning' ? 'Schedule Conflict' : 'Action Failed'}
+                                {toast?.type === 'warning' ? 'Schedule Conflict'
+                                    : toast?.type === 'success' ? 'Success'
+                                        : 'Action Failed'}
                             </p>
                             <p className="opacity-95">{toast.text}</p>
                         </div>
@@ -295,12 +331,25 @@ const TimetablePage = () => {
 
                     {isAdmin ? (
                         <div className="flex flex-wrap items-center gap-3">
-                            <Tabs value={adminViewMode} onValueChange={setAdminViewMode} className="bg-gray-100/50 p-1 rounded-lg border border-gray-200/60">
+                            <Tabs value={adminViewMode} onValueChange={(val) => { setAdminViewMode(val); setActiveTab("timetable"); }} className="bg-gray-100/50 p-1 rounded-lg border border-gray-200/60">
                                 <TabsList className="bg-transparent gap-1 h-auto p-0">
                                     <TabsTrigger value="class" className="rounded-md text-[13px] font-medium data-[state=active]:bg-white data-[state=active]:shadow-sm px-4 py-1.5 data-[state=active]:text-gray-900 text-gray-600">Class</TabsTrigger>
                                     <TabsTrigger value="teacher" className="rounded-md text-[13px] font-medium data-[state=active]:bg-white data-[state=active]:shadow-sm px-4 py-1.5 data-[state=active]:text-gray-900 text-gray-600">Teacher</TabsTrigger>
                                 </TabsList>
                             </Tabs>
+
+                            {/* Proxy Management Tab */}
+                            <button
+                                onClick={() => setActiveTab("proxy")}
+                                className={`flex items-center gap-2 px-4 py-1.5 rounded-md text-[13px] font-medium transition-all ${
+                                    activeTab === "proxy"
+                                        ? "bg-blue-600 text-white shadow-sm"
+                                        : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50"
+                                }`}
+                            >
+                                <FaUserClock size={14} />
+                                Proxy Management
+                            </button>
 
                             {adminViewMode === "class" ? (
                                 <div className="flex items-center gap-3">
@@ -371,7 +420,9 @@ const TimetablePage = () => {
                     )}
                 </div>
 
-                {isLoading ? (
+                {activeTab === "proxy" && isAdmin ? (
+                    <ProxyManagementPage />
+                ) : isLoading ? (
                     <div className="flex h-64 items-center justify-center rounded-xl border border-gray-200/80 bg-white">
                         <ButtonSpinner className="text-2xl text-gray-400" />
                     </div>
@@ -383,15 +434,65 @@ const TimetablePage = () => {
                             </div>
                         )}
 
+                        {/* Week Navigation - only show for teacher view */}
+                        {isTeacher && (
+                            <div className="flex items-center justify-between mb-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={() => setWeekOffset(w => w - 1)}
+                                        className="p-2 text-gray-600 hover:bg-white hover:text-gray-900 rounded-lg transition-all border border-transparent hover:border-gray-200"
+                                    >
+                                        <FaChevronLeft size={14} />
+                                    </button>
+                                    <button
+                                        onClick={() => setWeekOffset(0)}
+                                        className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-all ${
+                                            weekOffset === 0
+                                                ? 'bg-white text-gray-900 border border-gray-300 shadow-sm'
+                                                : 'text-gray-600 hover:bg-white hover:border-gray-200 border border-transparent'
+                                        }`}
+                                    >
+                                        This Week
+                                    </button>
+                                    <button
+                                        onClick={() => setWeekOffset(w => w + 1)}
+                                        className="p-2 text-gray-600 hover:bg-white hover:text-gray-900 rounded-lg transition-all border border-transparent hover:border-gray-200"
+                                    >
+                                        <FaChevronRight size={14} />
+                                    </button>
+                                </div>
+                                <div className="text-sm text-gray-600">
+                                    {formatDateShort(weekDates["Mon"])} - {formatDateShort(weekDates["Sat"])}
+                                </div>
+                            </div>
+                        )}
+
                         <div className="overflow-x-auto pb-4 pt-1">
                             <div className="min-w-[900px]">
                                 <TimetableGrid
                                     entries={displayEntries}
                                     timeSlots={timeSlots}
                                     teachers={teachers}
+                                    weekDates={weekDates}
+                                    formatDateShort={formatDateShort}
                                     onCellClick={handleCellClick}
+                                    onMarkUnavailable={(day, slot, entry) => {
+                                        setMarkUnavailableModal({
+                                            open: true,
+                                            slotInfo: {
+                                                dayOfWeek: day,
+                                                timeSlot: slot,
+                                                date: weekDates[day], // Use actual date from week view
+                                                subject: entry?.subject,
+                                                standard: entry?.timetableId?.standard,
+                                                section: entry?.timetableId?.section,
+                                                entry
+                                            }
+                                        });
+                                    }}
                                     readOnly={isTeacher || adminViewMode === "teacher" || (isAdmin && adminViewMode === "class" && !activeTimetableId)}
                                     showClass={isTeacher || adminViewMode === "teacher"}
+                                    isTeacherView={isTeacher}
                                 />
                             </div>
                         </div>
@@ -419,6 +520,15 @@ const TimetablePage = () => {
                 onCreate={handleCreateTimetable}
                 isPending={createTimetableMutation.isPending}
                 availableClasses={availableClasses}
+            />
+
+            <MarkUnavailableModal
+                isOpen={markUnavailableModal.open}
+                onClose={() => setMarkUnavailableModal({ open: false, slotInfo: null })}
+                slotInfo={markUnavailableModal.slotInfo}
+                onSuccess={() => {
+                    showMessage("success", "Proxy request created successfully");
+                }}
             />
         </DashboardLayout>
     );
