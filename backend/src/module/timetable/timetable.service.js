@@ -2,6 +2,7 @@ import { TimeSlot, Timetable, TimetableEntry, DAYS_OF_WEEK } from "./Timetable.m
 import { NotFoundError, ConflictError, ForbiddenError, BadRequestError } from "../../utils/customError.js";
 import logger from "../../config/logger.js";
 import StudentProfile from "../user/model/StudentProfile.model.js";
+import { ProxyAssignment } from "../proxy/Proxy.model.js";
 import {
     buildClassSectionKey,
     getConfiguredClassSections,
@@ -377,7 +378,7 @@ export const getTeacherSchedule = async (schoolId, teacherId) => {
 // teachers see all classes they teach across the week
 // students see their class timetable based on their standard + section
 // mobile platform gets a simplified response shape (no nested IDs)
-export const getUserTimetable = async (schoolId, userId, role, platform) => {
+export const getUserTimetable = async (schoolId, userId, role, platform, date = null) => {
     await cleanupOrphanTimetables(schoolId);
 
     let query = { schoolId };
@@ -404,11 +405,52 @@ export const getUserTimetable = async (schoolId, userId, role, platform) => {
         throw new ForbiddenError("Only teachers and students can access their schedule");
     }
 
-    const result = await TimetableEntry.find(query)
+    let result = await TimetableEntry.find(query)
         .populate("teacherId", "name isArchived")
         .populate("timetableId", "standard section academicYear")
         .populate("timeSlotId", "slotNumber startTime endTime slotType")
         .lean();
+
+    // For teachers, also fetch proxy assignments
+    if (role === "teacher") {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        // Get active proxy assignments where this teacher is the proxy
+        const proxyAssignments = await ProxyAssignment.find({
+            schoolId,
+            proxyTeacherId: userId,
+            type: "proxy",
+            isActive: true,
+            date: { $gte: today } // Only future/current proxy assignments
+        })
+        .populate("originalTeacherId", "name")
+        .populate("timeSlotId", "slotNumber startTime endTime slotType")
+        .lean();
+
+        // Transform proxy assignments into timetable entry format
+        const proxyEntries = proxyAssignments.map(proxy => ({
+            _id: `proxy-${proxy._id}`, // Unique ID to avoid conflicts
+            isProxy: true, // Flag to identify proxy entries
+            proxyAssignmentId: proxy._id,
+            originalTeacherId: proxy.originalTeacherId,
+            subject: proxy.subject,
+            roomNumber: proxy.room || `Class ${proxy.standard}-${proxy.section}`,
+            dayOfWeek: proxy.dayOfWeek,
+            timeSlotId: proxy.timeSlotId,
+            standard: proxy.standard,
+            section: proxy.section,
+            date: proxy.date,
+            // Mock timetableId structure for compatibility
+            timetableId: {
+                standard: proxy.standard,
+                section: proxy.section
+            }
+        }));
+
+        // Merge proxy entries with regular entries
+        result = [...result, ...proxyEntries];
+    }
 
     const grouped = groupEntriesByDay(result);
 
@@ -423,7 +465,11 @@ export const getUserTimetable = async (schoolId, userId, role, platform) => {
                 startTime: entry.timeSlotId?.startTime,
                 endTime: entry.timeSlotId?.endTime,
                 slotNumber: entry.timeSlotId?.slotNumber,
-                slotType: entry.timeSlotId?.slotType
+                slotType: entry.timeSlotId?.slotType,
+                isProxy: entry.isProxy || false,
+                originalTeacher: entry.originalTeacherId?.name,
+                standard: entry.standard,
+                section: entry.section
             }));
         });
         return formatted;
