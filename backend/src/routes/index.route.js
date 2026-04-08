@@ -1,4 +1,5 @@
 import express from "express";
+import { rateLimit } from "express-rate-limit";
 import authRoutes from "../module/auth/auth.route.js";
 import userRoutes from "../module/user/user.route.js";
 import schoolRoutes from "../module/school/school.route.js";
