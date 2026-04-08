@@ -2,6 +2,7 @@ import { TimeSlot, Timetable, TimetableEntry, DAYS_OF_WEEK } from "./Timetable.m
 import { NotFoundError, ConflictError, ForbiddenError, BadRequestError } from "../../utils/customError.js";
 import logger from "../../config/logger.js";
 import StudentProfile from "../user/model/StudentProfile.model.js";
+import TeacherProfile from "../user/model/TeacherProfile.model.js";
 import {
     buildClassSectionKey,
     getConfiguredClassSections,
@@ -380,18 +381,76 @@ export const getTeacherSchedule = async (schoolId, teacherId) => {
 export const getUserTimetable = async (schoolId, userId, role, platform) => {
     await cleanupOrphanTimetables(schoolId);
 
-    let query = { schoolId };
-
     if (role === "teacher") {
-        // teacher sees entries where they are the assigned teacher
-        query.teacherId = userId;
+        // Step 1: Personal schedule
+        const personalEntries = await TimetableEntry.find({ schoolId, teacherId: userId })
+            .populate("teacherId", "name isArchived")
+            .populate("timetableId", "standard section academicYear")
+            .populate("timeSlotId", "slotNumber startTime endTime slotType")
+            .lean();
+
+        // Step 2: Check if teacher is a class teacher
+        const profile = await TeacherProfile.findOne({ userId, schoolId }).select("classTeacherOf").lean();
+
+        let classTimetable = null;
+        if (profile?.classTeacherOf?.standard && profile?.classTeacherOf?.section) {
+            const timetable = await Timetable.findOne({
+                schoolId,
+                standard: profile.classTeacherOf.standard,
+                section: profile.classTeacherOf.section,
+            }).sort({ academicYear: -1 }).lean();
+
+            if (timetable) {
+                const classEntries = await TimetableEntry.find({ schoolId, timetableId: timetable._id })
+                    .populate("teacherId", "name isArchived")
+                    .populate("timetableId", "standard section academicYear")
+                    .populate("timeSlotId", "slotNumber startTime endTime slotType")
+                    .lean();
+                classTimetable = {
+                    classLabel: `${profile.classTeacherOf.standard}-${profile.classTeacherOf.section}`,
+                    schedule: groupEntriesByDay(classEntries)
+                };
+            }
+        }
+
+        const personalSchedule = groupEntriesByDay(personalEntries);
+
+        if (platform === "mobile") {
+            const formatMobile = (grouped) => {
+                const formatted = {};
+                Object.keys(grouped).forEach(day => {
+                    formatted[day] = grouped[day].map(entry => ({
+                        subject: entry.subject,
+                        teacher: entry.teacherId?.name,
+                        room: entry.roomNumber,
+                        startTime: entry.timeSlotId?.startTime,
+                        endTime: entry.timeSlotId?.endTime,
+                        slotNumber: entry.timeSlotId?.slotNumber,
+                        slotType: entry.timeSlotId?.slotType
+                    }));
+                });
+                return formatted;
+            };
+
+            return {
+                isClassTeacher: !!classTimetable,
+                personalSchedule: formatMobile(personalSchedule),
+                classTimetable: classTimetable ? {
+                    classLabel: classTimetable.classLabel,
+                    schedule: formatMobile(classTimetable.schedule)
+                } : null
+            };
+        }
+
+        return {
+            isClassTeacher: !!classTimetable,
+            personalSchedule,
+            classTimetable
+        };
     } else if (role === "student") {
-        // student needs their class info from profile to find the right timetable
         const profile = await StudentProfile.findOne({ userId, schoolId }).lean();
         if (!profile) throw new NotFoundError("Student profile not found");
 
-        // find the most recent timetable for student's class (latest academic year first)
-        // this avoids hardcoding the year and always picks the current/latest schedule
         const timetable = await Timetable.findOne({
             schoolId,
             standard: profile.standard,
@@ -399,35 +458,33 @@ export const getUserTimetable = async (schoolId, userId, role, platform) => {
         }).sort({ academicYear: -1 }).lean();
 
         if (!timetable) throw new NotFoundError("No timetable found for your class");
-        query.timetableId = timetable._id;
+        
+        const result = await TimetableEntry.find({ schoolId, timetableId: timetable._id })
+            .populate("teacherId", "name isArchived")
+            .populate("timetableId", "standard section academicYear")
+            .populate("timeSlotId", "slotNumber startTime endTime slotType")
+            .lean();
+
+        const grouped = groupEntriesByDay(result);
+
+        if (platform === "mobile") {
+            const formatted = {};
+            Object.keys(grouped).forEach(day => {
+                formatted[day] = grouped[day].map(entry => ({
+                    subject: entry.subject,
+                    teacher: entry.teacherId?.name,
+                    room: entry.roomNumber,
+                    startTime: entry.timeSlotId?.startTime,
+                    endTime: entry.timeSlotId?.endTime,
+                    slotNumber: entry.timeSlotId?.slotNumber,
+                    slotType: entry.timeSlotId?.slotType
+                }));
+            });
+            return formatted;
+        }
+
+        return grouped;
     } else {
         throw new ForbiddenError("Only teachers and students can access their schedule");
     }
-
-    const result = await TimetableEntry.find(query)
-        .populate("teacherId", "name isArchived")
-        .populate("timetableId", "standard section academicYear")
-        .populate("timeSlotId", "slotNumber startTime endTime slotType")
-        .lean();
-
-    const grouped = groupEntriesByDay(result);
-
-    // mobile app gets a flat structure without mongo IDs for cleaner display
-    if (platform === "mobile") {
-        const formatted = {};
-        Object.keys(grouped).forEach(day => {
-            formatted[day] = grouped[day].map(entry => ({
-                subject: entry.subject,
-                teacher: entry.teacherId?.name,
-                room: entry.roomNumber,
-                startTime: entry.timeSlotId?.startTime,
-                endTime: entry.timeSlotId?.endTime,
-                slotNumber: entry.timeSlotId?.slotNumber,
-                slotType: entry.timeSlotId?.slotType
-            }));
-        });
-        return formatted;
-    }
-
-    return grouped;
 };

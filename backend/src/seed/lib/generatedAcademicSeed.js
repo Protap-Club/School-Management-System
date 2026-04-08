@@ -158,7 +158,10 @@ export const buildTeacherSeedData = (code) => {
       specialization: teacherSpecializations[i],
       subjects: [teacherSpecializations[i]],
       assignedClasses: [],
-      expectedSalary: jsonProfile?.expectedSalary || 15000,
+      classTeacherOf: classSections[i] ? {
+        standard: String(classSections[i].standard),
+        section: String(classSections[i].section),
+      } : null,
     });
   }
 
