@@ -14,21 +14,6 @@ import { BadRequestError, NotFoundError, ConflictError, ForbiddenError } from ".
 import { deleteFromCloudinary } from "../../middlewares/upload.middleware.js";
 import logger from "../../config/logger.js";
 import { generatePassword } from "../../utils/password.util.js";
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// Load profiles once for dynamic overrides
-const profilesPath = path.resolve(__dirname, '../../seed/data/profiles.json');
-let profilesData = {};
-try {
-    profilesData = JSON.parse(fs.readFileSync(profilesPath, 'utf8'));
-} catch (err) {
-    logger.warn("Failed to load profiles.json for salary overrides");
-}
 import {
     assertClassSectionExists,
     assertClassSectionListExists,
@@ -1127,16 +1112,6 @@ const formatUserResponse = (user) => {
     if (profile) {
         const { permissions, ...rest } = profile;
         sanitizedProfile = rest;
-
-        // Dynamic Salary Override from profiles.json
-        if (user.role === 'teacher' && user.schoolId?.code) {
-            const schoolCode = user.schoolId.code;
-            const schoolProfiles = profilesData[schoolCode]?.teacherProfiles || [];
-            const jsonProfile = schoolProfiles.find(p => p.email === user.email);
-            if (jsonProfile && jsonProfile.expectedSalary) {
-                sanitizedProfile.expectedSalary = jsonProfile.expectedSalary;
-            }
-        }
     }
 
     return {

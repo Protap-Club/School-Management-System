@@ -8,6 +8,7 @@ import {
     useStudentFeeHistory, useRecordPayment, useUpdateAssignment,
     useCreateSalary, useSalaries, useUpdateSalaryStatus, useMySalary, useUpdateTeacherProfile,
     useMyFees, useFeeTypes,
+    SALARY_LABELS,
     FEE_TYPES, FEE_TYPE_LABELS, FREQUENCY_LABELS, MONTH_LABELS,
 } from './index';
 import { useAuth } from '../auth';
@@ -893,7 +894,7 @@ const FeesPage = () => {
                                             <table className="w-full text-sm text-left">
                                                 <thead>
                                                     <tr className="bg-gray-50/50 border-b border-gray-100 shadow-sm">
-                                                        {['Teacher Name', 'Email Address', 'Base Salary', 'Latest Status', 'Details'].map(h => (
+                                                        {['Teacher Name', 'Email Address', SALARY_LABELS.EXPECTED, 'Latest Status', 'Details'].map(h => (
                                                             <th key={h} className="px-6 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">{h}</th>
                                                         ))}
                                                     </tr>
@@ -1093,7 +1094,7 @@ const FeesPage = () => {
                             <div className="w-16 h-16 bg-violet-50 rounded-2xl flex items-center justify-center text-violet-500 mb-6 mx-auto">
                                 <FaEdit size={24} />
                             </div>
-                            <h3 className="text-2xl font-black text-gray-900 text-center mb-2">Update Base Salary</h3>
+                            <h3 className="text-2xl font-black text-gray-900 text-center mb-2">{SALARY_LABELS.UPDATE_EXPECTED}</h3>
                             <p className="text-sm text-gray-500 text-center mb-8">Set the expected monthly salary for <b>{baseSalaryModal.staff?.name}</b>.</p>
                             
                             <form onSubmit={handleUpdateBaseSalary} className="space-y-6">

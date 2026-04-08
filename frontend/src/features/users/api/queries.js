@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { usersApi } from "./api";
 import { attendanceKeys } from "../../attendance/api/queries";
+import { patchTeacherExpectedSalaryInUsersCache } from "./cache";
 
 export const userKeys = {
     all: ["users"],
@@ -89,6 +90,20 @@ export const useUpdateUser = () => {
                 };
             });
             queryClient.invalidateQueries({ queryKey: attendanceKeys.all });
+        },
+    });
+};
+
+export const useUpdateTeacherExpectedSalary = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: ({ id, payload }) => usersApi.updateTeacherProfile(id, payload),
+        onSuccess: (_response, variables) => {
+            patchTeacherExpectedSalaryInUsersCache(
+                queryClient,
+                variables.id,
+                variables.payload.expectedSalary
+            );
         },
     });
 };

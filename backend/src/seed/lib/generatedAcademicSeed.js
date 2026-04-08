@@ -3,6 +3,7 @@ import { loadSeedJson } from "./loadJson.js";
 const usersData = loadSeedJson("users.json");
 const schoolData = loadSeedJson("schools.json");
 const academicSeed = loadSeedJson("academicSeed.json");
+const profilesData = loadSeedJson("profiles.json");
 
 const schoolMap = new Map((schoolData.schools || []).map((school) => [school.code, school]));
 const teacherPool = academicSeed.teacherNamePool || [];
@@ -144,7 +145,6 @@ export const buildTeacherSeedData = (code) => {
       };
     }
 
-    const profilesData = loadSeedJson("profiles.json");
     const schoolProfiles = profilesData[code]?.teacherProfiles || [];
     const jsonProfile = schoolProfiles.find(p => p.email === teacherBase.email);
 
@@ -158,7 +158,7 @@ export const buildTeacherSeedData = (code) => {
       specialization: teacherSpecializations[i],
       subjects: [teacherSpecializations[i]],
       assignedClasses: [],
-      expectedSalary: jsonProfile?.expectedSalary || 15000,
+      expectedSalary: jsonProfile?.expectedSalary,
     });
   }
 

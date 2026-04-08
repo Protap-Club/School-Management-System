@@ -2,6 +2,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { feesApi } from './api';
 import { useAuth } from '../../auth';
+import { patchTeacherExpectedSalaryInUsersCache } from '../../users/api/cache';
 
 export const feeKeys = {
     all: ['fees'],
@@ -208,8 +209,12 @@ export const useUpdateTeacherProfile = () => {
     const queryClient = useQueryClient();
     return useMutation({
         mutationFn: salaryApi.updateTeacherProfile,
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['users'] });
+        onSuccess: (_response, variables) => {
+            patchTeacherExpectedSalaryInUsersCache(
+                queryClient,
+                variables.id,
+                variables.data.expectedSalary
+            );
         },
     });
 };
