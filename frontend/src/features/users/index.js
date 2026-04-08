@@ -8,8 +8,7 @@ export {
     useToggleUserStatus,
     useToggleUsersStatus,
     userKeys,
-    TeacherConflictModal,
 } from './api/queries';
 
 export { default as AddUserModal } from './components/AddUserModal';
-export { default as TeacherConflictModalComponent } from './components/TeacherConflictModal';
+export { default as TeacherConflictModal } from './components/TeacherConflictModal';

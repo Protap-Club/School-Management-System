@@ -330,6 +330,37 @@ export const createUser = async (creator, userData) => {
         throw new ForbiddenError(`You cannot create a user with role '${role}'. You can only create roles below your own.`);
     }
 
+    // Teacher-specific validation: teachers can only create students for their assigned classes
+    if (creator.role === USER_ROLES.TEACHER && role === USER_ROLES.STUDENT) {
+        const assignedClasses = await getTeacherAssignedClasses(creator._id);
+        
+        if (!assignedClasses.length) {
+            throw new ForbiddenError("You have no assigned classes and cannot create students");
+        }
+
+        // Check if the requested student class is within teacher's assigned classes
+        if (userData.standard || userData.section) {
+            const requestedClass = {
+                standard: userData.standard,
+                section: userData.section
+            };
+            
+            const isAssigned = assignedClasses.some(cls =>
+                cls.standard === requestedClass.standard &&
+                cls.section === requestedClass.section
+            );
+            
+            if (!isAssigned) {
+                const assignedClassLabels = assignedClasses.map(cls => 
+                    formatClassSectionLabel(cls)
+                ).join(', ');
+                throw new ForbiddenError(
+                    `You can only create students for your assigned classes: ${assignedClassLabels}`
+                );
+            }
+        }
+    }
+
     // School context — always scoped to creator's school
     const targetSchoolId = userData.schoolId || creator.schoolId;
 

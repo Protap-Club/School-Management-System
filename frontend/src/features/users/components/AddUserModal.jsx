@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { FaTimes, FaUserPlus, FaBuilding } from 'react-icons/fa';
+import { FaTimes, FaUserPlus, FaBuilding, FaInfoCircle } from 'react-icons/fa';
 import api from '../../../lib/axios';
 import { useAuth } from '../../../features/auth';
 import { useCreateUser, useUsers } from '../api/queries';
+import { useProfile } from '../../attendance';
 import { useSchoolClasses } from '../../../hooks/useSchoolClasses';
 import { useNavigate } from 'react-router-dom';
 import TeacherConflictModal from './TeacherConflictModal';
@@ -85,6 +86,7 @@ const buildClassKey = ({ standard, section } = {}) =>
 
 const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess, initialData }) => {
     const { user } = useAuth();
+    const { data: profileData } = useProfile();
     const navigate = useNavigate();
     const isSuperAdmin = user?.role === 'super_admin';
     const isAdmin = user?.role === 'admin';
@@ -103,6 +105,14 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess, initialData }) =>
     const [showConflictModal, setShowConflictModal] = useState(false);
     const [pendingPayload, setPendingPayload] = useState(null);
     const [activeGuardianTab, setActiveGuardianTab] = useState('parents'); // 'parents' | 'guardian'
+
+    // Get teacher's assigned classes for filtering
+    const teacherAssignedClasses = useMemo(() => {
+        if (!isTeacher || !profileData?.data?.profile?.assignedClasses) {
+            return [];
+        }
+        return profileData.data.profile.assignedClasses;
+    }, [isTeacher, profileData]);
 
     // Classes / sections fetched from backend via global hook
     const { loading: classesLoading, classSections, availableStandards: standards, getSectionsForStandard, allUniqueSections } = useSchoolClasses();
@@ -127,19 +137,36 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess, initialData }) =>
 
     // Augment standards/sections if we are in "Pending Class" mode
     const finalStandards = useMemo(() => {
-        if (initialData?.isPending && initialData.standard && !standards.includes(initialData.standard)) {
-            return [...standards, initialData.standard];
+        let baseStandards = standards;
+        
+        // For teachers creating students, filter to only their assigned classes
+        if (isTeacher && roleToAdd === 'student') {
+            const teacherStandards = [...new Set(teacherAssignedClasses.map(cls => cls.standard))];
+            baseStandards = standards.filter(std => teacherStandards.includes(std));
         }
-        return standards;
-    }, [standards, initialData]);
+        
+        if (initialData?.isPending && initialData.standard && !baseStandards.includes(initialData.standard)) {
+            return [...baseStandards, initialData.standard];
+        }
+        return baseStandards;
+    }, [standards, initialData, isTeacher, roleToAdd, teacherAssignedClasses]);
 
     const finalSections = useMemo(() => {
-        const baseSections = formData.standard ? getSectionsForStandard(formData.standard) : allUniqueSections;
+        let baseSections = formData.standard ? getSectionsForStandard(formData.standard) : allUniqueSections;
+        
+        // For teachers creating students, filter sections to only their assigned classes for the selected standard
+        if (isTeacher && roleToAdd === 'student' && formData.standard) {
+            const teacherSectionsForStandard = teacherAssignedClasses
+                .filter(cls => cls.standard === formData.standard)
+                .map(cls => cls.section);
+            baseSections = baseSections.filter(section => teacherSectionsForStandard.includes(section));
+        }
+        
         if (initialData?.isPending && formData.standard === initialData.standard && !baseSections.includes(initialData.section)) {
             return [...baseSections, initialData.section];
         }
         return baseSections;
-    }, [formData.standard, getSectionsForStandard, allUniqueSections, initialData]);
+    }, [formData.standard, getSectionsForStandard, allUniqueSections, initialData, isTeacher, roleToAdd, teacherAssignedClasses]);
 
     const roleLabel = roleToAdd?.charAt(0).toUpperCase() + roleToAdd?.slice(1);
 
@@ -435,6 +462,39 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess, initialData }) =>
                         {roleToAdd === 'student' && (
                             <div className="space-y-6">
                                 {renderSectionHeader('bg-emerald-500', 'Academic Details')}
+                                
+                                {/* Teacher restriction notice */}
+                                {isTeacher && (
+                                    <div className="rounded-2xl border border-blue-200 bg-blue-50 px-5 py-4 text-sm text-blue-800 shadow-sm">
+                                        <div className="flex items-start gap-4">
+                                            <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+                                                <FaInfoCircle className="text-blue-600" size={20} />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <p className="font-semibold text-blue-900 leading-tight">
+                                                    Class Assignment Notice
+                                                </p>
+                                                <p className="font-medium text-blue-700/90 text-xs">
+                                                    As a teacher, you can only create students for your assigned classes:
+                                                </p>
+                                                {teacherAssignedClasses.length > 0 ? (
+                                                    <div className="flex flex-wrap gap-2 mt-2">
+                                                        {teacherAssignedClasses.map((cls, index) => (
+                                                            <span key={index} className="inline-block bg-blue-100 text-blue-800 px-2.5 py-1 rounded-lg text-xs font-semibold border border-blue-200">
+                                                                {cls.standard}-{cls.section.toUpperCase()}
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                ) : (
+                                                    <p className="text-amber-700 font-medium text-xs mt-2">
+                                                        You have no assigned classes. Please contact your administrator.
+                                                    </p>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                                
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                                     <InputField label="Roll Number" name="rollNumber" value={formData.rollNumber} onChange={handleChange} required isNumeric />
                                     <SelectField
@@ -442,14 +502,14 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess, initialData }) =>
                                         onChange={handleChange} required
                                         options={finalStandards}
                                         loading={classesLoading}
-                                        disabled={classesLoading}
+                                        disabled={classesLoading || (isTeacher && teacherAssignedClasses.length === 0)}
                                     />
                                     <SelectField
                                         label="Section" name="section" value={formData.section}
                                         onChange={handleChange} required
                                         options={finalSections}
                                         loading={classesLoading}
-                                        disabled={classesLoading || !formData.standard}
+                                        disabled={classesLoading || !formData.standard || (isTeacher && teacherAssignedClasses.length === 0)}
                                     />
                                 </div>
                             </div>
