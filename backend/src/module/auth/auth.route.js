@@ -7,7 +7,7 @@ import { loginSchema, updatePasswordSchema, forgotPasswordSchema, resetPasswordS
 import { conf } from "../../config/index.js";
 
 const router = express.Router();
-const isProduction = conf.NODE_ENV === "production";
+const isProduction = conf.NODE_ENV === "development";
 
 // Rate limiters for auth endpoints
 const loginLimiter = rateLimit({

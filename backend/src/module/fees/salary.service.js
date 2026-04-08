@@ -90,6 +90,9 @@ export const updateSalaryStatus = async (schoolId, id, data) => {
 
     // If status is being changed to PAID
     if (data.status === "PAID") {
+        if (salary.status === "PAID") {
+            throw new ConflictError(`Salary for ${salary.month}/${salary.year} is already marked as PAID`);
+        }
         salary.status = "PAID";
         salary.paidDate = data.paidDate || new Date();
     }

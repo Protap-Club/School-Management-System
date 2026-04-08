@@ -8,7 +8,7 @@ import { useProfile, useStudents } from '../attendance';
 import { useSchoolClasses } from '../../hooks/useSchoolClasses';
 import ExamModal from '../../components/examination/ExamModal';
 import { FaPlus, FaEdit, FaTrash, FaCalendarAlt, FaClock,
-  FaChalkboardTeacher, FaCheckCircle, FaExclamationTriangle, FaBan, FaSearch, FaTimes, FaInfoCircle, FaLayerGroup, FaCalendarCheck, FaPaperclip } from 'react-icons/fa';
+  FaChalkboardTeacher, FaCheckCircle, FaExclamationTriangle, FaBan, FaSearch, FaTimes, FaInfoCircle, FaLayerGroup, FaCalendarCheck, FaPaperclip, FaUsers } from 'react-icons/fa';
 import { TabButton } from '../../components/ui/NoticeUIComponents';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { ButtonSpinner } from '../../components/ui/Spinner';
@@ -25,9 +25,16 @@ const EXAM_TYPES = {
 
 const STATUS_STYLES = {
   DRAFT: { label: 'Draft', color: 'text-slate-600', bg: 'bg-slate-50', border: 'border-slate-200', icon: FaExclamationTriangle },
-  PUBLISHED: { label: 'Published', color: 'text-primary', bg: 'bg-primary/10', border: 'border-primary/20', icon: FaCalendarAlt },
+  PUBLISHED: { label: 'Upcoming', color: 'text-amber-600', bg: 'bg-amber-50', border: 'border-amber-200', icon: FaCalendarAlt },
   COMPLETED: { label: 'Completed', color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-200', icon: null },
   CANCELLED: { label: 'Cancelled', color: 'text-rose-600', bg: 'bg-rose-50', border: 'border-rose-200', icon: null },
+};
+
+const STATUS_DOT_STYLES = {
+  DRAFT: 'bg-slate-400',
+  PUBLISHED: 'bg-amber-500 animate-pulse',
+  COMPLETED: 'bg-emerald-500',
+  CANCELLED: 'bg-rose-500',
 };
 
 const sanitizeAttachmentForApi = (attachment = {}) => {
@@ -63,6 +70,84 @@ const ACTIVE_TAB_STATUS_MAP = {
   completed: 'COMPLETED',
 };
 
+const getScheduleDurationInMinutes = (slot = {}) => {
+  if (!slot.startTime || !slot.endTime) return 0;
+
+  const [startHours, startMinutes] = String(slot.startTime).split(':').map(Number);
+  const [endHours, endMinutes] = String(slot.endTime).split(':').map(Number);
+
+  if (
+    Number.isNaN(startHours) ||
+    Number.isNaN(startMinutes) ||
+    Number.isNaN(endHours) ||
+    Number.isNaN(endMinutes)
+  ) {
+    return 0;
+  }
+
+  const durationInMinutes = (endHours * 60 + endMinutes) - (startHours * 60 + startMinutes);
+  return durationInMinutes > 0 ? durationInMinutes : 0;
+};
+
+const formatDurationLabel = (durationInMinutes) => {
+  if (!durationInMinutes) return 'N/A';
+
+  const hours = Math.floor(durationInMinutes / 60);
+  const minutes = durationInMinutes % 60;
+
+  if (!hours) return `${minutes} min`;
+  if (!minutes) return `${hours} hr${hours > 1 ? 's' : ''}`;
+  return `${hours} hr ${minutes} min`;
+};
+
+const formatDateRangeLabel = (minDate, maxDate) => {
+  if (!minDate) return 'N/A';
+
+  if (!maxDate || minDate.toDateString() === maxDate.toDateString()) {
+    return minDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  }
+
+  return `${minDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${maxDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+};
+
+const getExamPresentation = (exam = {}) => {
+  const schedule = Array.isArray(exam.schedule) ? exam.schedule.filter(Boolean) : [];
+  const subjects = schedule.map((item) => item.subject).filter(Boolean);
+  const dates = schedule
+    .map((item) => item.examDate)
+    .filter(Boolean)
+    .sort((a, b) => new Date(a) - new Date(b));
+  const minDate = dates.length > 0 ? new Date(dates[0]) : null;
+  const maxDate = dates.length > 0 ? new Date(dates[dates.length - 1]) : null;
+  const firstSchedule = schedule[0] || null;
+  const allSameTime = schedule.length > 1 && schedule.every(
+    (item) => item.startTime === firstSchedule?.startTime && item.endTime === firstSchedule?.endTime
+  );
+  const totalDurationMinutes = schedule.reduce(
+    (sum, item) => sum + getScheduleDurationInMinutes(item),
+    0
+  );
+
+  let timeLabel = 'No schedule';
+  if (schedule.length === 1 && firstSchedule) {
+    timeLabel = `${firstSchedule.startTime || 'N/A'} - ${firstSchedule.endTime || 'N/A'}`;
+  } else if (schedule.length > 1) {
+    if (allSameTime && firstSchedule?.startTime && firstSchedule?.endTime) {
+      timeLabel = `${firstSchedule.startTime} - ${firstSchedule.endTime} each day`;
+    } else {
+      timeLabel = `${schedule.length} sessions`;
+    }
+  }
+
+  return {
+    subjects,
+    dateLabel: formatDateRangeLabel(minDate, maxDate),
+    timeLabel,
+    sessionCount: schedule.length,
+    totalDurationLabel: formatDurationLabel(totalDurationMinutes),
+  };
+};
+
 // Dynamic options for standards and sections are handled by useSchoolClasses
 
 const CustomBadge = ({ styles, icon: Icon, label }) => (
@@ -94,6 +179,8 @@ const ExaminationPage = () => {
   const { data: profileRes } = useProfile();
   const isAdmin = ['admin', 'super_admin'].includes(user?.role);
   const isTeacher = user?.role === 'teacher';
+  const showCandidatesInList = isAdmin;
+  const showSubjectsInList = !showCandidatesInList;
 
   const teacherProfile = useMemo(() => {
     if (!isTeacher || !profileRes?.data) return null;
@@ -253,6 +340,15 @@ const ExaminationPage = () => {
       : `${creatorName} • ${archivedPrefix}${roleLabel}`;
   }, [selectedExam]);
 
+  const selectedExamMeta = useMemo(() => {
+    if (!selectedExam) return null;
+
+    return {
+      ...getExamPresentation(selectedExam),
+      candidateCount: getCandidateCount(selectedExam.standard, selectedExam.section),
+    };
+  }, [getCandidateCount, selectedExam]);
+
   const handleStatusUpdate = async (examId, status) => {
     try {
       await updateStatusMutation.mutateAsync({ examId, status });
@@ -407,119 +503,91 @@ const ExaminationPage = () => {
               ))}
             </div>
           ) : filteredExams.length > 0 ? (
-              <table className="w-full text-left border-collapse table-fixed">
-                <colgroup>
-                  <col style={{ width: '14.28%' }} />
-                  <col style={{ width: '14.28%' }} />
-                  <col style={{ width: '16%' }} />
-                  <col style={{ width: '12.6%' }} />
-                  <col style={{ width: '14.28%' }} />
-                  <col style={{ width: '14.28%' }} />
-                  <col style={{ width: '14.28%' }} />
-                </colgroup>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[760px] text-left border-collapse">
                 <thead>
                   <tr className="bg-slate-50/50 border-b border-slate-100">
-                    <th className="px-4 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Exam Name & ID</th>
-                    <th className="px-4 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Subject</th>
-                    <th className="px-4 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Date & Time</th>
-                    <th className="px-3 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Duration</th>
-                    <th className="px-3 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Candidates</th>
+                    <th className="px-4 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Exam</th>
+                    {showSubjectsInList && (
+                      <th className="px-4 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Subject</th>
+                    )}
+                    <th className="px-4 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">When</th>
+                    {showCandidatesInList && (
+                      <th className="px-3 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Candidates</th>
+                    )}
                     <th className="px-3 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</th>
                     <th className="px-3 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {filteredExams.map((exam) => {
-                    const firstSchedule = exam.schedule?.[0];
-                    const subjects = (exam.schedule || []).map(s => s.subject).filter(Boolean);
-                    const dates = (exam.schedule || [])
-                      .map(s => s.examDate)
-                      .filter(Boolean)
-                      .sort((a, b) => new Date(a) - new Date(b));
-                    
-                    const minDate = dates.length > 0 ? new Date(dates[0]) : null;
-                    const maxDate = dates.length > 0 ? new Date(dates[dates.length - 1]) : null;
-
-                    const allSameTime = exam.schedule?.length > 1 && 
-                      exam.schedule.every(s => s.startTime === exam.schedule[0].startTime && s.endTime === exam.schedule[0].endTime);
-
-                    const durationInMins = firstSchedule ? (() => {
-                      const [h1, m1] = (firstSchedule.startTime || '00:00').split(':').map(Number);
-                      const [h2, m2] = (firstSchedule.endTime || '00:00').split(':').map(Number);
-                      return (h2 * 60 + m2) - (h1 * 60 + m1);
-                    })() : 0;
-
+                    const examMeta = getExamPresentation(exam);
                     const canFullEdit =
                       isAdmin || (
                         !!currentUserId &&
                         resolveEntityId(exam.createdBy) === currentUserId
                       );
+                    const statusStyle = STATUS_STYLES[exam.status] || STATUS_STYLES.DRAFT;
 
                     return (
                       <tr key={exam._id} onClick={() => setSelectedExam(exam)} className="group cursor-pointer hover:bg-slate-50/80 transition-all duration-200">
                         <td className="px-4 py-5">
-                          <div className="min-w-0">
+                          <div className="min-w-0 space-y-1">
                             <div className="font-bold text-slate-900 text-sm leading-snug truncate" title={exam.name}>{exam.name}</div>
-                            <div className="text-[11px] font-bold text-slate-500 mt-0.5">Class {exam.standard} - {exam.section || 'All'}</div>
+                            <div className="text-[11px] font-bold text-slate-500">Class {exam.standard} - {exam.section || 'All'}</div>
+                            <div className="text-[11px] text-slate-400">{EXAM_TYPES[exam.examType]?.label || 'Exam Plan'}</div>
                           </div>
                         </td>
-                        <td className="px-4 py-5">
-                          <div className="flex flex-col items-start gap-1">
-                            <div className="flex flex-wrap gap-1">
-                              {subjects.length > 0 ? (
-                                <>
-                                  {subjects.slice(0, 2).map((sub, i) => (
-                                    <span key={i} className="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-primary/10 text-primary border border-primary/20 shadow-sm whitespace-nowrap">
-                                      {sub}
-                                    </span>
-                                  ))}
-                                </>
-                              ) : (
-                                  <span className="text-slate-400 text-xs italic">—</span>
+                        {showSubjectsInList && (
+                          <td className="px-4 py-5">
+                            <div className="flex flex-col items-start gap-1">
+                              <div className="flex flex-wrap gap-1">
+                                {examMeta.subjects.length > 0 ? (
+                                  <>
+                                    {examMeta.subjects.slice(0, 2).map((subject, index) => (
+                                      <span key={`${subject}-${index}`} className="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-primary/10 text-primary border border-primary/20 shadow-sm whitespace-nowrap">
+                                        {subject}
+                                      </span>
+                                    ))}
+                                  </>
+                                ) : (
+                                  <span className="text-slate-400 text-xs italic">No subjects</span>
+                                )}
+                              </div>
+                              {examMeta.subjects.length > 2 && (
+                                <span className="text-[10px] font-bold text-slate-400">+{examMeta.subjects.length - 2} more</span>
                               )}
                             </div>
-                            {subjects.length > 2 && (
-                               <span className="text-[9px] font-bold text-slate-400">+{subjects.length - 2}</span>
-                            )}
-                          </div>
-                        </td>
+                          </td>
+                        )}
                         <td className="px-4 py-5">
                           <div className="flex flex-col gap-0.5">
                             <div className="text-sm font-bold text-slate-700 whitespace-nowrap">
-                              {minDate ? (
-                                minDate.toDateString() === maxDate.toDateString() 
-                                  ? minDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-                                  : `${minDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${maxDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`
-                              ) : 'N/A'}
+                              {examMeta.dateLabel}
                             </div>
                             <div className="text-[11px] font-medium text-slate-500 whitespace-nowrap">
-                              {exam.schedule?.length > 1 
-                                ? (allSameTime ? `${exam.schedule[0].startTime} - ${exam.schedule[0].endTime}` : `${exam.schedule.length} Sessions`)
-                                : (firstSchedule ? `${firstSchedule.startTime} - ${formatValue(firstSchedule.endTime)}` : 'No schedule')}
+                              {examMeta.timeLabel}
                             </div>
                           </div>
                         </td>
+                        {showCandidatesInList && (
+                          <td className="px-3 py-5">
+                            <div className="inline-flex flex-col rounded-2xl bg-slate-50 border border-slate-100 px-3 py-2 min-w-[92px]">
+                              <span className="text-sm font-black text-slate-800 tracking-tight">
+                                {getCandidateCount(exam.standard, exam.section)}
+                              </span>
+                              <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">students</span>
+                            </div>
+                          </td>
+                        )}
                         <td className="px-3 py-5">
-                          <div className="text-sm font-bold text-slate-700 whitespace-nowrap">{durationInMins > 0 ? (durationInMins >= 60 ? (durationInMins % 60 === 0 ? `${durationInMins / 60}hr${durationInMins / 60 > 1 ? 's' : ''}` : `${(durationInMins / 60).toFixed(1)}hrs`) : `${durationInMins}min`) : 'N/A'}</div>
-                        </td>
-                        <td className="px-3 py-5">
-                          <div className="relative inline-block">
-                            <span className="text-sm font-black text-slate-800 tracking-tight">
-                              {getCandidateCount(exam.standard, exam.section)}
-                            </span>
-                            <div className="w-full h-1 bg-orange-500 rounded-full mt-1"></div>
+                          <div className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-[11px] font-black uppercase tracking-widest whitespace-nowrap ${statusStyle.bg} ${statusStyle.border} ${statusStyle.color}`}>
+                            <div className={`w-2 h-2 rounded-full flex-shrink-0 ${STATUS_DOT_STYLES[exam.status] || 'bg-slate-400'}`}></div>
+                            <span>{statusStyle.label}</span>
                           </div>
                         </td>
                         <td className="px-3 py-5">
-                          <div className="flex items-center gap-2">
-                            <div className={`w-2 h-2 rounded-full flex-shrink-0 ${exam.status === 'PUBLISHED' ? 'bg-orange-500 animate-pulse' : exam.status === 'COMPLETED' ? 'bg-slate-400' : 'bg-primary'}`}></div>
-                            <span className={`text-[11px] font-black uppercase tracking-widest whitespace-nowrap ${exam.status === 'PUBLISHED' ? 'text-orange-600' : exam.status === 'COMPLETED' ? 'text-slate-500' : 'text-primary'}`}>
-                              {exam.status === 'PUBLISHED' ? 'Upcoming' : exam.status === 'COMPLETED' ? 'Completed' : exam.status === 'DRAFT' ? 'Draft' : exam.status}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="px-3 py-5">
-                          <div className="flex items-center justify-center gap-3">
+                          <div className="flex items-center justify-center gap-2">
                             {canFullEdit && (
                               <>
                                 {canFullEdit && exam.status !== 'COMPLETED' && activeTab !== 'all' && (
@@ -554,6 +622,7 @@ const ExaminationPage = () => {
                   })}
                 </tbody>
               </table>
+            </div>
           ) : (
             <EmptyState
               icon={FaCalendarAlt}
@@ -603,10 +672,62 @@ const ExaminationPage = () => {
               </div>
 
               <div className="p-6 md:p-8">
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
+                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-2xl bg-white border border-slate-100 flex items-center justify-center text-primary">
+                        <FaLayerGroup size={16} />
+                      </div>
+                      <div>
+                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Sessions</div>
+                        <div className="text-lg font-black text-slate-900">{selectedExamMeta?.sessionCount || 0}</div>
+                      </div>
+                    </div>
+                    <div className="mt-3 text-xs text-slate-500">
+                      {selectedExamMeta?.subjects.length ? `${selectedExamMeta.subjects.length} subject entries planned` : 'No subject schedule yet'}
+                    </div>
+                  </div>
+                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-2xl bg-white border border-slate-100 flex items-center justify-center text-amber-600">
+                        <FaUsers size={16} />
+                      </div>
+                      <div>
+                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Candidates</div>
+                        <div className="text-lg font-black text-slate-900">{selectedExamMeta?.candidateCount || 0}</div>
+                      </div>
+                    </div>
+                    <div className="mt-3 text-xs text-slate-500">Students from the assigned class and section</div>
+                  </div>
+                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-2xl bg-white border border-slate-100 flex items-center justify-center text-emerald-600">
+                        <FaClock size={16} />
+                      </div>
+                      <div>
+                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total Duration</div>
+                        <div className="text-lg font-black text-slate-900">{selectedExamMeta?.totalDurationLabel || 'N/A'}</div>
+                      </div>
+                    </div>
+                    <div className="mt-3 text-xs text-slate-500">Combined time across all scheduled sessions</div>
+                  </div>
+                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-2xl bg-white border border-slate-100 flex items-center justify-center text-primary">
+                        <FaCalendarCheck size={16} />
+                      </div>
+                      <div>
+                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Schedule</div>
+                        <div className="text-sm font-black text-slate-900">{selectedExamMeta?.dateLabel || 'N/A'}</div>
+                      </div>
+                    </div>
+                    <div className="mt-3 text-xs text-slate-500">{selectedExamMeta?.timeLabel || 'No schedule'}</div>
+                  </div>
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                   <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
                     <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Target Audience</div>
-                    <div className="text-slate-900 font-bold">Class {selectedExam.standard} • Section {selectedExam.section}</div>
+                    <div className="text-slate-900 font-bold">Class {selectedExam.standard} • Section {selectedExam.section || 'All'}</div>
                   </div>
                   <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
                     <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Timing & Period</div>

@@ -3,20 +3,21 @@ import { FaTimes, FaCheck, FaPlus, FaSave, FaArrowLeft } from 'react-icons/fa';
 import {
     FEE_TYPES, FEE_TYPE_LABELS, FREQUENCY_OPTIONS, FREQUENCY_LABELS,
 } from '../../features/fees';
-import { useFeeTypes } from '../../features/fees/api/queries';
+import { useFeeTypes, useFeeStructures } from '../../features/fees/api/queries';
 import FeeTypeSideCard from './FeeTypeSideCard';
 import { useSchoolClasses } from '../../hooks/useSchoolClasses';
 
 const INITIAL_FORM = {
     academicYear: new Date().getFullYear(),
-    standard: '',
+    standards: [],
+    sections: [],
     section: '',
     feeType: '',
     name: '',
     amount: '',
     frequency: '',
     dueDay: 10,
-    applicableMonths: [],
+    applicableMonths: [], // Starts empty for manual selection (Admin/Frontend)
 };
 
 const MONTHS = [
@@ -29,12 +30,56 @@ const MONTHS = [
 const normalizeStandard = (value) => String(value || '').trim();
 const normalizeSection = (value) => String(value || '').trim().toUpperCase();
 
+const MultiSelect = ({ label, options, selected, onToggle, onSelectAll, error, disabled }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    return (
+        <div className="relative">
+            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">{label} *</label>
+            <button type="button" onClick={() => !disabled && setIsOpen(!isOpen)}
+                className={`w-full px-3 py-1.5 border rounded-lg text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all flex items-center justify-between bg-white text-left ${error ? 'border-red-300 bg-red-50' : 'border-gray-200 bg-gray-50/10'} ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}>
+                <span className="truncate">
+                    {options.length === 0 ? `No ${label}s Available` :
+                     selected.length === 0 ? `Select ${label}` : 
+                     selected.length === options.length ? `All ${label}s` :
+                     selected.sort((a,b) => a.localeCompare(b, undefined, {numeric:true})).join(', ')}
+                </span>
+                <div className={`p-1 transition-transform ${isOpen ? 'rotate-180' : ''}`}>
+                    <svg width="10" height="6" viewBox="0 0 10 6" fill="none"><path d="M1 1L5 5L9 1" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                </div>
+            </button>
+
+            {isOpen && !disabled && (
+                <>
+                    <div className="fixed inset-0 z-10" onClick={() => setIsOpen(false)}></div>
+                    <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-100 rounded-2xl shadow-xl z-20 py-2 max-h-60 overflow-y-auto animate-fadeIn slide-in-from-top-2 duration-200">
+                        <div className="px-3 pb-2 mb-2 border-b border-gray-50 flex items-center justify-between">
+                            <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Select {label}</span>
+                             <button type="button" onClick={onSelectAll} disabled={options.length === 0}
+                                className="text-[9px] font-black text-primary uppercase tracking-widest hover:underline disabled:opacity-30 disabled:no-underline">
+                                {selected.length > 0 && selected.length === options.length ? "Deselect All" : "Select All"}
+                            </button>
+                        </div>
+                        {options.map((opt) => (
+                            <label key={opt} className="flex items-center gap-3 px-4 py-2 hover:bg-gray-50 cursor-pointer transition-colors group">
+                                <input type="checkbox" checked={selected.includes(opt)} onChange={() => onToggle(opt)}
+                                    className="w-4 h-4 text-primary border-gray-200 rounded focus:ring-primary/20" />
+                                <span className={`text-[13px] font-bold ${selected.includes(opt) ? 'text-primary' : 'text-gray-600 group-hover:text-gray-900'}`}>{opt}</span>
+                            </label>
+                        ))}
+                    </div>
+                </>
+            )}
+            {error && <p className="text-[10px] text-red-500 mt-1 ml-1 font-bold">{error}</p>}
+        </div>
+    );
+};
+
 const FeeStructureForm = ({ onCancel, onSubmit, editData, isLoading, isAdmin }) => {
     const isEdit = !!editData;
     const [form, setForm] = useState(() => {
         const initial = editData ? {
             academicYear: editData.academicYear || new Date().getFullYear(),
-            standard: editData.standard || '',
+            standard: editData.standard || '', // Single standard for edit
             section: editData.section || '',
             feeType: editData.feeType || '',
             name: editData.name || '',
@@ -43,13 +88,22 @@ const FeeStructureForm = ({ onCancel, onSubmit, editData, isLoading, isAdmin }) 
             dueDay: editData.dueDay || 10,
             applicableMonths: editData.applicableMonths || [],
             isActive: editData.isActive !== undefined ? editData.isActive : true,
-        } : { ...INITIAL_FORM };
+        } : { ...INITIAL_FORM, sections: [] };
         return initial;
     });
+
+    const [isMultiMode, setIsMultiMode] = useState(!isEdit);
 
     const [showSideCard, setShowSideCard] = useState(false);
     const { data: feeTypesResp } = useFeeTypes({ enabled: isAdmin });
     const { availableStandards, allUniqueSections, getSectionsForStandard } = useSchoolClasses({ enabled: isAdmin });
+    
+    // Fetch all structures for checking overlap/duplicates
+    const { data: allStructuresResp } = useFeeStructures({ 
+        academicYear: form.academicYear,
+        isActive: true 
+    }, isAdmin && !isEdit);
+    const allStructures = allStructuresResp?.data?.structures || [];
     
     // Combine hardcoded defaults with backend types
     const feeTypes = React.useMemo(() => {
@@ -88,13 +142,25 @@ const FeeStructureForm = ({ onCancel, onSubmit, editData, isLoading, isAdmin }) 
     }, [availableStandards, form.standard]);
 
     const sectionOptions = React.useMemo(() => {
-        const selectedStandard = normalizeStandard(form.standard);
-        const source = selectedStandard ? getSectionsForStandard(selectedStandard) : allUniqueSections;
-        const merged = new Set((source || []).map(normalizeSection).filter(Boolean));
-        const current = normalizeSection(form.section);
-        if (current) merged.add(current);
+        if (isEdit) {
+            const current = normalizeSection(form.section);
+            return current ? [current] : [];
+        }
+        
+        // Multi-mode: Union of sections for all selected standards
+        const selectedStandards = form.standards.length > 0 ? form.standards : [];
+        const merged = new Set();
+        
+        if (selectedStandards.length > 0) {
+            selectedStandards.forEach(std => {
+                (getSectionsForStandard(std) || []).forEach(sect => merged.add(normalizeSection(sect)));
+            });
+        } else {
+            (allUniqueSections || []).forEach(sect => merged.add(normalizeSection(sect)));
+        }
+
         return Array.from(merged).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
-    }, [allUniqueSections, form.standard, form.section, getSectionsForStandard]);
+    }, [allUniqueSections, form.standards, form.section, getSectionsForStandard, isEdit]);
 
     const [errors, setErrors] = useState({});
 
@@ -112,8 +178,10 @@ const FeeStructureForm = ({ onCancel, onSubmit, editData, isLoading, isAdmin }) 
                 applicableMonths: editData.applicableMonths || [],
                 isActive: editData.isActive !== undefined ? editData.isActive : true,
             });
+            setIsMultiMode(false);
         } else {
             setForm({ ...INITIAL_FORM });
+            setIsMultiMode(true);
         }
         setErrors({});
     }, [editData]);
@@ -124,13 +192,90 @@ const FeeStructureForm = ({ onCancel, onSubmit, editData, isLoading, isAdmin }) 
         setErrors(prev => ({ ...prev, [field]: '' }));
     }, []);
 
+    const currentYear = new Date().getFullYear();
+    const currentMonth = new Date().getMonth() + 1;
+
+    const isPastMonth = useCallback((m) => {
+        const formYear = Number(form.academicYear);
+        if (formYear < currentYear) return true; // Entire past year is disabled
+        if (formYear > currentYear) return false; // Entire future year is enabled
+        
+        // Same year: Only block months that are strictly earlier than today
+        return m < currentMonth;
+    }, [form.academicYear, currentYear, currentMonth]);
+
+    const isInvalidQuarterly = useCallback((m) => {
+        // Pattern enforcement is disabled to allow manual change (optional)
+        return false;
+    }, []);
+
+    const isInvalidHalfYearly = useCallback((m) => {
+        // Pattern enforcement is disabled to allow manual adjustment
+        return false;
+    }, []);
+
+    // Auto-select months based on frequency and current month
+    useEffect(() => {
+        if (isEdit) return;
+        
+        const m = currentMonth;
+        let sequence = [];
+
+        if (form.frequency === 'QUARTERLY') {
+            for (let i = 0; i < 4; i++) {
+                sequence.push((m + i * 3 - 1) % 12 + 1);
+            }
+        } else if (form.frequency === 'HALF_YEARLY') {
+            for (let i = 0; i < 6; i++) {
+                sequence.push((m + i - 1) % 12 + 1);
+            }
+        } else if (form.frequency === 'MONTHLY' || form.frequency === 'YEARLY' || form.frequency === 'ONE_TIME') {
+            sequence = [m];
+        }
+
+        // Filter out past months if in current year
+        const validSequence = sequence.filter(month => !isPastMonth(month));
+        
+        if (validSequence.length > 0) {
+            setForm(prev => ({ ...prev, applicableMonths: validSequence }));
+        } else {
+            setForm(prev => ({ ...prev, applicableMonths: [] }));
+        }
+    }, [form.frequency, isEdit, currentMonth, isPastMonth]);
+
+    // Track occupied months to prevent duplicates
+    const occupiedMonths = React.useMemo(() => {
+        if (isEdit || !form.feeType) return [];
+        
+        // Only calculate if Standard and Section are selected (avoid disabling everything by default)
+        const selectedStds = isMultiMode ? form.standards : (form.standard ? [form.standard] : []);
+        const selectedSects = isMultiMode ? form.sections : (form.section ? [form.section] : []);
+
+        if (selectedStds.length === 0 || selectedSects.length === 0) return [];
+        
+        const occupied = new Set();
+        allStructures.forEach(st => {
+            if (st.feeType === form.feeType && 
+                selectedStds.includes(st.standard) && 
+                selectedSects.includes(st.section)) {
+                (st.applicableMonths || []).forEach(m => occupied.add(m));
+            }
+        });
+        return Array.from(occupied);
+    }, [allStructures, form.feeType, form.standard, form.section, form.standards, form.sections, isMultiMode, isEdit]);
+
+    const isOccupied = (m) => occupiedMonths.includes(m);
+
     const toggleMonth = useCallback((month) => {
+        if (isPastMonth(month) || isInvalidQuarterly(month) || isInvalidHalfYearly(month) || isOccupied(month)) return;
+
         setForm(prev => {
             const isSelected = prev.applicableMonths.includes(month);
             let nextMonths = isSelected
                 ? prev.applicableMonths.filter(m => m !== month)
                 : [...prev.applicableMonths, month];
 
+            if (prev.frequency === 'HALF_YEARLY' && nextMonths.length > 6) return prev;
             if (prev.frequency === 'QUARTERLY' && nextMonths.length > 4) return prev;
             if ((prev.frequency === 'YEARLY' || prev.frequency === 'ONE_TIME') && nextMonths.length > 1) {
                 if (!isSelected) nextMonths = [month];
@@ -139,22 +284,18 @@ const FeeStructureForm = ({ onCancel, onSubmit, editData, isLoading, isAdmin }) 
 
             return { ...prev, applicableMonths: nextMonths };
         });
-    }, []);
+    }, [isPastMonth, isInvalidQuarterly, isInvalidHalfYearly, isOccupied]);
 
     useEffect(() => {
+        if (isEdit) return;
         setForm(prev => {
-            let nextMonths = [...prev.applicableMonths];
-            if (prev.frequency === 'QUARTERLY' && nextMonths.length > 4) {
-                nextMonths = nextMonths.slice(0, 4);
-            } else if ((prev.frequency === 'YEARLY' || prev.frequency === 'ONE_TIME') && nextMonths.length > 1) {
-                nextMonths = nextMonths.slice(0, 1);
-            }
+            const nextMonths = prev.applicableMonths.filter(m => !isPastMonth(m) && !isInvalidQuarterly(m) && !isOccupied(m));
             if (nextMonths.length !== prev.applicableMonths.length) {
                 return { ...prev, applicableMonths: nextMonths };
             }
             return prev;
         });
-    }, [form.frequency]);
+    }, [form.frequency, form.academicYear, isEdit, isPastMonth, isInvalidQuarterly, occupiedMonths]);
 
     useEffect(() => {
         if (isEdit) return;
@@ -169,15 +310,30 @@ const FeeStructureForm = ({ onCancel, onSubmit, editData, isLoading, isAdmin }) 
         }
     }, [form.standard, form.section, getSectionsForStandard, isEdit]);
 
+    const toggleStandard = useCallback((std) => {
+        setForm(prev => {
+            const nextStandards = prev.standards.includes(std)
+                ? prev.standards.filter(s => s !== std)
+                : [...prev.standards, std];
+            return { ...prev, standards: nextStandards };
+        });
+    }, []);
+
     const validate = () => {
         const e = {};
-        if (!form.standard) e.standard = 'Required';
-        if (!form.section) e.section = 'Required';
+        if (isMultiMode) {
+            if (!form.standards || form.standards.length === 0) e.standards = 'Required';
+            if (!form.sections || form.sections.length === 0) e.sections = 'Required';
+        } else {
+            if (!form.standard) e.standard = 'Required';
+            if (!form.section) e.section = 'Required';
+        }
         if (!form.feeType) e.feeType = 'Required';
         if (!form.name.trim()) e.name = 'Required';
         if (!form.amount || Number(form.amount) < 0) e.amount = 'Valid amount required';
         if (!form.frequency) e.frequency = 'Required';
         if (!form.academicYear || form.academicYear < 2000) e.academicYear = 'Valid year required';
+        if (!form.applicableMonths || form.applicableMonths.length === 0) e.applicableMonths = 'Select at least one month';
         setErrors(e);
         return Object.keys(e).length === 0;
     };
@@ -185,13 +341,24 @@ const FeeStructureForm = ({ onCancel, onSubmit, editData, isLoading, isAdmin }) 
     const handleSubmit = (e) => {
         e.preventDefault();
         if (!validate()) return;
+        
         const payload = {
             ...form,
+            standard: isMultiMode 
+                ? form.standards.map(String) 
+                : String(form.standard),
+            section: isMultiMode 
+                ? form.sections.map(String) 
+                : String(form.section),
             name: form.name.charAt(0).toUpperCase() + form.name.slice(1),
-            amount: Number(form.amount),
+            amount: Number(form.amount || 0),
             academicYear: Number(form.academicYear),
-            dueDay: Number(form.dueDay),
+            dueDay: Number(form.dueDay || 10),
+            applicableMonths: (form.applicableMonths || []).map(Number).sort((a, b) => a - b),
         };
+        delete payload.standards;
+        delete payload.sections;
+
         if (isEdit) {
             const updateData = { ...payload };
             delete updateData.academicYear;
@@ -229,24 +396,56 @@ const FeeStructureForm = ({ onCancel, onSubmit, editData, isLoading, isAdmin }) 
                             className={inputCls('academicYear')} disabled={isEdit} min={2000} max={2100} />
                         {errors.academicYear && <p className="text-[10px] text-red-500 mt-1 ml-1 font-bold">{errors.academicYear}</p>}
                     </div>
-                    <div>
-                        <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Standard *</label>
-                        <select value={form.standard} onChange={(e) => handleChange('standard', e.target.value)}
-                            className={inputCls('standard')} disabled={isEdit}>
-                            <option value="" disabled hidden></option>
-                            {standardOptions.map((s) => <option key={s} value={s}>{s}</option>)}
-                        </select>
-                        {errors.standard && <p className="text-[10px] text-red-500 mt-1 ml-1 font-bold">{errors.standard}</p>}
-                    </div>
-                    <div>
-                        <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Section *</label>
-                        <select value={form.section} onChange={(e) => handleChange('section', e.target.value)}
-                            className={inputCls('section')} disabled={isEdit}>
-                            <option value="" disabled hidden></option>
-                            {sectionOptions.map((s) => <option key={s} value={s}>{s}</option>)}
-                        </select>
-                        {errors.section && <p className="text-[10px] text-red-500 mt-1 ml-1 font-bold">{errors.section}</p>}
-                    </div>
+                    {isEdit ? (
+                        <div>
+                            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Standard *</label>
+                            <select value={form.standard} onChange={(e) => handleChange('standard', e.target.value)}
+                                className={inputCls('standard')} disabled={isEdit}>
+                                <option value={form.standard}>{form.standard}</option>
+                            </select>
+                        </div>
+                    ) : (
+                        <MultiSelect 
+                            label="Standard" 
+                            options={standardOptions} 
+                            selected={form.standards} 
+                            onToggle={toggleStandard} 
+                            onSelectAll={() => {
+                                const all = form.standards.length === standardOptions.length ? [] : [...standardOptions];
+                                setForm(prev => ({ ...prev, standards: all }));
+                            }} 
+                            error={errors.standards}
+                        />
+                    )}
+
+                    {isEdit ? (
+                        <div>
+                            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Section *</label>
+                            <select value={form.section} onChange={(e) => handleChange('section', e.target.value)}
+                                className={inputCls('section')} disabled={isEdit}>
+                                <option value={form.section}>{form.section}</option>
+                            </select>
+                        </div>
+                    ) : (
+                        <MultiSelect 
+                            label="Section" 
+                            options={sectionOptions} 
+                            selected={form.sections} 
+                            onToggle={(sect) => {
+                                setForm(prev => ({
+                                    ...prev,
+                                    sections: prev.sections.includes(sect)
+                                        ? prev.sections.filter(s => s !== sect)
+                                        : [...prev.sections, sect]
+                                }));
+                            }} 
+                            onSelectAll={() => {
+                                const all = form.sections.length === sectionOptions.length ? [] : [...sectionOptions];
+                                setForm(prev => ({ ...prev, sections: all }));
+                            }} 
+                            error={errors.sections}
+                        />
+                    )}
                 </div>
 
                 {/* Row 2: Type, Name */}
@@ -307,26 +506,67 @@ const FeeStructureForm = ({ onCancel, onSubmit, editData, isLoading, isAdmin }) 
                 </div>
 
                 <div className="pt-2">
-                    <div className="flex items-center justify-between mb-4 px-1">
+                    <div className="flex items-center justify-between mb-4 px-1 min-h-[26px]">
                         <label className="block text-[11px] font-black text-gray-400 uppercase tracking-widest">Applicable Months</label>
-                        {form.frequency === 'QUARTERLY' && (
-                            <span className="text-[10px] font-black text-red-600 bg-red-50 px-3 py-1 rounded-lg border border-red-100 animate-pulse">
-                                select any 4 month
-                            </span>
-                        )}
-                        {(form.frequency === 'YEARLY' || form.frequency === 'ONE_TIME') && (
-                            <span className="text-[10px] font-black text-red-600 bg-red-50 px-3 py-1 rounded-lg border border-red-100 animate-pulse">
-                                select any 1 month
-                            </span>
-                        )}
+                        {(() => {
+                            let hint = null;
+                            if (form.frequency === 'QUARTERLY') hint = 'select any 4 month';
+                            else if (form.frequency === 'HALF_YEARLY') hint = 'select exactly 6 months';
+                            else if (form.frequency === 'YEARLY' || form.frequency === 'ONE_TIME') hint = 'select any 1 month';
+
+                            if (!hint && !errors.applicableMonths) return null;
+
+                            return (
+                                <div className="flex items-center gap-2">
+                                    {hint && (
+                                        <span className="text-[10px] font-black text-red-600 bg-red-50 px-3 py-1 rounded-lg border border-red-100">
+                                            {hint}
+                                        </span>
+                                    )}
+                                    {errors.applicableMonths && (
+                                        <span className="text-[10px] font-black text-red-600 px-2 py-1 italic">
+                                            ({errors.applicableMonths})
+                                        </span>
+                                    )}
+                                </div>
+                            );
+                        })()}
                     </div>
                     <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-12 gap-1.5">
-                        {MONTHS.map(m => (
-                            <button key={m.value} type="button" onClick={() => toggleMonth(m.value)}
-                                className={`py-1.5 text-[10px] font-bold rounded-lg border transition-all ${form.applicableMonths.includes(m.value) ? 'bg-primary text-white border-primary shadow-md shadow-primary/20 scale-105' : 'border-gray-200 text-gray-400 hover:bg-gray-50'}`}>
-                                {m.label}
-                            </button>
-                        ))}
+                        {MONTHS.map(m => {
+                            const occupied = isOccupied(m.value);
+                            const past = isPastMonth(m.value);
+                            const invalidQuarterly = isInvalidQuarterly(m.value);
+                            const invalidHalfYearly = isInvalidHalfYearly(m.value);
+                            const disabled = past || invalidQuarterly || invalidHalfYearly || occupied;
+                            const isSelected = form.applicableMonths.includes(m.value);
+                            
+                            return (
+                                <div key={m.value} className="relative group/month">
+                                    <button type="button" 
+                                        onClick={() => !disabled && toggleMonth(m.value)}
+                                        disabled={disabled}
+                                        className={`w-full py-1.5 text-[10px] font-bold rounded-lg border transition-all ${
+                                            isSelected ? 'bg-primary text-white border-primary shadow-md shadow-primary/20 scale-105' : 
+                                            occupied ? 'bg-amber-50 border-amber-200 text-amber-600 cursor-not-allowed' :
+                                            disabled ? 'bg-gray-50 border-gray-100 text-gray-200 cursor-not-allowed opacity-40' :
+                                            'border-gray-200 text-gray-400 hover:bg-gray-50'
+                                        }`}>
+                                        {m.label}
+                                    </button>
+                                    {occupied && (
+                                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-[8px] rounded opacity-0 group-hover/month:opacity-100 transition-opacity whitespace-nowrap z-30 pointer-events-none">
+                                            Already Created
+                                        </div>
+                                    )}
+                                    {past && (
+                                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-[8px] rounded opacity-0 group-hover/month:opacity-100 transition-opacity whitespace-nowrap z-30 pointer-events-none">
+                                            Past Month
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })}
                     </div>
                 </div>
 

@@ -5,6 +5,7 @@ import { useUsers } from '../../features/users/api/queries';
 import { ButtonSpinner, PageSpinner } from '../../components/ui/Spinner';
 import { createPortal } from 'react-dom';
 import { downloadFile } from '../../utils/downloadFile';
+import { MultiSelectDropdown } from '../ui/MultiSelectDropdown';
 // cspell:ignore msword openxmlformats officedocument wordprocessingml opendocument
 
 const TeacherSelectDropdown = ({ value, onChange, options, className }) => {
@@ -164,8 +165,8 @@ const INITIAL_FORM = {
     category: 'OTHER',
     categoryDescription: '',
     academicYear: new Date().getFullYear(),
-    standard: '',
-    section: '',
+    standard: [],
+    section: [],
     description: '',
     schoolId: '',
     schedule: [createEmptyScheduleItem()]
@@ -242,18 +243,6 @@ const ExamModal = ({ isOpen, onClose, onSubmit, editData, isLoading, userRole, u
 
     const availableStandards = useMemo(() => schoolAvailableStandards, [schoolAvailableStandards]);
 
-    const getSectionsForStandardValue = useCallback((standardValue) => {
-        if (standardValue) {
-            return getSectionsForStandard(standardValue);
-        }
-        return allUniqueSections;
-    }, [allUniqueSections, getSectionsForStandard]);
-
-    const availableSections = useMemo(
-        () => getSectionsForStandardValue(form.standard),
-        [form.standard, getSectionsForStandardValue]
-    );
-
     // Initialize form with edit data or reset to initial
     useEffect(() => {
         if (isOpen) {
@@ -265,8 +254,8 @@ const ExamModal = ({ isOpen, onClose, onSubmit, editData, isLoading, userRole, u
                     category: editData.category || 'OTHER',
                     categoryDescription: editData.categoryDescription || '',
                     academicYear: editData.academicYear || new Date().getFullYear(),
-                    standard: editData.standard || '',
-                    section: editData.section || '',
+                    standard: Array.isArray(editData.standard) ? editData.standard : (editData.standard ? [editData.standard] : []),
+                    section: Array.isArray(editData.section) ? editData.section : (editData.section ? [editData.section] : []),
                     description: editData.description || '',
                     schoolId: editData.schoolId || '',
                     schedule: editData.schedule?.length > 0 ? editData.schedule.map(s => ({
@@ -331,31 +320,9 @@ const ExamModal = ({ isOpen, onClose, onSubmit, editData, isLoading, userRole, u
     }, [initialFormSnapshot]);
 
     const handleChange = useCallback((field, value) => {
-        setForm((prev) => {
-            if (field === 'standard') {
-                const nextSectionOptions = getSectionsForStandardValue(value);
-
-                const shouldResetSection = !nextSectionOptions.includes(String(prev.section));
-                return {
-                    ...prev,
-                    standard: value,
-                    section: shouldResetSection ? '' : prev.section,
-                };
-            }
-
-            if (field === 'section') {
-                const nextSectionOptions = getSectionsForStandardValue(prev.standard);
-
-                return {
-                    ...prev,
-                    section: nextSectionOptions.includes(String(value)) ? value : '',
-                };
-            }
-
-            return { ...prev, [field]: value };
-        });
+        setForm((prev) => ({ ...prev, [field]: value }));
         setErrors(prev => ({ ...prev, [field]: '' }));
-    }, [getSectionsForStandardValue]);
+    }, []);
 
     const handleScheduleChange = useCallback((index, field, value) => {
         let finalValue = value;
@@ -486,8 +453,8 @@ const ExamModal = ({ isOpen, onClose, onSubmit, editData, isLoading, userRole, u
             if (form.category === 'OTHER' && !form.categoryDescription.trim()) {
                 e.categoryDescription = 'Please describe the exam category';
             }
-            if (!form.standard) e.standard = 'Please select a class';
-            if (!form.section) e.section = 'Please select a section';
+            if (!form.standard || form.standard.length === 0) e.standard = 'Please select at least one class';
+            if (!form.section || form.section.length === 0) e.section = 'Please select at least one section';
             if (isSuperAdmin && !form.schoolId) e.schoolId = 'School ID is required for Super Admins';
             if (!form.academicYear || form.academicYear < 2000) e.academicYear = 'Enter a valid academic year';
         }
@@ -746,36 +713,32 @@ const ExamModal = ({ isOpen, onClose, onSubmit, editData, isLoading, userRole, u
                                             )}
                                         </div>
 
-                                        {/* Target School ID removed as requested (background handles single school) */}
+                                        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:col-span-3">
+                                            <div className="space-y-1">
+                                                <label className={labelClasses}>Class *</label>
+                                                <MultiSelectDropdown
+                                                    label="Classes"
+                                                    placeholder="Select Classes"
+                                                    options={(availableStandards || []).map((s) => ({ label: `Class ${s}`, value: s }))}
+                                                    selected={form.standard}
+                                                    onChange={(vals) => handleChange('standard', vals)}
+                                                    className={errors.standard ? 'border-red-400' : ''}
+                                                />
+                                                {errors.standard && <p className="text-red-500 text-[11px] font-medium mt-1.5 ml-1">{errors.standard}</p>}
+                                            </div>
 
-                                        <div>
-                                            <label className={labelClasses}>Class *</label>
-                                            <select
-                                                value={form.standard}
-                                                onChange={(e) => handleChange('standard', e.target.value)}
-                                                className={inputClasses('standard')}
-                                            >
-                                                <option value="">Choose Class</option>
-                                                {availableStandards.map(standard => (
-                                                    <option key={standard} value={standard}>Class {standard}</option>
-                                                ))}
-                                            </select>
-                                            {errors.standard && <p className="text-red-500 text-[11px] font-medium mt-1.5 ml-1">{errors.standard}</p>}
-                                        </div>
-
-                                        <div>
-                                            <label className={labelClasses}>Section *</label>
-                                            <select
-                                                value={form.section}
-                                                onChange={(e) => handleChange('section', e.target.value)}
-                                                className={inputClasses('section')}
-                                            >
-                                                <option value="">Choose Section</option>
-                                                {availableSections.map(section => (
-                                                    <option key={section} value={section}>Section {section}</option>
-                                                ))}
-                                            </select>
-                                            {errors.section && <p className="text-red-500 text-[11px] font-medium mt-1.5 ml-1">{errors.section}</p>}
+                                            <div className="space-y-1">
+                                                <label className={labelClasses}>Section *</label>
+                                                <MultiSelectDropdown
+                                                    label="Sections"
+                                                    placeholder="Select Sections"
+                                                    options={(allUniqueSections || []).map((s) => ({ label: `Section ${s}`, value: s }))}
+                                                    selected={form.section}
+                                                    onChange={(vals) => handleChange('section', vals)}
+                                                    className={errors.section ? 'border-red-400' : ''}
+                                                />
+                                                {errors.section && <p className="text-red-500 text-[11px] font-medium mt-1.5 ml-1">{errors.section}</p>}
+                                            </div>
                                         </div>
 
                                         <div className="md:col-span-2 lg:col-span-3">
@@ -797,7 +760,7 @@ const ExamModal = ({ isOpen, onClose, onSubmit, editData, isLoading, userRole, u
                             <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-sm ring-1 ring-slate-100">
                                 <div className="text-sm font-semibold text-slate-800">{form.name}</div>
                                 <p className="mt-1 text-xs text-slate-500">
-                                    Class {form.standard} - Section {form.section} | Academic Year {form.academicYear}
+                                    Class {form.standard.join(', ')} - Section {form.section.join(', ')} | Academic Year {form.academicYear}
                                 </p>
                                 <p className="mt-2 text-xs text-slate-500">
                                     You can edit only syllabus text and attachments for each paper.

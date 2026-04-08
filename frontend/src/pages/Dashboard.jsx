@@ -154,14 +154,39 @@ const Dashboard = () => {
   const stats = useMemo(() => {
     if (!statsRes) return { overall: { total: 0, present: 0, late: 0, absent: 0, rate: "0" }, matrix: [], trend: [10, 10, 10] };
     
-    const matrix = (statsRes.classMatrix || []).map(c => ({
-      name: `${c.standard} ${c.section}`,
-      total: c.total,
-      present: c.present,
-      late: c.late,
-      absent: c.absent,
-      rate: c.rate.toString()
-    }));
+    const matrix = (statsRes.classMatrix || [])
+      .map(c => ({
+        standard: c.standard,
+        section: c.section,
+        name: `${c.standard} ${c.section}`,
+        total: c.total,
+        present: c.present,
+        late: c.late,
+        absent: c.absent,
+        rate: c.rate.toString()
+      }))
+      .sort((a, b) => {
+        const numA = parseInt(a.standard, 10);
+        const numB = parseInt(b.standard, 10);
+        
+        const isNumA = !isNaN(numA);
+        const isNumB = !isNaN(numB);
+
+        // Case 1: Both are numeric standards
+        if (isNumA && isNumB) {
+          if (numA !== numB) return numA - numB;
+          return a.section.localeCompare(b.section);
+        }
+        
+        // Case 2: One is numeric, prioritize it over non-numeric (like CSE)
+        if (isNumA) return -1;
+        if (isNumB) return 1;
+        
+        // Case 3: Both are non-numeric, sort alphabetically
+        const stdCompare = a.standard.toString().localeCompare(b.standard.toString());
+        if (stdCompare !== 0) return stdCompare;
+        return a.section.localeCompare(b.section);
+      });
 
     const rateNum = statsRes.totalStudents > 0 ? (statsRes.todayAttendance.present / statsRes.totalStudents) * 100 : 0;
     const rateStr = rateNum > 0 ? rateNum.toFixed(1) : "0";
@@ -542,11 +567,6 @@ const Dashboard = () => {
               <div>
                 <h2 className="text-2xl font-black text-gray-900 tracking-tight uppercase">Classroom <span className="text-primary">Attendance Matrix</span></h2>
                 <p className="text-[10px] text-gray-400 font-bold tracking-widest uppercase">Live Attendance Heatmap</p>
-              </div>
-              <div className="flex gap-2">
-                {['Floor 1', 'Floor 2', 'Lab Wing'].map(f => (
-                  <button key={f} className="px-3 py-1.5 rounded-lg border border-gray-100 text-[9px] font-black uppercase tracking-widest text-gray-400 hover:text-gray-900 hover:border-primary/20 transition-all">{f}</button>
-                ))}
               </div>
             </div>
 

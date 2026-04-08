@@ -47,7 +47,7 @@ const feeStructureSchema = new mongoose.Schema(
         // Schedule
         frequency: {
             type: String,
-            enum: ["MONTHLY", "QUARTERLY", "YEARLY", "ONE_TIME"],
+            enum: ["MONTHLY", "QUARTERLY", "HALF_YEARLY", "YEARLY", "ONE_TIME"],
             required: [true, "Frequency is required"],
         },
         dueDay: {

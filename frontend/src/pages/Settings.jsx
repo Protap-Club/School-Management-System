@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import CreatableSelect from 'react-select/creatable';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import DashboardLayout from '../layouts/DashboardLayout';
@@ -8,6 +9,7 @@ import api from '../lib/axios';
 import { ButtonSpinner, PageSpinner } from '../components/ui/Spinner';
 import { useToastMessage } from '../hooks/useToastMessage';
 import { settingsKeys } from '../features/settings/api/queries';
+import AddUserModal from '../features/users/components/AddUserModal';
 import {
     getSchoolClassesQueryKey,
     makeSchoolClassesQueryData,
@@ -60,6 +62,61 @@ const CLASS_STANDARD_REGEX = /^[A-Za-z0-9_]+$/;
 const CLASS_SECTION_REGEX =  /^[A-Za-z0-9_]+$/;
 const sanitizeStandardInput = (value) => value.replace(/[^A-Za-z0-9_]/g, '');
 const sanitizeSectionInput = (value) => value.replace(/[^A-Za-z0-9_]/g, '');
+
+const REACT_SELECT_STYLES = {
+    control: (base, state) => ({
+        ...base,
+        minHeight: '44px',
+        borderRadius: '0.75rem',
+        borderColor: state.isFocused ? '#2563eb' : '#e5e7eb',
+        boxShadow: state.isFocused ? '0 0 0 2px rgba(37, 99, 235, 0.2)' : 'none',
+        '&:hover': {
+            borderColor: state.isFocused ? '#2563eb' : '#d1d5db',
+        },
+        backgroundColor: '#ffffff',
+    }),
+    valueContainer: (base) => ({
+        ...base,
+        padding: '0.25rem 0.75rem',
+    }),
+    multiValue: (base) => ({
+        ...base,
+        backgroundColor: '#f3f4f6',
+        borderRadius: '0.375rem',
+        margin: '0.125rem 0.25rem 0.125rem 0',
+    }),
+    multiValueLabel: (base) => ({
+        ...base,
+        color: '#374151',
+        fontSize: '0.875rem',
+        fontWeight: '500',
+        padding: '2px 6px',
+    }),
+    multiValueRemove: (base) => ({
+        ...base,
+        color: '#6b7280',
+        '&:hover': {
+            backgroundColor: '#fee2e2',
+            color: '#ef4444',
+        },
+    }),
+    menu: (base) => ({
+        ...base,
+        borderRadius: '0.75rem',
+        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+        overflow: 'hidden',
+        zIndex: 50,
+    }),
+    option: (base, state) => ({
+        ...base,
+        backgroundColor: state.isFocused ? '#eff6ff' : 'transparent',
+        color: state.isFocused ? '#1d4ed8' : '#374151',
+        cursor: 'pointer',
+        '&:active': {
+            backgroundColor: '#dbeafe',
+        },
+    }),
+};
     
 const Settings = () => {
     const queryClient = useQueryClient();
@@ -85,9 +142,12 @@ const Settings = () => {
     const [savingClass, setSavingClass] = useState(false);
     const [newStandard, setNewStandard] = useState('');
     const [newSection, setNewSection] = useState('');
+    const [newSubjects, setNewSubjects] = useState([]);
+    const [createError, setCreateError] = useState('');
     const [newlyCreatedKeys, setNewlyCreatedKeys] = useState(() => new Set());
     const [showPostCreateModal, setShowPostCreateModal] = useState(false);
     const [createdClassInfo, setCreatedClassInfo] = useState(null);
+    const [addStudentForClass, setAddStudentForClass] = useState(null);
     const [deletePrompt, setDeletePrompt] = useState(null);
     const [transferTarget, setTransferTarget] = useState({ standard: '', section: '' });
     const [teacherTransferTarget, setTeacherTransferTarget] = useState({ standard: '', section: '' });
@@ -233,38 +293,63 @@ const Settings = () => {
 
     const handleCreateClassSection = async () => {
         if (savingClass) return;
+        setCreateError('');
 
-        const normalized = normalizeClassSection({ standard: newStandard, section: newSection });
+        const subjects = newSubjects?.map((s) => s.value) || [];
+        const normalized = normalizeClassSection({ standard: newStandard, section: newSection, subjects });
+
         if (!normalized.standard || !normalized.section) {
-            showMessage('error', 'Please enter both class and section');
+            setCreateError('Please enter both class and section.');
             return;
         }
         if (!CLASS_STANDARD_REGEX.test(normalized.standard)) {
-            showMessage('error', 'Class can contain only letters, numbers, and underscore');
+            setCreateError('Class can contain only letters, numbers, and underscore.');
             return;
         }
         if (!CLASS_SECTION_REGEX.test(normalized.section)) {
-            showMessage('error', 'Section can contain only letters, numbers, and underscore');
+            setCreateError('Section can contain only letters, numbers, and underscore.');
             return;
         }
-
-        const duplicate = classSections.some((item) => makeClassKey(item) === makeClassKey(normalized));
-        if (duplicate) {
-            showMessage('error', `${normalized.standard} - ${normalized.section} already exists`);
+        if (normalized.subjects.length === 0) {
+            setCreateError('Add at least one subject to continue.');
             return;
         }
 
         setSavingClass(true);
         try {
-            // DEFERRED: We no longer create the class in the DB here. 
-            // It will be created when the first student is added via AddUserModal.
-            setCreatedClassInfo({ ...normalized, isPending: true });
+            const response = await api.post('/school/classes', {
+                standard: normalized.standard,
+                section: normalized.section,
+                subjects: normalized.subjects,
+            });
+
+            const snapshot = response.data?.data;
+            if (snapshot) {
+                queryClient.setQueryData(
+                    getSchoolClassesQueryKey(currentSchoolId),
+                    makeSchoolClassesQueryData(snapshot)
+                );
+            }
+
+            const classKey = makeClassKey(normalized);
+            setNewlyCreatedKeys((current) => new Set([...current, classKey]));
+
+            setCreatedClassInfo({ ...normalized });
             setShowPostCreateModal(true);
             setNewStandard('');
             setNewSection('');
-            // window.dispatchEvent(new CustomEvent('customClassesUpdated', { detail: normalized }));
+            setNewSubjects([]);
+            setCreateError('');
+
+            window.dispatchEvent(new CustomEvent('customClassesUpdated', { detail: snapshot }));
         } catch (error) {
-            showMessage('error', error?.message || 'Unexpected setup error');
+            const apiMsg = error?.response?.data?.message || error?.response?.data?.errors?.[0]?.message;
+            const status = error?.response?.status;
+            if (status === 409) {
+                setCreateError(`Class ${normalized.standard} - ${normalized.section} already exists.`);
+            } else {
+                setCreateError(apiMsg || 'Failed to create class. Please try again.');
+            }
         } finally {
             setSavingClass(false);
         }
@@ -591,47 +676,111 @@ const Settings = () => {
                 <div className="fixed inset-0 z-[115] flex items-center justify-center px-4">
                     <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md animate-fadeIn" />
                     <div className="relative w-full max-w-md rounded-[2.5rem] bg-white border border-slate-100 shadow-2xl p-8 overflow-hidden animate-scaleUp">
-                        {/* Decorative Background */}
+                        {/* Decorative blobs */}
                         <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-50 rounded-full blur-3xl -mr-16 -mt-16 opacity-60" />
-                        
-                        <div className="relative z-10 text-center space-y-6">
-                            <div className="w-20 h-20 bg-emerald-50 rounded-3xl flex items-center justify-center mx-auto transform rotate-3 shadow-sm border border-emerald-100">
-                                <FaCheck className="text-emerald-500 text-3xl" />
-                            </div>
-                            
-                            <div className="space-y-2">
-                                <h3 className="text-2xl font-black text-slate-900 tracking-tight">Class Set!</h3>
-                                <p className="text-slate-500 text-sm leading-relaxed px-4">
-                                    Class <span className="font-bold text-slate-900">{createdClassInfo.standard}-{createdClassInfo.section}</span> requires students. 
-                                    Please add the students now to finalize the setup.
-                                </p>
+                        <div className="absolute bottom-0 left-0 w-24 h-24 bg-indigo-50 rounded-full blur-2xl -ml-12 -mb-12 opacity-50" />
+
+                        <div className="relative z-10 space-y-5">
+                            {/* Header */}
+                            <div className="text-center space-y-2">
+                                <div className="w-16 h-16 bg-emerald-50 rounded-3xl flex items-center justify-center mx-auto transform rotate-3 shadow-sm border border-emerald-100">
+                                    <FaCheck className="text-emerald-500 text-2xl" />
+                                </div>
+                                <h3 className="text-xl font-black text-slate-900 tracking-tight">
+                                    Class <span style={{ color: accentColor }}>{createdClassInfo.standard} - {createdClassInfo.section}</span> Created!
+                                </h3>
+                                <p className="text-slate-400 text-xs">Saved to the database. You can add students now or later.</p>
                             </div>
 
-                            <div className="grid grid-cols-1 gap-3 pt-2">
+                            {/* Subject pills strip */}
+                            {(createdClassInfo.subjects || []).length > 0 && (
+                                <div className="rounded-2xl border border-emerald-100 bg-emerald-50/60 px-4 py-3">
+                                    <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-600 mb-2">Subjects saved</p>
+                                    <div className="flex flex-wrap gap-1.5">
+                                        {createdClassInfo.subjects.map((sub, i) => (
+                                            <span key={i} className="inline-flex items-center gap-1 bg-emerald-100 text-emerald-800 text-xs font-semibold px-2.5 py-1 rounded-full">
+                                                <FaCheck size={8} />{sub}
+                                            </span>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Action choices */}
+                            <div className="space-y-2 pt-1">
+                                {/* Action 1 — add a student */}
                                 <button
                                     onClick={() => {
-                                        const rolePath = isSuperAdmin ? 'superadmin' : 'admin';
-                                        navigate(`/${rolePath}/users`, { 
-                                            state: { 
-                                                autoOpenAddModal: 'student',
-                                                initialClass: createdClassInfo 
-                                            } 
-                                        });
+                                        setShowPostCreateModal(false);
+                                        setAddStudentForClass({ ...createdClassInfo });
+                                        setCreatedClassInfo(null);
                                     }}
-                                    className="group w-full flex items-center justify-between p-4 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold transition-all hover:scale-[1.02] active:scale-95 shadow-lg shadow-emerald-200"
+                                    className="group w-full flex items-center justify-between p-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold transition-all hover:scale-[1.01] active:scale-95 shadow-md shadow-emerald-100"
                                 >
                                     <div className="flex items-center gap-3">
-                                        <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center">
-                                            <FaUserGraduate size={14} />
-                                        </div>
-                                        <span>Add Students</span>
+                                        <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center"><FaUserGraduate size={13} /></div>
+                                        <span className="text-sm">Add a student now</span>
                                     </div>
-                                    <FaArrowRight className="opacity-0 group-hover:opacity-100 transition-opacity" />
+                                    <FaArrowRight size={12} className="opacity-0 group-hover:opacity-100 transition-opacity" />
+                                </button>
+
+                                {/* Action 2 — bulk import (coming soon) */}
+                                <button
+                                    type="button"
+                                    disabled
+                                    className="w-full flex items-center justify-between p-3.5 rounded-2xl border border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed"
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center"><FaChalkboardTeacher size={13} /></div>
+                                        <span className="text-sm font-semibold">Bulk import students</span>
+                                    </div>
+                                    <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-100 text-amber-600">Soon</span>
+                                </button>
+
+                                {/* Action 3 — create another */}
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setShowPostCreateModal(false);
+                                        setCreatedClassInfo(null);
+                                    }}
+                                    className="group w-full flex items-center justify-between p-3.5 rounded-2xl border border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50 text-slate-700 font-semibold transition-all"
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center"><FaPlus size={13} /></div>
+                                        <span className="text-sm">Create another class</span>
+                                    </div>
+                                    <FaArrowRight size={12} className="opacity-0 group-hover:opacity-100 transition-opacity" />
+                                </button>
+                            </div>
+
+                            {/* Dismiss link */}
+                            <div className="text-center pt-1">
+                                <button
+                                    type="button"
+                                    onClick={() => { setShowPostCreateModal(false); setCreatedClassInfo(null); }}
+                                    className="text-xs text-slate-400 hover:text-slate-600 transition-colors underline underline-offset-2"
+                                >
+                                    Dismiss — I&apos;ll add students later
                                 </button>
                             </div>
                         </div>
                     </div>
                 </div>
+            )}
+
+            {/* AddUserModal wired to post-create student flow */}
+            {addStudentForClass && (
+                <AddUserModal
+                    isOpen={!!addStudentForClass}
+                    onClose={() => setAddStudentForClass(null)}
+                    roleToAdd="student"
+                    initialData={addStudentForClass}
+                    onSuccess={() => {
+                        showMessage('success', 'Student added successfully');
+                        setAddStudentForClass(null);
+                    }}
+                />
             )}
 
             <div className="space-y-8">
@@ -736,8 +885,8 @@ const Settings = () => {
                                 </div>
 
                                 <div className="p-6 space-y-5">
-                                    <div className="rounded-2xl border border-gray-200 bg-gray-50/70 p-4">
-                                        <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr_auto_auto] gap-3 items-center">
+                                    <div className="rounded-2xl border border-gray-200 bg-gray-50/70 p-4 space-y-4">
+                                        <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] gap-3 items-center">
                                             <input
                                                 type="text"
                                                 value={newStandard}
@@ -755,19 +904,42 @@ const Settings = () => {
                                                 placeholder="Section (e.g. A)"
                                                 className="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                                             />
-                                            <div className="px-3 py-2.5 rounded-xl bg-white border border-gray-200 text-xs font-bold text-gray-600 text-center">
-                                                Preview: <span className="text-gray-900">{newStandard.trim() || '--'} - {(newSection.trim() || '--').toUpperCase()}</span>
+                                        </div>
+                                        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                                            <div className="flex-1 w-full md:max-w-xl">
+                                                <CreatableSelect
+                                                    isMulti
+                                                    placeholder="Type subject and press Enter (e.g. Mathematics, Science)"
+                                                    value={newSubjects}
+                                                    onChange={setNewSubjects}
+                                                    styles={REACT_SELECT_STYLES}
+                                                    className="w-full"
+                                                />
+                                                {createError && (
+                                                    <p className="text-xs text-red-600 mt-1.5 font-semibold px-1 flex items-center gap-1">
+                                                        <FaTimes size={9} />{createError}
+                                                    </p>
+                                                )}
+                                                {!createError && newSubjects.length === 0 && (
+                                                    <p className="text-xs text-amber-600 mt-1.5 font-medium px-1">Add at least one subject to continue.</p>
+                                                )}
                                             </div>
-                                            <button
-                                                type="button"
-                                                onClick={handleCreateClassSection}
-                                                disabled={savingClass}
-                                                className="px-4 py-2.5 rounded-xl text-white font-semibold transition-opacity hover:opacity-90 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                                                style={{ backgroundColor: accentColor }}
-                                            >
-                                                {savingClass ? <ButtonSpinner /> : <FaPlus size={12} />}
-                                                Create
-                                            </button>
+                                            <div className="flex items-center gap-3 w-full md:w-auto">
+                                                <div className="flex-1 md:flex-none px-3 py-2.5 rounded-xl bg-white border border-gray-200 text-xs font-bold text-gray-600 text-center whitespace-nowrap overflow-hidden text-ellipsis">
+                                                    Preview: <span className="text-gray-900">{newStandard.trim() || '--'} - {(newSection.trim() || '--').toUpperCase()}</span>
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={handleCreateClassSection}
+                                                    disabled={savingClass || newSubjects.length === 0}
+                                                    title={newSubjects.length === 0 ? 'Add at least one subject to continue' : undefined}
+                                                    className="px-5 py-2.5 rounded-xl text-white font-semibold transition-opacity hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 whitespace-nowrap shadow-sm"
+                                                    style={{ backgroundColor: accentColor }}
+                                                >
+                                                    {savingClass ? <ButtonSpinner /> : <FaPlus size={12} />}
+                                                    Create
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
 
@@ -794,11 +966,23 @@ const Settings = () => {
                                                 classSections.map((pair) => (
                                                     <div key={makeClassKey(pair)} className="px-4 py-3.5 border-b border-gray-100 last:border-b-0 flex items-center justify-between">
                                                         <div className="flex items-center gap-3">
-                                                            <span className="w-2 h-2 rounded-full" style={{ backgroundColor: accentColor }}></span>
-                                                            <span className="font-semibold text-gray-900">{pair.standard} - {pair.section}</span>
+                                                            <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: accentColor }}></span>
+                                                            <span className="font-semibold text-gray-900 whitespace-nowrap">{pair.standard} - {pair.section}</span>
                                                             {newlyCreatedKeys.has(makeClassKey(pair)) && (
                                                                 <span className="px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-full bg-emerald-100 text-emerald-700">New</span>
                                                             )}
+                                                            <div className="hidden sm:flex gap-1 flex-wrap ml-2 overflow-hidden items-center">
+                                                                {(pair.subjects || []).slice(0, 3).map((sub, idx) => (
+                                                                    <span key={idx} className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded text-[10px] font-medium truncate max-w-20" title={sub}>
+                                                                        {sub}
+                                                                    </span>
+                                                                ))}
+                                                                {(pair.subjects || []).length > 3 && (
+                                                                    <span className="bg-slate-50 border border-slate-200 text-slate-500 px-1.5 py-0.5 rounded text-[10px] font-bold">
+                                                                        +{(pair.subjects.length - 3)}
+                                                                    </span>
+                                                                )}
+                                                            </div>
                                                         </div>
                                                         <button
                                                             type="button"

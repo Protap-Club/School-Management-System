@@ -52,6 +52,11 @@ export const upsertClassSectionSchema = z.object({
             .trim()
             .min(1, 'Section is required')
             .regex(/^[A-Za-z0-9_]+$/, 'Section must be alphanumeric (letters, numbers, underscore only)'),
+        subjects: z
+            .array(
+                z.string().trim().min(1, 'Subject name cannot be empty').max(100, 'Subject name cannot exceed 100 characters')
+            )
+            .min(1, 'At least one subject must be configured for the class'),
     }),
 });
 

@@ -133,9 +133,6 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess, initialData }) =>
         }
         return null;
     }, [formData.section, formData.standard, occupiedTeacherMap, roleToAdd]);
-    const teacherAssignmentLoading = classesLoading || teachersQuery.isLoading;
-
-    // Augment standards/sections if we are in "Pending Class" mode
     const finalStandards = useMemo(() => {
         let baseStandards = standards;
         
@@ -168,6 +165,7 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess, initialData }) =>
         return baseSections;
     }, [formData.standard, getSectionsForStandard, allUniqueSections, initialData, isTeacher, roleToAdd, teacherAssignedClasses]);
 
+    const teacherAssignmentLoading = classesLoading || teachersQuery.isLoading;
     const roleLabel = roleToAdd?.charAt(0).toUpperCase() + roleToAdd?.slice(1);
 
     useEffect(() => {

@@ -113,6 +113,7 @@ export const userIdsBodySchema = z.object({
         userIds: z.array(objectIdSchema).nonempty('User IDs array cannot be empty'),
         isArchived: z.boolean({ required_error: 'isArchived is required' }),
         replacementTeacherId: objectIdSchema.optional(),
+        skipReplacement: z.boolean().optional(),
     }),
 });
 

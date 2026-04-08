@@ -4,6 +4,7 @@ import {
 } from 'react-icons/fa';
 import { useUpdateUser, useUsers } from '../api/queries';
 import { useSchoolClasses } from '../../../hooks/useSchoolClasses';
+import { useAuth } from '../../../features/auth';
 import { formatValue } from '../../../utils';
 import TeacherConflictModal from './TeacherConflictModal';
 
@@ -19,6 +20,10 @@ const buildClassKey = ({ standard, section } = {}) =>
   `${String(standard || '').trim()}::${String(section || '').trim().toUpperCase()}`;
 
 const UserDetailModal = ({ user, onClose, initialMode = 'view', onSuccess }) => {
+  const { user: currentUser } = useAuth();
+  const isTeacherLoggedIn = currentUser?.role === 'teacher';
+  const canViewContacts = ['admin', 'super_admin'].includes(currentUser?.role);
+
   const updateUserMutation = useUpdateUser();
   const teachersQuery = useUsers({ role: 'teacher', pageSize: 5000, enabled: initialMode === 'edit' && user?.role === 'teacher' });
   const [mode, setMode] = useState(initialMode);
@@ -564,14 +569,16 @@ const UserDetailModal = ({ user, onClose, initialMode = 'view', onSuccess }) => 
                           <p className="text-[10px] font-bold text-blue-400 uppercase tracking-widest leading-none mb-1.5">
                             Contact Number {isTeacher ? '(optional)' : ''}
                           </p>
-                          {isEditing ? (
+                          {isEditing && canViewContacts ? (
                             <input
                               className="w-full bg-white/50 border border-blue-100 focus:border-blue-400 rounded-lg py-2 px-3 text-sm font-bold outline-none"
                               value={formData.profile?.fatherContact}
                               onChange={(e) => setFormData({ ...formData, profile: { ...formData.profile, fatherContact: e.target.value.replace(/\D/g, '') } })}
                             />
                           ) : (
-                            <p className="text-sm font-bold text-gray-800">{formatValue(formData.profile?.fatherContact)}</p>
+                            <p className="text-sm font-bold text-gray-800">
+                              {canViewContacts ? formatValue(formData.profile?.fatherContact) : 'Hidden'}
+                            </p>
                           )}
                         </div>
                       </div>
@@ -600,14 +607,16 @@ const UserDetailModal = ({ user, onClose, initialMode = 'view', onSuccess }) => 
                           <p className="text-[10px] font-bold text-pink-400 uppercase tracking-widest leading-none mb-1.5">
                             Contact Number {isTeacher ? '(optional)' : ''}
                           </p>
-                          {isEditing ? (
+                          {isEditing && canViewContacts ? (
                             <input
                               className="w-full bg-white/50 border border-pink-100 focus:border-pink-400 rounded-lg py-2 px-3 text-sm font-bold outline-none"
                               value={formData.profile?.motherContact}
                               onChange={(e) => setFormData({ ...formData, profile: { ...formData.profile, motherContact: e.target.value.replace(/\D/g, '') } })}
                             />
                           ) : (
-                            <p className="text-sm font-bold text-gray-800">{formatValue(formData.profile?.motherContact)}</p>
+                            <p className="text-sm font-bold text-gray-800">
+                              {canViewContacts ? formatValue(formData.profile?.motherContact) : 'Hidden'}
+                            </p>
                           )}
                         </div>
                       </div>
@@ -637,14 +646,16 @@ const UserDetailModal = ({ user, onClose, initialMode = 'view', onSuccess }) => 
                         <p className="text-[10px] font-bold text-purple-400 uppercase tracking-widest leading-none mb-1.5">
                           Guardian Contact {isTeacher ? '(optional)' : ''}
                         </p>
-                        {isEditing ? (
+                        {isEditing && canViewContacts ? (
                           <input
                             className="w-full bg-white/50 border border-purple-100 focus:border-purple-400 rounded-lg py-2 px-3 text-sm font-bold outline-none"
                             value={formData.profile?.guardianContact}
                             onChange={(e) => setFormData({ ...formData, profile: { ...formData.profile, guardianContact: e.target.value.replace(/\D/g, '') } })}
                           />
                         ) : (
-                          <p className="text-sm font-bold text-gray-800">{formatValue(formData.profile?.guardianContact)}</p>
+                          <p className="text-sm font-bold text-gray-800">
+                            {canViewContacts ? formatValue(formData.profile?.guardianContact) : 'Hidden'}
+                          </p>
                         )}
                       </div>
                     </div>

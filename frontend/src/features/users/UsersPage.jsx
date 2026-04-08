@@ -173,7 +173,7 @@ const UsersPage = () => {
         };
     }, []);
 
-    const confirmDelete = async () => {
+    const confirmDelete = async (skipReplacement = false) => {
         setArchiveError('');
         setArchiveErrorDetails(null);
         try {
@@ -184,6 +184,7 @@ const UsersPage = () => {
                 ...(isTeacherArchiveFlow && archiveReplacementTeacherId
                     ? { replacementTeacherId: archiveReplacementTeacherId }
                     : {}),
+                skipReplacement,
             });
             showMessage('success', showArchived ? 'User(s) restored successfully' : 'User(s) archived successfully');
             exitSelectionMode();
@@ -367,15 +368,26 @@ const UsersPage = () => {
                                         )}
                                     </div>
                                 )}
-                                <div className="flex gap-2.5">
-                                    <button onClick={closeArchiveModal} className="flex-1 px-4 py-2 border border-gray-200 text-gray-700 rounded-lg">Cancel</button>
-                                    <button
-                                        onClick={confirmDelete}
-                                        disabled={toggleStatusMutation.isPending}
-                                        className={`flex-1 px-4 py-2 rounded-lg text-white disabled:opacity-70 disabled:cursor-not-allowed ${showArchived ? 'bg-emerald-600' : 'bg-amber-600'}`}
-                                    >
-                                        {toggleStatusMutation.isPending ? 'Processing...' : (showArchived ? 'Restore' : 'Archive')}
-                                    </button>
+                                <div className="flex flex-col gap-2.5">
+                                    {isTeacherArchiveFlow && !showArchived && (
+                                        <button
+                                            onClick={() => confirmDelete(true)}
+                                            disabled={toggleStatusMutation.isPending}
+                                            className="w-full px-4 py-2 border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 rounded-lg text-sm font-medium transition-colors"
+                                        >
+                                            Continue Without Replacement
+                                        </button>
+                                    )}
+                                    <div className="flex gap-2.5">
+                                        <button onClick={closeArchiveModal} className="flex-1 px-4 py-2 border border-gray-200 text-gray-700 hover:bg-gray-50 rounded-lg font-medium transition-colors">Cancel</button>
+                                        <button
+                                            onClick={() => confirmDelete(false)}
+                                            disabled={toggleStatusMutation.isPending}
+                                            className={`flex-1 px-4 py-2 rounded-lg text-white font-medium transition-colors disabled:opacity-70 disabled:cursor-not-allowed ${showArchived ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-amber-600 hover:bg-amber-700'}`}
+                                        >
+                                            {toggleStatusMutation.isPending ? 'Processing...' : (showArchived ? 'Restore' : 'Archive')}
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                     </div>
