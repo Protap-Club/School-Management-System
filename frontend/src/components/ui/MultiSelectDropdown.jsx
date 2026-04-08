@@ -83,7 +83,11 @@ export function MultiSelectDropdown({
           <ChevronDown className={cn("h-4 w-4 shrink-0 transition-transform text-gray-400", disabled && "opacity-50")} />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent className="w-[var(--radix-dropdown-menu-trigger-width)] min-w-[200px] p-1 shadow-xl rounded-xl z-[200] max-h-[350px] overflow-hidden flex flex-col">
+      <DropdownMenuContent 
+        side="bottom" 
+        sideOffset={4}
+        className="w-[var(--radix-dropdown-menu-trigger-width)] min-w-[200px] p-1 shadow-xl rounded-xl z-[200] max-h-[350px] overflow-hidden flex flex-col"
+      >
         <div className="px-2 py-2 sticky top-0 bg-white z-10 border-b border-gray-100 shrink-0">
           <div className="flex items-center gap-2 px-2 py-1.5 bg-gray-50 rounded-lg border border-gray-100 group focus-within:border-primary/30 transition-all">
             <Search size={14} className="text-gray-400 group-focus-within:text-primary transition-colors" />
