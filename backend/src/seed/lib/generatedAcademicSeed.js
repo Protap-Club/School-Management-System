@@ -123,14 +123,25 @@ export const buildTeacherSeedData = (code) => {
     teacherSpecializations.push(sortedSubjects[0]); // Fill with most common subject (usually Math/English)
   }
 
+  const allProfilesData = loadSeedJson("profiles.json");
+  const jsonTeacherProfiles = allProfilesData[code]?.teacherProfiles || [];
+
+  const BASE_SALARY = {
+    "B.Ed.": 32000, "M.Ed.": 36000, "B.Sc., B.Ed.": 38000,
+    "M.Sc., B.Ed.": 44000, "B.A., B.Ed.": 34000, "M.A., B.Ed.": 39000,
+    "B.Com., B.Ed.": 33000, "M.Com., B.Ed.": 37000,
+  };
+
   // 3. Initialize Teacher Pool (48 records)
   const teachers = [];
   const usedNames = new Set(existingTeachers.map(t => String(t.name).toLowerCase()));
 
   for (let i = 0; i < TOTAL_TEACHERS; i++) {
     let teacherBase;
+    let jsonProfile = null;
     if (i < existingTeachers.length) {
       teacherBase = { ...existingTeachers[i] };
+      jsonProfile = jsonTeacherProfiles.find(p => p.email === teacherBase.email);
     } else {
       const schoolDomain = usersData.studentConfig?.emailDomains?.[code] || `${code.toLowerCase()}.com`;
       let name = teacherPool.find(n => !usedNames.has(n.toLowerCase()));
@@ -144,17 +155,23 @@ export const buildTeacherSeedData = (code) => {
       };
     }
 
-    const profilesData = loadSeedJson("profiles.json");
-    const schoolProfiles = profilesData[code]?.teacherProfiles || [];
-    const jsonProfile = schoolProfiles.find(p => p.email === teacherBase.email);
+    const qualification = jsonProfile?.qualification || qualifications[i % qualifications.length];
+    const joiningDate = jsonProfile?.joiningDate || `2025-${String((i % 9) + 1).padStart(2, "0")}-${String((i % 20) + 1).padStart(2, "0")}`;
+    
+    let expectedSalary = jsonProfile?.expectedSalary;
+    if (!expectedSalary) {
+      const joiningYear = parseInt(joiningDate.split("-")[0]) || 2020;
+      const yearsExp = new Date().getFullYear() - joiningYear;
+      expectedSalary = (BASE_SALARY[qualification] || 35000) + (yearsExp * 1000);
+    }
 
     teachers.push({
       ...teacherBase,
       role: "teacher",
-      employeeId: `${code}-T${String(i + 1).padStart(3, "0")}`,
-      qualification: qualifications[i % qualifications.length],
-      joiningDate: `2025-${String((i % 9) + 1).padStart(2, "0")}-${String((i % 20) + 1).padStart(2, "0")}`,
-      
+      employeeId: jsonProfile?.employeeId || `${code}-T${String(i + 1).padStart(3, "0")}`,
+      qualification,
+      joiningDate,
+      expectedSalary,
       specialization: teacherSpecializations[i],
       subjects: [teacherSpecializations[i]],
       assignedClasses: [],

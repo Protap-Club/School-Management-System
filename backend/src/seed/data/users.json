@@ -364,7 +364,7 @@
     ],
     "studentsPerSection": 30,
     "year": 2026,
-    "admissionDateStart": "2026-04-01",
+    "admissionDateStart": "2025-06-15",
     "admissionDateRangeDays": 30,
     "basePhonePrefix": "+91-9",
     "emailDomains": {
