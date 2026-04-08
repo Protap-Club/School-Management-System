@@ -15,6 +15,7 @@ import {
     useCreateTimetable,
     useDeleteEntry,
     useMySchedule,
+    useMyClassSchedule,
     useTeacherSchedule,
     useTeachers,
     useTimetable,
@@ -48,6 +49,7 @@ const TimetablePage = () => {
     const schoolLogo = schoolData?.logoUrl || null;
 
     const [adminViewMode, setAdminViewMode] = useState("class");
+    const [teacherViewMode, setTeacherViewMode] = useState("schedule");
     const [selectedTeacherId, setSelectedTeacherId] = useState("");
     const [selectedClassKey, setSelectedClassKey] = useState("");
     const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -145,6 +147,7 @@ const TimetablePage = () => {
         isAdmin && adminViewMode === "class" && Boolean(activeTimetableId)
     );
     const myScheduleQuery = useMySchedule(isTeacher);
+    const myClassScheduleQuery = useMyClassSchedule(isTeacher);
     const teacherScheduleQuery = useTeacherSchedule(
         activeTeacherId,
         null,
@@ -162,12 +165,15 @@ const TimetablePage = () => {
     );
     const teacherScheduleEntries = flattenSchedule(teacherScheduleQuery.data?.data);
     const myScheduleEntries = flattenSchedule(myScheduleQuery.data?.data);
+    const myClassScheduleEntries = flattenSchedule(myClassScheduleQuery.data?.data?.timetable);
+    const myClassInfo = myClassScheduleQuery.data?.data?.classInfo;
 
     const displayEntries = useMemo(() => {
+        if (isTeacher && teacherViewMode === "class") return myClassScheduleEntries;
         if (isTeacher) return myScheduleEntries;
         if (adminViewMode === "teacher") return teacherScheduleEntries;
         return selectedTimetableEntries;
-    }, [isTeacher, adminViewMode, myScheduleEntries, teacherScheduleEntries, selectedTimetableEntries]);
+    }, [isTeacher, teacherViewMode, adminViewMode, myScheduleEntries, myClassScheduleEntries, teacherScheduleEntries, selectedTimetableEntries]);
 
     const currentError = errorMessage ||
         readError(timeSlotsQuery.error, "") ||
@@ -175,6 +181,7 @@ const TimetablePage = () => {
         readError(teachersQuery.error, "") ||
         readError(selectedTimetableQuery.error, "") ||
         readError(myScheduleQuery.error, "") ||
+        readError(myClassScheduleQuery.error, "") ||
         readError(teacherScheduleQuery.error, "");
 
     const closeModal = () => {
@@ -256,7 +263,7 @@ const TimetablePage = () => {
         });
     };
 
-    const isLoading = timeSlotsQuery.isLoading || (isTeacher ? myScheduleQuery.isLoading : false);
+    const isLoading = timeSlotsQuery.isLoading || (isTeacher ? (myScheduleQuery.isLoading || myClassScheduleQuery.isLoading) : false);
     const isEntryMutationPending = createEntryMutation.isPending || updateEntryMutation.isPending || deleteEntryMutation.isPending;
 
     return (
@@ -352,11 +359,13 @@ const TimetablePage = () => {
                         </div>
                     ) : (
                         <div className="flex items-center gap-3">
-                            <div className="inline-flex items-center gap-2 rounded-md bg-gray-100 border border-gray-200/80 px-3 py-1.5 text-xs font-medium text-gray-600">
-                                <FaChalkboardTeacher size={14} />
-                                Active Faculty Schedule
-                            </div>
-                            {myScheduleEntries.length > 0 && (
+                            <Tabs value={teacherViewMode} onValueChange={setTeacherViewMode} className="bg-gray-100/50 p-1 rounded-lg border border-gray-200/60">
+                                <TabsList className="bg-transparent gap-1 h-auto p-0">
+                                    <TabsTrigger value="schedule" className="rounded-md text-[13px] font-medium data-[state=active]:bg-white data-[state=active]:shadow-sm px-4 py-1.5 data-[state=active]:text-gray-900 text-gray-600">Schedule</TabsTrigger>
+                                    <TabsTrigger value="class" className="rounded-md text-[13px] font-medium data-[state=active]:bg-white data-[state=active]:shadow-sm px-4 py-1.5 data-[state=active]:text-gray-900 text-gray-600">Class</TabsTrigger>
+                                </TabsList>
+                            </Tabs>
+                            {teacherViewMode === "schedule" && myScheduleEntries.length > 0 && (
                                 <Button
                                     size="sm"
                                     variant="outline"
@@ -366,6 +375,12 @@ const TimetablePage = () => {
                                     <FaFilePdf size={12} />
                                     Export PDF
                                 </Button>
+                            )}
+                            {teacherViewMode === "class" && myClassInfo && (
+                                <div className="inline-flex items-center gap-2 rounded-md bg-blue-50 border border-blue-200/80 px-3 py-1.5 text-xs font-medium text-blue-700">
+                                    <FaChalkboardTeacher size={14} />
+                                    Class {myClassInfo.standard}-{myClassInfo.section}
+                                </div>
                             )}
                         </div>
                     )}
@@ -392,6 +407,7 @@ const TimetablePage = () => {
                                     onCellClick={handleCellClick}
                                     readOnly={isTeacher || adminViewMode === "teacher" || (isAdmin && adminViewMode === "class" && !activeTimetableId)}
                                     showClass={isTeacher || adminViewMode === "teacher"}
+                                    classInfo={teacherViewMode === "class" ? myClassInfo : null}
                                 />
                             </div>
                         </div>

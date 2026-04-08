@@ -13,6 +13,7 @@ import {
     deleteEntry,
     getTeacherSchedule,
     getMyTimetable,
+    getMyClassTimetable,
 } from "./timetable.controller.js";
 import { checkRole } from "../../middlewares/role.middleware.js";
 import { USER_ROLES } from "../../constants/userRoles.js";
@@ -44,6 +45,9 @@ router.use(requireFeature("timetable"));
 
 // teacher or student can view their own weekly timetable (works on both web and mobile)
 router.get("/schedule/me", checkRole([USER_ROLES.TEACHER, USER_ROLES.STUDENT]), getMyTimetable);
+
+// teacher can view their assigned class's timetable (only for class teachers)
+router.get("/schedule/class", checkRole([USER_ROLES.TEACHER]), getMyClassTimetable);
 
 // admin can view any teacher's schedule (web only)
 router.get("/schedule/:teacherId", checkWebOnly, checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN]), validate(teacherScheduleParamsSchema), getTeacherSchedule);
