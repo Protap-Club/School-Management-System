@@ -19,21 +19,30 @@ const hashInt = (input) => {
 const seedAttendance = async () => {
   logger.info("=== Seeding Attendance ===");
 
-  const dates = (attData.dates || []).map((d) => new Date(d));
-  if (!dates.length) {
-    logger.warn("No dates in attendance.json, skipping.");
-    return;
+  const dates = [];
+  const today = new Date();
+  today.setUTCHours(0, 0, 0, 0);
+  let d = new Date(today);
+  
+  while (dates.length < 90) {
+    d.setUTCDate(d.getUTCDate() - 1);
+    if (d.getUTCDay() !== 0) { // 0 is Sunday
+      dates.push(new Date(d));
+    }
   }
 
-  const presentPct = (attData.presentPercentage ?? 85) / 100;
   const defaultRemarks = attData.absentRemarks || "Absent without notice";
-  const targetStandard = attData.targetClass?.standard;
-  const targetSection = attData.targetClass?.section;
 
-  const dateValues = dates.map((d) => {
-    const dt = new Date(d);
-    dt.setUTCHours(0, 0, 0, 0);
-    return dt;
+  const getStandardRate = (standard) => {
+    const s = parseInt(standard) || 1;
+    // Standards 1-5 (~95%), Standards 10-12 (~82%)
+    return 0.96 - ((s - 1) * 0.012);
+  };
+
+  const dateValues = dates.map((dt) => {
+    const dCopy = new Date(dt);
+    dCopy.setUTCHours(0, 0, 0, 0);
+    return dCopy;
   });
 
   for (const schoolDef of schoolsDef) {
@@ -56,11 +65,10 @@ const seedAttendance = async () => {
     let totalInserted = 0;
 
     for (const profile of profiles) {
-      const isTarget =
-        targetStandard &&
-        profile.standard === targetStandard &&
-        (!targetSection || profile.section === targetSection);
-      const prob = isTarget ? presentPct : 0.9;
+      const baseProb = getStandardRate(profile.standard);
+      // Deterministic personal attendance factor (-5% to +5% modifier)
+      const studentJitter = ((hashInt(profile.userId.toString()) % 100) - 50) / 1000;
+      const prob = Math.min(0.99, Math.max(0.60, baseProb + studentJitter));
 
       for (const date of dates) {
         const dateKey = date.toISOString().slice(0, 10);
