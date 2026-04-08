@@ -2,6 +2,7 @@ import { TimeSlot, Timetable, TimetableEntry, DAYS_OF_WEEK } from "./Timetable.m
 import { NotFoundError, ConflictError, ForbiddenError, BadRequestError } from "../../utils/customError.js";
 import logger from "../../config/logger.js";
 import StudentProfile from "../user/model/StudentProfile.model.js";
+import TeacherProfile from "../user/model/TeacherProfile.model.js";
 import {
     buildClassSectionKey,
     getConfiguredClassSections,
@@ -430,4 +431,77 @@ export const getUserTimetable = async (schoolId, userId, role, platform) => {
     }
 
     return grouped;
+};
+
+// returns the class timetable for a teacher's assigned class
+// teachers can see their own class's timetable (if they are class teacher)
+// this is similar to student timetable but for teachers
+export const getTeacherClassTimetable = async (schoolId, teacherId, platform) => {
+    await cleanupOrphanTimetables(schoolId);
+
+    // Get teacher's profile to find assigned classes
+    const teacherProfile = await TeacherProfile.findOne({
+        userId: teacherId,
+        schoolId
+    }).lean();
+
+    if (!teacherProfile || !teacherProfile.assignedClasses || teacherProfile.assignedClasses.length === 0) {
+        throw new NotFoundError("No assigned class found. You are not assigned as class teacher to any class.");
+    }
+
+    // Get the primary assigned class (first one)
+    const assignedClass = teacherProfile.assignedClasses[0];
+
+    // Find the timetable for this class
+    const timetable = await Timetable.findOne({
+        schoolId,
+        standard: assignedClass.standard,
+        section: assignedClass.section,
+    }).sort({ academicYear: -1 }).lean();
+
+    if (!timetable) {
+        throw new NotFoundError(`No timetable found for class ${assignedClass.standard}-${assignedClass.section}`);
+    }
+
+    // Get all entries for this timetable
+    const result = await TimetableEntry.find({
+        schoolId,
+        timetableId: timetable._id
+    })
+        .populate("teacherId", "name isArchived")
+        .populate("timetableId", "standard section academicYear")
+        .populate("timeSlotId", "slotNumber startTime endTime slotType")
+        .lean();
+
+    const grouped = groupEntriesByDay(result);
+
+    // mobile app gets a flat structure without mongo IDs for cleaner display
+    if (platform === "mobile") {
+        const formatted = {};
+        Object.keys(grouped).forEach(day => {
+            formatted[day] = grouped[day].map(entry => ({
+                subject: entry.subject,
+                teacher: entry.teacherId?.name,
+                room: entry.roomNumber,
+                startTime: entry.timeSlotId?.startTime,
+                endTime: entry.timeSlotId?.endTime,
+                slotNumber: entry.timeSlotId?.slotNumber,
+                slotType: entry.timeSlotId?.slotType,
+                isProxy: entry.isProxy || false,
+                originalTeacher: entry.originalTeacherId?.name,
+                standard: entry.standard,
+                section: entry.section
+            }));
+        });
+        return formatted;
+    }
+
+    return {
+        timetable: grouped,
+        classInfo: {
+            standard: assignedClass.standard,
+            section: assignedClass.section,
+            subjects: assignedClass.subjects || []
+        }
+    };
 };
