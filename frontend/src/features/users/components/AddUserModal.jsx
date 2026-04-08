@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { FaTimes, FaUserPlus, FaBuilding } from 'react-icons/fa';
+import { FaTimes, FaUserPlus, FaBuilding, FaInfoCircle } from 'react-icons/fa';
 import api from '../../../lib/axios';
 import { useAuth } from '../../../features/auth';
 import { useCreateUser, useUsers } from '../api/queries';
+import { useProfile } from '../../attendance';
 import { useSchoolClasses } from '../../../hooks/useSchoolClasses';
 import { useNavigate } from 'react-router-dom';
+import TeacherConflictModal from './TeacherConflictModal';
 
 const InputField = ({ label, name, value, onChange, type = "text", required = false, isNumeric = false, ...props }) => (
     <div className="space-y-1">
@@ -84,6 +86,7 @@ const buildClassKey = ({ standard, section } = {}) =>
 
 const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess, initialData }) => {
     const { user } = useAuth();
+    const { data: profileData } = useProfile();
     const navigate = useNavigate();
     const isSuperAdmin = user?.role === 'super_admin';
     const isAdmin = user?.role === 'admin';
@@ -98,7 +101,18 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess, initialData }) =>
     const [schoolName, setSchoolName] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const [conflicts, setConflicts] = useState([]);
+    const [showConflictModal, setShowConflictModal] = useState(false);
+    const [pendingPayload, setPendingPayload] = useState(null);
     const [activeGuardianTab, setActiveGuardianTab] = useState('parents'); // 'parents' | 'guardian'
+
+    // Get teacher's assigned classes for filtering
+    const teacherAssignedClasses = useMemo(() => {
+        if (!isTeacher || !profileData?.data?.profile?.assignedClasses) {
+            return [];
+        }
+        return profileData.data.profile.assignedClasses;
+    }, [isTeacher, profileData]);
 
     // Classes / sections fetched from backend via global hook
     const { loading: classesLoading, classSections, availableStandards: standards, getSectionsForStandard, allUniqueSections } = useSchoolClasses();
@@ -120,23 +134,36 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess, initialData }) =>
         return null;
     }, [formData.section, formData.standard, occupiedTeacherMap, roleToAdd]);
     const finalStandards = useMemo(() => {
+        let baseStandards = standards;
+        
+        // For teachers creating students, filter to only their assigned classes
         if (isTeacher && roleToAdd === 'student') {
-            const assignedClasses = user?.profile?.assignedClasses || [];
-            return [...new Set(assignedClasses.map(c => c.standard))];
+            const teacherStandards = [...new Set(teacherAssignedClasses.map(cls => cls.standard))];
+            baseStandards = standards.filter(std => teacherStandards.includes(std));
         }
-        return standards;
-    }, [standards, isTeacher, roleToAdd, user?.profile?.assignedClasses]);
+        
+        if (initialData?.isPending && initialData.standard && !baseStandards.includes(initialData.standard)) {
+            return [...baseStandards, initialData.standard];
+        }
+        return baseStandards;
+    }, [standards, initialData, isTeacher, roleToAdd, teacherAssignedClasses]);
 
     const finalSections = useMemo(() => {
-        if (isTeacher && roleToAdd === 'student') {
-            const assignedClasses = user?.profile?.assignedClasses || [];
-            if (formData.standard) {
-                return assignedClasses.filter(c => String(c.standard) === String(formData.standard)).map(c => c.section);
-            }
-            return [...new Set(assignedClasses.map(c => c.section))];
+        let baseSections = formData.standard ? getSectionsForStandard(formData.standard) : allUniqueSections;
+        
+        // For teachers creating students, filter sections to only their assigned classes for the selected standard
+        if (isTeacher && roleToAdd === 'student' && formData.standard) {
+            const teacherSectionsForStandard = teacherAssignedClasses
+                .filter(cls => cls.standard === formData.standard)
+                .map(cls => cls.section);
+            baseSections = baseSections.filter(section => teacherSectionsForStandard.includes(section));
         }
-        return formData.standard ? getSectionsForStandard(formData.standard) : allUniqueSections;
-    }, [formData.standard, getSectionsForStandard, allUniqueSections, isTeacher, roleToAdd, user?.profile?.assignedClasses]);
+        
+        if (initialData?.isPending && formData.standard === initialData.standard && !baseSections.includes(initialData.section)) {
+            return [...baseSections, initialData.section];
+        }
+        return baseSections;
+    }, [formData.standard, getSectionsForStandard, allUniqueSections, initialData, isTeacher, roleToAdd, teacherAssignedClasses]);
 
     const teacherAssignmentLoading = classesLoading || teachersQuery.isLoading;
     const roleLabel = roleToAdd?.charAt(0).toUpperCase() + roleToAdd?.slice(1);
@@ -144,8 +171,8 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess, initialData }) =>
     useEffect(() => {
         if (!isOpen) return;
         // Reset form on open, but preserve initialData if provided (for class/section)
-        setFormData({ 
-            ...INITIAL_FORM, 
+        setFormData({
+            ...INITIAL_FORM,
             schoolId: '',
             ...(initialData?.standard ? { standard: initialData.standard } : {}),
             ...(initialData?.section ? { section: initialData.section } : {})
@@ -182,6 +209,23 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess, initialData }) =>
         setLoading(true);
         setError('');
         try {
+            // DEFERRED CLASS CREATION: If this class doesn't exist yet, create it now!
+            if (initialData?.isPending && formData.standard === initialData.standard && formData.section === initialData.section) {
+                try {
+                    await api.post('/school/classes', {
+                        standard: formData.standard,
+                        section: formData.section
+                    });
+                    // Note: We don't necessarily need to refresh the global list here 
+                    // because we are navigating away or the student creation will trigger a refresh.
+                } catch (err) {
+                    // If it already exists (e.g. concurrent action), we can ignore and proceed
+                    if (err.response?.status !== 400 && err.response?.status !== 409) {
+                        throw new Error(err.response?.data?.message || 'Failed to initialize class');
+                    }
+                }
+            }
+
             const fullName = `${formData.firstName}${formData.middleName ? ' ' + formData.middleName : ''} ${formData.lastName}`.trim();
 
             const payload = {
@@ -265,9 +309,31 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess, initialData }) =>
             if (onSuccess) onSuccess();
             onClose();
         } catch (err) {
+            if (err.response?.status === 409 && err.response?.data?.code === 'CLASS_TEACHER_ALREADY_ASSIGNED') {
+                setConflicts(err.response.data.conflicts || []);
+                setPendingPayload(payload);
+                setShowConflictModal(true);
+                return;
+            }
             setError(err.response?.data?.message || err.response?.data?.errors?.[0]?.message || 'Failed to create user');
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleConfirmConflict = async () => {
+        if (!pendingPayload) return;
+        setLoading(true);
+        setShowConflictModal(false);
+        try {
+            await createUserMutation.mutateAsync({ ...pendingPayload, forceOverride: true });
+            if (onSuccess) onSuccess();
+            onClose();
+        } catch (err) {
+            setError(err.response?.data?.message || 'Failed to create user after override');
+        } finally {
+            setLoading(false);
+            setPendingPayload(null);
         }
     };
 
@@ -360,7 +426,7 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess, initialData }) =>
                                                     Quick Head's up!
                                                 </p>
                                                 <p className="font-medium text-amber-700/90 text-xs">
-                                                    Class <strong className="text-amber-900">{formData.standard} {formData.section}</strong> is already assigned to our teacher named <strong className="text-amber-900">{occupiedTeacherName}</strong>. 
+                                                    Class <strong className="text-amber-900">{formData.standard} {formData.section}</strong> is already assigned to our teacher named <strong className="text-amber-900">{occupiedTeacherName}</strong>.
                                                 </p>
                                             </div>
                                         </div>
@@ -368,12 +434,12 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess, initialData }) =>
                                             <p className="text-xs text-amber-700/80 font-bold uppercase tracking-wide flex items-center gap-1.5">
                                                 🏫 Add new class and section directly from settings 🏛️
                                             </p>
-                                            <button 
-                                                type="button" 
+                                            <button
+                                                type="button"
                                                 onClick={() => {
                                                     onClose();
                                                     navigate(`/${rolePrefix}/settings#academic-management`, { state: { fromAddTeacherWarning: true } });
-                                                }} 
+                                                }}
                                                 className="self-start bg-white border border-amber-300 text-amber-700 px-4 py-2.5 rounded-xl font-bold hover:bg-amber-100 hover:scale-[1.02] transition-all flex items-center gap-2"
                                             >
                                                 Create a new class and section
@@ -394,6 +460,39 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess, initialData }) =>
                         {roleToAdd === 'student' && (
                             <div className="space-y-6">
                                 {renderSectionHeader('bg-emerald-500', 'Academic Details')}
+                                
+                                {/* Teacher restriction notice */}
+                                {isTeacher && (
+                                    <div className="rounded-2xl border border-blue-200 bg-blue-50 px-5 py-4 text-sm text-blue-800 shadow-sm">
+                                        <div className="flex items-start gap-4">
+                                            <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+                                                <FaInfoCircle className="text-blue-600" size={20} />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <p className="font-semibold text-blue-900 leading-tight">
+                                                    Class Assignment Notice
+                                                </p>
+                                                <p className="font-medium text-blue-700/90 text-xs">
+                                                    As a teacher, you can only create students for your assigned classes:
+                                                </p>
+                                                {teacherAssignedClasses.length > 0 ? (
+                                                    <div className="flex flex-wrap gap-2 mt-2">
+                                                        {teacherAssignedClasses.map((cls, index) => (
+                                                            <span key={index} className="inline-block bg-blue-100 text-blue-800 px-2.5 py-1 rounded-lg text-xs font-semibold border border-blue-200">
+                                                                {cls.standard}-{cls.section.toUpperCase()}
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                ) : (
+                                                    <p className="text-amber-700 font-medium text-xs mt-2">
+                                                        You have no assigned classes. Please contact your administrator.
+                                                    </p>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                                
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                                     <InputField label="Roll Number" name="rollNumber" value={formData.rollNumber} onChange={handleChange} required isNumeric />
                                     <SelectField
@@ -401,14 +500,14 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess, initialData }) =>
                                         onChange={handleChange} required
                                         options={finalStandards}
                                         loading={classesLoading}
-                                        disabled={classesLoading}
+                                        disabled={classesLoading || (isTeacher && teacherAssignedClasses.length === 0)}
                                     />
                                     <SelectField
                                         label="Section" name="section" value={formData.section}
                                         onChange={handleChange} required
                                         options={finalSections}
                                         loading={classesLoading}
-                                        disabled={classesLoading || !formData.standard}
+                                        disabled={classesLoading || !formData.standard || (isTeacher && teacherAssignedClasses.length === 0)}
                                     />
                                 </div>
                             </div>
@@ -438,12 +537,12 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess, initialData }) =>
                                                 <h5 className={`text-[10px] font-black ${p.textColor} uppercase tracking-widest`}>{p.label}</h5>
                                                 <div className="space-y-4">
                                                     <InputField label="Full Name" name={p.nameField} value={formData[p.nameField]} onChange={handleChange} />
-                                                    <InputField 
-                                                        label={`Contact No. ${isTeacher ? '(optional)' : ''}`} 
-                                                        name={p.contactField} 
-                                                        value={formData[p.contactField]} 
-                                                        onChange={handleChange} 
-                                                        isNumeric 
+                                                    <InputField
+                                                        label={`Contact No. ${isTeacher ? '(optional)' : ''}`}
+                                                        name={p.contactField}
+                                                        value={formData[p.contactField]}
+                                                        onChange={handleChange}
+                                                        isNumeric
                                                         maxLength={10}
                                                         required={!isTeacher && Boolean(formData[p.nameField]?.trim())}
                                                     />
@@ -456,12 +555,12 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess, initialData }) =>
                                         <h5 className={`text-[10px] font-black ${GUARDIAN_SECTION.textColor} uppercase tracking-widest`}>{GUARDIAN_SECTION.label}</h5>
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                             <InputField label="Full Name" name={GUARDIAN_SECTION.nameField} value={formData[GUARDIAN_SECTION.nameField]} onChange={handleChange} />
-                                            <InputField 
-                                                label={`Contact No. ${isTeacher ? '(optional)' : ''}`} 
-                                                name={GUARDIAN_SECTION.contactField} 
-                                                value={formData[GUARDIAN_SECTION.contactField]} 
-                                                onChange={handleChange} 
-                                                isNumeric 
+                                            <InputField
+                                                label={`Contact No. ${isTeacher ? '(optional)' : ''}`}
+                                                name={GUARDIAN_SECTION.contactField}
+                                                value={formData[GUARDIAN_SECTION.contactField]}
+                                                onChange={handleChange}
+                                                isNumeric
                                                 maxLength={10}
                                                 required={!isTeacher && Boolean(formData[GUARDIAN_SECTION.nameField]?.trim())}
                                             />
@@ -485,6 +584,13 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess, initialData }) =>
                     </form>
                 </div>
             </div>
+
+            <TeacherConflictModal
+                isOpen={showConflictModal}
+                onClose={() => setShowConflictModal(false)}
+                onConfirm={handleConfirmConflict}
+                conflicts={conflicts}
+            />
         </div>
     );
 };
