@@ -107,3 +107,12 @@ export const getSubjectTeacher = asyncHandler(async (req, res) => {
         data: result
     });
 });
+
+export const getNextRollNumber = asyncHandler(async (req, res) => {
+    const { standard, section } = req.query;
+    const result = await userService.getNextRollNumber(req.user, standard, section);
+    res.status(200).json({
+        success: true,
+        data: result
+    });
+});
