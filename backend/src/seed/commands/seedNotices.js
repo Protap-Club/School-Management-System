@@ -17,22 +17,33 @@ const seedNotices = async () => {
     await Notice.deleteMany({ schoolId: school._id });
     await NoticeGroup.deleteMany({ schoolId: school._id });
 
+    const records = [];
     let seededNotices = 0;
+    
     for (const notice of noticeData.notices) {
-      // Find sender by role — admin or teacher
       const senderRole = notice.senderRole || "admin";
       const sender = await User.findOne({ schoolId: school._id, role: senderRole }).select("_id");
+      
       if (!sender) {
         logger.warn(`[${schoolDef.code}] No ${senderRole} found for notice: ${notice.title}`);
         continue;
       }
 
-      // Map JSON recipientType to model enum: all, classes, users, students, groups
       const typeMap = { student: "students", teacher: "users", teachers: "users" };
       let recipientType = notice.recipientType || "all";
       recipientType = typeMap[recipientType] || recipientType;
 
-      await Notice.create({
+      const startDate = new Date(notice.startDate || Date.now());
+      const endDate = new Date(notice.endDate || Date.now());
+      const now = new Date();
+
+      // Backdate the posting time a bit before the event starts
+      const createdAt = new Date(startDate.getTime() - (24 * 60 * 60 * 1000 * 2));
+      
+      // Auto-expire notices if the event has completely concluded
+      const isActive = endDate.getTime() >= now.getTime();
+
+      records.push({
         schoolId: school._id,
         createdBy: sender._id,
         title: notice.title || "",
@@ -41,9 +52,15 @@ const seedNotices = async () => {
         recipientType,
         recipients: [],
         status: "sent",
-        isActive: true,
+        isActive,
+        createdAt,
+        updatedAt: createdAt
       });
       seededNotices += 1;
+    }
+
+    if (records.length > 0) {
+        await Notice.insertMany(records, { ordered: false });
     }
 
     logger.info(`[${schoolDef.code}] Notices seeded: ${seededNotices}`);

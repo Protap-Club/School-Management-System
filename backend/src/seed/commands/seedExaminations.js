@@ -166,6 +166,10 @@ const seedExaminations = async () => {
         const createdBy = template.examType === "CLASS_TEST" ? teacherUserId : admin._id;
         const createdByRole = template.examType === "CLASS_TEST" ? "teacher" : admin.role;
 
+        const schedule = buildSchedule(template, classIdx, classRef, subjects, assignmentMap, admin._id);
+        const isPast = schedule.every((s) => new Date(s.examDate).getTime() < new Date().getTime());
+        const status = isPast ? "COMPLETED" : "PUBLISHED";
+
         examRecords.push({
           schoolId: school._id,
           name: fillTemplate(template.nameTemplate, { classLabel }),
@@ -175,8 +179,8 @@ const seedExaminations = async () => {
           standard: classRef.standard,
           section: classRef.section,
           description: fillTemplate(template.descriptionTemplate, { classLabel }),
-          schedule: buildSchedule(template, classIdx, classRef, subjects, assignmentMap, admin._id),
-          status: template.status,
+          schedule,
+          status,
           createdBy,
           createdByRole,
           isActive: true,
@@ -189,7 +193,7 @@ const seedExaminations = async () => {
       : [];
 
     const calendarEvents = insertedExams
-      .filter((exam) => exam.status === "PUBLISHED")
+      .filter((exam) => exam.status === "PUBLISHED" || exam.status === "COMPLETED")
       .flatMap((exam) => buildCalendarEvents(exam, school._id));
 
     if (calendarEvents.length) {

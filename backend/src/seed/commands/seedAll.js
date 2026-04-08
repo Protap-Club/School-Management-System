@@ -8,6 +8,7 @@ import seedCalendar from "./seedCalendar.js";
 import seedNotices from "./seedNotices.js";
 import seedAssignments from "./seedAssignments.js";
 import seedExaminations from "./seedExaminations.js";
+import seedResults from "./seedResults.js";
 import logger from "../../config/logger.js";
 
 const seedAll = async () => {
@@ -30,6 +31,7 @@ const seedAll = async () => {
     await seedNotices();
     await seedAssignments();
     await seedExaminations();
+    await seedResults();
 
     const elapsed = ((Date.now() - start) / 1000).toFixed(1);
     logger.info("═══════════════════════════════════════════");
