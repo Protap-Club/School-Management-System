@@ -58,8 +58,47 @@ const getTeacherAssignmentsFromPayload = (userData = {}) => {
     return [];
 };
 
+/**
+ * Removes disputed class assignments from displaced teachers.
+ * Called only on forceOverride — never automatically.
+ * Only removes the specific conflicting class; leaves all other data intact.
+ */
+const clearDisplacedTeacherClasses = async (schoolId, conflicts = []) => {
+    if (!conflicts.length) return;
+
+    for (const conflict of conflicts) {
+        await TeacherProfile.updateOne(
+            { userId: conflict.teacherId, schoolId },
+            {
+                $pull: {
+                    assignedClasses: {
+                        standard: conflict.standard,
+                        section: conflict.section,
+                    },
+                },
+            }
+        );
+        logger.info(
+            { teacherId: conflict.teacherId, class: conflict.classLabel },
+            "Displaced teacher class cleared on forceOverride"
+        );
+    }
+};
+
+/**
+ * Normalizes class assignments for a user based on role.
+ * For teachers: validates the class exists and checks for conflicts.
+ *
+ * @param {string} schoolId
+ * @param {string} role
+ * @param {object} userData - mutated in-place with normalized values
+ * @param {object} options
+ * @param {string|null} options.excludeUserId - exclude this teacher from conflict checks (for updates)
+ * @param {boolean} options.forceOverride - when true, skip conflict assert and return conflicts for caller to handle
+ * @returns {{ conflicts: Array }} - conflicts array (empty when none or when assert throws normally)
+ */
 const normalizeUserClassAssignments = async (schoolId, role, userData, options = {}) => {
-    const { excludeUserId = null } = options;
+    const { excludeUserId = null, forceOverride = false } = options;
 
     if (role === USER_ROLES.STUDENT && (userData.standard || userData.section)) {
         const normalizedStudentClass = await assertClassSectionExists(
@@ -74,7 +113,7 @@ const normalizeUserClassAssignments = async (schoolId, role, userData, options =
     }
 
     if (role !== USER_ROLES.TEACHER) {
-        return;
+        return { conflicts: [] };
     }
 
     const requestedAssignedClasses = Array.isArray(userData.assignedClasses)
@@ -117,11 +156,22 @@ const normalizeUserClassAssignments = async (schoolId, role, userData, options =
     }
 
     const teacherAssignments = getTeacherAssignmentsFromPayload(userData);
-    if (teacherAssignments.length > 0) {
-        await assertTeacherClassAssignmentsAvailable(schoolId, teacherAssignments, {
-            excludeUserIds: excludeUserId ? [excludeUserId] : [],
-        });
+    if (teacherAssignments.length === 0) {
+        return { conflicts: [] };
     }
+
+    // Detect conflicts first so we can either block or surface them
+    const conflicts = await findTeacherClassConflicts(schoolId, teacherAssignments, {
+        excludeUserIds: excludeUserId ? [excludeUserId] : [],
+    });
+
+    if (conflicts.length > 0 && !forceOverride) {
+        // Return conflicts to the caller — do NOT throw here; let service decide HTTP response
+        return { conflicts };
+    }
+
+    // No conflicts, or admin explicitly confirmed override — proceed
+    return { conflicts };
 };
 
 const buildTeacherArchiveSummary = async (schoolId, teacherIds = []) => {
@@ -288,17 +338,58 @@ const transferTeacherResponsibilities = async (
 // CREATE USER
 
 export const createUser = async (creator, userData) => {
-    const { name, email, role, skipEmail } = userData;
+    const { name, email, role, skipEmail, forceOverride = false } = userData;
 
     // Hierarchy check: creator can only create roles below their own
     if (!canManageRole(creator.role, role)) {
         throw new ForbiddenError(`You cannot create a user with role '${role}'. You can only create roles below your own.`);
     }
 
+    // Teacher-specific validation: teachers can only create students for their assigned classes
+    if (creator.role === USER_ROLES.TEACHER && role === USER_ROLES.STUDENT) {
+        const assignedClasses = await getTeacherAssignedClasses(creator._id);
+        
+        if (!assignedClasses.length) {
+            throw new ForbiddenError("You have no assigned classes and cannot create students");
+        }
+
+        // Check if the requested student class is within teacher's assigned classes
+        if (userData.standard || userData.section) {
+            const requestedClass = {
+                standard: userData.standard,
+                section: userData.section
+            };
+            
+            const isAssigned = assignedClasses.some(cls =>
+                cls.standard === requestedClass.standard &&
+                cls.section === requestedClass.section
+            );
+            
+            if (!isAssigned) {
+                const assignedClassLabels = assignedClasses.map(cls => 
+                    formatClassSectionLabel(cls)
+                ).join(', ');
+                throw new ForbiddenError(
+                    `You can only create students for your assigned classes: ${assignedClassLabels}`
+                );
+            }
+        }
+    }
+
     // School context — always scoped to creator's school
     const targetSchoolId = userData.schoolId || creator.schoolId;
 
-    await normalizeUserClassAssignments(targetSchoolId, role, userData);
+    const { conflicts } = await normalizeUserClassAssignments(targetSchoolId, role, userData, { forceOverride });
+
+    // Surface conflicts to the controller — do not proceed until user confirms
+    if (conflicts.length > 0 && !forceOverride) {
+        return { conflict: true, conflicts };
+    }
+
+    // forceOverride: clear displaced teachers' class assignments before creating
+    if (forceOverride && conflicts.length > 0) {
+        await clearDisplacedTeacherClasses(targetSchoolId, conflicts);
+    }
 
     if (creator.role === USER_ROLES.TEACHER && role === USER_ROLES.STUDENT) {
         const teacherProfile = await TeacherProfile.findOne({ userId: creator._id, schoolId: targetSchoolId }).lean();
@@ -674,12 +765,12 @@ export const toggleArchive = async (creator, userIds, isArchived, options = {}) 
                 return;
             }
 
-                const classKey = `${assignedClass.standard}::${assignedClass.section}`;
-                if (!duplicateAssignments.has(classKey)) {
-                    duplicateAssignments.set(classKey, []);
-                }
+            const classKey = `${assignedClass.standard}::${assignedClass.section}`;
+            if (!duplicateAssignments.has(classKey)) {
+                duplicateAssignments.set(classKey, []);
+            }
 
-                duplicateAssignments.get(classKey).push(String(profile.userId));
+            duplicateAssignments.get(classKey).push(String(profile.userId));
         });
 
         const duplicateRestoreClass = [...duplicateAssignments.entries()].find(
@@ -943,7 +1034,7 @@ export const replaceClassTeacher = async (creator, data = {}) => {
     };
 };
 
-// UPDATE TEACHER PROFILE (e.g. expectedSalary)
+// UPDATE TEACHER PROFILE (e.g. expectedSalary) - Fixed conflict checking
 export const updateTeacherProfile = async (creator, userId, data) => {
     // Only admins can update profiles in this way
     if (![USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN].includes(creator.role)) {
@@ -954,9 +1045,31 @@ export const updateTeacherProfile = async (creator, userId, data) => {
     if (!user) throw new NotFoundError("User not found");
     if (user.role !== USER_ROLES.TEACHER) throw new BadRequestError("User is not a teacher");
 
+    // Check for class-teacher conflicts if assignedClasses is being updated
+    if (data.assignedClasses !== undefined) {
+        const classPayload = { assignedClasses: data.assignedClasses };
+        const { conflicts } = await normalizeUserClassAssignments(creator.schoolId, USER_ROLES.TEACHER, classPayload, {
+            excludeUserId: user._id,
+            forceOverride: Boolean(data.forceOverride),
+        });
+
+        // Return conflicts to the caller — caller must confirm before we proceed
+        if (conflicts.length > 0 && !data.forceOverride) {
+            return { conflict: true, conflicts };
+        }
+
+        // Confirmed override: clear displaced teachers first
+        if (data.forceOverride && conflicts.length > 0) {
+            await clearDisplacedTeacherClasses(creator.schoolId, conflicts);
+        }
+    }
+
+    // Remove forceOverride from data before saving to DB
+    const { forceOverride, ...profileData } = data;
+
     const updatedProfile = await TeacherProfile.findOneAndUpdate(
         { userId, schoolId: creator.schoolId },
-        { $set: data },
+        { $set: profileData },
         { new: true, runValidators: true, upsert: true }
     );
 
@@ -976,14 +1089,14 @@ export const updateUser = async (creator, userId, payload = {}) => {
         if (creator.role === USER_ROLES.TEACHER && user.role === USER_ROLES.STUDENT) {
             const assignedClasses = await getTeacherAssignedClasses(creator._id);
             const studentProfile = await StudentProfile.findOne({ userId: user._id, schoolId: creator.schoolId });
-            
+
             if (!studentProfile) throw new NotFoundError("Student profile not found");
 
             const isAssigned = assignedClasses.some(cls =>
                 cls.standard === studentProfile.standard &&
                 cls.section === studentProfile.section
             );
-            
+
             if (!isAssigned) {
                 throw new ForbiddenError("This student is not in your assigned classes");
             }
@@ -1026,10 +1139,22 @@ export const updateUser = async (creator, userId, payload = {}) => {
             classPayload.assignedClasses = profileInput.assignedClasses;
         }
 
+        
         if (Object.keys(classPayload).length > 0) {
-            await normalizeUserClassAssignments(creator.schoolId, user.role, classPayload, {
+            const { conflicts } = await normalizeUserClassAssignments(creator.schoolId, user.role, classPayload, {
                 excludeUserId: user._id,
+                forceOverride: Boolean(payload.forceOverride),
             });
+
+            // Surface conflicts to the controller — caller must confirm before we proceed
+            if (conflicts.length > 0 && !payload.forceOverride) {
+                return { conflict: true, conflicts };
+            }
+
+            // Confirmed override: clear displaced teachers first
+            if (payload.forceOverride && conflicts.length > 0) {
+                await clearDisplacedTeacherClasses(creator.schoolId, conflicts);
+            }
         }
 
         const profileUpdates = {};
