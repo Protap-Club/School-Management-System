@@ -695,23 +695,24 @@ const ExamModal = ({ isOpen, onClose, onSubmit, editData, isLoading, userRole, u
                                                     <option key={cat.value} value={cat.value}>{cat.label}</option>
                                                 ))}
                                             </select>
-                                            {form.category === 'OTHER' && (
-                                                <div className="mt-3">
-                                                    <label className={labelClasses}>Describe Category *</label>
-                                                    <input
-                                                        type="text"
-                                                        value={form.categoryDescription}
-                                                        onChange={(e) => handleChange('categoryDescription', e.target.value)}
-                                                        className={inputClasses('categoryDescription')}
-                                                    />
-                                                    {errors.categoryDescription && (
-                                                        <p className="text-red-500 text-[11px] font-medium mt-1.5 ml-1">
-                                                            {errors.categoryDescription}
-                                                        </p>
-                                                    )}
-                                                </div>
-                                            )}
                                         </div>
+
+                                        {form.category === 'OTHER' && (
+                                            <div>
+                                                <label className={labelClasses}>Describe Category *</label>
+                                                <input
+                                                    type="text"
+                                                    value={form.categoryDescription}
+                                                    onChange={(e) => handleChange('categoryDescription', e.target.value)}
+                                                    className={inputClasses('categoryDescription')}
+                                                />
+                                                {errors.categoryDescription && (
+                                                    <p className="text-red-500 text-[11px] font-medium mt-1.5 ml-1">
+                                                        {errors.categoryDescription}
+                                                    </p>
+                                                )}
+                                            </div>
+                                        )}
 
                                         <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:col-span-3">
                                             <div className="space-y-1">
