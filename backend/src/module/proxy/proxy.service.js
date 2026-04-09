@@ -1,8 +1,7 @@
 import { ProxyRequest, ProxyAssignment } from "./Proxy.model.js";
 import { TimetableEntry, TimeSlot } from "../timetable/Timetable.model.js";
 import User from "../user/model/User.model.js";
-import TeacherProfile from "../user/model/TeacherProfile.model.js";
-import { NotFoundError, ConflictError, ForbiddenError, BadRequestError } from "../../utils/customError.js";
+import { NotFoundError, ConflictError, BadRequestError } from "../../utils/customError.js";
 import logger from "../../config/logger.js";
 import { USER_ROLES } from "../../constants/userRoles.js";
 import * as noticeService from "../notice/notice.service.js";
@@ -13,6 +12,81 @@ import * as noticeService from "../notice/notice.service.js";
 const getDayOfWeek = (date) => {
     const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
     return days[date.getDay()];
+};
+
+const normalizeStartOfDay = (value) => {
+    const date = new Date(value);
+    date.setHours(0, 0, 0, 0);
+    return date;
+};
+
+const normalizeEndOfDay = (value) => {
+    const date = new Date(value);
+    date.setHours(23, 59, 59, 999);
+    return date;
+};
+
+const parseDateInput = (value, label) => {
+    const normalizedValue =
+        typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)
+            ? `${value}T00:00:00`
+            : value;
+    const parsed = new Date(normalizedValue);
+    if (Number.isNaN(parsed.getTime())) {
+        throw new BadRequestError(`Invalid ${label} format`);
+    }
+    return parsed;
+};
+
+const resolveDateRangeFilters = (filters = {}) => {
+    const { date, fromDate, toDate, datePreset } = filters;
+
+    // Backward-compatible single-day filter.
+    if (date) {
+        const parsedDate = parseDateInput(date, "date");
+        return {
+            start: normalizeStartOfDay(parsedDate),
+            end: normalizeEndOfDay(parsedDate),
+        };
+    }
+
+    const preset = (datePreset || "").trim().toLowerCase();
+    const todayStart = normalizeStartOfDay(new Date());
+    const todayEnd = normalizeEndOfDay(new Date());
+
+    if (preset === "today") {
+        return { start: todayStart, end: todayEnd };
+    }
+
+    if (preset === "last7") {
+        const start = new Date(todayStart);
+        start.setDate(start.getDate() - 6);
+        return { start, end: todayEnd };
+    }
+
+    if (preset === "last30") {
+        const start = new Date(todayStart);
+        start.setDate(start.getDate() - 29);
+        return { start, end: todayEnd };
+    }
+
+    if (preset && !["all", "custom"].includes(preset)) {
+        throw new BadRequestError("Invalid datePreset. Allowed values: all, today, last7, last30, custom");
+    }
+
+    const hasCustomRange = Boolean(fromDate) || Boolean(toDate) || preset === "custom";
+    if (!hasCustomRange) {
+        return { start: null, end: null };
+    }
+
+    const start = fromDate ? normalizeStartOfDay(parseDateInput(fromDate, "fromDate")) : null;
+    const end = toDate ? normalizeEndOfDay(parseDateInput(toDate, "toDate")) : null;
+
+    if (start && end && start > end) {
+        throw new BadRequestError("fromDate cannot be after toDate");
+    }
+
+    return { start, end };
 };
 
 /**
@@ -58,10 +132,9 @@ export const checkTeacherAvailability = async (schoolId, teacherId, date, dayOfW
 
 /**
  * Get list of available teachers for a proxy assignment
- * Returns teachers sorted by relevance (same subject, familiarity with class)
+ * Returns only teachers who are free for the requested slot.
  */
-export const getAvailableTeachersForProxy = async (schoolId, date, dayOfWeek, timeSlotId, subject, standard, section) => {
-    // Get all active teachers
+export const getAvailableTeachersForProxy = async (schoolId, date, dayOfWeek, timeSlotId) => {
     const allTeachers = await User.find({
         schoolId,
         role: USER_ROLES.TEACHER,
@@ -69,51 +142,28 @@ export const getAvailableTeachersForProxy = async (schoolId, date, dayOfWeek, ti
         isArchived: false
     }).select("_id name email").lean();
 
-    const availableTeachers = [];
+    const availabilityResults = await Promise.all(
+        allTeachers.map(async (teacher) => {
+            const availability = await checkTeacherAvailability(
+                schoolId,
+                teacher._id,
+                date,
+                dayOfWeek,
+                timeSlotId
+            );
 
-    for (const teacher of allTeachers) {
-        const availability = await checkTeacherAvailability(
-            schoolId,
-            teacher._id,
-            date,
-            dayOfWeek,
-            timeSlotId
-        );
+            return { teacher, availability };
+        })
+    );
 
-        if (availability.available) {
-            // Get teacher profile for additional info (subjects, classes)
-            const profile = await TeacherProfile.findOne({
-                userId: teacher._id,
-                schoolId
-            }).select("assignedClasses subjects").lean();
-
-            // Calculate relevance score
-            let relevanceScore = 0;
-
-            // Same subject match
-            if (profile?.subjects?.includes(subject)) {
-                relevanceScore += 10;
-            }
-
-            // Familiarity with class (teaches this class)
-            if (profile?.assignedClasses?.some(cls => 
-                cls.standard === standard && cls.section === section
-            )) {
-                relevanceScore += 5;
-            }
-
-            availableTeachers.push({
-                _id: teacher._id,
-                name: teacher.name,
-                email: teacher.email,
-                profile,
-                relevanceScore
-            });
-        }
-    }
-
-    // Sort by relevance score (highest first)
-    return availableTeachers.sort((a, b) => b.relevanceScore - a.relevanceScore);
+    return availabilityResults
+        .filter(({ availability }) => availability.available)
+        .map(({ teacher }) => ({
+            _id: teacher._id,
+            name: teacher.name,
+            email: teacher.email
+        }))
+        .sort((a, b) => a.name.localeCompare(b.name));
 };
 
 /**
@@ -222,37 +272,75 @@ export const createProxyRequest = async (teacherId, schoolId, data) => {
  * Get all proxy requests for a school (admin view)
  */
 export const getProxyRequests = async (schoolId, filters = {}) => {
-    const { status, date, teacherId, page = 0, pageSize = 25 } = filters;
+    const { status, teacherId, page = 0, pageSize = 25 } = filters;
+    const { start, end } = resolveDateRangeFilters(filters);
+
+    const numericPage = Number.parseInt(page, 10);
+    const numericPageSize = Number.parseInt(pageSize, 10);
+    const safePage = Number.isNaN(numericPage) ? 0 : Math.max(numericPage, 0);
+    const safePageSize = Number.isNaN(numericPageSize) ? 25 : Math.min(Math.max(numericPageSize, 1), 100);
 
     const query = { schoolId };
-
     if (status) query.status = status;
     if (teacherId) query.teacherId = teacherId;
-    if (date) {
-        const filterDate = new Date(date);
-        const startOfDay = new Date(filterDate.setHours(0, 0, 0, 0));
-        const endOfDay = new Date(filterDate.setHours(23, 59, 59, 999));
-        query.date = { $gte: startOfDay, $lte: endOfDay };
+    if (start || end) {
+        query.date = {};
+        if (start) query.date.$gte = start;
+        if (end) query.date.$lte = end;
     }
 
-    const totalCount = await ProxyRequest.countDocuments(query);
+    const statsQuery = { schoolId };
+    if (teacherId) statsQuery.teacherId = teacherId;
+    if (start || end) {
+        statsQuery.date = {};
+        if (start) statsQuery.date.$gte = start;
+        if (end) statsQuery.date.$lte = end;
+    }
 
-    const requests = await ProxyRequest.find(query)
-        .populate("teacherId", "name email")
-        .populate("timeSlotId", "startTime endTime slotNumber")
-        .populate("proxyAssignmentId")
-        .sort({ date: -1, slotNumber: 1 })
-        .skip(page * pageSize)
-        .limit(pageSize)
-        .lean();
+    const [totalCount, requests, pendingCount, resolvedRequestsForStats] = await Promise.all([
+        ProxyRequest.countDocuments(query),
+        ProxyRequest.find(query)
+            .populate("teacherId", "name email")
+            .populate("timeSlotId", "startTime endTime slotNumber")
+            .populate({
+                path: "proxyAssignmentId",
+                select: "type proxyTeacherId notes",
+                populate: {
+                    path: "proxyTeacherId",
+                    select: "name email"
+                }
+            })
+            .sort({ date: -1, slotNumber: 1 })
+            .skip(safePage * safePageSize)
+            .limit(safePageSize)
+            .lean(),
+        ProxyRequest.countDocuments({ ...statsQuery, status: "pending" }),
+        ProxyRequest.find({ ...statsQuery, status: "resolved" })
+            .populate("proxyAssignmentId", "type")
+            .lean()
+    ]);
+
+    let assignedProxyCount = 0;
+    let freePeriodCount = 0;
+
+    resolvedRequestsForStats.forEach((request) => {
+        const assignmentType = request.proxyAssignmentId?.type;
+        if (assignmentType === "proxy") assignedProxyCount += 1;
+        if (assignmentType === "free_period") freePeriodCount += 1;
+    });
 
     return {
         requests,
+        stats: {
+            pendingCount,
+            assignedProxyCount,
+            freePeriodCount
+        },
         pagination: {
-            page,
-            pageSize,
+            page: safePage,
+            pageSize: safePageSize,
             totalCount,
-            totalPages: Math.ceil(totalCount / pageSize)
+            totalPages: Math.ceil(totalCount / safePageSize)
         }
     };
 };
@@ -667,7 +755,7 @@ export const getTeacherScheduleWithProxies = async (schoolId, teacherId, date) =
         })),
         proxyAssignments: proxyAssignments.map(assignment => ({
             ...assignment,
-            type: "proxy"
+            type: assignment.type || "proxy" // Use actual type: "proxy" or "free_period"
         })),
         proxyRequests: proxyRequests
     };

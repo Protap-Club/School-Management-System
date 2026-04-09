@@ -25,11 +25,14 @@ export const createProxyRequest = asyncHandler(async (req, res) => {
  * Get all proxy requests (admin view)
  */
 export const getProxyRequests = asyncHandler(async (req, res) => {
-    const { status, date, teacherId, page, pageSize } = req.query;
+    const { status, date, fromDate, toDate, datePreset, teacherId, page, pageSize } = req.query;
     
     const result = await proxyService.getProxyRequests(req.user.schoolId, {
         status,
         date,
+        fromDate,
+        toDate,
+        datePreset,
         teacherId,
         page: parseInt(page) || 0,
         pageSize: parseInt(pageSize) || 25

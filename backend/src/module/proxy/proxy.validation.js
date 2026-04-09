@@ -23,6 +23,9 @@ export const getProxyRequestsSchema = z.object({
     query: z.object({
         status: z.enum(["pending", "resolved", "cancelled"]).optional(),
         date: z.string().optional(),
+        fromDate: z.string().optional(),
+        toDate: z.string().optional(),
+        datePreset: z.enum(["all", "today", "last7", "last30", "custom"]).optional(),
         teacherId: objectIdSchema.optional(),
         page: z.string().optional().default("0"),
         pageSize: z.string().optional().default("25")
