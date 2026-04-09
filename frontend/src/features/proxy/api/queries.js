@@ -1,6 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { proxyApi } from "./api";
 
+const invalidateTimetableScheduleCaches = (queryClient) => {
+    queryClient.invalidateQueries({ queryKey: ["timetable", "mySchedule"] });
+    queryClient.invalidateQueries({ queryKey: ["timetable", "teacherSchedule"] });
+};
+
 // Query keys
 export const proxyKeys = {
     all: ["proxies"],
@@ -25,6 +30,7 @@ export const useCreateProxyRequest = () => {
             // Invalidate my requests and assignments
             queryClient.invalidateQueries({ queryKey: proxyKeys.myRequests() });
             queryClient.invalidateQueries({ queryKey: proxyKeys.assignments() });
+            invalidateTimetableScheduleCaches(queryClient);
         },
     });
 };
@@ -51,6 +57,7 @@ export const useCancelProxyRequest = () => {
             queryClient.invalidateQueries({ queryKey: proxyKeys.myRequests() });
             queryClient.invalidateQueries({ queryKey: proxyKeys.requests() });
             queryClient.invalidateQueries({ queryKey: proxyKeys.assignments() });
+            invalidateTimetableScheduleCaches(queryClient);
         },
     });
 };
@@ -89,6 +96,7 @@ export const useAssignProxyTeacher = () => {
             queryClient.invalidateQueries({ queryKey: proxyKeys.requests() });
             queryClient.invalidateQueries({ queryKey: proxyKeys.assignments() });
             queryClient.invalidateQueries({ queryKey: proxyKeys.myRequests() });
+            invalidateTimetableScheduleCaches(queryClient);
         },
     });
 };
@@ -103,6 +111,8 @@ export const useMarkAsFreePeriod = () => {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: proxyKeys.requests() });
             queryClient.invalidateQueries({ queryKey: proxyKeys.assignments() });
+            queryClient.invalidateQueries({ queryKey: proxyKeys.myRequests() });
+            invalidateTimetableScheduleCaches(queryClient);
         },
     });
 };
@@ -117,6 +127,7 @@ export const useCreateDirectAssignment = () => {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: proxyKeys.requests() });
             queryClient.invalidateQueries({ queryKey: proxyKeys.assignments() });
+            invalidateTimetableScheduleCaches(queryClient);
         },
     });
 };

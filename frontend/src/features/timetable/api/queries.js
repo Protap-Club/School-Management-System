@@ -9,7 +9,7 @@ export const timetableKeys = {
     timetables: () => [...timetableKeys.all, "timetables"],
     timetable: (id) => [...timetableKeys.timetables(), id],
     timetableFilters: (filters) => [...timetableKeys.timetables(), filters],
-    mySchedule: () => [...timetableKeys.all, 'mySchedule'],
+    mySchedule: (date) => [...timetableKeys.all, "mySchedule", date || "default"],
     teacherSchedule: (id, year) => [...timetableKeys.all, 'teacherSchedule', id, year],
     teachers: () => [...timetableKeys.all, "teachers"],
 };
@@ -120,10 +120,10 @@ export const useDeleteEntry = () => {
     });
 };
 
-export const useMySchedule = (enabled = true) => {
+export const useMySchedule = (date = null, enabled = true) => {
     return useQuery({
-        queryKey: timetableKeys.mySchedule(),
-        queryFn: timetableApi.getMySchedule,
+        queryKey: timetableKeys.mySchedule(date),
+        queryFn: () => timetableApi.getMySchedule(date),
         enabled,
     });
 };

@@ -44,7 +44,9 @@ const TimetablePage = () => {
         try {
             const cached = JSON.parse(sessionStorage.getItem('schoolBranding'));
             schoolData = cached?.school || cached || schoolData;
-        } catch (e) { }
+        } catch {
+            // Ignore malformed cache payload and fallback to auth school data.
+        }
     }
     const schoolName = schoolData?.name || 'School';
     const schoolLogo = schoolData?.logoUrl || null;
@@ -59,6 +61,16 @@ const TimetablePage = () => {
     const [errorMessage, setErrorMessage] = useState("");
     const [modalState, setModalState] = useState({ open: false, cell: null });
     const { message: toast, showMessage } = useToastMessage(5000);
+
+    const weekReferenceDate = useMemo(() => {
+        const today = new Date();
+        const currentDay = today.getDay(); // Sun=0
+        const diff = today.getDate() - currentDay + (currentDay === 0 ? -6 : 1); // Monday
+        const monday = new Date(today.setDate(diff));
+        monday.setDate(monday.getDate() + weekOffset * 7);
+        monday.setHours(0, 0, 0, 0);
+        return monday.toISOString();
+    }, [weekOffset]);
 
     const timeSlotsQuery = useTimeSlots();
     const timetablesQuery = useTimetables({}, isAdmin);
@@ -149,7 +161,7 @@ const TimetablePage = () => {
         activeTimetableId,
         isAdmin && adminViewMode === "class" && Boolean(activeTimetableId)
     );
-    const myScheduleQuery = useMySchedule(isTeacher);
+    const myScheduleQuery = useMySchedule(weekReferenceDate, isTeacher);
     const teacherScheduleQuery = useTeacherSchedule(
         activeTeacherId,
         null,

@@ -1,21 +1,26 @@
-import React, { useState, useMemo } from "react";
-import { 
-    FaCalendarAlt, 
-    FaUserClock, 
-    FaUserCheck, 
+import React, { useMemo, useState } from "react";
+import {
+    FaCalendarAlt,
+    FaUserClock,
+    FaUserCheck,
     FaUserTimes,
     FaFilter,
-    FaSearch,
     FaCheck,
-    FaTimes
+    FaTimes,
 } from "react-icons/fa";
 import { formatDate } from "../../../utils";
-import { 
-    useProxyRequests, 
-    useAvailableTeachers, 
-    useAssignProxyTeacher,
-    useMarkAsFreePeriod 
+import {
+    useProxyRequests,
+    useMarkAsFreePeriod
 } from "../api/queries";
+import { useTeachers } from "../../timetable/api/queries";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue
+} from "../../../components/ui/select";
 import ProxyAssignModal from "./ProxyAssignModal";
 
 const STATUS_COLORS = {
@@ -30,31 +35,84 @@ const STATUS_ICONS = {
     cancelled: FaUserTimes
 };
 
-const ProxyManagementPage = () => {
-    const [filters, setFilters] = useState({
-        status: "pending",
-        date: "",
-        page: 0,
-        pageSize: 25
-    });
+const DATE_PRESET_OPTIONS = [
+    { value: "all", label: "All History" },
+    { value: "today", label: "Today" },
+    { value: "last7", label: "Last 7 Days" },
+    { value: "last30", label: "Last 30 Days" },
+    { value: "custom", label: "Custom Range" },
+];
 
+const DEFAULT_FILTERS = {
+    status: "",
+    datePreset: "all",
+    fromDate: "",
+    toDate: "",
+    teacherId: "",
+    page: 0,
+    pageSize: 25
+};
+
+const ProxyManagementPage = () => {
+    const [filters, setFilters] = useState(DEFAULT_FILTERS);
     const [selectedRequest, setSelectedRequest] = useState(null);
     const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
     const [isFreePeriodModalOpen, setIsFreePeriodOpen] = useState(false);
 
-    const { data, isLoading, error } = useProxyRequests(filters);
-    const assignProxy = useAssignProxyTeacher();
+    const queryFilters = useMemo(() => {
+        const payload = {
+            page: filters.page,
+            pageSize: filters.pageSize
+        };
+
+        if (filters.status) payload.status = filters.status;
+        if (filters.teacherId) payload.teacherId = filters.teacherId;
+        if (filters.datePreset) payload.datePreset = filters.datePreset;
+        if (filters.datePreset === "custom") {
+            if (filters.fromDate) payload.fromDate = filters.fromDate;
+            if (filters.toDate) payload.toDate = filters.toDate;
+        }
+
+        return payload;
+    }, [filters]);
+
+    const { data, isLoading, error } = useProxyRequests(queryFilters);
+    const teachersQuery = useTeachers(true);
     const markFree = useMarkAsFreePeriod();
 
     const requests = data?.data?.requests || [];
     const pagination = data?.data?.pagination || {};
+    const stats = data?.data?.stats || {
+        pendingCount: 0,
+        assignedProxyCount: 0,
+        freePeriodCount: 0
+    };
+    const teachers = teachersQuery.data?.data?.users || [];
 
     const handleStatusChange = (status) => {
-        setFilters(prev => ({ ...prev, status, page: 0 }));
+        setFilters((prev) => ({ ...prev, status: status === "all" ? "" : status, page: 0 }));
     };
 
-    const handleDateChange = (e) => {
-        setFilters(prev => ({ ...prev, date: e.target.value, page: 0 }));
+    const handleTeacherChange = (teacherId) => {
+        setFilters((prev) => ({ ...prev, teacherId: teacherId === "all" ? "" : teacherId, page: 0 }));
+    };
+
+    const handleDatePresetChange = (preset) => {
+        setFilters((prev) => ({
+            ...prev,
+            datePreset: preset,
+            fromDate: preset === "custom" ? prev.fromDate : "",
+            toDate: preset === "custom" ? prev.toDate : "",
+            page: 0
+        }));
+    };
+
+    const handleCustomFromDate = (value) => {
+        setFilters((prev) => ({ ...prev, fromDate: value, page: 0 }));
+    };
+
+    const handleCustomToDate = (value) => {
+        setFilters((prev) => ({ ...prev, toDate: value, page: 0 }));
     };
 
     const handleAssignProxy = (request) => {
@@ -69,7 +127,7 @@ const ProxyManagementPage = () => {
 
     const confirmFreePeriod = async () => {
         if (!selectedRequest) return;
-        
+
         try {
             await markFree.mutateAsync({
                 requestId: selectedRequest._id,
@@ -82,9 +140,16 @@ const ProxyManagementPage = () => {
         }
     };
 
+    const hasActiveFilters = Boolean(
+        filters.status ||
+        filters.teacherId ||
+        filters.datePreset !== "all" ||
+        filters.fromDate ||
+        filters.toDate
+    );
+
     return (
         <div className="p-6 max-w-7xl mx-auto">
-            {/* Header */}
             <div className="mb-8">
                 <div className="flex items-center gap-3 mb-2">
                     <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center">
@@ -97,7 +162,6 @@ const ProxyManagementPage = () => {
                 </div>
             </div>
 
-            {/* Filters */}
             <div className="mb-6 p-4 bg-white rounded-xl shadow-sm border border-gray-100">
                 <div className="flex flex-wrap items-center gap-4">
                     <div className="flex items-center gap-2">
@@ -105,34 +169,67 @@ const ProxyManagementPage = () => {
                         <span className="text-sm font-medium text-gray-700">Filters:</span>
                     </div>
 
-                    {/* Status Filter */}
-                    <div className="flex items-center gap-2">
-                        <select
-                            value={filters.status}
-                            onChange={(e) => handleStatusChange(e.target.value)}
-                            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
-                        >
-                            <option value="">All Status</option>
-                            <option value="pending">Pending</option>
-                            <option value="resolved">Resolved</option>
-                            <option value="cancelled">Cancelled</option>
-                        </select>
-                    </div>
+                    <Select value={filters.status || "all"} onValueChange={handleStatusChange}>
+                        <SelectTrigger className="w-44 h-10">
+                            <SelectValue placeholder="All Status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">All Status</SelectItem>
+                            <SelectItem value="pending">Pending</SelectItem>
+                            <SelectItem value="resolved">Resolved</SelectItem>
+                            <SelectItem value="cancelled">Cancelled</SelectItem>
+                        </SelectContent>
+                    </Select>
 
-                    {/* Date Filter */}
-                    <div className="flex items-center gap-2">
-                        <input
-                            type="date"
-                            value={filters.date}
-                            onChange={handleDateChange}
-                            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
-                        />
-                    </div>
+                    <Select value={filters.datePreset} onValueChange={handleDatePresetChange}>
+                        <SelectTrigger className="w-48 h-10">
+                            <SelectValue placeholder="Date Range" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {DATE_PRESET_OPTIONS.map((option) => (
+                                <SelectItem key={option.value} value={option.value}>
+                                    {option.label}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
 
-                    {/* Clear Filters */}
-                    {(filters.status || filters.date) && (
+                    <Select value={filters.teacherId || "all"} onValueChange={handleTeacherChange}>
+                        <SelectTrigger className="w-52 h-10">
+                            <SelectValue placeholder="All Teachers" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">All Teachers</SelectItem>
+                            {teachers.map((teacher) => (
+                                <SelectItem key={teacher._id} value={teacher._id}>
+                                    {teacher.name}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+
+                    {filters.datePreset === "custom" && (
+                        <>
+                            <input
+                                type="date"
+                                value={filters.fromDate}
+                                onChange={(e) => handleCustomFromDate(e.target.value)}
+                                className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
+                                aria-label="From date"
+                            />
+                            <input
+                                type="date"
+                                value={filters.toDate}
+                                onChange={(e) => handleCustomToDate(e.target.value)}
+                                className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
+                                aria-label="To date"
+                            />
+                        </>
+                    )}
+
+                    {hasActiveFilters && (
                         <button
-                            onClick={() => setFilters({ status: "pending", date: "", page: 0, pageSize: 25 })}
+                            onClick={() => setFilters(DEFAULT_FILTERS)}
                             className="text-sm text-blue-600 hover:text-blue-700 font-medium"
                         >
                             Clear filters
@@ -141,7 +238,6 @@ const ProxyManagementPage = () => {
                 </div>
             </div>
 
-            {/* Stats Summary */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                 <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl">
                     <div className="flex items-center gap-3">
@@ -149,9 +245,7 @@ const ProxyManagementPage = () => {
                             <FaUserClock className="text-amber-600" size={20} />
                         </div>
                         <div>
-                            <p className="text-2xl font-bold text-amber-900">
-                                {data?.data?.stats?.pendingCount || requests.filter(r => r.status === "pending").length}
-                            </p>
+                            <p className="text-2xl font-bold text-amber-900">{stats.pendingCount || 0}</p>
                             <p className="text-xs text-amber-700 font-medium">Pending Requests</p>
                         </div>
                     </div>
@@ -163,9 +257,7 @@ const ProxyManagementPage = () => {
                             <FaUserCheck className="text-green-600" size={20} />
                         </div>
                         <div>
-                            <p className="text-2xl font-bold text-green-900">
-                                {requests.filter(r => r.status === "resolved" && r.proxyAssignmentId?.type === "proxy").length}
-                            </p>
+                            <p className="text-2xl font-bold text-green-900">{stats.assignedProxyCount || 0}</p>
                             <p className="text-xs text-green-700 font-medium">Proxy Assignments</p>
                         </div>
                     </div>
@@ -177,23 +269,19 @@ const ProxyManagementPage = () => {
                             <FaTimes className="text-gray-600" size={20} />
                         </div>
                         <div>
-                            <p className="text-2xl font-bold text-gray-900">
-                                {requests.filter(r => r.status === "resolved" && r.proxyAssignmentId?.type === "free_period").length}
-                            </p>
+                            <p className="text-2xl font-bold text-gray-900">{stats.freePeriodCount || 0}</p>
                             <p className="text-xs text-gray-700 font-medium">Free Periods</p>
                         </div>
                     </div>
                 </div>
             </div>
 
-            {/* Error State */}
             {error && (
                 <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl text-red-600">
                     Failed to load proxy requests. Please try again.
                 </div>
             )}
 
-            {/* Requests Table */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
                 <div className="overflow-x-auto">
                     <table className="w-full">
@@ -233,7 +321,7 @@ const ProxyManagementPage = () => {
                                                     {formatDate(request.date)}
                                                 </div>
                                                 <div className="text-xs text-gray-500">
-                                                    {request.dayOfWeek} • Period {request.slotNumber}
+                                                    {request.dayOfWeek} - Period {request.slotNumber}
                                                 </div>
                                                 <div className="text-xs text-gray-400">
                                                     {request.timeSlotId?.startTime} - {request.timeSlotId?.endTime}
@@ -263,7 +351,7 @@ const ProxyManagementPage = () => {
                                             </td>
                                             <td className="px-4 py-4">
                                                 <div className="text-sm text-gray-600 max-w-xs truncate">
-                                                    {request.reason || "-"}
+                                                    {request.reason?.trim() ? request.reason : "Not Provided"}
                                                 </div>
                                             </td>
                                             <td className="px-4 py-4">
@@ -307,11 +395,10 @@ const ProxyManagementPage = () => {
                     </table>
                 </div>
 
-                {/* Pagination */}
                 {pagination.totalPages > 1 && (
                     <div className="px-4 py-3 border-t border-gray-200 flex items-center justify-between">
                         <button
-                            onClick={() => setFilters(prev => ({ ...prev, page: prev.page - 1 }))}
+                            onClick={() => setFilters((prev) => ({ ...prev, page: prev.page - 1 }))}
                             disabled={filters.page === 0}
                             className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
@@ -321,7 +408,7 @@ const ProxyManagementPage = () => {
                             Page {filters.page + 1} of {pagination.totalPages}
                         </span>
                         <button
-                            onClick={() => setFilters(prev => ({ ...prev, page: prev.page + 1 }))}
+                            onClick={() => setFilters((prev) => ({ ...prev, page: prev.page + 1 }))}
                             disabled={filters.page >= pagination.totalPages - 1}
                             className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
@@ -331,7 +418,6 @@ const ProxyManagementPage = () => {
                 )}
             </div>
 
-            {/* Assign Proxy Modal */}
             <ProxyAssignModal
                 isOpen={isAssignModalOpen}
                 onClose={() => {
@@ -341,14 +427,13 @@ const ProxyManagementPage = () => {
                 request={selectedRequest}
             />
 
-            {/* Free Period Confirmation Modal */}
             {isFreePeriodModalOpen && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
                         <div className="p-6">
                             <h3 className="text-lg font-bold text-gray-900 mb-2">Mark as Free Period?</h3>
                             <p className="text-sm text-gray-600 mb-6">
-                                This will mark the class as a free period for this time slot. 
+                                This will mark the class as a free period for this time slot.
                                 Students will be notified that no teacher is assigned.
                             </p>
                             <div className="flex justify-end gap-3">

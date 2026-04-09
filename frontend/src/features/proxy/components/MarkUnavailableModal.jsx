@@ -59,7 +59,7 @@ const MarkUnavailableModal = ({ isOpen, onClose, slotInfo, onSuccess }) => {
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden animate-fade-in-up">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl max-h-[70vh] overflow-hidden animate-fade-in-up">
                 {/* Header */}
                 <div className="px-6 py-5 flex items-center justify-between bg-white border-b border-gray-100">
                     <div className="flex items-center gap-3">
@@ -79,7 +79,7 @@ const MarkUnavailableModal = ({ isOpen, onClose, slotInfo, onSuccess }) => {
                     </button>
                 </div>
 
-                <div className="p-6">
+                <div className="p-6 overflow-y-auto max-h-[calc(70vh-80px)]">
                     {/* Class Info - 2 column layout */}
                     <div className="mb-6 p-4 bg-gray-50 rounded-xl border border-gray-100">
                         <div className="grid grid-cols-2 gap-4">
@@ -125,7 +125,7 @@ const MarkUnavailableModal = ({ isOpen, onClose, slotInfo, onSuccess }) => {
 
                     {/* Error */}
                     {error && (
-                        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600">
+                        <div className="mb-3 p-2 bg-red-50 border border-red-200 rounded-lg text-xs text-red-600">
                             {error}
                         </div>
                     )}
