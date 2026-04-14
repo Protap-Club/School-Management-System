@@ -72,19 +72,21 @@ const CalendarPage = () => {
   useEffect(() => {
     if (!canEdit) return;
     
-    // Teachers fetch ONLY their assigned classes from their profile.
+    // Teachers can target ONLY their class-teacher class from their profile.
     if (isTeacher) {
       api.get('/users/me/profile')
         .then(res => {
           const userObj = res.data?.data;
           const profile = userObj?.profile || userObj;
-          const assigned = profile?.assignedClasses || [];
-          setClasses(
-            assigned.map(t => ({
-              value: `${t.standard}-${t.section}`,
-              label: `Class ${t.standard} - Section ${t.section}`,
-            }))
-          );
+          const classTeacherOf = profile?.classTeacherOf;
+          if (classTeacherOf?.standard && classTeacherOf?.section) {
+            setClasses([{
+              value: `${classTeacherOf.standard}-${classTeacherOf.section}`,
+              label: `Class ${classTeacherOf.standard} - Section ${classTeacherOf.section}`,
+            }]);
+            return;
+          }
+          setClasses([]);
         })
         .catch(() => {});
     }

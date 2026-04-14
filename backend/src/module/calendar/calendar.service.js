@@ -44,9 +44,18 @@ const enforceTeacherScope = async (user, targetClasses) => {
     if (user.role !== USER_ROLES.TEACHER) return;
 
     const profile = await TeacherProfile.findOne({ schoolId: user.schoolId, userId: user._id })
-        .select('assignedClasses').lean();
-    
-    const allowed = (profile?.assignedClasses || []).map(c => `${String(c.standard).trim()}-${String(c.section).trim().toUpperCase()}`);
+        .select('classTeacherOf')
+        .lean();
+
+    const classTeacherOf = profile?.classTeacherOf;
+    const allowed = classTeacherOf?.standard && classTeacherOf?.section
+        ? [`${String(classTeacherOf.standard).trim()}-${String(classTeacherOf.section).trim().toUpperCase()}`]
+        : [];
+
+    if (!allowed.length) {
+        throw new ForbiddenError("You are not assigned as class teacher to any class");
+    }
+
     const normalizedRequested = (targetClasses || [])
         .map((cls) => parseClassKey(cls)?.key || String(cls).trim());
     const unauthorized = normalizedRequested.filter(c => !allowed.includes(c));
@@ -155,14 +164,15 @@ export const fetchCalendarEvents = async (queryData, user) => {
             query.targetAudience = 'all';
         }
     } else if (userRole === USER_ROLES.TEACHER) {
-        // Look up the teacher's assigned classes
+        // Look up the teacher's class-teacher class
         const profile = await TeacherProfile.findOne({ schoolId, userId: user._id })
-            .select('assignedClasses')
+            .select('classTeacherOf')
             .lean();
 
-        const classStrings = (profile?.assignedClasses || []).map(
-            (c) => `${c.standard}-${c.section}`
-        );
+        const classTeacherOf = profile?.classTeacherOf;
+        const classStrings = classTeacherOf?.standard && classTeacherOf?.section
+            ? [`${String(classTeacherOf.standard).trim()}-${String(classTeacherOf.section).trim().toUpperCase()}`]
+            : [];
 
         query.$and = [{
             $or: [
@@ -370,15 +380,18 @@ export const deleteCalendarEventsByDate = async (dateStr, user, eventId) => {
         sourceType: { $ne: "exam" }
     };
 
-    // Teachers can only bulk-delete events for their assigned classes
+    // Teachers can only bulk-delete events for their class-teacher class
     if (user.role === USER_ROLES.TEACHER) {
         const profile = await TeacherProfile.findOne(
             { schoolId: user.schoolId, userId: user._id }
-        ).select('assignedClasses').lean();
-        
-        const classKeys = (profile?.assignedClasses || []).map(c => `${c.standard}-${c.section}`);
+        ).select('classTeacherOf').lean();
+
+        const classTeacherOf = profile?.classTeacherOf;
+        const classKeys = classTeacherOf?.standard && classTeacherOf?.section
+            ? [`${String(classTeacherOf.standard).trim()}-${String(classTeacherOf.section).trim().toUpperCase()}`]
+            : [];
         if (!classKeys.length) {
-             throw new ForbiddenError("No assigned classes for this teacher. Cannot delete events.");
+            throw new ForbiddenError("You are not assigned as class teacher to any class. Cannot delete events.");
         }
         query.targetClasses = { $in: classKeys };
         query.targetAudience = 'classes';
