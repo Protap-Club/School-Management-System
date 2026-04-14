@@ -61,8 +61,10 @@ export const deleteEntry = async (entryId) => {
     return response.data;
 };
 
-export const getMySchedule = async () => {
-    const response = await api.get("/timetables/schedule/me");
+export const getMySchedule = async (date = null) => {
+    const params = {};
+    if (date) params.date = date;
+    const response = await api.get("/timetables/schedule/me", { params });
     return response.data;
 };
 

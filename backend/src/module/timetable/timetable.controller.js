@@ -142,10 +142,11 @@ export const getMyTimetable = asyncHandler(async (req, res) => {
     const userId = req.user._id;
     const role = req.user.role;
     const platform = req.platform;
+    const { date } = req.query;
 
     logger.debug(`getMyTimetable — userId: ${userId}, schoolId: ${schoolId}, role: ${role}, platform: ${platform}`);
 
-    const result = await timetableService.getUserTimetable(schoolId, userId, role, platform);
+    const result = await timetableService.getUserTimetable(schoolId, userId, role, platform, date);
     res.status(200).json({
         success: true,
         data: result
