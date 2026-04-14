@@ -1,5 +1,5 @@
 import { ProxyRequest, ProxyAssignment } from "./Proxy.model.js";
-import { TimetableEntry, TimeSlot } from "../timetable/Timetable.model.js";
+import { Timetable, TimetableEntry, TimeSlot } from "../timetable/Timetable.model.js";
 import User from "../user/model/User.model.js";
 import { NotFoundError, ConflictError, BadRequestError } from "../../utils/customError.js";
 import logger from "../../config/logger.js";
@@ -663,13 +663,15 @@ export const getTimetableWithProxyOverrides = async (schoolId, standard, section
     // Create a map for quick lookup
     const proxyMap = new Map();
     proxyAssignments.forEach(assignment => {
-        const key = `${assignment.dayOfWeek}_${assignment.timeSlotId}`;
+        const assignmentSlotId = assignment.timeSlotId?._id || assignment.timeSlotId;
+        const key = `${assignment.dayOfWeek}_${assignmentSlotId}`;
         proxyMap.set(key, assignment);
     });
 
     // Apply proxy overrides to entries
     const finalEntries = entries.map(entry => {
-        const key = `${entry.dayOfWeek}_${entry.timeSlotId._id}`;
+        const entrySlotId = entry.timeSlotId?._id || entry.timeSlotId;
+        const key = `${entry.dayOfWeek}_${entrySlotId}`;
         const proxyAssignment = proxyMap.get(key);
 
         if (proxyAssignment) {
