@@ -31,5 +31,27 @@
     { "title": "Dr. Ambedkar Jayanti", "start": "2026-04-14", "end": "2026-04-14", "allDay": true, "type": "national", "description": "Birthday of Dr. B.R. Ambedkar" },
     { "title": "Result Declaration Day", "start": "2026-04-15", "end": "2026-04-15", "allDay": true, "type": "custom", "description": "Official declaration of final results" },
     { "title": "Summer Vacation", "start": "2026-04-16", "end": "2026-06-14", "allDay": true, "type": "custom", "description": "Summer break — school closed" }
+    ,
+    { "title": "School Re-Opening Day", "start": "2026-06-15", "end": "2026-06-15", "allDay": true, "type": "event", "description": "School resumes after summer vacation" },
+    { "title": "PTM - First Term", "start": "2026-07-18", "end": "2026-07-18", "allDay": false, "type": "custom", "description": "Parent-Teacher Meeting for first term progress review" },
+    { "title": "Unit Test 1 (2026)", "start": "2026-07-20", "end": "2026-07-24", "allDay": true, "type": "exam", "description": "First unit test cycle for all classes" },
+    { "title": "Investiture Ceremony", "start": "2026-07-25", "end": "2026-07-25", "allDay": true, "type": "event", "description": "Student council badge ceremony and oath taking" },
+    { "title": "Independence Day", "start": "2026-08-15", "end": "2026-08-15", "allDay": true, "type": "national", "description": "National holiday celebrating India's independence" },
+    { "title": "Inter-School Science Exhibition", "start": "2026-08-21", "end": "2026-08-22", "allDay": true, "type": "event", "description": "Student project showcase and innovation competition" },
+    { "title": "National Sports Day Activities", "start": "2026-08-29", "end": "2026-08-29", "allDay": true, "type": "event", "description": "Inter-house sports activities and fitness drills" },
+    { "title": "Janmashtami", "start": "2026-09-04", "end": "2026-09-04", "allDay": true, "type": "national", "description": "Festival celebrating the birth of Lord Krishna" },
+    { "title": "Teachers' Day", "start": "2026-09-05", "end": "2026-09-05", "allDay": true, "type": "event", "description": "School celebration honoring teachers" },
+    { "title": "Hindi Diwas Assembly", "start": "2026-09-14", "end": "2026-09-14", "allDay": true, "type": "event", "description": "Cultural assembly and language activities" },
+    { "title": "Mid-Term Examination", "start": "2026-09-21", "end": "2026-10-02", "allDay": true, "type": "exam", "description": "Mid-term exams for classes 1 to 12" },
+    { "title": "Gandhi Jayanti", "start": "2026-10-02", "end": "2026-10-02", "allDay": true, "type": "national", "description": "National holiday honoring Mahatma Gandhi" },
+    { "title": "Garba Night", "start": "2026-10-12", "end": "2026-10-12", "allDay": false, "type": "event", "description": "Evening cultural celebration with traditional dance" },
+    { "title": "Dussehra", "start": "2026-10-22", "end": "2026-10-22", "allDay": true, "type": "national", "description": "Festival celebrating victory of good over evil" },
+    { "title": "Diwali Vacation", "start": "2026-10-28", "end": "2026-11-05", "allDay": true, "type": "national", "description": "Diwali festive break" },
+    { "title": "Children's Day", "start": "2026-11-14", "end": "2026-11-14", "allDay": true, "type": "event", "description": "Special school activities for students" },
+    { "title": "Guru Nanak Jayanti", "start": "2026-11-25", "end": "2026-11-25", "allDay": true, "type": "national", "description": "National holiday marking Guru Nanak Jayanti" },
+    { "title": "Unit Test 2 (2026)", "start": "2026-12-07", "end": "2026-12-11", "allDay": true, "type": "exam", "description": "Second unit test cycle for all classes" },
+    { "title": "Annual Sports Day", "start": "2026-12-19", "end": "2026-12-19", "allDay": true, "type": "event", "description": "Inter-house sports finals and prize distribution" },
+    { "title": "Christmas", "start": "2026-12-25", "end": "2026-12-25", "allDay": true, "type": "national", "description": "National holiday for Christmas" },
+    { "title": "Winter Break", "start": "2026-12-26", "end": "2027-01-04", "allDay": true, "type": "custom", "description": "Winter vacation and New Year break" }
   ]
 }
