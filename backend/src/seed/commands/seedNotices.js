@@ -37,10 +37,12 @@ const seedNotices = async () => {
       const endDate = new Date(notice.endDate || Date.now());
       const now = new Date();
 
-      // Backdate the posting time a bit before the event starts
-      const createdAt = new Date(startDate.getTime() - (24 * 60 * 60 * 1000 * 2));
+      // Backdate all seed notices explicitly into the past so they don't float to the top
+      // We will distribute them over the last 30 days so recent live notices appear first
+      const daysAgo = 30 - (seededNotices % 30);
+      const createdAt = new Date(now.getTime() - (daysAgo * 24 * 60 * 60 * 1000));
       
-      // Auto-expire notices if the event has completely concluded
+      // Auto-expire notices if the event has completely concluded (if it had hard dates)
       const isActive = endDate.getTime() >= now.getTime();
 
       records.push({
