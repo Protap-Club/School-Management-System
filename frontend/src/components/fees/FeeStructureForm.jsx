@@ -371,23 +371,35 @@ const FeeStructureForm = ({ onCancel, onSubmit, editData, isLoading, isAdmin }) 
             const currentAbsKey = getAbsKey(month, yearOfM);
             const isSelected = prev.applicableMonths.includes(currentAbsKey);
             
+            // Special Logic for HALF_YEARLY
+            if (prev.frequency === 'HALF_YEARLY') {
+                const nextMonths = [];
+                // Consecutive 6 months
+                for (let i = 0; i < 6; i++) {
+                    const totalMonth = (month + i - 1);
+                    const m = (totalMonth % 12) + 1;
+                    const yOffset = Math.floor(totalMonth / 12);
+                    const y = yearOfM + yOffset;
+                    if (!isPastMonth(m, y) && !isOccupied(m)) {
+                        nextMonths.push(getAbsKey(m, y));
+                    }
+                }
+                return { ...prev, applicableMonths: nextMonths };
+            }
+
             // Special Logic for QUARTERLY
             if (prev.frequency === 'QUARTERLY') {
                 const nextMonths = [];
-                // Calculate pattern: click month is start. Then +3, +6, +9 months.
-                // This can span multiple years.
+                // Pattern: +3 months
                 for (let i = 0; i < 4; i++) {
                     const totalMonth = (month + i * 3 - 1);
                     const m = (totalMonth % 12) + 1;
                     const yOffset = Math.floor(totalMonth / 12);
                     const y = yearOfM + yOffset;
-                    
-                    // Add if not past and not occupied
                     if (!isPastMonth(m, y) && !isOccupied(m)) {
                         nextMonths.push(getAbsKey(m, y));
                     }
                 }
-
                 return { ...prev, applicableMonths: nextMonths };
             }
 
@@ -396,7 +408,6 @@ const FeeStructureForm = ({ onCancel, onSubmit, editData, isLoading, isAdmin }) 
                 ? prev.applicableMonths.filter(k => k !== currentAbsKey)
                 : [...prev.applicableMonths, currentAbsKey];
 
-            if (prev.frequency === 'HALF_YEARLY' && nextMonths.length > 6) return prev;
             if (prev.frequency === 'YEARLY' || prev.frequency === 'ONE_TIME') {
                 if (nextMonths.length > 1) {
                     if (!isSelected) nextMonths = [currentAbsKey];
