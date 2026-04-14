@@ -14,6 +14,25 @@ const noticeAttachmentSchema = new mongoose.Schema(
   { _id: false, id: false }
 );
 
+const noticeClassContextSchema = new mongoose.Schema(
+  {
+    standard: {
+      type: String,
+      trim: true,
+    },
+    section: {
+      type: String,
+      trim: true,
+    },
+    academicYear: {
+      type: Number,
+      min: 2000,
+      max: 2100,
+    },
+  },
+  { _id: false, id: false }
+);
+
 // Notice Schema
 const noticeSchema = new mongoose.Schema(
   {
@@ -83,6 +102,25 @@ const noticeSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    sourceType: {
+      type: String,
+      enum: ["exam", "result"],
+      default: null,
+    },
+    sourceId: {
+      type: mongoose.Schema.Types.ObjectId,
+      default: null,
+      index: true,
+    },
+    noticeCategory: {
+      type: String,
+      enum: ["exam_published", "exam_updated", "result_published"],
+      default: null,
+    },
+    classContext: {
+      type: noticeClassContextSchema,
+      default: null,
+    },
     acknowledgments: [
       {
         userId: {
@@ -116,6 +154,7 @@ const noticeSchema = new mongoose.Schema(
 
 // Compound index for listing notices per school
 noticeSchema.index({ schoolId: 1, isActive: 1, createdAt: -1 });
+noticeSchema.index({ schoolId: 1, sourceType: 1, sourceId: 1 });
 
 // NoticeGroup Schema
 const noticeGroupSchema = new mongoose.Schema(
