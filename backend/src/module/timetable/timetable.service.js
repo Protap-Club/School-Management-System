@@ -45,6 +45,14 @@ const normalizeEndOfDay = (value) => {
     return date;
 };
 
+const toLocalDateKey = (value) => {
+    const date = new Date(value);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+};
+
 const buildDaySlotKey = (dayOfWeek, timeSlotId) => `${dayOfWeek}_${String(timeSlotId)}`;
 
 const getWeekWindow = (referenceDateInput) => {
@@ -74,8 +82,9 @@ const getWeekWindow = (referenceDateInput) => {
 
     const weekStart = dayToDateMap[DAYS_OF_WEEK[0]];
     const weekEnd = normalizeEndOfDay(dayToDateMap[DAYS_OF_WEEK[DAYS_OF_WEEK.length - 1]]);
+    const weekDateKeys = new Set(Object.values(dayToDateMap).map((date) => toLocalDateKey(date)));
 
-    return { weekStart, weekEnd };
+    return { weekStart, weekEnd, weekDateKeys };
 };
 
 const getConfiguredClassSectionSet = async (schoolId) => {
@@ -458,19 +467,25 @@ export const getUserTimetable = async (schoolId, userId, role, platform, date = 
 
     // For teachers, merge proxy duty entries and original-request status overlays for the selected week.
     if (role === "teacher") {
-        const { weekStart, weekEnd } = getWeekWindow(date);
+        const { weekStart, weekEnd, weekDateKeys } = getWeekWindow(date);
+        const widenedStart = new Date(weekStart);
+        widenedStart.setDate(widenedStart.getDate() - 1);
+        const widenedEnd = new Date(weekEnd);
+        widenedEnd.setDate(widenedEnd.getDate() + 1);
+        widenedEnd.setHours(23, 59, 59, 999);
 
         // Proxy duties assigned to this teacher for the selected week.
-        const proxyAssignments = await ProxyAssignment.find({
+        const proxyAssignmentsRaw = await ProxyAssignment.find({
             schoolId,
             proxyTeacherId: userId,
             type: "proxy",
             isActive: true,
-            date: { $gte: weekStart, $lte: weekEnd }
+            date: { $gte: widenedStart, $lte: widenedEnd }
         })
         .populate("originalTeacherId", "name")
         .populate("timeSlotId", "slotNumber startTime endTime slotType")
         .lean();
+        const proxyAssignments = proxyAssignmentsRaw.filter((assignment) => weekDateKeys.has(toLocalDateKey(assignment.date)));
 
         // Transform proxy duties into timetable-compatible entries.
         const proxyEntries = proxyAssignments.map(proxy => ({
@@ -492,11 +507,11 @@ export const getUserTimetable = async (schoolId, userId, role, platform, date = 
         }));
 
         // Requested slots by this teacher in the same selected week.
-        const weeklyProxyRequests = await ProxyRequest.find({
+        const weeklyProxyRequestsRaw = await ProxyRequest.find({
             schoolId,
             teacherId: userId,
             status: { $in: ["pending", "resolved"] },
-            date: { $gte: weekStart, $lte: weekEnd }
+            date: { $gte: widenedStart, $lte: widenedEnd }
         })
         .populate({
             path: "proxyAssignmentId",
@@ -507,6 +522,7 @@ export const getUserTimetable = async (schoolId, userId, role, platform, date = 
             }
         })
         .lean();
+        const weeklyProxyRequests = weeklyProxyRequestsRaw.filter((request) => weekDateKeys.has(toLocalDateKey(request.date)));
 
         const regularEntryMap = new Map();
         result.forEach((entry) => {

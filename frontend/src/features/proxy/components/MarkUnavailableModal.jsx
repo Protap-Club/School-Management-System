@@ -1,9 +1,15 @@
 import React, { useState } from "react";
 import { FaTimes, FaCalendarAlt, FaExclamationTriangle } from "react-icons/fa";
 import { useCreateProxyRequest } from "../api/queries";
-import { formatDate } from "../../../utils";
 
 const DAYS_OF_WEEK = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+const toDateOnlyString = (date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+};
 
 const MarkUnavailableModal = ({ isOpen, onClose, slotInfo, onSuccess }) => {
     const [reason, setReason] = useState("");
@@ -43,7 +49,7 @@ const MarkUnavailableModal = ({ isOpen, onClose, slotInfo, onSuccess }) => {
 
         try {
             await createRequest.mutateAsync({
-                date: selectedDate.toISOString(),
+                date: toDateOnlyString(selectedDate),
                 dayOfWeek,
                 timeSlotId: timeSlot._id || timeSlot.id,
                 reason: reason.trim() || undefined,

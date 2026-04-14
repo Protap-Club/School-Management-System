@@ -78,13 +78,13 @@ const TimetableGrid = ({
   const getCellClasses = (state) => {
     switch (state) {
       case 'proxy_duty':
-        return 'bg-emerald-50 border-l-[3px] border-l-emerald-500 hover:bg-emerald-100 cursor-pointer shadow-sm';
+        return 'bg-white border-l-[4px] border-l-emerald-700 hover:bg-gray-50 cursor-pointer shadow-sm';
       case 'proxy_pending':
-        return 'bg-amber-50 border-l-[3px] border-l-amber-500 hover:bg-amber-100 cursor-pointer shadow-sm';
+        return 'bg-white border-l-[4px] border-l-amber-800 hover:bg-gray-50 cursor-pointer shadow-sm';
       case 'proxy_assigned':
-        return 'bg-blue-50 border-l-[3px] border-l-blue-500 hover:bg-blue-100 cursor-pointer shadow-sm';
+        return 'bg-white border-l-[4px] border-l-blue-800 hover:bg-gray-50 cursor-pointer shadow-sm';
       case 'free_period':
-        return 'bg-gray-100 border-l-[3px] border-l-gray-500 hover:bg-gray-200 cursor-pointer shadow-sm';
+        return 'bg-white border-l-[4px] border-l-slate-800 hover:bg-gray-50 cursor-pointer shadow-sm';
       default:
         return 'bg-white border-l-[3px] border-l-gray-800 hover:bg-gray-50 cursor-pointer shadow-sm';
     }
@@ -92,9 +92,9 @@ const TimetableGrid = ({
 
   const getTextColor = (state) => {
     if (state === 'proxy_duty') return 'text-emerald-700';
-    if (state === 'proxy_pending') return 'text-amber-700';
-    if (state === 'proxy_assigned') return 'text-blue-700';
-    if (state === 'free_period') return 'text-gray-500';
+    if (state === 'proxy_pending') return 'text-amber-900';
+    if (state === 'proxy_assigned') return 'text-blue-900';
+    if (state === 'free_period') return 'text-slate-800';
     return 'text-gray-600';
   };
 
@@ -189,18 +189,18 @@ const TimetableGrid = ({
                                 </span>
                               )}
                               {entry.proxyRequestStatus === 'pending' && (
-                                <span className="flex-shrink-0 px-1.5 py-0.5 text-[9px] font-bold text-amber-700 bg-amber-200 rounded">
-                                  REQUESTED
+                                <span className="flex-shrink-0 px-1.5 py-0.5 text-[9px] font-bold text-amber-900 bg-amber-300 rounded">
+                                  PROXY REQUESTED
                                 </span>
                               )}
                               {entry.proxyRequestStatus === 'proxy_assigned' && (
-                                <span className="flex-shrink-0 px-1.5 py-0.5 text-[9px] font-bold text-blue-700 bg-blue-200 rounded">
+                                <span className="flex-shrink-0 px-1.5 py-0.5 text-[9px] font-bold text-blue-900 bg-blue-300 rounded">
                                   PROXY ASSIGNED
                                 </span>
                               )}
                               {(entry.proxyRequestStatus === 'free_period' || entry.isFreePeriod || entry.proxyType === 'free_period') && (
-                                <span className="flex-shrink-0 px-1.5 py-0.5 text-[9px] font-bold text-gray-700 bg-gray-300 rounded">
-                                  FREE PERIOD
+                                <span className="flex-shrink-0 px-1.5 py-0.5 text-[9px] font-bold text-slate-900 bg-slate-400 rounded">
+                                  PROXY FREE PERIOD
                                 </span>
                               )}
                             </div>
@@ -225,17 +225,12 @@ const TimetableGrid = ({
                               </p>
                             )}
                             {entry.proxyRequestStatus === 'pending' && (
-                              <p className="text-[10px] text-amber-600 italic">
+                              <p className="text-[10px] text-amber-900 font-semibold">
                                 Awaiting admin decision
                               </p>
                             )}
-                            {entry.proxyRequestStatus === 'proxy_assigned' && entry.assignedProxyTeacher?.name && (
-                              <p className="text-[10px] text-blue-600 italic">
-                                Assigned to {entry.assignedProxyTeacher.name}
-                              </p>
-                            )}
                             {(entry.proxyRequestStatus === 'free_period' || entry.isFreePeriod || entry.proxyType === 'free_period') && entry.originalTeacherId?.name && (
-                              <p className="text-[10px] text-gray-500 italic">
+                              <p className="text-[10px] text-slate-800 italic">
                                 {entry.originalTeacherId.name} unavailable
                               </p>
                             )}

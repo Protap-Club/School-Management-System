@@ -363,7 +363,14 @@ export const getTeacherProxyRequests = async (teacherId, schoolId, filters = {})
 
     return await ProxyRequest.find(query)
         .populate("timeSlotId", "startTime endTime slotNumber")
-        .populate("proxyAssignmentId")
+        .populate({
+            path: "proxyAssignmentId",
+            select: "type proxyTeacherId notes",
+            populate: {
+                path: "proxyTeacherId",
+                select: "name email"
+            }
+        })
         .sort({ date: -1, slotNumber: 1 })
         .lean();
 };

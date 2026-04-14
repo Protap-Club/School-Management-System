@@ -11,6 +11,7 @@ import CreateTimetableDialog from "./components/CreateTimetableDialog";
 import { useToastMessage } from "../../hooks/useToastMessage";
 import ProxyManagementPage from "../proxy/components/ProxyManagementPage";
 import MarkUnavailableModal from "../proxy/components/MarkUnavailableModal";
+import { useMyProxyRequests } from "../proxy/api/queries";
 import {
     useAvailableClasses,
     useCreateEntry,
@@ -34,6 +35,15 @@ const flattenSchedule = (schedule) => {
     if (!schedule || typeof schedule !== "object") return [];
     return Object.values(schedule).flat();
 };
+
+const toDateOnlyString = (date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+};
+
+const buildDaySlotKey = (dayOfWeek, timeSlotId) => `${dayOfWeek}_${String(timeSlotId)}`;
 
 const TimetablePage = () => {
     const { user } = useAuth();
@@ -69,8 +79,19 @@ const TimetablePage = () => {
         const monday = new Date(today.setDate(diff));
         monday.setDate(monday.getDate() + weekOffset * 7);
         monday.setHours(0, 0, 0, 0);
-        return monday.toISOString();
+        return toDateOnlyString(monday);
     }, [weekOffset]);
+
+    const activeWeekDateKeySet = useMemo(() => {
+        const monday = new Date(`${weekReferenceDate}T00:00:00`);
+        const keySet = new Set();
+        for (let i = 0; i < 6; i += 1) {
+            const dayDate = new Date(monday);
+            dayDate.setDate(monday.getDate() + i);
+            keySet.add(toDateOnlyString(dayDate));
+        }
+        return keySet;
+    }, [weekReferenceDate]);
 
     const timeSlotsQuery = useTimeSlots();
     const timetablesQuery = useTimetables({}, isAdmin);
@@ -162,6 +183,7 @@ const TimetablePage = () => {
         isAdmin && adminViewMode === "class" && Boolean(activeTimetableId)
     );
     const myScheduleQuery = useMySchedule(weekReferenceDate, isTeacher);
+    const myProxyRequestsQuery = useMyProxyRequests({}, { enabled: isTeacher });
     const teacherScheduleQuery = useTeacherSchedule(
         activeTeacherId,
         null,
@@ -179,12 +201,66 @@ const TimetablePage = () => {
     );
     const teacherScheduleEntries = flattenSchedule(teacherScheduleQuery.data?.data);
     const myScheduleEntries = flattenSchedule(myScheduleQuery.data?.data);
+    const myProxyRequests = myProxyRequestsQuery.data?.data || [];
+
+    const myRequestStateByCell = useMemo(() => {
+        const map = new Map();
+
+        myProxyRequests.forEach((request) => {
+            const requestDateKey = toDateOnlyString(new Date(request.date));
+            if (!activeWeekDateKeySet.has(requestDateKey)) return;
+
+            const slotId = request.timeSlotId?._id || request.timeSlotId;
+            if (!request.dayOfWeek || !slotId) return;
+
+            const key = buildDaySlotKey(request.dayOfWeek, slotId);
+            if (request.status === "pending") {
+                map.set(key, { proxyRequestStatus: "pending", proxyRequestId: request._id });
+                return;
+            }
+
+            if (request.status === "resolved" && request.proxyAssignmentId?.type === "proxy") {
+                map.set(key, {
+                    proxyRequestStatus: "proxy_assigned",
+                    proxyAssignmentId: request.proxyAssignmentId?._id || null,
+                    assignedProxyTeacher: request.proxyAssignmentId?.proxyTeacherId || null
+                });
+                return;
+            }
+
+            if (request.status === "resolved" && request.proxyAssignmentId?.type === "free_period") {
+                map.set(key, {
+                    proxyRequestStatus: "free_period",
+                    isFreePeriod: true,
+                    proxyType: "free_period"
+                });
+            }
+        });
+
+        return map;
+    }, [activeWeekDateKeySet, myProxyRequests]);
+
+    const myScheduleEntriesWithRequestState = useMemo(
+        () =>
+            myScheduleEntries.map((entry) => {
+                if (entry.isProxy) return entry;
+
+                const slotId = entry.timeSlotId?._id || entry.timeSlotId || entry.timeSlot?._id;
+                if (!entry.dayOfWeek || !slotId) return entry;
+
+                const requestState = myRequestStateByCell.get(buildDaySlotKey(entry.dayOfWeek, slotId));
+                if (!requestState) return entry;
+
+                return { ...entry, ...requestState };
+            }),
+        [myRequestStateByCell, myScheduleEntries]
+    );
 
     const displayEntries = useMemo(() => {
-        if (isTeacher) return myScheduleEntries;
+        if (isTeacher) return myScheduleEntriesWithRequestState;
         if (adminViewMode === "teacher") return teacherScheduleEntries;
         return selectedTimetableEntries;
-    }, [isTeacher, adminViewMode, myScheduleEntries, teacherScheduleEntries, selectedTimetableEntries]);
+    }, [isTeacher, adminViewMode, myScheduleEntriesWithRequestState, teacherScheduleEntries, selectedTimetableEntries]);
 
     const currentError = errorMessage ||
         readError(timeSlotsQuery.error, "") ||
