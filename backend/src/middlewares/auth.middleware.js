@@ -58,12 +58,12 @@ const checkAuth = async (req, res, next) => {
         req.schoolId = findUser.schoolId; // Attach schoolId directly for easier access
 
         const requestPath = (req.originalUrl || req.url || "").split("?")[0];
-        if (findUser.mustChangePassword && !MUST_CHANGE_PASSWORD_ALLOWED_PATHS.has(requestPath)) {
-            throw new ForbiddenError(
-                "Password update is required before accessing this resource",
-                "PASSWORD_CHANGE_REQUIRED"
-            );
-        }
+        // if (findUser.mustChangePassword && !MUST_CHANGE_PASSWORD_ALLOWED_PATHS.has(requestPath)) {
+        //     throw new ForbiddenError(
+        //         "Password update is required before accessing this resource",
+        //         "PASSWORD_CHANGE_REQUIRED"
+        //     );
+        // }
 
         // Mobile Rule Guard
         const MOBILE_ALLOWED_ROLES = [USER_ROLES.TEACHER, USER_ROLES.STUDENT];

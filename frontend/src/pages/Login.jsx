@@ -49,10 +49,6 @@ const Login = () => {
         try {
             const user = await login(email, password);
             if (user && VALID_ROLES.includes(user.role)) {
-                if (user.mustChangePassword) {
-                    navigate('/update-password', { replace: true });
-                    return;
-                }
                 // If there was a redirect location, go there, otherwise dashboard
                 const from = location.state?.from?.pathname || '/dashboard';
                 navigate(from, { replace: true });
