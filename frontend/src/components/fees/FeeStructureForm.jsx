@@ -7,8 +7,44 @@ import { useFeeTypes, useFeeStructures } from '../../features/fees/api/queries';
 import FeeTypeSideCard from './FeeTypeSideCard';
 import { useSchoolClasses } from '../../hooks/useSchoolClasses';
 
+const INITIAL_ACADEMIC_YEAR_START_MONTH = 6; // June
+
+const getAcademicYearOptions = () => {
+    const year = new Date().getFullYear();
+    const options = [];
+    for (let i = -2; i <= 5; i++) {
+        const startYear = year + i;
+        options.push({
+            value: startYear,
+            label: `${startYear}-${startYear + 1}`
+        });
+    }
+    return options;
+};
+
+const getCurrentAcademicYear = () => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth() + 1; // 1-indexed
+    return month >= INITIAL_ACADEMIC_YEAR_START_MONTH ? year : year - 1;
+};
+
+const getMonthsForYear = (startYear) => {
+    const months = [];
+    for (let i = 0; i < 12; i++) {
+        const m = (INITIAL_ACADEMIC_YEAR_START_MONTH + i - 1) % 12 + 1;
+        const y = m >= INITIAL_ACADEMIC_YEAR_START_MONTH ? startYear : startYear + 1;
+        months.push({
+            value: m,
+            year: y,
+            label: new Date(y, m - 1).toLocaleString('default', { month: 'short' })
+        });
+    }
+    return months;
+};
+
 const INITIAL_FORM = {
-    academicYear: new Date().getFullYear(),
+    academicYear: getCurrentAcademicYear(),
     standards: [],
     sections: [],
     section: '',
@@ -17,15 +53,8 @@ const INITIAL_FORM = {
     amount: '',
     frequency: '',
     dueDay: 10,
-    applicableMonths: [], // Starts empty for manual selection (Admin/Frontend)
+    applicableMonths: [],
 };
-
-const MONTHS = [
-    { value: 1, label: 'Jan' }, { value: 2, label: 'Feb' }, { value: 3, label: 'Mar' },
-    { value: 4, label: 'Apr' }, { value: 5, label: 'May' }, { value: 6, label: 'Jun' },
-    { value: 7, label: 'Jul' }, { value: 8, label: 'Aug' }, { value: 9, label: 'Sep' },
-    { value: 10, label: 'Oct' }, { value: 11, label: 'Nov' }, { value: 12, label: 'Dec' },
-];
 
 const normalizeStandard = (value) => String(value || '').trim();
 const normalizeSection = (value) => String(value || '').trim().toUpperCase();
@@ -123,7 +152,7 @@ const FeeStructureForm = ({ onCancel, onSubmit, editData, isLoading, isAdmin }) 
     const isEdit = !!editData;
     const [form, setForm] = useState(() => {
         const initial = editData ? {
-            academicYear: editData.academicYear || new Date().getFullYear(),
+            academicYear: editData.academicYear || getCurrentAcademicYear(),
             standard: editData.standard || '', // Single standard for edit
             section: editData.section || '',
             feeType: editData.feeType || '',
@@ -237,17 +266,15 @@ const FeeStructureForm = ({ onCancel, onSubmit, editData, isLoading, isAdmin }) 
         setErrors(prev => ({ ...prev, [field]: '' }));
     }, []);
 
-    const currentYear = new Date().getFullYear();
-    const currentMonth = new Date().getMonth() + 1;
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth() + 1;
 
-    const isPastMonth = useCallback((m) => {
-        const formYear = Number(form.academicYear);
-        if (formYear < currentYear) return true; // Entire past year is disabled
-        if (formYear > currentYear) return false; // Entire future year is enabled
-        
-        // Same year: Only block months that are strictly earlier than today
+    const isPastMonth = useCallback((m, yearOfMonth) => {
+        if (yearOfMonth < currentYear) return true;
+        if (yearOfMonth > currentYear) return false;
         return m < currentMonth;
-    }, [form.academicYear, currentYear, currentMonth]);
+    }, [currentYear, currentMonth]);
 
     const isInvalidQuarterly = useCallback((m) => {
         // Pattern enforcement is disabled to allow manual change (optional)
@@ -279,7 +306,11 @@ const FeeStructureForm = ({ onCancel, onSubmit, editData, isLoading, isAdmin }) 
         }
 
         // Filter out past months if in current year
-        const validSequence = sequence.filter(month => !isPastMonth(month));
+        const availableMonths = getMonthsForYear(Number(form.academicYear));
+        const validSequence = sequence.filter(month => {
+            const yearOfM = availableMonths.find(am => am.value === month)?.year || form.academicYear;
+            return !isPastMonth(month, yearOfM);
+        });
         
         if (validSequence.length > 0) {
             setForm(prev => ({ ...prev, applicableMonths: validSequence }));
@@ -311,8 +342,8 @@ const FeeStructureForm = ({ onCancel, onSubmit, editData, isLoading, isAdmin }) 
 
     const isOccupied = (m) => occupiedMonths.includes(m);
 
-    const toggleMonth = useCallback((month) => {
-        if (isPastMonth(month) || isInvalidQuarterly(month) || isInvalidHalfYearly(month) || isOccupied(month)) return;
+    const toggleMonth = useCallback((month, yearOfM) => {
+        if (isPastMonth(month, yearOfM) || isInvalidQuarterly(month) || isInvalidHalfYearly(month) || isOccupied(month)) return;
 
         setForm(prev => {
             const isSelected = prev.applicableMonths.includes(month);
@@ -334,7 +365,11 @@ const FeeStructureForm = ({ onCancel, onSubmit, editData, isLoading, isAdmin }) 
     useEffect(() => {
         if (isEdit) return;
         setForm(prev => {
-            const nextMonths = prev.applicableMonths.filter(m => !isPastMonth(m) && !isInvalidQuarterly(m) && !isOccupied(m));
+            const currentMonthsForYear = getMonthsForYear(Number(prev.academicYear));
+            const nextMonths = prev.applicableMonths.filter(m => {
+                const y = currentMonthsForYear.find(cm => cm.value === m)?.year || prev.academicYear;
+                return !isPastMonth(m, y) && !isInvalidQuarterly(m) && !isOccupied(m);
+            });
             if (nextMonths.length !== prev.applicableMonths.length) {
                 return { ...prev, applicableMonths: nextMonths };
             }
@@ -437,8 +472,16 @@ const FeeStructureForm = ({ onCancel, onSubmit, editData, isLoading, isAdmin }) 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
                         <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Academic Year *</label>
-                        <input type="number" value={form.academicYear} onChange={(e) => handleChange('academicYear', e.target.value)}
-                            className={inputCls('academicYear')} disabled={isEdit} min={2000} max={2100} />
+                        <select 
+                            value={form.academicYear} 
+                            onChange={(e) => handleChange('academicYear', e.target.value)}
+                            className={inputCls('academicYear')} 
+                            disabled={isEdit}
+                        >
+                            {getAcademicYearOptions().map(opt => (
+                                <option key={opt.value} value={opt.value}>{opt.label}</option>
+                            ))}
+                        </select>
                         {errors.academicYear && <p className="text-[10px] text-red-500 mt-1 ml-1 font-bold">{errors.academicYear}</p>}
                     </div>
                     {isEdit ? (
@@ -578,9 +621,9 @@ const FeeStructureForm = ({ onCancel, onSubmit, editData, isLoading, isAdmin }) 
                         })()}
                     </div>
                     <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-12 gap-1.5">
-                        {MONTHS.map(m => {
+                        {getMonthsForYear(Number(form.academicYear)).map(m => {
                             const occupied = isOccupied(m.value);
-                            const past = isPastMonth(m.value);
+                            const past = isPastMonth(m.value, m.year);
                             const invalidQuarterly = isInvalidQuarterly(m.value);
                             const invalidHalfYearly = isInvalidHalfYearly(m.value);
                             const disabled = past || invalidQuarterly || invalidHalfYearly || occupied;
@@ -589,7 +632,7 @@ const FeeStructureForm = ({ onCancel, onSubmit, editData, isLoading, isAdmin }) 
                             return (
                                 <div key={m.value} className="relative group/month">
                                     <button type="button" 
-                                        onClick={() => !disabled && toggleMonth(m.value)}
+                                        onClick={() => !disabled && toggleMonth(m.value, m.year)}
                                         disabled={disabled}
                                         className={`w-full py-1.5 text-[10px] font-bold rounded-lg border transition-all ${
                                             isSelected ? 'bg-primary text-white border-primary shadow-md shadow-primary/20 scale-105' : 
@@ -598,6 +641,7 @@ const FeeStructureForm = ({ onCancel, onSubmit, editData, isLoading, isAdmin }) 
                                             'border-gray-200 text-gray-400 hover:bg-gray-50'
                                         }`}>
                                         {m.label}
+                                        <div className="text-[7px] mt-0.5 opacity-60 font-black">{m.year}</div>
                                     </button>
                                     {occupied && (
                                         <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-[8px] rounded opacity-0 group-hover/month:opacity-100 transition-opacity whitespace-nowrap z-30 pointer-events-none">
