@@ -2,12 +2,14 @@ import React, { useCallback, useState, useEffect } from 'react';
 import { useAuth } from '../features/auth';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { FaUser, FaLock } from 'react-icons/fa';
+import { Eye, EyeOff } from 'lucide-react';
 
 const VALID_ROLES = ['super_admin', 'admin', 'teacher'];
 
 const Login = () => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
     const [error, setError] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const { login } = useAuth();
@@ -96,8 +98,15 @@ const Login = () => {
                     </div>
                     <div className="relative">
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><FaLock className="text-gray-400" /></div>
-                        <input type="password" className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 hover:bg-white disabled:opacity-50"
+                        <input type={showPassword ? 'text' : 'password'} className="w-full pl-10 pr-10 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 hover:bg-white disabled:opacity-50"
                             placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} required disabled={isSubmitting} />
+                        <button
+                            type="button"
+                            onClick={() => setShowPassword(!showPassword)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors focus:outline-none"
+                        >
+                            {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                        </button>
                     </div>
                     <div className="flex items-center justify-between">
                         <div className="flex items-center">
