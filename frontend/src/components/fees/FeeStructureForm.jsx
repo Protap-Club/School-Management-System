@@ -43,6 +43,16 @@ const getMonthsForYear = (startYear) => {
     return months;
 };
 
+const getAbsKey = (m, y) => `${y}-${String(m).padStart(2, '0')}`;
+
+const mapToAbsKeys = (months, startYear) => {
+    const ayMonths = getMonthsForYear(Number(startYear));
+    return (months || []).map(m => {
+        const found = ayMonths.find(am => am.value === Number(m));
+        return found ? getAbsKey(found.value, found.year) : null;
+    }).filter(Boolean);
+};
+
 const INITIAL_FORM = {
     academicYear: getCurrentAcademicYear(),
     standards: [],
@@ -160,7 +170,7 @@ const FeeStructureForm = ({ onCancel, onSubmit, editData, isLoading, isAdmin }) 
             amount: editData.amount || '',
             frequency: editData.frequency || '',
             dueDay: editData.dueDay || 10,
-            applicableMonths: editData.applicableMonths || [],
+            applicableMonths: mapToAbsKeys(editData.applicableMonths, editData.academicYear || getCurrentAcademicYear()),
             isActive: editData.isActive !== undefined ? editData.isActive : true,
         } : { ...INITIAL_FORM, sections: [] };
         return initial;
@@ -249,7 +259,7 @@ const FeeStructureForm = ({ onCancel, onSubmit, editData, isLoading, isAdmin }) 
                 amount: editData.amount || '',
                 frequency: editData.frequency || '',
                 dueDay: editData.dueDay || 10,
-                applicableMonths: editData.applicableMonths || [],
+                applicableMonths: mapToAbsKeys(editData.applicableMonths, editData.academicYear || getCurrentAcademicYear()),
                 isActive: editData.isActive !== undefined ? editData.isActive : true,
             });
             setIsMultiMode(false);
@@ -291,33 +301,45 @@ const FeeStructureForm = ({ onCancel, onSubmit, editData, isLoading, isAdmin }) 
         if (isEdit) return;
         
         const m = currentMonth;
-        let sequence = [];
-
-        if (form.frequency === 'QUARTERLY') {
-            for (let i = 0; i < 4; i++) {
-                sequence.push((m + i * 3 - 1) % 12 + 1);
-            }
-        } else if (form.frequency === 'HALF_YEARLY') {
-            for (let i = 0; i < 6; i++) {
-                sequence.push((m + i - 1) % 12 + 1);
-            }
-        } else if (form.frequency === 'MONTHLY' || form.frequency === 'YEARLY' || form.frequency === 'ONE_TIME') {
-            sequence = [m];
-        }
-
-        // Filter out past months if in current year
         const availableMonths = getMonthsForYear(Number(form.academicYear));
-        const validSequence = sequence.filter(month => {
-            const yearOfM = availableMonths.find(am => am.value === month)?.year || form.academicYear;
-            return !isPastMonth(month, yearOfM);
-        });
+        const currentYearOfM = availableMonths.find(am => am.value === m)?.year || Number(form.academicYear);
         
-        if (validSequence.length > 0) {
-            setForm(prev => ({ ...prev, applicableMonths: validSequence }));
-        } else {
-            setForm(prev => ({ ...prev, applicableMonths: [] }));
+        if (form.frequency === 'QUARTERLY') {
+            const absKeys = [];
+            // Generate 4 months pattern starting from current month
+            for (let i = 0; i < 4; i++) {
+                const totalMonth = (m + i * 3 - 1);
+                const monthVal = (totalMonth % 12) + 1;
+                const yOffset = Math.floor(totalMonth / 12);
+                const yearVal = currentYearOfM + yOffset;
+                
+                if (!isPastMonth(monthVal, yearVal) && !isOccupied(monthVal)) {
+                    absKeys.push(getAbsKey(monthVal, yearVal));
+                }
+            }
+            setForm(prev => ({ ...prev, applicableMonths: absKeys }));
+        } else if (form.frequency === 'HALF_YEARLY') {
+            const absKeys = [];
+            for (let i = 0; i < 6; i++) {
+                const totalMonth = (m + i - 1);
+                const monthVal = (totalMonth % 12) + 1;
+                const yOffset = Math.floor(totalMonth / 12);
+                const yearVal = currentYearOfM + yOffset;
+                
+                if (!isPastMonth(monthVal, yearVal) && !isOccupied(monthVal)) {
+                    absKeys.push(getAbsKey(monthVal, yearVal));
+                }
+            }
+            setForm(prev => ({ ...prev, applicableMonths: absKeys }));
+        } else if (form.frequency === 'MONTHLY' || form.frequency === 'YEARLY' || form.frequency === 'ONE_TIME') {
+            const currentAbsKey = getAbsKey(m, currentYearOfM);
+            if (!isPastMonth(m, currentYearOfM) && !isOccupied(m)) {
+                setForm(prev => ({ ...prev, applicableMonths: [currentAbsKey] }));
+            } else {
+                setForm(prev => ({ ...prev, applicableMonths: [] }));
+            }
         }
-    }, [form.frequency, isEdit, currentMonth, isPastMonth]);
+    }, [form.frequency, isEdit, currentMonth, isPastMonth, currentYear]);
 
     // Track occupied months to prevent duplicates
     const occupiedMonths = React.useMemo(() => {
@@ -346,29 +368,53 @@ const FeeStructureForm = ({ onCancel, onSubmit, editData, isLoading, isAdmin }) 
         if (isPastMonth(month, yearOfM) || isInvalidQuarterly(month) || isInvalidHalfYearly(month) || isOccupied(month)) return;
 
         setForm(prev => {
-            const isSelected = prev.applicableMonths.includes(month);
+            const currentAbsKey = getAbsKey(month, yearOfM);
+            const isSelected = prev.applicableMonths.includes(currentAbsKey);
+            
+            // Special Logic for QUARTERLY
+            if (prev.frequency === 'QUARTERLY') {
+                const nextMonths = [];
+                // Calculate pattern: click month is start. Then +3, +6, +9 months.
+                // This can span multiple years.
+                for (let i = 0; i < 4; i++) {
+                    const totalMonth = (month + i * 3 - 1);
+                    const m = (totalMonth % 12) + 1;
+                    const yOffset = Math.floor(totalMonth / 12);
+                    const y = yearOfM + yOffset;
+                    
+                    // Add if not past and not occupied
+                    if (!isPastMonth(m, y) && !isOccupied(m)) {
+                        nextMonths.push(getAbsKey(m, y));
+                    }
+                }
+
+                return { ...prev, applicableMonths: nextMonths };
+            }
+
+            // Default Logic for other frequencies
             let nextMonths = isSelected
-                ? prev.applicableMonths.filter(m => m !== month)
-                : [...prev.applicableMonths, month];
+                ? prev.applicableMonths.filter(k => k !== currentAbsKey)
+                : [...prev.applicableMonths, currentAbsKey];
 
             if (prev.frequency === 'HALF_YEARLY' && nextMonths.length > 6) return prev;
-            if (prev.frequency === 'QUARTERLY' && nextMonths.length > 4) return prev;
-            if ((prev.frequency === 'YEARLY' || prev.frequency === 'ONE_TIME') && nextMonths.length > 1) {
-                if (!isSelected) nextMonths = [month];
-                else return prev;
+            if (prev.frequency === 'YEARLY' || prev.frequency === 'ONE_TIME') {
+                if (nextMonths.length > 1) {
+                    if (!isSelected) nextMonths = [currentAbsKey];
+                    else return prev;
+                }
             }
 
             return { ...prev, applicableMonths: nextMonths };
         });
-    }, [isPastMonth, isInvalidQuarterly, isInvalidHalfYearly, isOccupied]);
+    }, [isPastMonth, isInvalidQuarterly, isInvalidHalfYearly, isOccupied, form.academicYear]);
 
     useEffect(() => {
         if (isEdit) return;
         setForm(prev => {
             const currentMonthsForYear = getMonthsForYear(Number(prev.academicYear));
-            const nextMonths = prev.applicableMonths.filter(m => {
-                const y = currentMonthsForYear.find(cm => cm.value === m)?.year || prev.academicYear;
-                return !isPastMonth(m, y) && !isInvalidQuarterly(m) && !isOccupied(m);
+            const nextMonths = prev.applicableMonths.filter(key => {
+                const [y, m] = key.split('-').map(Number);
+                return !isPastMonth(m, y) && !isOccupied(m);
             });
             if (nextMonths.length !== prev.applicableMonths.length) {
                 return { ...prev, applicableMonths: nextMonths };
@@ -434,7 +480,15 @@ const FeeStructureForm = ({ onCancel, onSubmit, editData, isLoading, isAdmin }) 
             amount: Number(form.amount || 0),
             academicYear: Number(form.academicYear),
             dueDay: Number(form.dueDay || 10),
-            applicableMonths: (form.applicableMonths || []).map(Number).sort((a, b) => a - b),
+            applicableMonths: (form.applicableMonths || [])
+                .filter(key => {
+                    const [y, m] = key.split('-').map(Number);
+                    const ayStart = Number(form.academicYear);
+                    const ayMonths = getMonthsForYear(ayStart);
+                    return ayMonths.some(am => am.value === m && am.year === y);
+                })
+                .map(key => Number(key.split('-')[1]))
+                .sort((a, b) => a - b),
         };
         delete payload.standards;
         delete payload.sections;
@@ -627,7 +681,7 @@ const FeeStructureForm = ({ onCancel, onSubmit, editData, isLoading, isAdmin }) 
                             const invalidQuarterly = isInvalidQuarterly(m.value);
                             const invalidHalfYearly = isInvalidHalfYearly(m.value);
                             const disabled = past || invalidQuarterly || invalidHalfYearly || occupied;
-                            const isSelected = form.applicableMonths.includes(m.value);
+                            const isSelected = form.applicableMonths.includes(getAbsKey(m.value, m.year));
                             
                             return (
                                 <div key={m.value} className="relative group/month">
