@@ -121,13 +121,13 @@ export const updatePassword = asyncHandler(async (req, res) => {
 
 // Forgot password - Request password reset email
 export const forgotPassword = asyncHandler(async (req, res) => {
-    const { email } = req.body;
+    const { email, method } = req.body;
     const metadata = {
         userAgent: req.headers["user-agent"],
         ip: req.ip || req.headers["x-forwarded-for"] || req.connection.remoteAddress,
     };
 
-    const result = await authService.forgotPassword(email, metadata);
+    const result = await authService.forgotPassword(email, metadata, method);
 
     // Always return success to prevent email enumeration attacks
     res.status(200).json({
@@ -141,6 +141,18 @@ export const resetPassword = asyncHandler(async (req, res) => {
     const { token, newPassword } = req.body;
 
     const result = await authService.resetPassword(token, newPassword);
+
+    res.status(200).json({
+        success: true,
+        message: result.message,
+    });
+});
+
+// Reset password - Set new password using email + OTP
+export const resetPasswordWithOtp = asyncHandler(async (req, res) => {
+    const { email, otp, newPassword } = req.body;
+
+    const result = await authService.resetPasswordWithOtp(email, otp, newPassword);
 
     res.status(200).json({
         success: true,
