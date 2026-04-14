@@ -114,7 +114,7 @@ const noticeSchema = new mongoose.Schema(
     },
     noticeCategory: {
       type: String,
-      enum: ["exam_published", "exam_updated", "result_published"],
+      enum: ["exam_created", "exam_published", "exam_updated", "result_published"],
       default: null,
     },
     classContext: {

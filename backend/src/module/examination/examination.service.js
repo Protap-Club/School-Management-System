@@ -2,10 +2,9 @@ import mongoose from "mongoose";
 import Exam from "./Exam.model.js";
 import { CalendarEvent } from "../calendar/calendar.model.js";
 import Result from "../result/result.model.js";
-import { Notice } from "../notice/Notice.model.js";
-import User from "../user/model/User.model.js";
 import TeacherProfile from "../user/model/TeacherProfile.model.js";
 import StudentProfile from "../user/model/StudentProfile.model.js";
+import { createAutomatedAcademicNotice } from "../notice/noticeAutomation.service.js";
 import { USER_ROLES } from "../../constants/userRoles.js";
 import { deleteFromCloudinary } from "../../middlewares/upload.middleware.js";
 import {NotFoundError,ConflictError,BadRequestError,ForbiddenError,
@@ -13,6 +12,8 @@ import {NotFoundError,ConflictError,BadRequestError,ForbiddenError,
 import logger from "../../config/logger.js";
 import { assertClassSectionExists, buildClassSectionKey } from "../../utils/classSection.util.js";
 import { ensureActiveTeacher } from "../../utils/teacher.util.js";
+
+let transactionSupportCache = null;
 
 // ═══════════════════════════════════════════════════════════════
 // Helper — Validate teacher has access to a class
@@ -160,12 +161,6 @@ const getScheduleAttachmentUrls = (schedule = []) => {
     );
 };
 
-const normalizeTextKey = (value) => String(value || "").trim().toLowerCase();
-
-const isSameClassSection = (item, standard, section) =>
-    String(item?.standard || "") === String(standard || "") &&
-    String(item?.section || "") === String(section || "");
-
 const formatNoticeDate = (dateValue) => {
     if (!dateValue) return "N/A";
     const date = new Date(dateValue);
@@ -243,96 +238,93 @@ const buildExamNoticeMessage = (exam, { isUpdate = false, changedByName = "Staff
     ].join("\n");
 };
 
-const resolveExamNoticeRecipients = async (schoolId, exam) => {
-    const schedule = Array.isArray(exam?.schedule) ? exam.schedule : [];
-    const admins = await User.find({
-        schoolId,
-        role: { $in: [USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN] },
-        isArchived: false,
-        isActive: true,
-    }).select("_id").lean();
-
-    const classProfiles = await TeacherProfile.find({
-        schoolId,
-        assignedClasses: {
-            $elemMatch: {
-                standard: exam.standard,
-                section: exam.section,
-            },
-        },
-    }).select("userId assignedClasses").lean();
-
-    const scheduleAssignedTeacherIds = new Set(
-        schedule
-            .map((item) => item?.assignedTeacher)
-            .filter(Boolean)
-            .map((id) => String(id))
-    );
-
-    const relevantTeacherIds = new Set([...scheduleAssignedTeacherIds]);
-    for (const profile of classProfiles) {
-        const classAssignments = (profile.assignedClasses || []).filter((assignment) =>
-            isSameClassSection(assignment, exam.standard, exam.section)
-        );
-
-        const hasSubjectMatch = classAssignments.some((assignment) => {
-            const subjects = Array.isArray(assignment?.subjects)
-                ? assignment.subjects.map(normalizeTextKey).filter(Boolean)
-                : [];
-
-            if (subjects.length === 0) {
-                return true;
-            }
-
-            return schedule.some((paper) => subjects.includes(normalizeTextKey(paper?.subject)));
-        });
-
-        if (hasSubjectMatch && profile?.userId) {
-            relevantTeacherIds.add(String(profile.userId));
-        }
-    }
-
-    const recipients = new Set(admins.map((admin) => String(admin._id)));
-    relevantTeacherIds.forEach((id) => recipients.add(id));
-
-    return [...recipients];
-};
-
 const createExamNoticeBroadcast = async (schoolId, exam, actorUser, { isUpdate = false } = {}) => {
-    const classKey = `${exam.standard}-${exam.section}`;
     const createdBy = actorUser?._id || exam.createdBy;
     const changedByName = actorUser?.name || "Staff";
     const title = buildExamNoticeTitle(exam, isUpdate);
     const message = buildExamNoticeMessage(exam, { isUpdate, changedByName });
     const attachments = getExamNoticeAttachments(exam.schedule);
-    const userRecipients = await resolveExamNoticeRecipients(schoolId, exam);
+    const subjects = (Array.isArray(exam?.schedule) ? exam.schedule : [])
+        .map((item) => item?.subject)
+        .filter(Boolean);
 
-    await Notice.create({
+    return createAutomatedAcademicNotice({
         schoolId,
         createdBy,
         title,
         message,
-        recipientType: "classes",
-        recipients: [classKey],
-        type: "notice",
+        sourceType: "exam",
+        sourceId: exam._id,
+        noticeCategory: isUpdate ? "exam_updated" : "exam_published",
+        classContext: {
+            standard: exam.standard,
+            section: exam.section,
+            academicYear: exam.academicYear,
+        },
+        subjects,
         attachments,
-        status: "sent",
-        requiresAcknowledgment: false,
     });
+};
 
-    if (userRecipients.length > 0) {
-        await Notice.create({
-            schoolId,
-            createdBy,
-            title,
-            message,
-            recipientType: "users",
-            recipients: userRecipients,
-            type: "notice",
-            attachments,
-            status: "sent",
-            requiresAcknowledgment: false,
-        });
+const createExamCreatedNoticeForAdmins = async (schoolId, exam, actorUser) => {
+    const createdBy = actorUser?._id || exam.createdBy;
+    const actorName = actorUser?.name || "Staff";
+    const classLabel = `${exam.standard}-${exam.section}`;
+
+    return createAutomatedAcademicNotice({
+        schoolId,
+        createdBy,
+        title: `Exam Created: ${exam.name} (${classLabel})`,
+        message: [
+            `${actorName} created a new exam entry.`,
+            `Exam: ${exam.name}`,
+            `Class: ${classLabel}`,
+            `Academic Year: ${exam.academicYear || "N/A"}`,
+            `Current Status: ${exam.status || "DRAFT"}`,
+        ].join("\n"),
+        sourceType: "exam",
+        sourceId: exam._id,
+        noticeCategory: "exam_created",
+        classContext: {
+            standard: exam.standard,
+            section: exam.section,
+            academicYear: exam.academicYear,
+        },
+        subjects: [],
+        audience: {
+            includeClassTeacher: false,
+            includeSubjectTeachers: false,
+            includeAdmins: true,
+            includeStudents: false,
+        },
+    });
+};
+
+const validatePublishedExamSchedule = (schedule = []) => {
+    if (!Array.isArray(schedule) || schedule.length === 0) {
+        throw new BadRequestError("Cannot publish an exam without at least one schedule entry");
+    }
+};
+
+const supportsMongoTransactions = async () => {
+    if (transactionSupportCache !== null) {
+        return transactionSupportCache;
+    }
+
+    try {
+        const admin = mongoose.connection?.db?.admin?.();
+        if (!admin) {
+            transactionSupportCache = false;
+            return transactionSupportCache;
+        }
+
+        const hello = await admin.command({ hello: 1 });
+        transactionSupportCache = Boolean(hello?.setName || hello?.msg === "isdbgrid");
+        return transactionSupportCache;
+    } catch (error) {
+        logger.warn(`Could not determine Mongo transaction support: ${error.message}`);
+        transactionSupportCache = false;
+        return transactionSupportCache;
     }
 };
 
@@ -351,14 +343,21 @@ export const createExam = async (schoolId, data, user) => {
         throw new BadRequestError("At least one class and section must be selected");
     }
 
+    if (data.status === "PUBLISHED") {
+        validatePublishedExamSchedule(data.schedule);
+    }
+
     // Validate teachers once for the shared schedule
     await assertExamAssignedTeachersAreActive(activeSchoolId, data.schedule);
 
-    const session = await mongoose.startSession();
-    session.startTransaction();
+    const useTransactions = await supportsMongoTransactions();
+    const session = useTransactions ? await mongoose.startSession() : null;
+    if (session) {
+        session.startTransaction();
+    }
+    let createdExams = [];
 
     try {
-        const createdCount = standards.length * sections.length;
         const exams = [];
 
         for (const standard of standards) {
@@ -370,7 +369,7 @@ export const createExam = async (schoolId, data, user) => {
                     { message: `Class ${standard}-${section} is not configured` }
                 );
 
-                const activeConflict = await Exam.findOne({
+                const activeConflictQuery = Exam.findOne({
                     schoolId: activeSchoolId,
                     name: data.name,
                     academicYear: data.academicYear,
@@ -379,7 +378,13 @@ export const createExam = async (schoolId, data, user) => {
                     examType: data.examType,
                     status: { $in: ["DRAFT", "PUBLISHED"] },
                     isActive: true,
-                }).session(session).lean();
+                }).lean();
+
+                if (session) {
+                    activeConflictQuery.session(session);
+                }
+
+                const activeConflict = await activeConflictQuery;
 
                 if (activeConflict) {
                     throw new ConflictError(
@@ -397,21 +402,40 @@ export const createExam = async (schoolId, data, user) => {
                     creatorSnapshot: buildCreatorSnapshot(user, normalized.standard, normalized.section),
                 };
 
-                const [exam] = await Exam.create([createData], { session });
+                const [exam] = session
+                    ? await Exam.create([createData], { session })
+                    : await Exam.create([createData]);
                 await syncExamCalendarEvents(exam, activeSchoolId);
                 exams.push(exam);
             }
         }
 
-        await session.commitTransaction();
+        if (session) {
+            await session.commitTransaction();
+        }
+        createdExams = exams;
         logger.info(`Bulk Exam created: ${exams.length} exams for "${data.name}" across ${standards.length} classes and ${sections.length} sections`);
-        
+
+        if (data.status === "PUBLISHED") {
+            await Promise.allSettled(
+                createdExams.map((exam) => createExamNoticeBroadcast(activeSchoolId, exam, user, { isUpdate: false }))
+            );
+        }
+
+        await Promise.allSettled(
+            createdExams.map((exam) => createExamCreatedNoticeForAdmins(activeSchoolId, exam, user))
+        );
+
         return exams[0]; // Return the first one for the frontend to handle completion
     } catch (error) {
-        await session.abortTransaction();
+        if (session) {
+            await session.abortTransaction();
+        }
         throw error;
     } finally {
-        session.endSession();
+        if (session) {
+            session.endSession();
+        }
     }
 };
 
@@ -516,6 +540,7 @@ export const updateExam = async (schoolId, examId, data, user) => {
     if (!exam) throw new NotFoundError("Exam not found");
 
     assertCanManageExam(exam, user, "Only the exam creator or an admin can update this exam");
+    const previousStatus = exam.status;
 
     // Apply safe updates (don't allow changing examType, standard, section, academicYear)
     if (data.schedule !== undefined) {
@@ -531,6 +556,10 @@ export const updateExam = async (schoolId, examId, data, user) => {
     if (data.description !== undefined) exam.description = data.description;
     if (data.schedule !== undefined) exam.schedule = data.schedule;
     if (data.status !== undefined) exam.status = data.status;
+
+    if (exam.status === "PUBLISHED") {
+        validatePublishedExamSchedule(exam.schedule);
+    }
 
     await exam.save();
     await syncExamCalendarEvents(exam, schoolId);
@@ -548,7 +577,14 @@ export const updateExam = async (schoolId, examId, data, user) => {
         }
     }
 
-    if (exam.status === "PUBLISHED" && data.schedule !== undefined) {
+    const hasJustPublished = previousStatus !== "PUBLISHED" && exam.status === "PUBLISHED";
+    if (hasJustPublished) {
+        try {
+            await createExamNoticeBroadcast(schoolId, exam, user, { isUpdate: false });
+        } catch (noticeError) {
+            logger.error(`Failed to broadcast exam publish notice for ${examId}: ${noticeError.message}`);
+        }
+    } else if (exam.status === "PUBLISHED" && data.schedule !== undefined) {
         try {
             await createExamNoticeBroadcast(schoolId, exam, user, { isUpdate: true });
         } catch (noticeError) {
@@ -827,8 +863,8 @@ export const updateStatus = async (schoolId, examId, newStatus, user) => {
     }
 
     // Require at least one schedule item before publishing
-    if (newStatus === "PUBLISHED" && (!exam.schedule || exam.schedule.length === 0)) {
-        throw new BadRequestError("Cannot publish an exam without at least one schedule entry");
+    if (newStatus === "PUBLISHED") {
+        validatePublishedExamSchedule(exam.schedule);
     }
 
     const previousStatus = exam.status;

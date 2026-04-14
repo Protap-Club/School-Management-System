@@ -1,6 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useSelector } from "react-redux";
 import { usersApi } from "./api";
 import { attendanceKeys } from "../../attendance/api/queries";
+import { selectAccessToken } from "../../auth/authSlice";
 
 export const userKeys = {
     all: ["users"],
@@ -9,19 +11,26 @@ export const userKeys = {
     detail: (id) => [...userKeys.all, "detail", id],
 };
 
+const useProtectedQueryEnabled = (enabled = true) => {
+    const accessToken = useSelector(selectAccessToken);
+    return Boolean(accessToken) && enabled;
+};
+
 export const useUsers = ({ role = "all", page = 0, pageSize = 25, name, enabled = true } = {}) => {
+    const queryEnabled = useProtectedQueryEnabled(enabled);
     return useQuery({
         queryKey: userKeys.list({ role, page, pageSize, name, isArchived: false }),
         queryFn: () => usersApi.getUsers({ role, page, pageSize, name, isArchived: false }),
-        enabled
+        enabled: queryEnabled
     });
 };
 
 export const useArchivedUsers = ({ role = "all", page = 0, pageSize = 25, name, enabled = true } = {}) => {
+    const queryEnabled = useProtectedQueryEnabled(enabled);
     return useQuery({
         queryKey: userKeys.list({ role, page, pageSize, name, isArchived: true }),
         queryFn: () => usersApi.getUsers({ role, page, pageSize, name, isArchived: true }),
-        enabled
+        enabled: queryEnabled
     });
 };
 

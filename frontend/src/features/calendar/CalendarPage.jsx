@@ -169,7 +169,8 @@ const CalendarPage = () => {
       setLoading(true);
       const startOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
       const endOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
-
+      startOfMonth.setHours(0, 0, 0, 0);
+      endOfMonth.setHours(23, 59, 59, 999); 
       const calRes = await api.get('/calendar', {
         params: { start: startOfMonth.toISOString(), end: endOfMonth.toISOString() }
       });
