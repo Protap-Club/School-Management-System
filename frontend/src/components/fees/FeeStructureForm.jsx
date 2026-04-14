@@ -528,7 +528,13 @@ const FeeStructureForm = ({ onCancel, onSubmit, editData, isLoading, isAdmin }) 
                     <button onClick={onCancel} className="p-1.5 hover:bg-white rounded-lg transition-colors text-gray-400 hover:text-gray-900 border border-transparent hover:border-gray-100">
                         <FaArrowLeft size={10} />
                     </button>
-                    <h3 className="text-sm font-black text-gray-900 tracking-tight">{isEdit ? 'Edit Fee Structure' : 'Add Fee Structure'}</h3>
+                    <h3 className="text-sm font-black text-gray-900 tracking-tight">
+                        {(() => {
+                            const label = form.feeType ? (FEE_TYPE_LABELS[form.feeType] || form.feeType.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ')) : '';
+                            if (isEdit) return label ? `Edit ${label} Structure` : 'Edit Fee Structure';
+                            return label ? `${label} Fee Structure` : 'Add Fee Structure';
+                        })()}
+                    </h3>
                 </div>
             </div>
 
