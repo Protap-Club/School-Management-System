@@ -165,7 +165,21 @@ const AttendancePage = () => {
     const isLoading = studentsLoading || attendanceLoading || (isAdmin && teachersLoading);
 
     // Derived Data
-    const students = useMemo(() => studentsRes?.data?.users || [], [studentsRes]);
+    const rawStudents = useMemo(() => studentsRes?.data?.users || [], [studentsRes]);
+    
+    const students = useMemo(() => {
+        if (isAdmin) return rawStudents;
+        
+        // For teachers: only show students in their homeroom (classTeacherOf)
+        const classTeacherOf = currentUser?.profile?.classTeacherOf;
+        if (!classTeacherOf?.standard || !classTeacherOf?.section) return [];
+        
+        return rawStudents.filter(s => 
+            s.profile?.standard === classTeacherOf.standard && 
+            s.profile?.section === classTeacherOf.section
+        );
+    }, [isAdmin, rawStudents, currentUser]);
+
     const filteredStudents = useMemo(() => {
         if (!searchQuery) return students;
         const q = searchQuery.toLowerCase();

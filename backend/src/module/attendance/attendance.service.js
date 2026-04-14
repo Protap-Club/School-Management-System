@@ -148,9 +148,7 @@ export const getTodayAttendance = async (user, platform) => {
 
     const schoolId = user.schoolId?._id || user.schoolId;
 
-    // Platform-specific logic (same pattern as auth.service.js)
     if (platform === 'mobile') {
-        // Mobile: Only students and teachers allowed
         if (user.role === USER_ROLES.STUDENT) {
             return await getStudentMobileAttendance(user._id, schoolId);
         } else if (user.role === USER_ROLES.TEACHER) {
@@ -160,10 +158,38 @@ export const getTodayAttendance = async (user, platform) => {
         }
     }
 
-    // Web/default: existing behavior (all school records for admin dashboard)
+    // For web:
     const startOfDay = new Date();
     startOfDay.setHours(0, 0, 0, 0);
 
+    // If teacher, ONLY fetch records for students in their classTeacherOf class
+    if (user.role === USER_ROLES.TEACHER) {
+        const teacherProfile = await TeacherProfile.findOne({ userId: user._id, schoolId })
+            .select("classTeacherOf")
+            .lean();
+
+        if (!teacherProfile?.classTeacherOf?.standard || !teacherProfile?.classTeacherOf?.section) {
+            return []; // Not a class teacher, no students to show
+        }
+
+        const classStudents = await StudentProfile.find({
+            schoolId,
+            standard: teacherProfile.classTeacherOf.standard,
+            section: teacherProfile.classTeacherOf.section
+        }).select("userId").lean();
+
+        const studentIds = classStudents.map(s => s.userId);
+
+        if (!studentIds.length) return [];
+
+        return await Attendance.find({
+            schoolId,
+            studentId: { $in: studentIds },
+            date: { $gte: startOfDay }
+        }).select("studentId status checkInTime").sort({ checkInTime: -1 }).lean();
+    }
+
+    // For admin/super_admin: fetch recent school records
     const records = await Attendance.find({
         schoolId,
         date: { $gte: startOfDay }
