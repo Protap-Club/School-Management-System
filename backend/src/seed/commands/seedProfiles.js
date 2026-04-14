@@ -93,7 +93,7 @@ const seedProfiles = async () => {
         await StudentProfile.create({
           userId: user._id,
           schoolId: school._id,
-          rollNumber: `${student.standard}${student.section}${String(student.roll).padStart(2, "0")}`,
+          rollNumber: String(student.roll).padStart(2, "0"),
           standard: student.standard,
           section: student.section,
           year: cfg.year,

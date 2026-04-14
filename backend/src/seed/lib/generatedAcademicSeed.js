@@ -78,9 +78,18 @@ const buildGeneratedTeacherIdentity = (code, index, assignedClass, usedNames) =>
  * Each teacher handles ~7 assignments for their specialized subject.
  */
 export const buildTeacherSeedData = (code) => {
+  const schoolDef = schoolMap.get(code);
+
+  if (schoolDef?.handCrafted) {
+    const demo = loadSeedJson("demoProfiles.json");
+    if (demo && demo[code] && demo[code].teachers) {
+      return demo[code].teachers;
+    }
+  }
+
   const classSections = getSchoolClassSections(code);
   const existingTeachers = usersData[code]?.teachers || [];
-  const TOTAL_TEACHERS = 48;
+  const TOTAL_TEACHERS = 36;
 
   // 1. Calculate Subject Demand across all classes
   const subjectDemand = {};
