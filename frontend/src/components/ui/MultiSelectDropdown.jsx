@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Check, ChevronDown, X, CheckSquare, Square } from "lucide-react";
+import { Check, ChevronDown, X, CheckSquare, Square, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   DropdownMenu,
@@ -21,6 +21,14 @@ export function MultiSelectDropdown({
   className,
   disabled = false,
 }) {
+  const [searchTerm, setSearchTerm] = React.useState("");
+  
+  const filteredOptions = React.useMemo(() => {
+    return options.filter((opt) =>
+      opt.label.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [options, searchTerm]);
+
   const isAllSelected = options.length > 0 && selected.length === options.length;
   const isNoneSelected = selected.length === 0;
 
@@ -50,7 +58,7 @@ export function MultiSelectDropdown({
   };
 
   return (
-    <DropdownMenu>
+    <DropdownMenu onOpenChange={(open) => !open && setSearchTerm("")}>
       <DropdownMenuTrigger asChild>
         <Button
           variant="outline"
@@ -75,25 +83,55 @@ export function MultiSelectDropdown({
           <ChevronDown className={cn("h-4 w-4 shrink-0 transition-transform text-gray-400", disabled && "opacity-50")} />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent className="w-[var(--radix-dropdown-menu-trigger-width)] min-w-[200px] p-1 shadow-xl rounded-xl z-[200]">
-        <DropdownMenuCheckboxItem
-          checked={isAllSelected}
-          onSelect={(e) => e.preventDefault()}
-          onCheckedChange={toggleSelectAll}
-          className="font-bold text-primary focus:bg-primary/5 focus:text-primary rounded-lg flex items-center gap-2 [&>span[data-slot=dropdown-menu-checkbox-item-indicator]]:hidden"
-        >
-          <div className="flex items-center gap-2 flex-1">
-            {isAllSelected ? (
-              <CheckSquare className="h-4 w-4 text-primary" />
-            ) : (
-              <Square className="h-4 w-4 text-gray-300" />
+      <DropdownMenuContent 
+        side="bottom" 
+        sideOffset={4}
+        className="w-[var(--radix-dropdown-menu-trigger-width)] min-w-[200px] p-1 shadow-xl rounded-xl z-[200] max-h-[350px] overflow-hidden flex flex-col"
+      >
+        <div className="px-2 py-2 sticky top-0 bg-white z-10 border-b border-gray-100 shrink-0">
+          <div className="flex items-center gap-2 px-2 py-1.5 bg-gray-50 rounded-lg border border-gray-100 group focus-within:border-primary/30 transition-all">
+            <Search size={14} className="text-gray-400 group-focus-within:text-primary transition-colors" />
+            <input
+              type="text"
+              placeholder={`Search ${label.toLowerCase()}...`}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="flex-1 bg-transparent text-[11px] font-medium outline-none placeholder:text-gray-400"
+              autoFocus
+            />
+            {searchTerm && (
+              <button 
+                type="button"
+                onClick={() => setSearchTerm("")} 
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+                aria-label="Clear search"
+              >
+                <X size={12} />
+              </button>
             )}
-            <span>Select All</span>
           </div>
-        </DropdownMenuCheckboxItem>
-        <DropdownMenuSeparator />
-        <div className="p-1">
-          {options.map((option) => {
+        </div>
+
+        <div className="flex-1 overflow-y-auto custom-scrollbar p-1">
+          <DropdownMenuCheckboxItem
+            checked={isAllSelected}
+            onSelect={(e) => e.preventDefault()}
+            onCheckedChange={toggleSelectAll}
+            className="font-bold text-primary focus:bg-primary/5 focus:text-primary rounded-lg flex items-center gap-2 [&>span[data-slot=dropdown-menu-checkbox-item-indicator]]:hidden"
+          >
+            <div className="flex items-center gap-2 flex-1">
+              {isAllSelected ? (
+                <CheckSquare className="h-4 w-4 text-primary" />
+              ) : (
+                <Square className="h-4 w-4 text-gray-300" />
+              )}
+              <span>Select All</span>
+            </div>
+          </DropdownMenuCheckboxItem>
+          
+          <DropdownMenuSeparator className="my-1" />
+
+          {filteredOptions.map((option) => {
             const isSelected = selected.includes(option.value);
             return (
               <DropdownMenuCheckboxItem
@@ -116,9 +154,13 @@ export function MultiSelectDropdown({
               </DropdownMenuCheckboxItem>
             );
           })}
-          {options.length === 0 && (
-            <div className="px-2 py-4 text-center text-xs text-gray-400 italic">
-              No options available
+          
+          {filteredOptions.length === 0 && (
+            <div className="px-2 py-8 text-center bg-gray-50/50 rounded-lg border border-dashed border-gray-100 mt-1">
+              <Search className="h-6 w-6 text-gray-300 mx-auto mb-2 opacity-50" />
+              <div className="text-[11px] text-gray-400 font-medium italic">
+                No results for "{searchTerm}"
+              </div>
             </div>
           )}
         </div>
@@ -126,3 +168,4 @@ export function MultiSelectDropdown({
     </DropdownMenu>
   );
 }
+

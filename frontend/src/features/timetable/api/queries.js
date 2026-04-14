@@ -128,6 +128,14 @@ export const useMySchedule = (date = null, enabled = true) => {
     });
 };
 
+export const useMyClassSchedule = (enabled = true) => {
+    return useQuery({
+        queryKey: timetableKeys.myClassSchedule(),
+        queryFn: timetableApi.getMyClassSchedule,
+        enabled,
+    });
+};
+
 export const useTeacherSchedule = (teacherId, academicYear = null, enabled = true) => {
     return useQuery({
         queryKey: timetableKeys.teacherSchedule(teacherId, academicYear),

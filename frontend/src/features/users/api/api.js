@@ -34,4 +34,9 @@ export const usersApi = {
         });
         return response.data;
     },
+
+    getNextRollNumber: async (standard, section) => {
+        const response = await api.get(`/users/next-roll-number?standard=${standard}&section=${section}`);
+        return response.data;
+    },
 };

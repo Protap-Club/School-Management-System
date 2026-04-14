@@ -56,6 +56,15 @@ const sanitizeAttachmentForApi = (attachment = {}) => {
 const resolveEntityId = (entity) =>
   String(entity?._id || entity?.id || entity?.userId || '');
 
+const normalizeSearch = (str) => {
+  if (!str) return "";
+  return str
+    .toLowerCase()
+    .replace(/\bclass\b/g, "")
+    .replace(/\s+/g, "")
+    .trim();
+};
+
 const formatCreatorRoleLabel = (role) => {
   if (role === 'super_admin') return 'Super Admin';
   if (role === 'admin') return 'Admin';
@@ -298,12 +307,22 @@ const ExaminationPage = () => {
     
     // Frontend search within the current paginated results
     if (searchTerm) {
+      const normalizedTerm = normalizeSearch(searchTerm);
       const term = searchTerm.toLowerCase();
-      result = result.filter(e => 
-        e.name.toLowerCase().includes(term) ||
-        (e.standard && e.standard.toLowerCase().includes(term)) ||
-        (e.description && e.description.toLowerCase().includes(term))
-      );
+
+      result = result.filter(e => {
+        const nameMatch = e.name.toLowerCase().includes(term);
+        const descMatch = e.description && e.description.toLowerCase().includes(term);
+        
+        // Normalized class matching (Standard + Section)
+        const standardNormalized = normalizeSearch(e.standard || '');
+        const combinedNormalized = normalizeSearch(`${e.standard || ''}${e.section || ''}`);
+        
+        const classMatch = (standardNormalized && normalizedTerm && standardNormalized.includes(normalizedTerm)) ||
+                          (combinedNormalized && normalizedTerm && combinedNormalized.includes(normalizedTerm));
+
+        return nameMatch || descMatch || classMatch;
+      });
     }
     return result;
   }, [exams, searchTerm]);
