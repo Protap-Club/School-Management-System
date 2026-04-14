@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { FaTimes, FaCheck, FaPlus, FaSave, FaArrowLeft } from 'react-icons/fa';
+import { FaTimes, FaCheck, FaPlus, FaSave, FaArrowLeft, FaSearch } from 'react-icons/fa';
 import {
     FEE_TYPES, FEE_TYPE_LABELS, FREQUENCY_OPTIONS, FREQUENCY_LABELS,
 } from '../../features/fees';
@@ -32,6 +32,11 @@ const normalizeSection = (value) => String(value || '').trim().toUpperCase();
 
 const MultiSelect = ({ label, options, selected, onToggle, onSelectAll, error, disabled }) => {
     const [isOpen, setIsOpen] = useState(false);
+    const [searchTerm, setSearchTerm] = useState('');
+
+    const filteredOptions = options.filter(opt =>
+        String(opt).toLowerCase().includes(searchTerm.toLowerCase())
+    );
     return (
         <div className="relative">
             <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">{label} *</label>
@@ -50,22 +55,62 @@ const MultiSelect = ({ label, options, selected, onToggle, onSelectAll, error, d
 
             {isOpen && !disabled && (
                 <>
-                    <div className="fixed inset-0 z-10" onClick={() => setIsOpen(false)}></div>
-                    <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-100 rounded-2xl shadow-xl z-20 py-2 max-h-60 overflow-y-auto animate-fadeIn slide-in-from-top-2 duration-200">
-                        <div className="px-3 pb-2 mb-2 border-b border-gray-50 flex items-center justify-between">
+                    <div className="fixed inset-0 z-10" onClick={() => {
+                        setIsOpen(false);
+                        setSearchTerm('');
+                    }}></div>
+                    <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-100 rounded-2xl shadow-xl z-20 py-2 max-h-80 flex flex-col animate-fadeIn slide-in-from-top-2 duration-200">
+                        <div className="px-3 pb-2 mb-2 border-b border-gray-50 flex items-center justify-between shrink-0">
                             <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Select {label}</span>
-                             <button type="button" onClick={onSelectAll} disabled={options.length === 0}
+                             <button type="button" onClick={() => {
+                                 // If searching, we pass filtered options back? No, parent doesn't support it.
+                                 // For now, keep original Select All behavior or adjust parent.
+                                 // Let's keep it simple: Select All works on the original set.
+                                 onSelectAll();
+                             }} disabled={options.length === 0}
                                 className="text-[9px] font-black text-primary uppercase tracking-widest hover:underline disabled:opacity-30 disabled:no-underline">
                                 {selected.length > 0 && selected.length === options.length ? "Deselect All" : "Select All"}
                             </button>
                         </div>
-                        {options.map((opt) => (
-                            <label key={opt} className="flex items-center gap-3 px-4 py-2 hover:bg-gray-50 cursor-pointer transition-colors group">
-                                <input type="checkbox" checked={selected.includes(opt)} onChange={() => onToggle(opt)}
-                                    className="w-4 h-4 text-primary border-gray-200 rounded focus:ring-primary/20" />
-                                <span className={`text-[13px] font-bold ${selected.includes(opt) ? 'text-primary' : 'text-gray-600 group-hover:text-gray-900'}`}>{opt}</span>
-                            </label>
-                        ))}
+                        
+                        <div className="px-3 pb-2 mb-2 border-b border-gray-50 shrink-0">
+                            <div className="relative">
+                                <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" size={10} />
+                                <input
+                                    type="text"
+                                    placeholder={`Search ${label}...`}
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    className="w-full pl-8 pr-3 py-1.5 bg-gray-50 border border-gray-100 rounded-lg text-xs focus:outline-none focus:border-primary/30 transition-all font-bold"
+                                    onClick={(e) => e.stopPropagation()}
+                                />
+                                {searchTerm && (
+                                    <button 
+                                        type="button"
+                                        onClick={(e) => { e.stopPropagation(); setSearchTerm(''); }}
+                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500"
+                                    >
+                                        <FaTimes size={10} />
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="overflow-y-auto custom-scrollbar flex-1">
+                            {filteredOptions.length > 0 ? (
+                                filteredOptions.map((opt) => (
+                                    <label key={opt} className="flex items-center gap-3 px-4 py-2 hover:bg-gray-50 cursor-pointer transition-colors group">
+                                        <input type="checkbox" checked={selected.includes(opt)} onChange={() => onToggle(opt)}
+                                            className="w-4 h-4 text-primary border-gray-200 rounded focus:ring-primary/20" />
+                                        <span className={`text-[13px] font-bold ${selected.includes(opt) ? 'text-primary' : 'text-gray-600 group-hover:text-gray-900'}`}>{opt}</span>
+                                    </label>
+                                ))
+                            ) : (
+                                <div className="px-4 py-4 text-center text-[10px] font-bold text-gray-400 italic">
+                                    No {label}s Found
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </>
             )}
