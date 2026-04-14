@@ -53,7 +53,13 @@ const buildClassGroups = (students = [], teachers = [], configuredClassSections 
     const primaryClassTeacherByClass = {};
 
     teachers.forEach((teacher) => {
-        const primaryClass = teacher.profile?.assignedClasses?.[0];
+        // Prefer classTeacherOf (explicit 1-to-1 class teacher assignment),
+        // fall back to assignedClasses[0] for schools that don't use classTeacherOf.
+        const classTeacherOf = teacher.profile?.classTeacherOf;
+        const primaryClass = (classTeacherOf?.standard && classTeacherOf?.section)
+            ? classTeacherOf
+            : teacher.profile?.assignedClasses?.[0];
+
         if (!primaryClass?.standard || !primaryClass?.section) return;
 
         const key = `${primaryClass.standard} ${primaryClass.section}`.trim();
