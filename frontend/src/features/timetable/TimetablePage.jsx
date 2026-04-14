@@ -63,6 +63,7 @@ const TimetablePage = () => {
     const schoolLogo = schoolData?.logoUrl || null;
 
     const [adminViewMode, setAdminViewMode] = useState("class");
+    const [teacherViewMode, setTeacherViewMode] = useState("schedule"); // schedule | class
     const [activeTab, setActiveTab] = useState("timetable");  // timetable | proxy
     const [weekOffset, setWeekOffset] = useState(0);  // 0 = current week, 1 = next week, etc.
     const [markUnavailableModal, setMarkUnavailableModal] = useState({ open: false, slotInfo: null });
@@ -184,6 +185,7 @@ const TimetablePage = () => {
         isAdmin && adminViewMode === "class" && Boolean(activeTimetableId)
     );
     const myScheduleQuery = useMySchedule(weekReferenceDate, isTeacher);
+    const myClassScheduleQuery = useMyClassSchedule(isTeacher && teacherViewMode === "class");
     const myProxyRequestsQuery = useMyProxyRequests({}, { enabled: isTeacher });
     const teacherScheduleQuery = useTeacherSchedule(
         activeTeacherId,
@@ -202,6 +204,8 @@ const TimetablePage = () => {
     );
     const teacherScheduleEntries = flattenSchedule(teacherScheduleQuery.data?.data);
     const myScheduleEntries = flattenSchedule(myScheduleQuery.data?.data);
+    const myClassInfo = myClassScheduleQuery.data?.data?.timetable;
+    const myClassEntries = myClassScheduleQuery.data?.data?.entries || [];
     const myProxyRequests = myProxyRequestsQuery.data?.data || [];
 
     const myRequestStateByCell = useMemo(() => {
@@ -258,10 +262,12 @@ const TimetablePage = () => {
     );
 
     const displayEntries = useMemo(() => {
-        if (isTeacher) return myScheduleEntriesWithRequestState;
+        if (isTeacher) {
+            return teacherViewMode === "class" ? myClassEntries : myScheduleEntriesWithRequestState;
+        }
         if (adminViewMode === "teacher") return teacherScheduleEntries;
         return selectedTimetableEntries;
-    }, [isTeacher, adminViewMode, myScheduleEntriesWithRequestState, teacherScheduleEntries, selectedTimetableEntries]);
+    }, [isTeacher, teacherViewMode, myClassEntries, myScheduleEntriesWithRequestState, teacherScheduleEntries, selectedTimetableEntries]);
 
     const currentError = errorMessage ||
         readError(timeSlotsQuery.error, "") ||
@@ -382,8 +388,7 @@ const TimetablePage = () => {
         <DashboardLayout>
             <div className="space-y-4">
                 {toast?.text && (
-                    <div className={`fixed top-6 right-6 z-[120] px-5 py-3.5 rounded-2xl shadow-xl flex items-start gap-3 animate-fadeIn backdrop-blur-sm border ${
-                        toast?.type === 'warning'
+                    <div className={`fixed top-6 right-6 z-[120] px-5 py-3.5 rounded-2xl shadow-xl flex items-start gap-3 animate-fadeIn backdrop-blur-sm border ${toast?.type === 'warning'
                             ? 'bg-amber-500/90 text-white border-amber-200/40'
                             : toast?.type === 'success'
                                 ? 'bg-emerald-500/90 text-white border-emerald-200/40'
@@ -431,11 +436,10 @@ const TimetablePage = () => {
                             {/* Proxy Management Tab */}
                             <button
                                 onClick={() => setActiveTab("proxy")}
-                                className={`flex items-center gap-2 px-4 py-1.5 rounded-md text-[13px] font-medium transition-all ${
-                                    activeTab === "proxy"
+                                className={`flex items-center gap-2 px-4 py-1.5 rounded-md text-[13px] font-medium transition-all ${activeTab === "proxy"
                                         ? "bg-blue-600 text-white shadow-sm"
                                         : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50"
-                                }`}
+                                    }`}
                             >
                                 <FaUserClock size={14} />
                                 Proxy Management
@@ -544,11 +548,10 @@ const TimetablePage = () => {
                                     </button>
                                     <button
                                         onClick={() => setWeekOffset(0)}
-                                        className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-all ${
-                                            weekOffset === 0
+                                        className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-all ${weekOffset === 0
                                                 ? 'bg-white text-gray-900 border border-gray-300 shadow-sm'
                                                 : 'text-gray-600 hover:bg-white hover:border-gray-200 border border-transparent'
-                                        }`}
+                                            }`}
                                     >
                                         This Week
                                     </button>
@@ -626,6 +629,9 @@ const TimetablePage = () => {
                 slotInfo={markUnavailableModal.slotInfo}
                 onSuccess={() => {
                     showMessage("success", "Proxy request created successfully");
+                }}
+                onError={(errorMessage) => {
+                    showMessage("error", errorMessage);
                 }}
             />
         </DashboardLayout>

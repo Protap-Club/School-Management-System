@@ -11,9 +11,8 @@ const toDateOnlyString = (date) => {
     return `${year}-${month}-${day}`;
 };
 
-const MarkUnavailableModal = ({ isOpen, onClose, slotInfo, onSuccess }) => {
+const MarkUnavailableModal = ({ isOpen, onClose, slotInfo, onSuccess, onError }) => {
     const [reason, setReason] = useState("");
-    const [error, setError] = useState("");
 
     const createRequest = useCreateProxyRequest();
 
@@ -38,12 +37,11 @@ const MarkUnavailableModal = ({ isOpen, onClose, slotInfo, onSuccess }) => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        setError("");
 
         // Validate date
         const dateError = validateDate(selectedDate);
         if (dateError) {
-            setError(dateError);
+            onError?.(dateError);
             return;
         }
 
@@ -59,7 +57,7 @@ const MarkUnavailableModal = ({ isOpen, onClose, slotInfo, onSuccess }) => {
             onClose();
             setReason("");
         } catch (err) {
-            setError(err.response?.data?.message || err.response?.data?.error?.message || "Failed to create proxy request");
+            onError?.(err.response?.data?.message || err.response?.data?.error?.message || "Failed to create proxy request");
         }
     };
 
@@ -77,8 +75,8 @@ const MarkUnavailableModal = ({ isOpen, onClose, slotInfo, onSuccess }) => {
                             <p className="text-xs text-gray-500">Request proxy for this class</p>
                         </div>
                     </div>
-                    <button 
-                        onClick={onClose} 
+                    <button
+                        onClick={onClose}
                         className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-2 rounded-full transition-all"
                     >
                         <FaTimes size={18} />
@@ -123,19 +121,13 @@ const MarkUnavailableModal = ({ isOpen, onClose, slotInfo, onSuccess }) => {
                         <div className="flex items-start gap-3">
                             <FaExclamationTriangle className="text-amber-500 mt-0.5 flex-shrink-0" size={16} />
                             <p className="text-xs text-amber-700">
-                                By marking unavailable, you request admin to assign a proxy teacher 
+                                By marking unavailable, you request admin to assign a proxy teacher
                                 or mark this as a free period. Your class will be notified.
                             </p>
                         </div>
                     </div>
 
-                    {/* Error */}
-                    {error && (
-                        <div className="mb-3 p-2 bg-red-50 border border-red-200 rounded-lg text-xs text-red-600">
-                            {error}
-                        </div>
-                    )}
-
+                    
                     {/* Form */}
                     <form onSubmit={handleSubmit}>
                         <div className="mb-6">

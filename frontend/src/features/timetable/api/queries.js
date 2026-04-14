@@ -12,6 +12,7 @@ export const timetableKeys = {
     mySchedule: (date) => [...timetableKeys.all, "mySchedule", date || "default"],
     teacherSchedule: (id, year) => [...timetableKeys.all, 'teacherSchedule', id, year],
     teachers: () => [...timetableKeys.all, "teachers"],
+    myClassSchedule: () => [...timetableKeys.all, "myClassSchedule"],
 };
 
 export const useTimeSlots = () => {

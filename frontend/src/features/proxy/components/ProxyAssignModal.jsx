@@ -201,17 +201,15 @@ const TeacherOption = ({ teacher, selected, onSelect }) => {
     return (
         <div
             onClick={onSelect}
-            className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${
-                selected
+            className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${selected
                     ? "border-blue-500 bg-blue-50"
                     : "border-gray-200 hover:border-blue-300 hover:bg-gray-50"
-            }`}
+                }`}
         >
             <div className="flex items-start gap-3">
                 <div
-                    className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 mt-0.5 ${
-                        selected ? "border-blue-500 bg-blue-500" : "border-gray-300"
-                    }`}
+                    className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 mt-0.5 ${selected ? "border-blue-500 bg-blue-500" : "border-gray-300"
+                        }`}
                 >
                     {selected && <div className="w-2 h-2 bg-white rounded-full" />}
                 </div>
