@@ -62,8 +62,12 @@ const TimetablePage = () => {
     const schoolName = schoolData?.name || 'School';
     const schoolLogo = schoolData?.logoUrl || null;
 
+    // Determine if this teacher is a class teacher and which class they own
+    const classTeacherOf = isTeacher ? user?.profile?.classTeacherOf : null;
+    const isClassTeacher = !!(classTeacherOf?.standard && classTeacherOf?.section);
+
     const [adminViewMode, setAdminViewMode] = useState("class");
-    const [teacherViewMode, setTeacherViewMode] = useState("schedule"); // schedule | class
+    const [teacherTab, setTeacherTab] = useState(isClassTeacher ? "class" : "schedule"); // "class" | "schedule"
     const [activeTab, setActiveTab] = useState("timetable");  // timetable | proxy
     const [weekOffset, setWeekOffset] = useState(0);  // 0 = current week, 1 = next week, etc.
     const [markUnavailableModal, setMarkUnavailableModal] = useState({ open: false, slotInfo: null });
@@ -185,7 +189,7 @@ const TimetablePage = () => {
         isAdmin && adminViewMode === "class" && Boolean(activeTimetableId)
     );
     const myScheduleQuery = useMySchedule(weekReferenceDate, isTeacher);
-    const myClassScheduleQuery = useMyClassSchedule(isTeacher && teacherViewMode === "class");
+    const myClassScheduleQuery = useMyClassSchedule(isTeacher && teacherTab === "class");
     const myProxyRequestsQuery = useMyProxyRequests({}, { enabled: isTeacher });
     const teacherScheduleQuery = useTeacherSchedule(
         activeTeacherId,
@@ -203,10 +207,26 @@ const TimetablePage = () => {
         [selectedTimetableQuery.data]
     );
     const teacherScheduleEntries = flattenSchedule(teacherScheduleQuery.data?.data);
-    const myScheduleEntries = flattenSchedule(myScheduleQuery.data?.data);
-    const myClassInfo = myClassScheduleQuery.data?.data?.timetable;
-    const myClassEntries = myClassScheduleQuery.data?.data?.entries || [];
+
+    // Support both teacher schedule shapes:
+    // 1) { isClassTeacher, personalSchedule, classTimetable }
+    // 2) { Mon: [...], Tue: [...] }
+    const myScheduleData = myScheduleQuery.data?.data;
+    const myScheduleRaw = isTeacher ? (myScheduleData?.personalSchedule || myScheduleData) : myScheduleData;
+    const myClassTimetableRaw = isTeacher ? myScheduleData?.classTimetable?.schedule : null;
+    const myClassInfoFromQuery = myClassScheduleQuery.data?.data?.timetable;
+    const myClassInfo = myClassInfoFromQuery || myScheduleData?.classTimetable || null;
+    const myClassEntriesFromQuery = myClassScheduleQuery.data?.data?.entries || [];
+    const isClassTeacherFromData = isTeacher && Boolean(myScheduleData?.isClassTeacher || isClassTeacher || myClassInfo);
+
+    const myScheduleEntries = flattenSchedule(myScheduleRaw);
+    const myClassTimetableEntries = flattenSchedule(myClassTimetableRaw);
+    const myClassEntries = myClassEntriesFromQuery.length > 0 ? myClassEntriesFromQuery : myClassTimetableEntries;
     const myProxyRequests = myProxyRequestsQuery.data?.data || [];
+
+    const myClassLabel = myScheduleData?.classTimetable?.classLabel ||
+        (myClassInfo?.standard && myClassInfo?.section ? `${myClassInfo.standard}-${myClassInfo.section}` : "") ||
+        (classTeacherOf?.standard && classTeacherOf?.section ? `${classTeacherOf.standard}-${classTeacherOf.section}` : "");
 
     const myRequestStateByCell = useMemo(() => {
         const map = new Map();
@@ -263,11 +283,12 @@ const TimetablePage = () => {
 
     const displayEntries = useMemo(() => {
         if (isTeacher) {
-            return teacherViewMode === "class" ? myClassEntries : myScheduleEntriesWithRequestState;
+            if (isClassTeacherFromData && teacherTab === "class") return myClassEntries;
+            return myScheduleEntriesWithRequestState;
         }
         if (adminViewMode === "teacher") return teacherScheduleEntries;
         return selectedTimetableEntries;
-    }, [isTeacher, teacherViewMode, myClassEntries, myScheduleEntriesWithRequestState, teacherScheduleEntries, selectedTimetableEntries]);
+    }, [isTeacher, isClassTeacherFromData, teacherTab, myClassEntries, myScheduleEntriesWithRequestState, adminViewMode, teacherScheduleEntries, selectedTimetableEntries]);
 
     const currentError = errorMessage ||
         readError(timeSlotsQuery.error, "") ||
@@ -346,12 +367,50 @@ const TimetablePage = () => {
     // Export PDF for teacher / student personal schedule
     const handleExportSchedulePDF = async () => {
         if (!myScheduleEntries.length) return;
-        const firstEntry = myScheduleEntries[0];
         await generateTimetablePDF({
             entries: myScheduleEntries,
             timeSlots,
-            standard: firstEntry?.timetableId?.standard || 'My Schedule',
-            section: firstEntry?.timetableId?.section || '',
+            standard: `${user?.profile?.name || user?.name || 'Faculty'}'s Schedule`,
+            section: '',
+            academicYear: '',
+            schoolName,
+            schoolLogo,
+        });
+    };
+
+    // Export PDF for admin viewing a teacher's schedule
+    const handleExportAdminTeacherPDF = async () => {
+        if (!teacherScheduleEntries.length || !activeTeacherId) return;
+        const teacher = teachers.find((t) => t._id === activeTeacherId);
+        await generateTimetablePDF({
+            entries: teacherScheduleEntries,
+            timeSlots,
+            standard: teacher ? `${teacher.name}'s Schedule` : 'Teacher Schedule',
+            section: '',
+            academicYear: '',
+            schoolName,
+            schoolLogo,
+        });
+    };
+
+    // Export PDF for teacher viewing their homeroom class
+    const handleExportClassPDF = async () => {
+        if (!myClassEntries.length) return;
+
+        let academicYear = myClassInfo?.academicYear || '';
+        if (!academicYear) {
+            const firstClassEntry = myClassEntries.find((entry) => entry?.timetableId?.academicYear);
+            if (firstClassEntry?.timetableId?.academicYear) {
+                academicYear = firstClassEntry.timetableId.academicYear;
+            }
+        }
+
+        await generateTimetablePDF({
+            entries: myClassEntries,
+            timeSlots,
+            standard: myClassInfo?.standard || classTeacherOf?.standard || 'Class',
+            section: myClassInfo?.section || classTeacherOf?.section || '',
+            academicYear,
             schoolName,
             schoolLogo,
         });
@@ -503,6 +562,83 @@ const TimetablePage = () => {
                         <div className="flex w-full flex-col gap-3 lg:w-auto lg:flex-row lg:flex-wrap lg:items-center lg:justify-end">
                             <Tabs value={teacherViewMode} onValueChange={setTeacherViewMode} className="w-full rounded-lg border border-gray-200/60 bg-gray-100/50 p-1 sm:w-auto lg:shrink-0">
                                 <TabsList className="grid h-auto w-full grid-cols-2 gap-1 bg-transparent p-0">
+                                    <Button
+                                        size="sm"
+                                        className="h-9 px-4 text-[13px] font-medium rounded-md transition-colors shadow-none"
+                                        onClick={() => setCreateDialogOpen(true)}
+                                    >
+                                        New Schedule
+                                    </Button>
+                                    {activeTimetableId && selectedTimetableEntries.length > 0 && (
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            className="h-9 px-4 text-[13px] font-medium border-gray-200 rounded-md transition-colors shadow-none flex items-center gap-1.5"
+                                            onClick={handleExportPDF}
+                                        >
+                                            <FaFilePdf size={12} />
+                                            Export PDF
+                                        </Button>
+                                    )}
+                                </div>
+                            ) : (
+                                <div className="flex items-center gap-3">
+                                    <Select value={activeTeacherId} onValueChange={setSelectedTeacherId}>
+                                        <SelectTrigger className="w-52 h-9 text-[13px] font-medium border-gray-200/80 rounded-md focus:ring-gray-200">
+                                            <SelectValue placeholder="Select teacher" />
+                                        </SelectTrigger>
+                                        <SelectContent className="rounded-md border-gray-200/80 shadow-sm">
+                                            {teachers.map((teacher) => (
+                                                <SelectItem key={teacher._id} value={teacher._id} className="text-[13px]">
+                                                    {teacher.name}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    {activeTeacherId && teacherScheduleEntries.length > 0 && (
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            className="h-9 px-4 text-[13px] font-medium border-gray-200 rounded-md transition-colors shadow-none flex items-center gap-1.5"
+                                            onClick={handleExportAdminTeacherPDF}
+                                        >
+                                            <FaFilePdf size={12} />
+                                            Export PDF
+                                        </Button>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    ) : isTeacher && isClassTeacherFromData ? (
+                        // Class teacher: two tabs — homeroom class timetable + personal schedule
+                        <div className="flex items-center gap-3">
+                            <Tabs value={teacherTab} onValueChange={setTeacherTab} className="bg-gray-100/50 p-1 rounded-lg border border-gray-200/60">
+                                <TabsList className="bg-transparent gap-1 h-auto p-0">
+                                    <TabsTrigger value="class" className="rounded-md text-[13px] font-medium data-[state=active]:bg-white data-[state=active]:shadow-sm px-4 py-1.5 data-[state=active]:text-gray-900 text-gray-600">
+                                        Class {myClassLabel || "Assigned"}
+                                    </TabsTrigger>
+                                    <TabsTrigger value="schedule" className="rounded-md text-[13px] font-medium data-[state=active]:bg-white data-[state=active]:shadow-sm px-4 py-1.5 data-[state=active]:text-gray-900 text-gray-600">
+                                        My Schedule
+                                    </TabsTrigger>
+                                </TabsList>
+                            </Tabs>
+                            {(teacherTab === "schedule" ? myScheduleEntries : myClassEntries).length > 0 && (
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-9 px-4 text-[13px] font-medium border-gray-200 rounded-md transition-colors shadow-none flex items-center gap-1.5"
+                                    onClick={teacherTab === "schedule" ? handleExportSchedulePDF : handleExportClassPDF}
+                                >
+                                    <FaFilePdf size={12} />
+                                    Export PDF
+                                </Button>
+                            )}
+                        </div>
+                    ) : (
+                        // Regular (subject-only) teacher: just their schedule
+                        <div className="flex items-center gap-3">
+                            <Tabs value={teacherViewMode} onValueChange={setTeacherViewMode} className="bg-gray-100/50 p-1 rounded-lg border border-gray-200/60">
+                                <TabsList className="bg-transparent gap-1 h-auto p-0">
                                     <TabsTrigger value="schedule" className="rounded-md text-[13px] font-medium data-[state=active]:bg-white data-[state=active]:shadow-sm px-4 py-1.5 data-[state=active]:text-gray-900 text-gray-600">Schedule</TabsTrigger>
                                     <TabsTrigger value="class" className="rounded-md text-[13px] font-medium data-[state=active]:bg-white data-[state=active]:shadow-sm px-4 py-1.5 data-[state=active]:text-gray-900 text-gray-600">Class</TabsTrigger>
                                 </TabsList>
@@ -541,6 +677,13 @@ const TimetablePage = () => {
                         {isAdmin && adminViewMode === "class" && activeClassOption && !activeTimetableId && (
                             <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-[13px] text-gray-700 flex items-center gap-3">
                                 <span>No timetable exists yet for <span className="font-semibold">{activeClassOption.standard}-{activeClassOption.section}</span>. Click <strong>New Schedule</strong> to initialize it.</span>
+                            </div>
+                        )}
+
+                        {/* Class teacher's homeroom — no entries notice */}
+                        {isTeacher && isClassTeacherFromData && teacherTab === "class" && myClassEntries.length === 0 && (
+                            <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-[13px] text-gray-700">
+                                No timetable has been created yet for Class {myClassLabel || "assigned"}.
                             </div>
                         )}
 
@@ -585,7 +728,7 @@ const TimetablePage = () => {
                                     weekDates={weekDates}
                                     formatDateShort={formatDateShort}
                                     onCellClick={handleCellClick}
-                                    onMarkUnavailable={(day, slot, entry) => {
+                                    onMarkUnavailable={(isTeacher && (!isClassTeacherFromData || teacherTab === "schedule")) ? ((day, slot, entry) => {
                                         setMarkUnavailableModal({
                                             open: true,
                                             slotInfo: {
@@ -598,10 +741,10 @@ const TimetablePage = () => {
                                                 entry
                                             }
                                         });
-                                    }}
+                                    }) : undefined}
                                     readOnly={isTeacher || adminViewMode === "teacher" || (isAdmin && adminViewMode === "class" && !activeTimetableId)}
-                                    showClass={isTeacher || adminViewMode === "teacher"}
-                                    isTeacherView={isTeacher}
+                                    showClass={(isTeacher && teacherTab === "schedule") || adminViewMode === "teacher"}
+                                    isTeacherView={isTeacher && (!isClassTeacherFromData || teacherTab === "schedule")}
                                 />
                             </div>
                         </div>

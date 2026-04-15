@@ -56,9 +56,10 @@ const seedAssignments = async () => {
     const classSections = getSchoolClassSections(code);
     const records = [];
 
-    // Iterate through classes instead of teachers to prevent explosion
+    // Iterate through classes to create exactly 25 assignments
+    let assignmentCount = 0;
     for (const cls of classSections) {
-      if (records.length >= 100) break; // stay within max limit
+      if (assignmentCount >= 25) break;
 
       const classLabel = `${cls.standard}-${cls.section}`;
       const classKey = classLabel.toUpperCase();
@@ -68,7 +69,7 @@ const seedAssignments = async () => {
       const numAssignmentsToCreate = Math.min(2, assignmentData.templates.length);
 
       for (let i = 0; i < numAssignmentsToCreate; i++) {
-        if (records.length >= 100) break;
+        if (assignmentCount >= 25) break;
 
         const template = assignmentData.templates[i];
         // Pick a subject for the assignment (rotate based on index)
@@ -94,6 +95,8 @@ const seedAssignments = async () => {
           status: "active",
           attachments: [],
         });
+        
+        assignmentCount++;
       }
     }
 

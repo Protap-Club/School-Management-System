@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { FaFilter, FaSearch, FaArchive, FaUserPlus } from 'react-icons/fa';
+import { FaFilter, FaSearch, FaArchive, FaUserPlus, FaArrowLeft } from 'react-icons/fa';
 
 export const UserFilters = ({
     allowedRoles,
@@ -60,6 +60,15 @@ export const UserFilters = ({
             </div>
 
             <div className="flex items-center gap-2 sm:ml-auto">
+                {showArchived && (
+                    <button
+                        onClick={onToggleArchived}
+                        className="flex items-center justify-center gap-2 px-4 h-10 rounded-lg text-sm font-medium bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 hover:text-gray-900 transition-all shadow-sm"
+                        title="Go Back to Active Users"
+                    >
+                        <FaArrowLeft size={14} /><span>Back</span>
+                    </button>
+                )}
                 {isAdminOrAbove && (
                     <button
                         onClick={onToggleArchived}

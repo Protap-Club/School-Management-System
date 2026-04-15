@@ -7,6 +7,7 @@ import {
   useResultExamStudents,
   useSaveResult,
 } from './index';
+import { useHasFeature } from '../../state/features';
 import { TabButton } from '../../components/ui/NoticeUIComponents';
 import ResultEntryModal from './components/ResultEntryModal';
 import ResultDetailModal from './components/ResultDetailModal';
@@ -56,6 +57,8 @@ const SummaryCard = ({ icon: Icon, title, value, accent = 'text-slate-700', bg =
 );
 
 const ResultPage = () => {
+  // Combined module — both Examination and Results are gated by the 'examination' flag
+  const examinationEnabled = useHasFeature('examination');
   const [selectedExam, setSelectedExam] = useState(null);
   const [examTab, setExamTab] = useState('students');
   const [searchTerm, setSearchTerm] = useState('');
@@ -67,6 +70,25 @@ const ResultPage = () => {
   const { message: toast, showMessage } = useToastMessage(3200);
   const [entryModal, setEntryModal] = useState({ open: false, student: null, result: null });
   const [detailModal, setDetailModal] = useState({ open: false, result: null });
+
+  // Page-level guard: show disabled placeholder if examination feature is off
+  if (examinationEnabled === false) {
+    return (
+      <DashboardLayout>
+        <div className="flex flex-col items-center justify-center min-h-[60vh] text-center gap-5 p-8">
+          <div className="w-20 h-20 rounded-2xl bg-gray-100 flex items-center justify-center text-gray-400">
+            <FaLock size={32} />
+          </div>
+          <div>
+            <h2 className="text-2xl font-black text-gray-900">Results Disabled</h2>
+            <p className="text-sm text-gray-400 mt-2 max-w-sm">
+              The Examination &amp; Results module has been turned off for this school. Contact your Super Admin to re-enable it.
+            </p>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   const queryFilters = useMemo(() => ({
     ...filters,
@@ -242,7 +264,7 @@ const ResultPage = () => {
       return '';
     }
 
-    const index = filteredStudents.findIndex(
+    const index = examStudents.findIndex(
       (item) => String(item.studentId) === String(entryModal.student.studentId)
     );
 
@@ -250,8 +272,8 @@ const ResultPage = () => {
       return '';
     }
 
-    return `${index + 1} of ${filteredStudents.length} students`;
-  }, [entryModal.student, filteredStudents]);
+    return `${index + 1} of ${examStudents.length} students`;
+  }, [entryModal.student, examStudents]);
 
   const handleSaveResult = useCallback(
     async (payload, options = {}) => {

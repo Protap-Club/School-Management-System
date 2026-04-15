@@ -26,6 +26,17 @@ export const createUser = asyncHandler(async (req, res) => {
     });
 });
 
+export const createTeacherStudent = asyncHandler(async (req, res) => {
+    const result = await userService.createTeacherStudent(req.user, req.body);
+
+    logger.info(`Teacher-created student: ${result.user.email}`);
+    res.status(201).json({
+        success: true,
+        message: "Student created successfully",
+        data: result,
+    });
+});
+
 // Get list of users (filtered by role, school, pagination)
 export const getUsers = asyncHandler(async (req, res) => {
     const result = await userService.getUsers(req.user, { ...req.query });

@@ -129,6 +129,9 @@ export const useFeatures = () => {
     const features = data?.data?.school?.features || data?.data?.features || {};
 
     const hasFeature = (featureKey) => {
+        // While loading, optimistically return true so widgets aren't hidden on first paint.
+        // Only return false when we have confirmed data saying the feature is off.
+        if (loading) return true;
         return features[featureKey] === true;
     };
 

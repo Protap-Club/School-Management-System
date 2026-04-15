@@ -1,9 +1,9 @@
 import mongoose from "mongoose";
 import Result from "./result.model.js";
 import Exam from "../examination/Exam.model.js";
-import { Notice } from "../notice/Notice.model.js";
 import User from "../user/model/User.model.js";
 import StudentProfile from "../user/model/StudentProfile.model.js";
+import { createAutomatedAcademicNotice } from "../notice/noticeAutomation.service.js";
 import { USER_ROLES } from "../../constants/userRoles.js";
 import {
     BadRequestError,
@@ -185,18 +185,26 @@ const assertCompletedExam = (exam) => {
 const assertStaffAccess = async () => true;
 
 const createResultPublishedNotice = async (schoolId, exam, userId) => {
-    const classLabel = `${exam.standard} ${exam.section}`;
+    const classLabel = `${exam.standard}-${exam.section}`;
+    const subjects = (exam.schedule || []).map((item) => item?.subject).filter(Boolean);
 
-    return Notice.create({
+    return createAutomatedAcademicNotice({
         schoolId,
         createdBy: userId,
-        title: `Results declared for Class ${classLabel}`,
-        message: `Results declared for ${classLabel} students. Please check your result. If you find any change or problem, report it to your class teacher within 2 days.`,
-        recipientType: "classes",
-        recipients: [`${exam.standard}-${exam.section}`],
-        type: "notice",
-        status: "sent",
-        requiresAcknowledgment: false,
+        title: `Results Published: ${exam.name} (${classLabel})`,
+        message:
+            `Results have been published for Class ${classLabel}. ` +
+            `Students can now check their result in the portal. ` +
+            `If you notice any discrepancy, please contact the class teacher within 7 days of publication.`,
+        sourceType: "result",
+        sourceId: exam._id,
+        noticeCategory: "result_published",
+        classContext: {
+            standard: exam.standard,
+            section: exam.section,
+            academicYear: exam.academicYear,
+        },
+        subjects,
     });
 };
 
@@ -731,10 +739,13 @@ export const publishExamResults = async (schoolId, examId, user) => {
 
     logger.info(`Results published: exam=${examId} updated=${updateResult.modifiedCount}`);
 
+    const noticeCategory = "result_published";
     let noticeGenerated = false;
+    let noticeRecipientCount = 0;
     try {
-        await createResultPublishedNotice(schoolId, exam, user._id);
-        noticeGenerated = true;
+        const noticeResult = await createResultPublishedNotice(schoolId, exam, user._id);
+        noticeGenerated = Boolean(noticeResult?.notice);
+        noticeRecipientCount = noticeResult?.recipientCount || 0;
     } catch (error) {
         logger.warn(
             `Result publish notice could not be created for exam=${examId}: ${error.message}`
@@ -749,6 +760,8 @@ export const publishExamResults = async (schoolId, examId, user) => {
         editableUntil,
         publishedCount: updateResult.modifiedCount,
         noticeGenerated,
+        noticeRecipientCount,
+        noticeCategory,
     };
 };
 

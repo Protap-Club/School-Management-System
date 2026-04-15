@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import { useAuth } from '../auth';
+import { useHasFeature } from '../../state/features';
 import {
   useExams, useCreateExam, useUpdateExam, useUploadScheduleAttachments, usePatchScheduleSyllabus, useDeleteExam, useUpdateExamStatus,
 } from './index';
@@ -8,7 +9,7 @@ import { useProfile, useStudents } from '../attendance';
 import { useSchoolClasses } from '../../hooks/useSchoolClasses';
 import ExamModal from '../../components/examination/ExamModal';
 import { FaPlus, FaEdit, FaTrash, FaCalendarAlt, FaClock,
-  FaChalkboardTeacher, FaCheckCircle, FaExclamationTriangle, FaBan, FaSearch, FaTimes, FaInfoCircle, FaLayerGroup, FaCalendarCheck, FaPaperclip, FaUsers } from 'react-icons/fa';
+  FaChalkboardTeacher, FaCheckCircle, FaExclamationTriangle, FaBan, FaSearch, FaTimes, FaInfoCircle, FaLayerGroup, FaCalendarCheck, FaPaperclip, FaUsers, FaLock } from 'react-icons/fa';
 import { TabButton } from '../../components/ui/NoticeUIComponents';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { ButtonSpinner } from '../../components/ui/Spinner';
@@ -184,11 +185,31 @@ const StatsCard = ({ label, value, icon, colorClass, bgClass }) => {
 
 const ExaminationPage = () => {
   const { user } = useAuth();
+  const examinationEnabled = useHasFeature('examination');
   const { data: profileRes } = useProfile();
   const isAdmin = ['admin', 'super_admin'].includes(user?.role);
   const isTeacher = user?.role === 'teacher';
   const showCandidatesInList = isAdmin;
   const showSubjectsInList = !showCandidatesInList;
+
+  // Page-level guard: show disabled placeholder if feature is off
+  if (examinationEnabled === false) {
+    return (
+      <DashboardLayout>
+        <div className="flex flex-col items-center justify-center min-h-[60vh] text-center gap-5 p-8">
+          <div className="w-20 h-20 rounded-2xl bg-gray-100 flex items-center justify-center text-gray-400">
+            <FaLock size={32} />
+          </div>
+          <div>
+            <h2 className="text-2xl font-black text-gray-900">Examination Disabled</h2>
+            <p className="text-sm text-gray-400 mt-2 max-w-sm">
+              The Examination &amp; Results module has been turned off for this school. Contact your Super Admin to re-enable it.
+            </p>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   const teacherProfile = useMemo(() => {
     if (!isTeacher || !profileRes?.data) return null;

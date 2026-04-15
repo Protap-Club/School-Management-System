@@ -53,9 +53,9 @@ const FEATURE_META = {
     library: { label: 'Library', description: 'Book inventory and borrowing', color: 'from-amber-100 to-orange-100', iconColor: 'text-amber-500' },
     transport: { label: 'Transport', description: 'Bus routes and tracking', color: 'from-rose-100 to-pink-100', iconColor: 'text-rose-500' },
     calendar: { label: 'Calendar', description: 'Academic calendar and holidays', color: 'from-pink-100 to-rose-100', iconColor: 'text-rose-500' },
-    examination: { label: 'Examination', description: 'Manage term exams and class tests', color: 'from-purple-100 to-indigo-100', iconColor: 'text-purple-500' },
+    // Combined module: examination flag controls both Examination and Results pages
+    examination: { label: 'Examination & Results', description: 'Manage term exams, tests, and publish student results', color: 'from-purple-100 to-indigo-100', iconColor: 'text-purple-500', syncs: ['result'] },
     assignment: { label: 'Assignment', description: 'Student assignments and submissions', color: 'from-blue-100 to-indigo-100', iconColor: 'text-blue-600' },
-    result: { label: 'Result', description: 'Manage and publish student exam results', color: 'from-emerald-100 to-teal-100', iconColor: 'text-emerald-600' },
 };
 
 const CLASS_STANDARD_REGEX = /^[A-Za-z0-9_]+$/;
@@ -203,8 +203,14 @@ const Settings = () => {
         if (!currentSchoolId || togglingFeature) return;
         setTogglingFeature(featureKey);
         const newValue = !features[featureKey];
+
+        // Build payload — if this feature syncs to others (e.g. examination → result), update them too
+        const syncedKeys = FEATURE_META[featureKey]?.syncs || [];
+        const updatedFeatures = { ...features, [featureKey]: newValue };
+        syncedKeys.forEach((syncKey) => { updatedFeatures[syncKey] = newValue; });
+
         try {
-            const response = await api.patch('/school/features', { features: { ...features, [featureKey]: newValue } });
+            const response = await api.patch('/school/features', { features: updatedFeatures });
             if (response.data.success) {
                 setFeatures(response.data.data.features);
                 refreshFeatures();

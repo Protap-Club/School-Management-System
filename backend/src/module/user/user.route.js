@@ -2,6 +2,7 @@ import express from "express";
 import {
     getMyProfile,
     createUser,
+    createTeacherStudent,
     getUsers,
     getUserById,
     toggleArchive,
@@ -17,6 +18,7 @@ import { USER_ROLES } from "../../constants/userRoles.js";
 import { validate } from "../../middlewares/validation.middleware.js";
 import {
     createUserSchema,
+    createTeacherStudentSchema,
     getUsersSchema,
     userIdsBodySchema,
     userIdParamsSchema,
@@ -61,6 +63,13 @@ router.get(
     checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN, USER_ROLES.TEACHER]),
     validate(userIdParamsSchema),
     getUserById
+);
+
+router.post(
+    "/students",
+    checkRole([USER_ROLES.TEACHER]),
+    validate(createTeacherStudentSchema),
+    createTeacherStudent
 );
 
 router.post(

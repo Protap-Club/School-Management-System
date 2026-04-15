@@ -32,6 +32,7 @@ try {
 import {
     assertClassSectionExists,
     assertClassSectionListExists,
+    normalizeClassSection,
 } from "../../utils/classSection.util.js";
 import {
     assertTeacherClassAssignmentsAvailable,
@@ -56,6 +57,28 @@ const getTeacherAssignmentsFromPayload = (userData = {}) => {
     }
 
     return [];
+};
+
+const assertPositiveRollNumber = (rollNumber) => {
+    const numericRollNumber = Number(String(rollNumber || "").trim());
+
+    if (!Number.isFinite(numericRollNumber) || numericRollNumber <= 0 || !/^\d+$/.test(String(rollNumber || "").trim())) {
+        throw new BadRequestError("Roll number must be a positive number");
+    }
+
+    return String(Math.trunc(numericRollNumber));
+};
+
+const assertParentOrGuardianName = (userData = {}) => {
+    const hasParentOrGuardianName = [
+        userData.fatherName,
+        userData.motherName,
+        userData.guardianName,
+    ].some((value) => String(value || "").trim().length > 0);
+
+    if (!hasParentOrGuardianName) {
+        throw new BadRequestError("At least one of fatherName, motherName, or guardianName is required");
+    }
 };
 
 /**
@@ -337,6 +360,72 @@ const transferTeacherResponsibilities = async (
 
 // CREATE USER
 
+export const createTeacherStudent = async (creator, payload = {}) => {
+    if (creator.role !== USER_ROLES.TEACHER) {
+        throw new ForbiddenError("Only teachers can create students from mobile");
+    }
+
+    const assignedClasses = normalizeTeacherAssignedClasses(await getTeacherAssignedClasses(creator._id));
+    if (!assignedClasses.length) {
+        throw new ForbiddenError("You have no assigned classes and cannot create students");
+    }
+
+    const normalizedClass = normalizeClassSection({
+        standard: payload.standard,
+        section: payload.section,
+    });
+
+    if (!normalizedClass.standard || !normalizedClass.section) {
+        throw new BadRequestError("Standard and section are required");
+    }
+
+    const isAssignedClass = assignedClasses.some(
+        (item) =>
+            item.standard === normalizedClass.standard &&
+            item.section === normalizedClass.section
+    );
+
+    if (!isAssignedClass) {
+        const assignedClassLabels = assignedClasses.map((item) => formatClassSectionLabel(item)).join(", ");
+        throw new ForbiddenError(
+            `You can only create students for your assigned classes: ${assignedClassLabels}`
+        );
+    }
+
+    const normalizedRollNumber = assertPositiveRollNumber(payload.rollNumber);
+    assertParentOrGuardianName(payload);
+
+    const existingRollNumber = await StudentProfile.exists({
+        schoolId: creator.schoolId,
+        standard: normalizedClass.standard,
+        section: normalizedClass.section,
+        rollNumber: normalizedRollNumber,
+    });
+
+    if (existingRollNumber) {
+        throw new ConflictError(
+            `Roll number ${normalizedRollNumber} already exists in class ${formatClassSectionLabel(normalizedClass)}`
+        );
+    }
+
+    return createUser(creator, {
+        ...payload,
+        role: USER_ROLES.STUDENT,
+        schoolId: creator.schoolId,
+        standard: normalizedClass.standard,
+        section: normalizedClass.section,
+        rollNumber: normalizedRollNumber,
+        contactNo: payload.contactNo?.trim() || undefined,
+        fatherName: payload.fatherName?.trim() || undefined,
+        fatherContact: payload.fatherContact?.trim() || undefined,
+        motherName: payload.motherName?.trim() || undefined,
+        motherContact: payload.motherContact?.trim() || undefined,
+        guardianName: payload.guardianName?.trim() || undefined,
+        guardianContact: payload.guardianContact?.trim() || undefined,
+        address: payload.address?.trim() || undefined,
+    });
+};
+
 export const createUser = async (creator, userData) => {
     const { name, email, role, skipEmail, forceOverride = false } = userData;
 
@@ -465,19 +554,19 @@ export const getUsers = async (creator, filters = {}) => {
 
     // 3. TEACHER-SPECIFIC CLASS FILTERING
     if (creator.role === USER_ROLES.TEACHER) {
-        const assignedClasses = await getTeacherAssignedClasses(creator._id);
+        const classTeacherScope = await getTeacherClassTeacherScope(creator._id);
 
-        if (!assignedClasses.length) {
+        if (!classTeacherScope.length) {
             return { totalCount: 0, users: [], pagination: { page, pageSize, totalPages: 0 } };
         }
 
-        // Optimized Teacher Join: If a teacher is querying students, we use an aggregation pipeline to filter 
-        // by assigned classes directly in the database instead of doing two separate queries and merging in JS memory.
+        // Optimized Teacher Join: If a teacher is querying students, filter by only their
+        // class-teacher homeroom class directly in the database.
         if (!query.role || query.role === USER_ROLES.STUDENT ||
             (typeof query.role === 'object' && query.role.$in && query.role.$in.includes(USER_ROLES.STUDENT))) {
 
             const classMatch = {
-                $or: assignedClasses.map(cls => ({
+                $or: classTeacherScope.map(cls => ({
                     standard: cls.standard,
                     section: cls.section
                 }))
@@ -579,10 +668,10 @@ export const getUserById = async (creator, userId) => {
 
     // 4. TEACHER-SPECIFIC CLASS VALIDATION
     if (creator.role === USER_ROLES.TEACHER && user.role === USER_ROLES.STUDENT) {
-        const assignedClasses = await getTeacherAssignedClasses(creator._id);
+        const classTeacherScope = await getTeacherClassTeacherScope(creator._id);
 
-        if (!assignedClasses.length) {
-            throw new ForbiddenError("You have no assigned classes and cannot view this student");
+        if (!classTeacherScope.length) {
+            throw new ForbiddenError("You are not assigned as class teacher to any class");
         }
 
         // Get student's class information
@@ -591,14 +680,14 @@ export const getUserById = async (creator, userId) => {
             throw new NotFoundError("Student profile not found");
         }
 
-        // Check if student belongs to any of teacher's assigned classes
-        const isAssigned = assignedClasses.some(cls =>
+        // Check if student belongs to teacher's class-teacher class
+        const isAssigned = classTeacherScope.some(cls =>
             cls.standard === studentProfile.standard &&
             cls.section === studentProfile.section
         );
 
         if (!isAssigned) {
-            throw new ForbiddenError("This student is not in your assigned classes");
+            throw new ForbiddenError("This student is not in your class-teacher class");
         }
     }
 
@@ -1303,6 +1392,22 @@ const formatUserResponse = (user) => {
         updatedAt: user.updatedAt,
         profile: sanitizedProfile
     };
+};
+
+const getTeacherClassTeacherScope = async (teacherId) => {
+    const profile = await TeacherProfile.findOne({ userId: teacherId })
+        .select("classTeacherOf")
+        .lean();
+
+    const classTeacherOf = profile?.classTeacherOf;
+    if (!classTeacherOf?.standard || !classTeacherOf?.section) {
+        return [];
+    }
+
+    return [{
+        standard: String(classTeacherOf.standard).trim(),
+        section: String(classTeacherOf.section).trim().toUpperCase(),
+    }];
 };
 
 const getTeacherAssignedClasses = async (teacherId) => {

@@ -7,6 +7,7 @@ import DashboardLayout from '../layouts/DashboardLayout';
 import { connectSocket, disconnectSocket } from '../api/socket';
 import api from '../lib/axios';
 import { useSchoolClasses } from '../hooks/useSchoolClasses';
+import { useFeatures } from '../state';
 import {
   Users,
   UserCheck,
@@ -31,6 +32,7 @@ const Dashboard = () => {
   const { user, accessToken } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { hasFeature } = useFeatures();
   const isTeacher = user?.role === 'teacher';
   const isAdmin = user?.role === 'admin';
   const isSuperAdmin = user?.role === 'super_admin';
@@ -220,6 +222,36 @@ const Dashboard = () => {
     return stats.overall;
   }, [stats, selectedClass, isAdmin, isSuperAdmin]);
 
+  const teacherProfile = isTeacher ? (user?.profile || {}) : {};
+  const teacherClassTeacherLabel = teacherProfile?.classTeacherOf?.standard && teacherProfile?.classTeacherOf?.section
+    ? `${String(teacherProfile.classTeacherOf.standard).trim()}-${String(teacherProfile.classTeacherOf.section).trim().toUpperCase()}`
+    : null;
+
+  const teacherAssignedClassLabels = Array.from(new Set(
+    (Array.isArray(teacherProfile?.assignedClasses) ? teacherProfile.assignedClasses : [])
+      .map((item) => {
+        const standard = String(item?.standard || '').trim();
+        const section = String(item?.section || '').trim().toUpperCase();
+        return standard && section ? `${standard}-${section}` : '';
+      })
+      .filter(Boolean)
+  ));
+
+  const subjectsFromProfile = Array.from(new Set(
+    (Array.isArray(teacherProfile?.assignedClasses) ? teacherProfile.assignedClasses : [])
+      .flatMap((item) => (Array.isArray(item?.subjects) ? item.subjects : []))
+      .map((subject) => String(subject || '').trim())
+      .filter(Boolean)
+  ));
+
+  const subjectsFromSchedule = Array.from(new Set(
+    (todaySchedule || [])
+      .map((session) => String(session?.subject || '').trim())
+      .filter(Boolean)
+  ));
+
+  const teacherSubjectLabels = subjectsFromProfile.length > 0 ? subjectsFromProfile : subjectsFromSchedule;
+
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: { opacity: 1, transition: { staggerChildren: 0.1 } }
@@ -283,10 +315,33 @@ const Dashboard = () => {
           </div>
         </motion.div>
 
-        {/* Top Metric Cards - Updated Labels and logic */}
+        {isTeacher && (
+          <motion.div variants={itemVariants} className="bg-white rounded-[2rem] p-6 border border-gray-50 shadow-[0_10px_40px_-15px_rgba(0,0,0,0.05)]">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+              <div className="rounded-2xl border border-primary/10 bg-primary/5 p-4">
+                <p className="text-[10px] font-black uppercase tracking-widest text-primary">Class Teacher Of</p>
+                <p className="mt-2 text-lg font-black text-gray-900">{teacherClassTeacherLabel || 'Not Assigned'}</p>
+              </div>
+              <div className="rounded-2xl border border-emerald-100 bg-emerald-50/60 p-4">
+                <p className="text-[10px] font-black uppercase tracking-widest text-emerald-700">Subjects I Teach</p>
+                <p className="mt-2 text-sm font-bold text-gray-900">
+                  {teacherSubjectLabels.length ? teacherSubjectLabels.join(', ') : 'No subjects mapped'}
+                </p>
+              </div>
+              <div className="rounded-2xl border border-amber-100 bg-amber-50/60 p-4">
+                <p className="text-[10px] font-black uppercase tracking-widest text-amber-700">Assigned Classes</p>
+                <p className="mt-2 text-sm font-bold text-gray-900">
+                  {teacherAssignedClassLabels.length ? teacherAssignedClassLabels.join(', ') : 'No class assignment'}
+                </p>
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+        {/* Top Metric Cards — conditionally include attendance/calendar based on feature flags */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {[
-            {
+            hasFeature('attendance') && {
               label: 'Total Students',
               value: filteredStats.total,
               icon: Users,
@@ -295,7 +350,7 @@ const Dashboard = () => {
               trendText: 'Enrollment Growth',
               spark: [40, 45, 42, 50, 55, 52, 60]
             },
-            {
+            hasFeature('attendance') && {
               label: 'Present Today',
               value: filteredStats.present,
               icon: UserCheck,
@@ -305,7 +360,7 @@ const Dashboard = () => {
               spark: [80, 85, 82, 90, 88, 92, 95],
               nav: 'present'
             },
-            {
+            hasFeature('attendance') && {
               label: 'Absent Today',
               value: filteredStats.absent,
               icon: Users,
@@ -315,7 +370,7 @@ const Dashboard = () => {
               spark: [10, 8, 12, 5, 7, 4, 2],
               nav: 'absent'
             },
-            {
+            hasFeature('calendar') && {
               label: 'Calendar Overview',
               value: `${calendarEventsCount} Events`,
               icon: Calendar,
@@ -325,7 +380,7 @@ const Dashboard = () => {
               spark: [2, 1, 3, 2, 4, 3, 5],
               nav: 'calendar'
             }
-          ].map((card, idx) => (
+          ].filter(Boolean).map((card, idx) => (
             <motion.div
               key={idx}
               variants={itemVariants}
@@ -369,8 +424,8 @@ const Dashboard = () => {
 
         {/* Main Content Grid - Timetable Overview replace Attendance Trend */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Timetable Overview (Large) - Only for Teachers */}
-          {isTeacher && (
+          {/* Timetable Overview (Large) - Only for Teachers with timetable feature */}
+          {isTeacher && hasFeature('timetable') && (
             <motion.div
               variants={itemVariants}
               className="lg:col-span-2 bg-white rounded-[2.5rem] p-8 md:p-10 border border-gray-50 shadow-[0_20px_50px_-15px_rgba(0,0,0,0.05)] overflow-hidden relative group cursor-pointer"
@@ -430,8 +485,8 @@ const Dashboard = () => {
             </motion.div>
           )}
 
-          {/* School Bulletin - Added for Admins to fill space nicely */}
-          {!isTeacher && (
+          {/* School Bulletin - notice feature gate */}
+          {!isTeacher && hasFeature('notice') && (
             <motion.div
               variants={itemVariants}
               className="lg:col-span-2 bg-white rounded-[2.5rem] p-8 md:p-10 border border-gray-50 shadow-[0_20px_50px_-15px_rgba(0,0,0,0.05)] overflow-hidden relative group"
@@ -502,7 +557,8 @@ const Dashboard = () => {
             </motion.div>
           )}
 
-          {/* Attendance Circle (Small) - Fixed 0% logic and routing */}
+          {/* Attendance Rate Overview Circle - only when attendance is enabled */}
+          {hasFeature('attendance') && (
           <motion.div
             variants={itemVariants}
             className="bg-white rounded-[2.5rem] p-8 border border-gray-50 shadow-[0_20px_50px_-15px_rgba(0,0,0,0.05)] flex flex-col justify-between group cursor-pointer"
@@ -558,9 +614,11 @@ const Dashboard = () => {
               </p>
             </div>
           </motion.div>
+          )}
         </div>
 
-        {/* Classroom Status Matrix - Expanded to full width */}
+        {/* Classroom Status Matrix - gate by attendance feature */}
+        {hasFeature('attendance') && (
         <div className="grid grid-cols-1 pb-10">
           <motion.div variants={itemVariants} className="space-y-6">
             <div className="flex justify-between items-end px-2">
@@ -601,6 +659,7 @@ const Dashboard = () => {
             </div>
           </motion.div>
         </div>
+        )}
       </motion.div>
 
     </DashboardLayout>
