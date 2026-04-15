@@ -472,8 +472,8 @@ const ExaminationPage = () => {
                 />
               </div>
               
-              <div className="flex w-full flex-col gap-3 px-0 sm:px-2 xl:max-w-2xl">
-                <div className="relative group w-full">
+              <div className="flex w-full min-w-0 flex-col gap-3 px-0 sm:px-2 lg:flex-row lg:items-center lg:gap-3 xl:flex-1">
+                <div className="relative group w-full min-w-0 lg:flex-1">
                   <FaSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors" size={16} />
                   <input
                     type="text"
@@ -487,11 +487,11 @@ const ExaminationPage = () => {
                   />
                 </div>
                 
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:flex lg:shrink-0 lg:items-center lg:gap-3">
                   <select
                     value={filters.standard}
                     onChange={(e) => handleStandardFilterChange(e.target.value)}
-                    className="w-full cursor-pointer rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3.5 text-sm font-bold text-slate-700 transition-all hover:bg-slate-100 focus:outline-none"
+                    className="w-full cursor-pointer rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3.5 text-sm font-bold text-slate-700 transition-all hover:bg-slate-100 focus:outline-none lg:min-w-[150px] xl:min-w-[160px]"
                   >
                     <option value="">All Classes</option>
                     {availableStandards.map(std => (
@@ -501,7 +501,7 @@ const ExaminationPage = () => {
                   <select
                     value={filters.section}
                     onChange={(e) => handleSectionFilterChange(e.target.value)}
-                    className="w-full cursor-pointer rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3.5 text-sm font-bold text-slate-700 transition-all hover:bg-slate-100 focus:outline-none"
+                    className="w-full cursor-pointer rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3.5 text-sm font-bold text-slate-700 transition-all hover:bg-slate-100 focus:outline-none lg:min-w-[150px] xl:min-w-[160px]"
                   >
                     <option value="">All Sections</option>
                     {(filters.standard ? availableSections : allUniqueSections).map(sec => (

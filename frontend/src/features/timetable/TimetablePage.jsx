@@ -430,15 +430,15 @@ const TimetablePage = () => {
                     </div>
 
                     {isAdmin ? (
-                        <div className="flex w-full flex-col gap-3 lg:w-auto lg:items-end">
-                            <Tabs value={adminViewMode} onValueChange={(val) => { setAdminViewMode(val); setActiveTab("timetable"); }} className="w-full rounded-lg border border-gray-200/60 bg-gray-100/50 p-1 lg:w-auto">
+                        <div className="flex w-full flex-col gap-3 lg:w-auto lg:flex-row lg:flex-wrap lg:items-center lg:justify-end">
+                            <Tabs value={adminViewMode} onValueChange={(val) => { setAdminViewMode(val); setActiveTab("timetable"); }} className="w-full rounded-lg border border-gray-200/60 bg-gray-100/50 p-1 lg:w-auto lg:shrink-0">
                                 <TabsList className="grid h-auto w-full grid-cols-2 gap-1 bg-transparent p-0 lg:w-auto">
                                     <TabsTrigger value="class" className="rounded-md text-[13px] font-medium data-[state=active]:bg-white data-[state=active]:shadow-sm px-4 py-1.5 data-[state=active]:text-gray-900 text-gray-600">Class</TabsTrigger>
                                     <TabsTrigger value="teacher" className="rounded-md text-[13px] font-medium data-[state=active]:bg-white data-[state=active]:shadow-sm px-4 py-1.5 data-[state=active]:text-gray-900 text-gray-600">Teacher</TabsTrigger>
                                 </TabsList>
                             </Tabs>
 
-                            <div className="flex w-full flex-col gap-3 sm:flex-row sm:flex-wrap lg:w-auto lg:justify-end">
+                            <div className="flex w-full flex-col gap-3 sm:flex-row sm:flex-wrap lg:w-auto lg:flex-nowrap lg:items-center lg:justify-end">
                                 <button
                                     onClick={() => setActiveTab("proxy")}
                                     className={`inline-flex w-full items-center justify-center gap-2 rounded-md px-4 py-2 text-[13px] font-medium transition-all sm:w-auto ${activeTab === "proxy"
@@ -451,7 +451,7 @@ const TimetablePage = () => {
                                 </button>
 
                                 {adminViewMode === "class" ? (
-                                    <div className="flex w-full flex-col gap-3 sm:flex-row sm:flex-wrap lg:w-auto lg:justify-end">
+                                    <div className="flex w-full flex-col gap-3 sm:flex-row sm:flex-wrap lg:w-auto lg:flex-nowrap lg:items-center lg:justify-end">
                                         <Select value={activeClassOption?.key || ""} onValueChange={setSelectedClassKey}>
                                             <SelectTrigger className="h-10 w-full rounded-md border-gray-200/80 text-[13px] font-medium focus:ring-gray-200 sm:w-52">
                                                 <SelectValue placeholder="Select class" />
@@ -500,14 +500,14 @@ const TimetablePage = () => {
                             </div>
                         </div>
                     ) : (
-                        <div className="flex w-full flex-col gap-3 lg:w-auto lg:items-end">
-                            <Tabs value={teacherViewMode} onValueChange={setTeacherViewMode} className="w-full rounded-lg border border-gray-200/60 bg-gray-100/50 p-1 sm:w-auto">
+                        <div className="flex w-full flex-col gap-3 lg:w-auto lg:flex-row lg:flex-wrap lg:items-center lg:justify-end">
+                            <Tabs value={teacherViewMode} onValueChange={setTeacherViewMode} className="w-full rounded-lg border border-gray-200/60 bg-gray-100/50 p-1 sm:w-auto lg:shrink-0">
                                 <TabsList className="grid h-auto w-full grid-cols-2 gap-1 bg-transparent p-0">
                                     <TabsTrigger value="schedule" className="rounded-md text-[13px] font-medium data-[state=active]:bg-white data-[state=active]:shadow-sm px-4 py-1.5 data-[state=active]:text-gray-900 text-gray-600">Schedule</TabsTrigger>
                                     <TabsTrigger value="class" className="rounded-md text-[13px] font-medium data-[state=active]:bg-white data-[state=active]:shadow-sm px-4 py-1.5 data-[state=active]:text-gray-900 text-gray-600">Class</TabsTrigger>
                                 </TabsList>
                             </Tabs>
-                            <div className="flex w-full flex-col gap-3 sm:flex-row sm:flex-wrap lg:w-auto lg:justify-end">
+                            <div className="flex w-full flex-col gap-3 sm:flex-row sm:flex-wrap lg:w-auto lg:flex-nowrap lg:items-center lg:justify-end">
                                 {teacherViewMode === "schedule" && myScheduleEntries.length > 0 && (
                                     <Button
                                         size="sm"
