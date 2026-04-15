@@ -45,6 +45,15 @@ const buildAttendanceMap = (records = []) => {
     return map;
 };
 
+const normalizeSearch = (str) => {
+    if (!str) return "";
+    return str
+        .toLowerCase()
+        .replace(/\bclass\b/g, "")
+        .replace(/\s+/g, "")
+        .trim();
+};
+
 const buildClassGroups = (students = [], teachers = [], configuredClassSections = []) => {
     const groups = {};
     const configuredKeys = new Set(
@@ -108,7 +117,18 @@ const buildClassGroups = (students = [], teachers = [], configuredClassSections 
         if (stdA === 'Unassigned') return 1;
         if (stdB === 'Unassigned') return -1;
 
-        return Number(stdA) - Number(stdB) || secA.localeCompare(secB);
+        const numA = parseInt(stdA, 10);
+        const numB = parseInt(stdB, 10);
+        const isNumA = !isNaN(numA);
+        const isNumB = !isNaN(numB);
+
+        if (isNumA && isNumB) {
+            return numA - numB || secA.localeCompare(secB);
+        }
+        if (isNumA) return -1;
+        if (isNumB) return 1;
+
+        return stdA.localeCompare(stdB) || secA.localeCompare(secB);
     }).reduce((acc, k) => { acc[k] = groups[k]; return acc; }, {});
 };
 
@@ -190,10 +210,10 @@ const AttendancePage = () => {
 
         // Otherwise filter by classSearchQuery
         if (classSearchQuery) {
-            const q = classSearchQuery.toLowerCase();
+            const q = normalizeSearch(classSearchQuery);
             const filtered = {};
             Object.keys(classes).forEach(id => {
-                if (id.toLowerCase().includes(q)) {
+                if (normalizeSearch(id).includes(q)) {
                     filtered[id] = classes[id];
                 }
             });

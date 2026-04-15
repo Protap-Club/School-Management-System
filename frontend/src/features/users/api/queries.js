@@ -17,6 +17,15 @@ export const useUsers = ({ role = "all", page = 0, pageSize = 25, name, enabled 
     });
 };
 
+export const useNextRollNumber = (standard, section, { enabled = false } = {}) => {
+    return useQuery({
+        queryKey: ["users", "next-roll-number", standard, section],
+        queryFn: () => usersApi.getNextRollNumber(standard, section),
+        enabled: enabled && !!standard && !!section,
+        staleTime: 0, // Always get fresh suggestion
+    });
+};
+
 export const useArchivedUsers = ({ role = "all", page = 0, pageSize = 25, name, enabled = true } = {}) => {
     return useQuery({
         queryKey: userKeys.list({ role, page, pageSize, name, isArchived: true }),

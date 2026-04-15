@@ -100,6 +100,14 @@ export const getSubjectTeacherSchema = z.object({
     }),
 });
 
+// ─── Get Next Roll Number (query params) ───────────────────────────
+export const getNextRollNumberSchema = z.object({
+    query: z.object({
+        standard: z.string().min(1, 'Standard is required'),
+        section: z.string().min(1, 'Section is required'),
+    }),
+});
+
 // ─── Single User Params ─────────────────────────────────────────────
 export const userIdParamsSchema = z.object({
     params: z.object({
