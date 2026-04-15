@@ -41,8 +41,29 @@ import { makeClassKey, sortClassSections } from '../../utils/classSection';
 import useDebounce from '../../hooks/useDebounce';
 
 const MODAL_OVERLAY = 'modal-overlay fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4';
+const INITIAL_ACADEMIC_YEAR_START_MONTH = 6;
 const currentYear = new Date().getFullYear();
 const currentMonth = new Date().getMonth() + 1;
+
+const getCurrentAcademicYear = () => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth() + 1;
+    return month >= INITIAL_ACADEMIC_YEAR_START_MONTH ? year : year - 1;
+};
+
+const getAcademicYearOptions = () => {
+    const year = new Date().getFullYear();
+    const options = [];
+    for (let i = -2; i <= 5; i++) {
+        const startYear = year + i;
+        options.push({
+            value: startYear,
+            label: `${startYear}-${startYear + 1}`,
+        });
+    }
+    return options;
+};
 
 // StatusBadge extracted to ./components/FeeStatusBadge.jsx
 
@@ -65,7 +86,7 @@ const FeesPage = () => {
     const { message: toast, showMessage: showToast } = useToastMessage(3500);
 
     // Structures state
-    const [structFilters, setStructFilters] = useState({ academicYear: currentYear, standard: '', section: '', studentId: '', feeType: '' });
+    const [structFilters, setStructFilters] = useState({ academicYear: getCurrentAcademicYear(), standard: '', section: '', studentId: '', feeType: '' });
     const [structModal, setStructModal] = useState({ open: false, editData: null });
     const [genModal, setGenModal] = useState({ open: false, structure: null });
     const [deleteConfirm, setDeleteConfirm] = useState(null);
@@ -602,10 +623,13 @@ const FeesPage = () => {
                                             <FaFilter className="text-gray-400" size={11} />
                                             <span className="text-[10px] font-black text-gray-400 uppercase tracking-tight">Filters</span>
                                         </div>
-                                        <input type="number" placeholder="Year" value={structFilters.academicYear}
+                                        <select value={structFilters.academicYear}
                                             onChange={(e) => setStructFilters(p => ({ ...p, academicYear: e.target.value }))}
-                                            className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg w-24 focus:ring-primary focus:border-primary" 
-                                            min={0} />
+                                            className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg w-32 focus:ring-primary focus:border-primary">
+                                            {getAcademicYearOptions().map((option) => (
+                                                <option key={option.value} value={option.value}>{option.label}</option>
+                                            ))}
+                                        </select>
                                         <select value={structFilters.standard} onChange={(e) => {
                                             const nextStandard = e.target.value;
                                             const validSections = (nextStandard ? getSectionsForStandard(nextStandard) : allUniqueSections)
@@ -634,7 +658,7 @@ const FeesPage = () => {
                                             value={selectedPenaltyStudentId}
                                             onChange={(e) => setStructFilters((prev) => ({ ...prev, studentId: e.target.value }))}
                                             disabled={!structFilters.standard || !structFilters.section || penaltyStudentsLoading || penaltyStudentOptions.length === 0}
-                                            className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg w-44 focus:ring-primary focus:border-primary disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
+                                            className="px-3 py-1.5 pr-10 text-sm border border-gray-200 rounded-lg w-48 focus:ring-primary focus:border-primary disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
                                         >
                                             <option value="">
                                                 {!structFilters.standard || !structFilters.section
@@ -642,7 +666,7 @@ const FeesPage = () => {
                                                     : penaltyStudentsLoading
                                                         ? 'Loading Students...'
                                                         : penaltyStudentOptions.length === 0
-                                                            ? 'No Penalized Students'
+                                                            ? 'No Students'
                                                             : 'Student'}
                                             </option>
                                             {penaltyStudentOptions.map((student) => (
@@ -666,7 +690,14 @@ const FeesPage = () => {
                                                 <thead>
                                                     <tr className="border-b border-gray-100 uppercase">
                                                         {['Student', 'Class', 'Penalty Type', 'Reason', 'Amount', 'Occurrence Date', 'Status'].map(h => (
-                                                            <th key={h} className="px-4 py-4 text-left text-[10px] font-black text-gray-400 tracking-widest">{h}</th>
+                                                            <th
+                                                                key={h}
+                                                                className={`px-4 py-4 text-[10px] font-black text-gray-400 tracking-widest ${
+                                                                    h === 'Status' ? 'text-center' : 'text-left'
+                                                                }`}
+                                                            >
+                                                                {h}
+                                                            </th>
                                                         ))}
                                                     </tr>
                                                 </thead>
@@ -691,7 +722,7 @@ const FeesPage = () => {
                                                                 <td className="px-4 py-4 font-medium text-gray-700">{penalty.reason}</td>
                                                                 <td className="px-4 py-4 font-black text-gray-900">Rs {Number(penalty.amount || 0).toLocaleString()}</td>
                                                                 <td className="px-4 py-4 text-gray-600 font-medium">{penalty.occurrenceDate ? new Date(penalty.occurrenceDate).toLocaleDateString() : '-'}</td>
-                                                                <td className="px-4 py-4">
+                                                                <td className="px-4 py-4 text-center">
                                                                     <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
                                                                         penalty.status === 'PAID'
                                                                             ? 'bg-emerald-50 text-emerald-700'
@@ -848,6 +879,11 @@ const FeesPage = () => {
 
                 {mgmtView === 'staff' && (
                     <div className="space-y-4 animate-fadeIn">
+                        {!selectedStaff && (
+                            <button onClick={() => setMgmtView('selection')} className="flex items-center gap-2 text-xs font-bold text-gray-500 hover:text-violet-600 transition-all uppercase tracking-widest">
+                                <FaArrowLeft size={10} /> Back to Management
+                            </button>
+                        )}
                         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
                             <div>
                                 <h2 className="text-2xl font-black text-gray-900 font-display">Staff Payroll Management</h2>
@@ -871,13 +907,6 @@ const FeesPage = () => {
 
                         {staffSubTab === 'dashboard' && (
                             <>
-                                <div className="flex items-center justify-between gap-4">
-                                    {!selectedStaff ? (
-                                        <button onClick={() => setMgmtView('selection')} className="flex items-center gap-2 text-xs font-bold text-gray-500 hover:text-violet-600 transition-all uppercase tracking-widest">
-                                            <FaArrowLeft size={10} /> Back to Management
-                                        </button>
-                                    ) : <div />}
-                                </div>
                                 {selectedStaff ? (() => {
                                     // Compute staff salaries for duplicate check
                                     const staffSalariesForLedger = (salaryData?.data || []).filter(s => String(s.teacherId?._id || s.teacherId) === String(selectedStaff._id));
