@@ -447,7 +447,7 @@ const TimetablePage = () => {
         <DashboardLayout>
             <div className="space-y-4">
                 {toast?.text && (
-                    <div className={`fixed top-6 right-6 z-[120] px-5 py-3.5 rounded-2xl shadow-xl flex items-start gap-3 animate-fadeIn backdrop-blur-sm border ${toast?.type === 'warning'
+                    <div className={`fixed left-4 right-4 top-20 z-[120] flex items-start gap-3 rounded-2xl border px-4 py-3.5 shadow-xl animate-fadeIn backdrop-blur-sm sm:left-auto sm:right-6 sm:top-6 sm:max-w-sm sm:px-5 ${toast?.type === 'warning'
                             ? 'bg-amber-500/90 text-white border-amber-200/40'
                             : toast?.type === 'success'
                                 ? 'bg-emerald-500/90 text-white border-emerald-200/40'
@@ -475,54 +475,93 @@ const TimetablePage = () => {
                     </div>
                 )}
 
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
-                    <div className="flex flex-col space-y-1">
-                        <div className="flex items-center gap-3">
-                            <div className="p-2 rounded-xl bg-primary/10 text-primary">
+                <div className="mb-8 flex flex-col justify-between gap-5 lg:flex-row lg:items-start">
+                    <div className="flex min-w-0 flex-col space-y-1">
+                        <div className="flex items-start gap-3 sm:items-center">
+                            <div className="rounded-xl bg-primary/10 p-2 text-primary">
                                 <FaCalendarAlt size={22} />
                             </div>
-                            <h1 className="text-2xl font-semibold text-gray-900 tracking-tight">Timetable</h1>
+                            <h1 className="text-xl font-semibold tracking-tight text-gray-900 sm:text-2xl">Timetable</h1>
                         </div>
-                        <p className="text-sm text-gray-500">
+                        <p className="max-w-2xl text-sm text-gray-500">
                             {isTeacher ? "Manage your teaching hours and academic schedule." : "Academic scheduling and faculty coordination."}
                         </p>
                     </div>
 
                     {isAdmin ? (
-                        <div className="flex flex-wrap items-center gap-3">
-                            <Tabs value={adminViewMode} onValueChange={(val) => { setAdminViewMode(val); setActiveTab("timetable"); }} className="bg-gray-100/50 p-1 rounded-lg border border-gray-200/60">
-                                <TabsList className="bg-transparent gap-1 h-auto p-0">
+                        <div className="flex w-full flex-col gap-3 lg:w-auto lg:flex-row lg:flex-wrap lg:items-center lg:justify-end">
+                            <Tabs value={adminViewMode} onValueChange={(val) => { setAdminViewMode(val); setActiveTab("timetable"); }} className="w-full rounded-lg border border-gray-200/60 bg-gray-100/50 p-1 lg:w-auto lg:shrink-0">
+                                <TabsList className="grid h-auto w-full grid-cols-2 gap-1 bg-transparent p-0 lg:w-auto">
                                     <TabsTrigger value="class" className="rounded-md text-[13px] font-medium data-[state=active]:bg-white data-[state=active]:shadow-sm px-4 py-1.5 data-[state=active]:text-gray-900 text-gray-600">Class</TabsTrigger>
                                     <TabsTrigger value="teacher" className="rounded-md text-[13px] font-medium data-[state=active]:bg-white data-[state=active]:shadow-sm px-4 py-1.5 data-[state=active]:text-gray-900 text-gray-600">Teacher</TabsTrigger>
                                 </TabsList>
                             </Tabs>
 
-                            {/* Proxy Management Tab */}
-                            <button
-                                onClick={() => setActiveTab("proxy")}
-                                className={`flex items-center gap-2 px-4 py-1.5 rounded-md text-[13px] font-medium transition-all ${activeTab === "proxy"
+                            <div className="flex w-full flex-col gap-3 sm:flex-row sm:flex-wrap lg:w-auto lg:flex-nowrap lg:items-center lg:justify-end">
+                                <button
+                                    onClick={() => setActiveTab("proxy")}
+                                    className={`inline-flex w-full items-center justify-center gap-2 rounded-md px-4 py-2 text-[13px] font-medium transition-all sm:w-auto ${activeTab === "proxy"
                                         ? "bg-blue-600 text-white shadow-sm"
                                         : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50"
                                     }`}
-                            >
-                                <FaUserClock size={14} />
-                                Proxy Management
-                            </button>
+                                >
+                                    <FaUserClock size={14} />
+                                    Proxy Management
+                                </button>
 
-                            {adminViewMode === "class" ? (
-                                <div className="flex items-center gap-3">
-                                    <Select value={activeClassOption?.key || ""} onValueChange={setSelectedClassKey}>
-                                        <SelectTrigger className="w-52 h-9 text-[13px] font-medium border-gray-200/80 rounded-md focus:ring-gray-200">
-                                            <SelectValue placeholder="Select class" />
+                                {adminViewMode === "class" ? (
+                                    <div className="flex w-full flex-col gap-3 sm:flex-row sm:flex-wrap lg:w-auto lg:flex-nowrap lg:items-center lg:justify-end">
+                                        <Select value={activeClassOption?.key || ""} onValueChange={setSelectedClassKey}>
+                                            <SelectTrigger className="h-10 w-full rounded-md border-gray-200/80 text-[13px] font-medium focus:ring-gray-200 sm:w-52">
+                                                <SelectValue placeholder="Select class" />
+                                            </SelectTrigger>
+                                            <SelectContent className="rounded-md border-gray-200/80 shadow-sm">
+                                                {classOptions.map((item) => (
+                                                    <SelectItem key={item.key} value={item.key} className="text-[13px]">
+                                                        {item.standard}-{item.section}{item.timetable ? ` (${item.timetable.academicYear})` : " (Not created)"}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                        <Button
+                                            size="sm"
+                                            className="h-10 w-full rounded-md px-4 text-[13px] font-medium shadow-none transition-colors sm:w-auto"
+                                            onClick={() => setCreateDialogOpen(true)}
+                                        >
+                                            New Schedule
+                                        </Button>
+                                        {activeTimetableId && selectedTimetableEntries.length > 0 && (
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                className="flex h-10 w-full items-center justify-center gap-1.5 rounded-md border-gray-200 px-4 text-[13px] font-medium shadow-none transition-colors sm:w-auto"
+                                                onClick={handleExportPDF}
+                                            >
+                                                <FaFilePdf size={12} />
+                                                Export PDF
+                                            </Button>
+                                        )}
+                                    </div>
+                                ) : (
+                                    <Select value={activeTeacherId} onValueChange={setSelectedTeacherId}>
+                                        <SelectTrigger className="h-10 w-full rounded-md border-gray-200/80 text-[13px] font-medium focus:ring-gray-200 sm:w-52">
+                                            <SelectValue placeholder="Select teacher" />
                                         </SelectTrigger>
                                         <SelectContent className="rounded-md border-gray-200/80 shadow-sm">
-                                            {classOptions.map((item) => (
-                                                <SelectItem key={item.key} value={item.key} className="text-[13px]">
-                                                    {item.standard}-{item.section}{item.timetable ? ` (${item.timetable.academicYear})` : " (Not created)"}
+                                            {teachers.map((teacher) => (
+                                                <SelectItem key={teacher._id} value={teacher._id} className="text-[13px]">
+                                                    {teacher.name}
                                                 </SelectItem>
                                             ))}
                                         </SelectContent>
                                     </Select>
+                                )}
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="flex w-full flex-col gap-3 lg:w-auto lg:flex-row lg:flex-wrap lg:items-center lg:justify-end">
+                            <Tabs value={teacherViewMode} onValueChange={setTeacherViewMode} className="w-full rounded-lg border border-gray-200/60 bg-gray-100/50 p-1 sm:w-auto lg:shrink-0">
+                                <TabsList className="grid h-auto w-full grid-cols-2 gap-1 bg-transparent p-0">
                                     <Button
                                         size="sm"
                                         className="h-9 px-4 text-[13px] font-medium rounded-md transition-colors shadow-none"
@@ -604,23 +643,25 @@ const TimetablePage = () => {
                                     <TabsTrigger value="class" className="rounded-md text-[13px] font-medium data-[state=active]:bg-white data-[state=active]:shadow-sm px-4 py-1.5 data-[state=active]:text-gray-900 text-gray-600">Class</TabsTrigger>
                                 </TabsList>
                             </Tabs>
-                            {teacherViewMode === "schedule" && myScheduleEntries.length > 0 && (
-                                <Button
-                                    size="sm"
-                                    variant="outline"
-                                    className="h-9 px-4 text-[13px] font-medium border-gray-200 rounded-md transition-colors shadow-none flex items-center gap-1.5"
-                                    onClick={handleExportSchedulePDF}
-                                >
-                                    <FaFilePdf size={12} />
-                                    Export PDF
-                                </Button>
-                            )}
-                            {teacherViewMode === "class" && myClassInfo && (
-                                <div className="inline-flex items-center gap-2 rounded-md bg-blue-50 border border-blue-200/80 px-3 py-1.5 text-xs font-medium text-blue-700">
-                                    <FaChalkboardTeacher size={14} />
-                                    Class {myClassInfo.standard}-{myClassInfo.section}
-                                </div>
-                            )}
+                            <div className="flex w-full flex-col gap-3 sm:flex-row sm:flex-wrap lg:w-auto lg:flex-nowrap lg:items-center lg:justify-end">
+                                {teacherViewMode === "schedule" && myScheduleEntries.length > 0 && (
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="flex h-10 w-full items-center justify-center gap-1.5 rounded-md border-gray-200 px-4 text-[13px] font-medium shadow-none transition-colors sm:w-auto"
+                                        onClick={handleExportSchedulePDF}
+                                    >
+                                        <FaFilePdf size={12} />
+                                        Export PDF
+                                    </Button>
+                                )}
+                                {teacherViewMode === "class" && myClassInfo && (
+                                    <div className="inline-flex w-full items-center justify-center gap-2 rounded-md border border-blue-200/80 bg-blue-50 px-3 py-2 text-center text-xs font-medium text-blue-700 sm:w-auto">
+                                        <FaChalkboardTeacher size={14} />
+                                        Class {myClassInfo.standard}-{myClassInfo.section}
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     )}
                 </div>
@@ -648,7 +689,7 @@ const TimetablePage = () => {
 
                         {/* Week Navigation - only show for teacher view */}
                         {isTeacher && (
-                            <div className="flex items-center justify-between mb-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                            <div className="mb-4 flex flex-col gap-3 rounded-lg border border-gray-200 bg-gray-50 p-3 sm:flex-row sm:items-center sm:justify-between">
                                 <div className="flex items-center gap-2">
                                     <button
                                         onClick={() => setWeekOffset(w => w - 1)}
@@ -672,14 +713,14 @@ const TimetablePage = () => {
                                         <FaChevronRight size={14} />
                                     </button>
                                 </div>
-                                <div className="text-sm text-gray-600">
+                                <div className="text-sm text-gray-600 sm:text-right">
                                     {formatDateShort(weekDates["Mon"])} - {formatDateShort(weekDates["Sat"])}
                                 </div>
                             </div>
                         )}
 
                         <div className="overflow-x-auto pb-4 pt-1">
-                            <div className="min-w-[900px]">
+                            <div className="min-w-[820px]">
                                 <TimetableGrid
                                     entries={displayEntries}
                                     timeSlots={timeSlots}

@@ -3,14 +3,13 @@ import { useAuth } from '../../features/auth';
 import { useSidebar } from '../../state';
 import { useNavigate } from 'react-router-dom';
 import { headerContent } from '../../config/headerContent.js';
-import { FaBars, FaUserCircle, FaSignOutAlt, FaBuilding, FaChevronDown, FaSearch, FaBell, FaUser } from 'react-icons/fa';
+import { FaSignOutAlt, FaBell, FaUser } from 'react-icons/fa';
 import AvatarUploadModal from './AvatarUploadModal';
 import { useDispatch } from 'react-redux';
 import { setUser } from '../../features/auth/authSlice';
 import { useReceivedNotices } from '../../features/notices';
 import { useQueryClient } from '@tanstack/react-query';
 import { authKeys } from '../../features/auth/api/api';
-import { useSchoolProfile } from '../../features/settings/api/queries';
 import api from '../../lib/axios';
 
 const ROLE_GRADIENTS = {
@@ -21,7 +20,7 @@ const ROLE_GRADIENTS = {
 
 const Header = () => {
     const { user, logout, accessToken } = useAuth();
-    const { toggleSidebar } = useSidebar();
+    const { isMobileOpen, toggleSidebar, setMobileSidebarOpen } = useSidebar();
     const navigate = useNavigate();
     const dispatch = useDispatch();
     const queryClient = useQueryClient();
@@ -101,12 +100,17 @@ const Header = () => {
         navigate('/notifications');
     };
 
+    const handleSidebarButtonClick = () => {
+        if (typeof window !== 'undefined' && window.innerWidth < 768) {
+            setMobileSidebarOpen(!isMobileOpen);
+            return;
+        }
+
+        toggleSidebar();
+    };
+
     const title = school?.name || (user?.role === 'super_admin' ? 'Protap' : 'SMS Portal');
     const logo = school?.logoUrl || null;
-    const logoVersion = school?.logoPublicId || school?.updatedAt || null;
-    const logoSrc = logo
-        ? `${logo}${logoVersion ? `${logo.includes('?') ? '&' : '?'}v=${encodeURIComponent(logoVersion)}` : ''}`
-        : headerContent.logo;
     const roleGradient = ROLE_GRADIENTS[user?.role] || 'from-gray-600 to-gray-700';
     const avatarVersion = user?.avatarPublicId || user?.updatedAt || null;
     const avatarSrc = user?.avatarUrl
@@ -114,18 +118,23 @@ const Header = () => {
         : null;
 
     return (
-        <header className="fixed top-0 left-0 w-full h-16 bg-white border-b border-gray-200 z-50 flex items-center justify-between px-4 shadow-sm">
-            <div className="flex items-center gap-4">
-                <button onClick={toggleSidebar}
-                    className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-100" title="Toggle Sidebar">
+        <header className="fixed top-0 left-0 z-50 flex h-16 w-full items-center justify-between border-b border-gray-200 bg-white px-3 shadow-sm sm:px-4">
+            <div className="flex min-w-0 items-center gap-2 sm:gap-4">
+                <button
+                    onClick={handleSidebarButtonClick}
+                    aria-label={isMobileOpen ? 'Close sidebar' : 'Open sidebar'}
+                    aria-expanded={isMobileOpen}
+                    aria-controls="dashboard-sidebar"
+                    className="rounded-lg p-2 text-gray-500 transition-colors hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                    title="Toggle Sidebar">
                     <img src="/menus.png" alt="Menu" className="w-5 h-5" />
                 </button>
-                <div className="flex items-center gap-3">
+                <div className="flex min-w-0 items-center gap-2 sm:gap-3">
                     {(logo || headerContent.logo) ? (
                         <img
                             src={logo ? `${logo}${logo.includes('?') ? '&' : '?'}t=${refreshKey}` : headerContent.logo}
                             alt="Logo"
-                            className="h-10 w-auto object-contain"
+                            className="h-9 w-auto max-w-[2.5rem] object-contain sm:h-10 sm:max-w-none"
                             onError={(e) => { e.target.style.display = 'none'; }}
                         />
                     ) : (
@@ -133,10 +142,10 @@ const Header = () => {
                             <span className="font-bold text-lg">{(title || 'SM').substring(0, 2).toUpperCase()}</span>
                         </div>
                     )}
-                    <span className="font-bold text-gray-800 text-lg hidden md:block">{title}</span>
+                    <span className="hidden truncate text-base font-bold text-gray-800 md:block lg:text-lg">{title}</span>
                 </div>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 sm:gap-3">
                 {user?.role !== 'super_admin' && (
                     <button onClick={handleNotificationClick}
                         className="p-2 lg:p-2.5 rounded-full text-gray-500 hover:bg-gray-100 hover:text-blue-600 transition-all focus:outline-none focus:ring-2 focus:ring-blue-100 relative group" title="Notifications">
@@ -151,7 +160,7 @@ const Header = () => {
 
                 {/* User Profile */}
                 {/* User Profile */}
-                <div className="relative flex items-center gap-3 lg:gap-4 pl-2 lg:pl-4 border-l border-gray-200" ref={dropdownRef}>
+                <div className="relative flex items-center gap-2 border-l border-gray-200 pl-2 sm:gap-3 lg:gap-4 lg:pl-4" ref={dropdownRef}>
                     <button
                         onClick={() => setDropdownOpen(!dropdownOpen)}
                         className="flex items-center gap-2 md:gap-3 focus:outline-none rounded-lg p-1 hover:bg-gray-50 transition-colors"
@@ -166,7 +175,7 @@ const Header = () => {
                                 user?.name?.charAt(0).toUpperCase() || 'U'
                             )}
                         </div>
-                        <div className="hidden md:flex flex-col text-left">
+                        <div className="hidden min-w-0 md:flex flex-col text-left">
                             <span className="text-sm font-semibold text-gray-800 leading-none mb-1">{user?.name}</span>
                             <span className="text-xs text-gray-500 font-medium capitalize leading-none">{user?.role?.replace('_', ' ')}</span>
                         </div>

@@ -6,17 +6,36 @@ import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { useEffect } from 'react';
 
 // ==== Sidebar Hook ====
-import { selectSidebarCollapsed, toggleSidebar as toggleSidebarAction } from './uiSlice';
+import {
+    selectSidebarCollapsed,
+    selectMobileSidebarOpen,
+    toggleSidebar as toggleSidebarAction,
+    toggleMobileSidebar as toggleMobileSidebarAction,
+    setMobileSidebarOpen as setMobileSidebarOpenAction,
+} from './uiSlice';
 
 export const useSidebar = () => {
     const dispatch = useDispatch();
     const isCollapsed = useSelector(selectSidebarCollapsed);
+    const isMobileOpen = useSelector(selectMobileSidebarOpen);
 
     const toggleSidebar = () => {
+        if (typeof window !== 'undefined' && window.innerWidth < 768) {
+            dispatch(toggleMobileSidebarAction());
+            return;
+        }
         dispatch(toggleSidebarAction());
     };
 
-    return { isCollapsed, toggleSidebar };
+    const toggleMobileSidebar = () => {
+        dispatch(toggleMobileSidebarAction());
+    };
+
+    const setMobileSidebarOpen = (isOpen) => {
+        dispatch(setMobileSidebarOpenAction(isOpen));
+    };
+
+    return { isCollapsed, isMobileOpen, toggleSidebar, toggleMobileSidebar, setMobileSidebarOpen };
 };
 
 // ==== Theme Hook ====

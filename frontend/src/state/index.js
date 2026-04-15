@@ -13,8 +13,11 @@ export { useSidebar, useTheme, useFeatures } from './hooks';
 // UI Slice
 export {
     toggleSidebar,
+    toggleMobileSidebar,
     setSidebarCollapsed,
-    selectSidebarCollapsed
+    setMobileSidebarOpen,
+    selectSidebarCollapsed,
+    selectMobileSidebarOpen
 } from './uiSlice';
 
 // Theme Slice
