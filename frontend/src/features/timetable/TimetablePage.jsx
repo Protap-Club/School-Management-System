@@ -418,7 +418,12 @@ const TimetablePage = () => {
 
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
                     <div className="flex flex-col space-y-1">
-                        <h1 className="text-2xl font-semibold text-gray-900 tracking-tight">Timetable</h1>
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 rounded-xl bg-primary/10 text-primary">
+                                <FaCalendarAlt size={22} />
+                            </div>
+                            <h1 className="text-2xl font-semibold text-gray-900 tracking-tight">Timetable</h1>
+                        </div>
                         <p className="text-sm text-gray-500">
                             {isTeacher ? "Manage your teaching hours and academic schedule." : "Academic scheduling and faculty coordination."}
                         </p>
@@ -461,7 +466,7 @@ const TimetablePage = () => {
                                     </Select>
                                     <Button
                                         size="sm"
-                                        className="h-9 px-4 text-[13px] font-medium bg-gray-900 hover:bg-gray-800 text-white rounded-md transition-colors shadow-none"
+                                        className="h-9 px-4 text-[13px] font-medium rounded-md transition-colors shadow-none"
                                         onClick={() => setCreateDialogOpen(true)}
                                     >
                                         New Schedule

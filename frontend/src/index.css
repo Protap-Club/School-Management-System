@@ -63,6 +63,12 @@ body {
     -moz-osx-font-smoothing: grayscale;
 }
 
+/* Hide the default browser password reveal button (Edge/IE) */
+input::-ms-reveal,
+input::-ms-clear {
+  display: none;
+}
+
 @keyframes blob {
     0% {
         transform: translate(0px, 0px) scale(1);

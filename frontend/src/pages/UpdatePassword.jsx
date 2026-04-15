@@ -12,6 +12,7 @@ const UpdatePassword = () => {
     const [confirmPassword, setConfirmPassword] = useState('');
     const [showCurrentPassword, setShowCurrentPassword] = useState(false);
     const [showNewPassword, setShowNewPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState(false);
     const navigate = useNavigate();
@@ -163,14 +164,21 @@ const UpdatePassword = () => {
                             <FaLock className="text-gray-400" />
                         </div>
                         <input
-                            type={showNewPassword ? 'text' : 'password'}
-                            className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 hover:bg-white disabled:opacity-50"
+                            type={showConfirmPassword ? 'text' : 'password'}
+                            className="w-full pl-10 pr-10 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 hover:bg-white disabled:opacity-50"
                             placeholder="Confirm New Password"
                             value={confirmPassword}
                             onChange={(e) => setConfirmPassword(e.target.value)}
                             required
                             disabled={updatePasswordMutation.isPending}
                         />
+                        <button
+                            type="button"
+                            className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
+                            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        >
+                            {showConfirmPassword ? <FaEyeSlash /> : <FaEye />}
+                        </button>
                     </div>
 
                     <button
