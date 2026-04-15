@@ -32,6 +32,7 @@ try {
 import {
     assertClassSectionExists,
     assertClassSectionListExists,
+    normalizeClassSection,
 } from "../../utils/classSection.util.js";
 import {
     assertTeacherClassAssignmentsAvailable,
@@ -56,6 +57,28 @@ const getTeacherAssignmentsFromPayload = (userData = {}) => {
     }
 
     return [];
+};
+
+const assertPositiveRollNumber = (rollNumber) => {
+    const numericRollNumber = Number(String(rollNumber || "").trim());
+
+    if (!Number.isFinite(numericRollNumber) || numericRollNumber <= 0 || !/^\d+$/.test(String(rollNumber || "").trim())) {
+        throw new BadRequestError("Roll number must be a positive number");
+    }
+
+    return String(Math.trunc(numericRollNumber));
+};
+
+const assertParentOrGuardianName = (userData = {}) => {
+    const hasParentOrGuardianName = [
+        userData.fatherName,
+        userData.motherName,
+        userData.guardianName,
+    ].some((value) => String(value || "").trim().length > 0);
+
+    if (!hasParentOrGuardianName) {
+        throw new BadRequestError("At least one of fatherName, motherName, or guardianName is required");
+    }
 };
 
 /**
@@ -336,6 +359,72 @@ const transferTeacherResponsibilities = async (
 
 
 // CREATE USER
+
+export const createTeacherStudent = async (creator, payload = {}) => {
+    if (creator.role !== USER_ROLES.TEACHER) {
+        throw new ForbiddenError("Only teachers can create students from mobile");
+    }
+
+    const assignedClasses = normalizeTeacherAssignedClasses(await getTeacherAssignedClasses(creator._id));
+    if (!assignedClasses.length) {
+        throw new ForbiddenError("You have no assigned classes and cannot create students");
+    }
+
+    const normalizedClass = normalizeClassSection({
+        standard: payload.standard,
+        section: payload.section,
+    });
+
+    if (!normalizedClass.standard || !normalizedClass.section) {
+        throw new BadRequestError("Standard and section are required");
+    }
+
+    const isAssignedClass = assignedClasses.some(
+        (item) =>
+            item.standard === normalizedClass.standard &&
+            item.section === normalizedClass.section
+    );
+
+    if (!isAssignedClass) {
+        const assignedClassLabels = assignedClasses.map((item) => formatClassSectionLabel(item)).join(", ");
+        throw new ForbiddenError(
+            `You can only create students for your assigned classes: ${assignedClassLabels}`
+        );
+    }
+
+    const normalizedRollNumber = assertPositiveRollNumber(payload.rollNumber);
+    assertParentOrGuardianName(payload);
+
+    const existingRollNumber = await StudentProfile.exists({
+        schoolId: creator.schoolId,
+        standard: normalizedClass.standard,
+        section: normalizedClass.section,
+        rollNumber: normalizedRollNumber,
+    });
+
+    if (existingRollNumber) {
+        throw new ConflictError(
+            `Roll number ${normalizedRollNumber} already exists in class ${formatClassSectionLabel(normalizedClass)}`
+        );
+    }
+
+    return createUser(creator, {
+        ...payload,
+        role: USER_ROLES.STUDENT,
+        schoolId: creator.schoolId,
+        standard: normalizedClass.standard,
+        section: normalizedClass.section,
+        rollNumber: normalizedRollNumber,
+        contactNo: payload.contactNo?.trim() || undefined,
+        fatherName: payload.fatherName?.trim() || undefined,
+        fatherContact: payload.fatherContact?.trim() || undefined,
+        motherName: payload.motherName?.trim() || undefined,
+        motherContact: payload.motherContact?.trim() || undefined,
+        guardianName: payload.guardianName?.trim() || undefined,
+        guardianContact: payload.guardianContact?.trim() || undefined,
+        address: payload.address?.trim() || undefined,
+    });
+};
 
 export const createUser = async (creator, userData) => {
     const { name, email, role, skipEmail, forceOverride = false } = userData;
