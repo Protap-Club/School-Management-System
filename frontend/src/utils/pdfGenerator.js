@@ -519,8 +519,16 @@ export const generateTimetablePDF = async ({
     const doc = new jsPDF({ orientation: 'landscape' });
     const pageWidth = doc.internal.pageSize.width;
 
-    // ── Header ──────────────────────────────────────────────────────────────
-    let headerStartX = 14;
+    // ── Header Background & Accent ──────────────────────────────────────────
+    // Subtle gradient-like or solid top band (Metallic silver/gray)
+    doc.setFillColor(241, 245, 249); // slate-100 for premium metallic feel
+    doc.rect(0, 0, pageWidth, 45, 'F');
+    
+    // Premium dark slate accent line at the very top
+    doc.setFillColor(15, 23, 42); // slate-900
+    doc.rect(0, 0, pageWidth, 5, 'F');
+
+    let headerStartX = 24; // Generous padding
 
     if (schoolLogo) {
         try {
@@ -531,8 +539,8 @@ export const generateTimetablePDF = async ({
                 const ratio = imgProps.width / imgProps.height;
                 const finalW = ratio > 1 ? 22 : 22 * ratio;
                 const finalH = ratio < 1 ? 22 : 22 / ratio;
-                doc.addImage(base64Img, 'PNG', 14, 10, finalW, finalH, undefined, 'FAST');
-                headerStartX = 14 + finalW + 6;
+                doc.addImage(base64Img, 'PNG', 20, 10, finalW, finalH, undefined, 'FAST');
+                headerStartX = 20 + finalW + 8;
             }
         } catch (e) {
             console.warn('Could not load logo for PDF', e);
@@ -540,38 +548,50 @@ export const generateTimetablePDF = async ({
     }
 
     // Main School Title
-    doc.setFontSize(24);
+    doc.setFontSize(22);
     doc.setFont(undefined, 'bold');
-    doc.setTextColor(31, 41, 55); // Tailwind gray-800
-    doc.text(schoolName, headerStartX, 18);
+    doc.setTextColor(15, 23, 42); // slate-900
+    doc.text(schoolName, headerStartX, 20);
 
-    // Document Type Label
-    doc.setFontSize(11);
+    // Document Type Label Pill
+    const isPersonal = standard.includes('Schedule');
+    
+    let docTypeLabel = 'CLASS TIMETABLE';
+    if (isPersonal) {
+        // Extract teacher name from predefined formats like "Sunita Desai's Schedule"
+        const teacherName = standard.replace(/'s Schedule|Schedule/gi, '').trim();
+        docTypeLabel = teacherName ? teacherName.toUpperCase() : 'FACULTY SCHEDULE';
+    }
+    
+    doc.setFillColor(226, 232, 240); // slate-200 (silver metallic look)
+    doc.roundedRect(headerStartX, 25, doc.getTextWidth(docTypeLabel) + 16, 9, 4, 4, 'F');
+    
+    doc.setFontSize(10.5);
     doc.setFont(undefined, 'bold');
-    doc.setTextColor(59, 130, 246); // Tailwind blue-500
-    doc.text('WEEKLY TIMETABLE', headerStartX, 25);
+    doc.setTextColor(30, 41, 59); // slate-800
+    doc.text(docTypeLabel, headerStartX + 8, 31.5);
 
     // Subtitle Details
-    doc.setFontSize(10);
+    doc.setFontSize(11);
     doc.setFont(undefined, 'normal');
-    doc.setTextColor(107, 114, 128); // Tailwind gray-500
-    const subtitle = section
-        ? `Class ${standard}-${section}  •  Academic Year: ${academicYear || '—'}`
-        : `${standard}  •  Academic Year: ${academicYear || '—'}`;
-    doc.text(`   |   ${subtitle}`, headerStartX + 36, 25);
+    doc.setTextColor(71, 85, 105); // slate-600
+    const subtitleParts = [];
+    if (isPersonal) {
+        subtitleParts.push('Faculty Schedule');
+    } else {
+        subtitleParts.push(`Class:  ${standard}${section ? ` - ${section}` : ''}`);
+        if (academicYear) subtitleParts.push(`Academic Year:  ${academicYear}`);
+    }
+    
+    doc.text(subtitleParts.join('    •    '), headerStartX + doc.getTextWidth(docTypeLabel) + 28, 31.5);
 
     // Generated Date (Top Right Corner)
-    doc.setFontSize(8);
-    doc.setTextColor(156, 163, 175); // Tailwind gray-400
+    doc.setFontSize(9);
+    doc.setTextColor(100, 116, 139); // slate-500
     doc.text(
         `Generated: ${new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}`,
-        pageWidth - 14, 18, { align: 'right' }
+        pageWidth - 24, 22, { align: 'right' }
     );
-
-    // Thick minimal divider
-    doc.setDrawColor(229, 231, 235); // Tailwind gray-200
-    doc.setLineWidth(0.5);
-    doc.line(14, 33, pageWidth - 14, 33);
 
     // ── Dynamic sizing — keep everything on one landscape A4 page ────────────
     // Landscape A4 height = 210mm; startY at 38 leaves ~162mm for table
@@ -601,21 +621,23 @@ export const generateTimetablePDF = async ({
             body.push([
                 {
                     content: timeLabel,
+                    rawExt: { isTimeBreak: true },
                     styles: {
                         fontStyle: 'normal',
-                        fontSize: 7.5,
-                        textColor: [130, 130, 130],
-                        fillColor: [250, 250, 250],
+                        fontSize: 8,
+                        textColor: [100, 116, 139], // slate-500
                     },
                 },
                 {
                     content: slot.label || 'Break',
                     colSpan: DAYS.length,
+                    rawExt: { isBreak: true },
                     styles: {
                         halign: 'center',
+                        valign: 'middle',
                         fontStyle: 'italic',
-                        textColor: [150, 150, 150],
-                        fillColor: [250, 250, 250],
+                        fontSize: 10,
+                        textColor: [148, 163, 184], // slate-400
                     },
                 },
             ]);
@@ -626,10 +648,11 @@ export const generateTimetablePDF = async ({
         const row = [
             {
                 content: timeLabel,
+                rawExt: { isTimePeriod: true },
                 styles: {
                     fontStyle: 'bold',
-                    fontSize: 8,
-                    textColor: [60, 60, 60],
+                    fontSize: 8.5,
+                    textColor: [71, 85, 105], // slate-600
                 },
             },
         ];
@@ -639,27 +662,21 @@ export const generateTimetablePDF = async ({
             if (entry) {
                 const teacher = getTeacherName(entry.teacherId);
                 const classLabel = entry.timetableId ? `${entry.timetableId.standard || ''}-${entry.timetableId.section || ''}` : '';
-                const isPersonalSchedule = standard === 'My Schedule';
-                // Always prioritize raw standard if provided directly, otherwise Fallback to teacher.
+                const isPersonalSchedule = standard.includes('Schedule');
                 const secondaryText = isPersonalSchedule ? classLabel : teacher;
                 const subject = entry.subject || 'No Subject';
 
                 row.push({
                     content: secondaryText ? `${subject}\n${secondaryText}` : subject,
-                    rawExt: { subject, secondaryText },
+                    rawExt: { subject, secondaryText, isEntry: true },
                     styles: {
-                        textColor: [31, 41, 55],       // text-gray-800
-                        fillColor: [255, 255, 255],    // bg-white
-                        lineColor: [229, 231, 235],    // border-gray-200
-                        lineWidth: 0.1,                // Thin underlying cell grid
+                        textColor: [30, 41, 59],       // slate-800
                     },
                 });
             } else {
                 row.push({
                     content: '',
-                    styles: { 
-                        fillColor: [250, 250, 250],    // bg-gray-50
-                    },
+                    rawExt: { isEmpty: true },
                 });
             }
         });
@@ -667,77 +684,124 @@ export const generateTimetablePDF = async ({
         body.push(row);
     });
 
+    // Pre-calculate approximate table height to draw background
+    const approxHeight = 45 + body.length * 35; // rough max height estimation
+    doc.setFillColor(248, 250, 252); // Very subtle gray background for the floating grid
+    doc.roundedRect(20, TABLE_START_Y - 4, pageWidth - 40, approxHeight, 4, 4, 'F');
+
     autoTable(doc, {
         startY: TABLE_START_Y,
         head,
         body,
         theme: 'plain', // Use plain to support cell-hook overriding efficiently
         headStyles: {
-            fillColor: [31, 41, 55],    // dark gray block for header (gray-800)
-            textColor: [255, 255, 255], // white text
+            textColor: [248, 250, 252], // slate-50 off-white text
             fontStyle: 'bold',
-            fontSize: 8.5,
+            fontSize: 9.5,
             halign: 'center',
-            cellPadding: { top: 5, bottom: 5, left: cellPadH, right: cellPadH }, // Slightly taller
-            lineColor: [31, 41, 55],    // Matching border color for header
-            lineWidth: { bottom: 0 },
+            cellPadding: { top: 7, bottom: 7, left: cellPadH, right: cellPadH },
+            lineWidth: 0,
         },
         styles: {
             fontSize: BODY_FONT,
-            cellPadding: { top: cellPadV, bottom: cellPadV, left: cellPadH, right: cellPadH },
-            valign: 'top',
-            lineColor: [243, 244, 246], // border-gray-100 inner grid lines
-            lineWidth: 0.2,
+            cellPadding: { top: cellPadV + 2, bottom: cellPadV + 2, left: cellPadH, right: cellPadH },
+            valign: 'middle',
+            lineWidth: 0,
             overflow: 'linebreak',
         },
         columnStyles: {
-            0: { halign: 'center', cellWidth: 26, fillColor: [249, 250, 251], valign: 'middle' },
+            0: { halign: 'center', cellWidth: 28, valign: 'middle' },
         },
-        margin: { left: 14, right: 14 },
+        margin: { left: 24, right: 24 },
         pageBreak: 'avoid',
         willDrawCell: (hookData) => {
-            // Null out text if this is a mapped entry so autoTable doesn't draw plain bold text
-            if (hookData.section === 'body' && hookData.column.index > 0 && hookData.cell.raw && hookData.cell.raw.rawExt) {
-                hookData.cell.text = [];
+            const doc = hookData.doc;
+            const cell = hookData.cell;
+            const PADDING = 1.2;
+
+            if (hookData.section === 'head') {
+                doc.setFillColor(30, 41, 59); // slate-800
+                doc.roundedRect(cell.x + PADDING, cell.y + PADDING, cell.width - PADDING*2, cell.height - PADDING*2, 2, 2, 'F');
+                cell.styles.fillColor = false;
+            } else if (hookData.section === 'body') {
+                const ext = cell.raw && cell.raw.rawExt ? cell.raw.rawExt : {};
+
+                if (ext.isTimePeriod) {
+                    doc.setFillColor(248, 250, 252);
+                    doc.roundedRect(cell.x + PADDING, cell.y + PADDING, cell.width - PADDING*2, cell.height - PADDING*2, 2, 2, 'F');
+                } else if (ext.isTimeBreak || ext.isBreak) {
+                    doc.setFillColor(241, 245, 249);
+                    doc.roundedRect(cell.x + PADDING, cell.y + PADDING, cell.width - PADDING*2, cell.height - PADDING*2, 2, 2, 'F');
+                } else if (ext.isEntry) {
+                    // Floating button background
+                    doc.setFillColor(255, 255, 255);
+                    doc.roundedRect(cell.x + PADDING, cell.y + PADDING, cell.width - PADDING*2, cell.height - PADDING*2, 3, 3, 'F');
+                    
+                    // Left color accent inside button
+                    doc.setDrawColor(71, 85, 105);
+                    doc.setLineWidth(2.5);
+                    doc.line(cell.x + PADDING + 3, cell.y + PADDING + 4, cell.x + PADDING + 3, cell.y + cell.height - PADDING - 4);
+                } else if (ext.isEmpty) {
+                    doc.setFillColor(248, 250, 252);
+                    doc.roundedRect(cell.x + PADDING, cell.y + PADDING, cell.width - PADDING*2, cell.height - PADDING*2, 2, 2, 'F');
+                }
+
+                cell.styles.fillColor = false;
+                
+                // Hide text for entry cells to draw it manually later
+                if (ext.isEntry) {
+                    cell.text = [];
+                }
             }
         },
         didDrawCell: (hookData) => {
             const doc = hookData.doc;
             const cell = hookData.cell;
 
-            if (hookData.section === 'body' && hookData.column.index > 0 && cell.raw && cell.raw.rawExt) {
+            if (hookData.section === 'body' && cell.raw && cell.raw.rawExt && cell.raw.rawExt.isEntry) {
                 const { subject, secondaryText } = cell.raw.rawExt;
                 
-                // Draw Web-style vertical left border on the entry card
-                // Using Tailwind slate shadow/border equivalent
-                doc.setDrawColor(31, 41, 55); // border-gray-800
-                doc.setLineWidth(1.2);
-                doc.line(cell.x + 0.6, cell.y + 0.5, cell.x + 0.6, cell.y + cell.height - 0.5);
+                const textX = cell.x + cellPadH + 6;
+                const maxWidth = cell.width - cellPadH * 2 - 6;
 
-                const textX = cell.x + cellPadH + 2;
-                const textY = cell.y + cellPadV + 3; // Top-align baseline
-
-                // Subject Name in bold
+                // Prepare subject text
                 doc.setFont(undefined, 'bold');
-                doc.setFontSize(8);
-                doc.setTextColor(17, 24, 39); // text-gray-900
-                doc.text(subject, textX, textY, { maxWidth: cell.width - cellPadH * 2 - 2 });
+                doc.setFontSize(8.5);
+                const subjectLines = doc.splitTextToSize(subject, maxWidth);
+                const subjectHeight = subjectLines.length * 3.5; 
 
-                // Subtitle (Teacher / Class) in normal text
-                if (secondaryText) {
+                // Prepare secondary text
+                doc.setFont(undefined, 'normal');
+                doc.setFontSize(7.5);
+                const secondaryLines = secondaryText ? doc.splitTextToSize(secondaryText, maxWidth) : [];
+                const secondaryHeight = secondaryLines.length * 3;
+
+                // Calculate center alignment
+                const totalHeight = subjectHeight + (secondaryLines.length ? secondaryHeight + 1.5 : 0);
+                let startY = cell.y + (cell.height - totalHeight) / 2 + 3;
+
+                // Draw Subject
+                doc.setFont(undefined, 'bold');
+                doc.setFontSize(8.5);
+                doc.setTextColor(15, 23, 42); // slate-900
+                doc.text(subjectLines, textX, startY);
+
+                // Draw secondary text
+                if (secondaryLines.length) {
+                    startY += subjectHeight + 0.5;
                     doc.setFont(undefined, 'normal');
                     doc.setFontSize(7.5);
-                    doc.setTextColor(75, 85, 99); // text-gray-600
-                    doc.text(secondaryText, textX, textY + 4, { maxWidth: cell.width - cellPadH * 2 - 2 });
+                    doc.setTextColor(100, 116, 139); // slate-500
+                    doc.text(secondaryLines, textX, startY);
                 }
             }
         }
     });
 
     // ── Footer ───────────────────────────────────────────────────────────────
-    const finalY = (doc.lastAutoTable?.finalY || 150) + 6;
-    doc.setFontSize(7);
-    doc.setTextColor(180, 180, 180);
+    const finalY = (doc.lastAutoTable?.finalY || 150) + 10;
+    doc.setFontSize(8);
+    doc.setTextColor(148, 163, 184); // slate-400
     doc.text(
         `${schoolName} — Computer generated timetable`,
         pageWidth / 2,

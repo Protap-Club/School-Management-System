@@ -35,7 +35,7 @@ const checkAuth = async (req, res, next) => {
         // Attach role-specific profile data (e.g. assignedClasses for teachers)
         if (findUser.role === USER_ROLES.TEACHER) {
             const teacherProfile = await TeacherProfile.findOne({ userId: findUser._id })
-                .select("assignedClasses expectedSalary")
+                .select("classTeacherOf assignedClasses expectedSalary")
                 .lean();
             findUser.profile = teacherProfile || null;
         } else if (findUser.role === USER_ROLES.STUDENT) {

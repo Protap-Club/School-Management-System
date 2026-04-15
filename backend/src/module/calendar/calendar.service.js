@@ -1,4 +1,5 @@
 import { CalendarEvent } from "./calendar.model.js";
+import Exam from "../examination/Exam.model.js";
 import StudentProfile from "../user/model/StudentProfile.model.js";
 import TeacherProfile from "../user/model/TeacherProfile.model.js";
 import logger from "../../config/logger.js";
@@ -44,9 +45,18 @@ const enforceTeacherScope = async (user, targetClasses) => {
     if (user.role !== USER_ROLES.TEACHER) return;
 
     const profile = await TeacherProfile.findOne({ schoolId: user.schoolId, userId: user._id })
-        .select('assignedClasses').lean();
-    
-    const allowed = (profile?.assignedClasses || []).map(c => `${String(c.standard).trim()}-${String(c.section).trim().toUpperCase()}`);
+        .select('classTeacherOf')
+        .lean();
+
+    const classTeacherOf = profile?.classTeacherOf;
+    const allowed = classTeacherOf?.standard && classTeacherOf?.section
+        ? [`${String(classTeacherOf.standard).trim()}-${String(classTeacherOf.section).trim().toUpperCase()}`]
+        : [];
+
+    if (!allowed.length) {
+        throw new ForbiddenError("You are not assigned as class teacher to any class");
+    }
+
     const normalizedRequested = (targetClasses || [])
         .map((cls) => parseClassKey(cls)?.key || String(cls).trim());
     const unauthorized = normalizedRequested.filter(c => !allowed.includes(c));
@@ -74,6 +84,128 @@ const validateTargetClasses = async (schoolId, targetClasses = [], { requireNonE
     );
 
     return validatedPairs.map((item) => `${item.standard}-${item.section}`);
+};
+
+const buildExamScopeClauses = (classKeys = []) =>
+    (Array.isArray(classKeys) ? classKeys : [])
+        .map((classKey) => {
+            const parsed = parseClassKey(classKey);
+            if (!parsed) return null;
+
+            return {
+                standard: parsed.standard,
+                section: parsed.section,
+            };
+        })
+        .filter(Boolean);
+
+const buildDateTime = (dateValue, timeValue) => {
+    const date = new Date(dateValue);
+    if (Number.isNaN(date.getTime())) return null;
+
+    if (timeValue) {
+        const [hours, minutes] = String(timeValue).split(":").map(Number);
+        if (Number.isFinite(hours)) {
+            date.setHours(hours, Number.isFinite(minutes) ? minutes : 0, 0, 0);
+        }
+    }
+
+    return date;
+};
+
+const matchesDateRange = (startDate, endDate, rangeStart, rangeEnd) => (
+    (startDate >= rangeStart && startDate <= rangeEnd) ||
+    (endDate >= rangeStart && endDate <= rangeEnd) ||
+    (startDate <= rangeStart && endDate >= rangeEnd)
+);
+
+const mapExamScheduleToEvent = (exam, item, index = 0) => {
+    const start = buildDateTime(item?.examDate, item?.startTime);
+    const end = buildDateTime(item?.examDate, item?.endTime || item?.startTime) || start;
+    if (!start || !end) {
+        return null;
+    }
+
+    const classKey = `${exam.standard}-${String(exam.section || "").toUpperCase()}`;
+
+    return {
+        _id: `${exam._id}:${item?._id || index}`,
+        title: item?.subject || exam.name || "Exam",
+        start,
+        end,
+        allDay: !(item?.startTime && item?.endTime),
+        type: "exam",
+        description: [
+            exam.name ? `Exam: ${exam.name}` : null,
+            `Class: ${classKey}`,
+            item?.syllabus || exam.description || null,
+        ]
+            .filter(Boolean)
+            .join("\n"),
+        targetAudience: "classes",
+        targetClasses: [classKey],
+        createdBy: exam.createdBy || null,
+        schoolId: exam.schoolId,
+        sourceType: "exam",
+        sourceId: exam._id,
+        examStatus: exam.status,
+    };
+};
+
+const fetchExamEvents = async ({
+    schoolId,
+    userRole,
+    visibleClassKeys,
+    start,
+    end,
+    upcoming,
+}) => {
+    const examQuery = {
+        schoolId,
+        isActive: true,
+        status: { $in: ["DRAFT", "PUBLISHED"] },
+    };
+
+    const isAdminLike = [USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN].includes(userRole);
+    if (!isAdminLike) {
+        const scopeClauses = buildExamScopeClauses(visibleClassKeys);
+        if (scopeClauses.length === 0) {
+            return [];
+        }
+        examQuery.$or = scopeClauses;
+    }
+
+    const exams = await Exam.find(examQuery)
+        .select("_id schoolId name description standard section status schedule createdBy")
+        .populate("createdBy", "name email")
+        .lean();
+
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    const hasRange = Boolean(start && end);
+    const rangeStart = hasRange ? new Date(start) : null;
+    const rangeEnd = hasRange ? new Date(end) : null;
+
+    return exams.flatMap((exam) =>
+        (Array.isArray(exam.schedule) ? exam.schedule : [])
+            .map((item, index) => mapExamScheduleToEvent(exam, item, index))
+            .filter(Boolean)
+            .filter((event) => {
+                if (event.end < now) {
+                    return false;
+                }
+
+                if ((upcoming === "true" || upcoming === true) && event.start < new Date()) {
+                    return false;
+                }
+
+                if (!hasRange) {
+                    return true;
+                }
+
+                return matchesDateRange(event.start, event.end, rangeStart, rangeEnd);
+            })
+    );
 };
 
 // Create a new calendar event
@@ -131,7 +263,8 @@ export const fetchCalendarEvents = async (queryData, user) => {
     const schoolId = user.schoolId;
     const userRole = user.role;
 
-    let query = { schoolId };
+    let query = { schoolId, sourceType: { $ne: "exam" } };
+    let visibleClassKeys = null;
 
     // ── Role-based audience filter ────────────────────────────────────────────
     if (userRole === USER_ROLES.STUDENT) {
@@ -142,6 +275,7 @@ export const fetchCalendarEvents = async (queryData, user) => {
 
         if (profile) {
             const classKey = `${profile.standard}-${profile.section}`;
+            visibleClassKeys = [classKey];
             query.$and = [{
                 $or: [
                     { targetAudience: 'all' },
@@ -152,17 +286,32 @@ export const fetchCalendarEvents = async (queryData, user) => {
             }];
         } else {
             // Student profile not found — show only school-wide events
+            visibleClassKeys = [];
             query.targetAudience = 'all';
         }
     } else if (userRole === USER_ROLES.TEACHER) {
-        // Look up the teacher's assigned classes
+        // Teachers should see events for every assigned class, not only their class-teacher class.
         const profile = await TeacherProfile.findOne({ schoolId, userId: user._id })
-            .select('assignedClasses')
+            .select('classTeacherOf assignedClasses')
             .lean();
 
-        const classStrings = (profile?.assignedClasses || []).map(
-            (c) => `${c.standard}-${c.section}`
+        const classStrings = Array.from(
+            new Set(
+                [
+                    ...(Array.isArray(profile?.assignedClasses) ? profile.assignedClasses : []),
+                    ...(profile?.classTeacherOf?.standard && profile?.classTeacherOf?.section
+                        ? [profile.classTeacherOf]
+                        : []),
+                ]
+                    .map((item) => {
+                        const standard = String(item?.standard || "").trim();
+                        const section = String(item?.section || "").trim().toUpperCase();
+                        return standard && section ? `${standard}-${section}` : null;
+                    })
+                    .filter(Boolean)
+            )
         );
+        visibleClassKeys = classStrings;
 
         query.$and = [{
             $or: [
@@ -206,11 +355,26 @@ export const fetchCalendarEvents = async (queryData, user) => {
     // Parse limit (mobile sends ?limit=3 for dashboard widget)
     const parsedLimit = limit ? parseInt(limit, 10) : 0;
 
-    const events = await CalendarEvent.find(query)
+    const calendarEvents = await CalendarEvent.find(query)
         .sort({ start: 1 })
         .populate('createdBy', 'name email')
-        .limit(parsedLimit)   // 0 = no limit (web default)
         .lean();
+
+    const examEvents = type && type !== "exam"
+        ? []
+        : await fetchExamEvents({
+            schoolId,
+            userRole,
+            visibleClassKeys,
+            start,
+            end,
+            upcoming,
+        });
+
+    const events = [...calendarEvents, ...examEvents]
+        .sort((left, right) => new Date(left.start) - new Date(right.start));
+
+    const limitedEvents = parsedLimit > 0 ? events.slice(0, parsedLimit) : events;
 
     // ── Sunday exclusion & Past Exam Filtering ──────────────────────────────
     // 1. Single-day events that land exactly on Sunday are excluded.
@@ -218,7 +382,7 @@ export const fetchCalendarEvents = async (queryData, user) => {
     const now = new Date();
     now.setHours(0, 0, 0, 0);
 
-    return events.filter((e) => {
+    return limitedEvents.filter((e) => {
         const startDate = new Date(e.start);
         const endDate = new Date(e.end);
         
@@ -370,15 +534,18 @@ export const deleteCalendarEventsByDate = async (dateStr, user, eventId) => {
         sourceType: { $ne: "exam" }
     };
 
-    // Teachers can only bulk-delete events for their assigned classes
+    // Teachers can only bulk-delete events for their class-teacher class
     if (user.role === USER_ROLES.TEACHER) {
         const profile = await TeacherProfile.findOne(
             { schoolId: user.schoolId, userId: user._id }
-        ).select('assignedClasses').lean();
-        
-        const classKeys = (profile?.assignedClasses || []).map(c => `${c.standard}-${c.section}`);
+        ).select('classTeacherOf').lean();
+
+        const classTeacherOf = profile?.classTeacherOf;
+        const classKeys = classTeacherOf?.standard && classTeacherOf?.section
+            ? [`${String(classTeacherOf.standard).trim()}-${String(classTeacherOf.section).trim().toUpperCase()}`]
+            : [];
         if (!classKeys.length) {
-             throw new ForbiddenError("No assigned classes for this teacher. Cannot delete events.");
+            throw new ForbiddenError("You are not assigned as class teacher to any class. Cannot delete events.");
         }
         query.targetClasses = { $in: classKeys };
         query.targetAudience = 'classes';

@@ -242,7 +242,7 @@ const ResultPage = () => {
       return '';
     }
 
-    const index = filteredStudents.findIndex(
+    const index = examStudents.findIndex(
       (item) => String(item.studentId) === String(entryModal.student.studentId)
     );
 
@@ -250,8 +250,8 @@ const ResultPage = () => {
       return '';
     }
 
-    return `${index + 1} of ${filteredStudents.length} students`;
-  }, [entryModal.student, filteredStudents]);
+    return `${index + 1} of ${examStudents.length} students`;
+  }, [entryModal.student, examStudents]);
 
   const handleSaveResult = useCallback(
     async (payload, options = {}) => {

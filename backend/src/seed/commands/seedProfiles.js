@@ -69,7 +69,8 @@ const seedProfiles = async () => {
         employeeId: teacher.employeeId,
         qualification: teacher.qualification,
         joiningDate: new Date(teacher.joiningDate),
-        expectedSalary: teacher.expectedSalary,
+        expectedSalary: teacher.expectedSalary || 35000,
+        classTeacherOf: teacher.classTeacherOf || null,
         assignedClasses: teacher.assignedClasses || [],
       });
     }
@@ -88,14 +89,17 @@ const seedProfiles = async () => {
         const user = await User.findOne({ email: student.email, schoolId: school._id });
         if (!user) continue;
 
+        const birthYear = new Date().getFullYear() - (parseInt(student.standard) + 5);
         await StudentProfile.create({
           userId: user._id,
           schoolId: school._id,
-          rollNumber: String(student.roll),
+          rollNumber: String(student.roll).padStart(2, "0"),
           standard: student.standard,
           section: student.section,
           year: cfg.year,
           admissionDate: admissionDateForIndex(admissionBase, cfg.admissionDateRangeDays || 30, counter),
+          dateOfBirth: new Date(birthYear, counter % 12, (counter % 27) + 1),
+          bloodGroup: ["O+", "A+", "B+", "AB+", "O-", "A-", "B-", "AB-"][counter % 8],
           fatherName: student.fatherName,
           fatherContact: `+91-98${String(10000000 + counter).slice(-8)}`,
           motherName: student.motherName,
