@@ -56,12 +56,9 @@ const Sidebar = () => {
                     superAdminLinks.push({ path: '/superadmin/fees', label: 'Payment', icon: <FaMoneyCheckAlt /> });
                 }
 
-                // Examination
+                // Examination + Results (combined module)
                 if (hasFeature('examination')) {
                     superAdminLinks.push({ path: '/superadmin/examination', label: 'Examination', icon: <FaGraduationCap /> });
-                }
-
-                if (hasFeature('result')) {
                     superAdminLinks.push({ path: '/superadmin/result', label: 'Results', icon: <FaClipboardCheck /> });
                 }
 
@@ -107,12 +104,9 @@ const Sidebar = () => {
                     adminLinks.push({ path: '/admin/fees', label: 'Payment', icon: <FaMoneyCheckAlt />, feature: 'fees' });
                 }
 
-                // 8. Examination
+                // Examination + Results (combined module)
                 if (hasFeature('examination')) {
                     adminLinks.push({ path: '/admin/examination', label: 'Examination', icon: <FaGraduationCap /> });
-                }
-
-                if (hasFeature('result')) {
                     adminLinks.push({ path: '/admin/result', label: 'Results', icon: <FaClipboardCheck /> });
                 }
 
@@ -157,12 +151,9 @@ const Sidebar = () => {
                     teacherLinks.push({ path: '/teacher/fees', label: 'Payment', icon: <FaMoneyCheckAlt />, feature: 'fees' });
                 }
 
-                // 8. Examination
+                // Examination + Results (combined module)
                 if (hasFeature('examination')) {
                     teacherLinks.push({ path: '/teacher/examination', label: 'Examination', icon: <FaGraduationCap /> });
-                }
-
-                if (hasFeature('result')) {
                     teacherLinks.push({ path: '/teacher/result', label: 'Results', icon: <FaClipboardCheck /> });
                 }
 

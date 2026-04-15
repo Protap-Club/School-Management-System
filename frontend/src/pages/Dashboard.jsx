@@ -7,6 +7,7 @@ import DashboardLayout from '../layouts/DashboardLayout';
 import { connectSocket, disconnectSocket } from '../api/socket';
 import api from '../lib/axios';
 import { useSchoolClasses } from '../hooks/useSchoolClasses';
+import { useFeatures } from '../state';
 import {
   Users,
   UserCheck,
@@ -31,6 +32,7 @@ const Dashboard = () => {
   const { user, accessToken } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { hasFeature } = useFeatures();
   const isTeacher = user?.role === 'teacher';
   const isAdmin = user?.role === 'admin';
   const isSuperAdmin = user?.role === 'super_admin';
@@ -336,10 +338,10 @@ const Dashboard = () => {
           </motion.div>
         )}
 
-        {/* Top Metric Cards - Updated Labels and logic */}
+        {/* Top Metric Cards — conditionally include attendance/calendar based on feature flags */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {[
-            {
+            hasFeature('attendance') && {
               label: 'Total Students',
               value: filteredStats.total,
               icon: Users,
@@ -348,7 +350,7 @@ const Dashboard = () => {
               trendText: 'Enrollment Growth',
               spark: [40, 45, 42, 50, 55, 52, 60]
             },
-            {
+            hasFeature('attendance') && {
               label: 'Present Today',
               value: filteredStats.present,
               icon: UserCheck,
@@ -358,7 +360,7 @@ const Dashboard = () => {
               spark: [80, 85, 82, 90, 88, 92, 95],
               nav: 'present'
             },
-            {
+            hasFeature('attendance') && {
               label: 'Absent Today',
               value: filteredStats.absent,
               icon: Users,
@@ -368,7 +370,7 @@ const Dashboard = () => {
               spark: [10, 8, 12, 5, 7, 4, 2],
               nav: 'absent'
             },
-            {
+            hasFeature('calendar') && {
               label: 'Calendar Overview',
               value: `${calendarEventsCount} Events`,
               icon: Calendar,
@@ -378,7 +380,7 @@ const Dashboard = () => {
               spark: [2, 1, 3, 2, 4, 3, 5],
               nav: 'calendar'
             }
-          ].map((card, idx) => (
+          ].filter(Boolean).map((card, idx) => (
             <motion.div
               key={idx}
               variants={itemVariants}
@@ -422,8 +424,8 @@ const Dashboard = () => {
 
         {/* Main Content Grid - Timetable Overview replace Attendance Trend */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Timetable Overview (Large) - Only for Teachers */}
-          {isTeacher && (
+          {/* Timetable Overview (Large) - Only for Teachers with timetable feature */}
+          {isTeacher && hasFeature('timetable') && (
             <motion.div
               variants={itemVariants}
               className="lg:col-span-2 bg-white rounded-[2.5rem] p-8 md:p-10 border border-gray-50 shadow-[0_20px_50px_-15px_rgba(0,0,0,0.05)] overflow-hidden relative group cursor-pointer"
@@ -483,8 +485,8 @@ const Dashboard = () => {
             </motion.div>
           )}
 
-          {/* School Bulletin - Added for Admins to fill space nicely */}
-          {!isTeacher && (
+          {/* School Bulletin - notice feature gate */}
+          {!isTeacher && hasFeature('notice') && (
             <motion.div
               variants={itemVariants}
               className="lg:col-span-2 bg-white rounded-[2.5rem] p-8 md:p-10 border border-gray-50 shadow-[0_20px_50px_-15px_rgba(0,0,0,0.05)] overflow-hidden relative group"
@@ -555,7 +557,8 @@ const Dashboard = () => {
             </motion.div>
           )}
 
-          {/* Attendance Circle (Small) - Fixed 0% logic and routing */}
+          {/* Attendance Rate Overview Circle - only when attendance is enabled */}
+          {hasFeature('attendance') && (
           <motion.div
             variants={itemVariants}
             className="bg-white rounded-[2.5rem] p-8 border border-gray-50 shadow-[0_20px_50px_-15px_rgba(0,0,0,0.05)] flex flex-col justify-between group cursor-pointer"
@@ -611,9 +614,11 @@ const Dashboard = () => {
               </p>
             </div>
           </motion.div>
+          )}
         </div>
 
-        {/* Classroom Status Matrix - Expanded to full width */}
+        {/* Classroom Status Matrix - gate by attendance feature */}
+        {hasFeature('attendance') && (
         <div className="grid grid-cols-1 pb-10">
           <motion.div variants={itemVariants} className="space-y-6">
             <div className="flex justify-between items-end px-2">
@@ -654,6 +659,7 @@ const Dashboard = () => {
             </div>
           </motion.div>
         </div>
+        )}
       </motion.div>
 
     </DashboardLayout>
