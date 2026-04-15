@@ -265,12 +265,50 @@ const TimetablePage = () => {
     // Export PDF for teacher / student personal schedule
     const handleExportSchedulePDF = async () => {
         if (!myScheduleEntries.length) return;
-        const firstEntry = myScheduleEntries[0];
         await generateTimetablePDF({
             entries: myScheduleEntries,
             timeSlots,
-            standard: firstEntry?.timetableId?.standard || 'My Schedule',
-            section: firstEntry?.timetableId?.section || '',
+            standard: `${user?.profile?.name || user?.name || 'Faculty'}'s Schedule`,
+            section: '',
+            academicYear: '',
+            schoolName,
+            schoolLogo,
+        });
+    };
+
+    // Export PDF for admin viewing a teacher's schedule
+    const handleExportAdminTeacherPDF = async () => {
+        if (!teacherScheduleEntries.length || !activeTeacherId) return;
+        const teacher = teachers.find(t => t._id === activeTeacherId);
+        await generateTimetablePDF({
+            entries: teacherScheduleEntries,
+            timeSlots,
+            standard: teacher ? `${teacher.name}'s Schedule` : 'Teacher Schedule',
+            section: '',
+            academicYear: '',
+            schoolName,
+            schoolLogo,
+        });
+    };
+
+    // Export PDF for teacher viewing their homeroom class
+    const handleExportClassPDF = async () => {
+        if (!myClassTimetableEntries.length) return;
+        
+        let academicYear = '';
+        if (myScheduleData?.classTimetable?.schedule?.length > 0) {
+           const someEntry = myScheduleData.classTimetable.schedule.find(d => d.entries && d.entries.length > 0);
+           if (someEntry && someEntry.entries[0]?.timetableId) {
+               academicYear = someEntry.entries[0].timetableId.academicYear;
+           }
+        }
+
+        await generateTimetablePDF({
+            entries: myClassTimetableEntries,
+            timeSlots,
+            standard: classTeacherOf?.standard || 'Class',
+            section: classTeacherOf?.section || '',
+            academicYear,
             schoolName,
             schoolLogo,
         });
@@ -356,18 +394,31 @@ const TimetablePage = () => {
                                     )}
                                 </div>
                             ) : (
-                                <Select value={activeTeacherId} onValueChange={setSelectedTeacherId}>
-                                    <SelectTrigger className="w-52 h-9 text-[13px] font-medium border-gray-200/80 rounded-md focus:ring-gray-200">
-                                        <SelectValue placeholder="Select teacher" />
-                                    </SelectTrigger>
-                                    <SelectContent className="rounded-md border-gray-200/80 shadow-sm">
-                                        {teachers.map((teacher) => (
-                                            <SelectItem key={teacher._id} value={teacher._id} className="text-[13px]">
-                                                {teacher.name}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                <div className="flex items-center gap-3">
+                                    <Select value={activeTeacherId} onValueChange={setSelectedTeacherId}>
+                                        <SelectTrigger className="w-52 h-9 text-[13px] font-medium border-gray-200/80 rounded-md focus:ring-gray-200">
+                                            <SelectValue placeholder="Select teacher" />
+                                        </SelectTrigger>
+                                        <SelectContent className="rounded-md border-gray-200/80 shadow-sm">
+                                            {teachers.map((teacher) => (
+                                                <SelectItem key={teacher._id} value={teacher._id} className="text-[13px]">
+                                                    {teacher.name}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    {activeTeacherId && teacherScheduleEntries.length > 0 && (
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            className="h-9 px-4 text-[13px] font-medium border-gray-200 rounded-md transition-colors shadow-none flex items-center gap-1.5"
+                                            onClick={handleExportAdminTeacherPDF}
+                                        >
+                                            <FaFilePdf size={12} />
+                                            Export PDF
+                                        </Button>
+                                    )}
+                                </div>
                             )}
                         </div>
                     ) : isTeacher && isClassTeacherFromData ? (
@@ -383,12 +434,12 @@ const TimetablePage = () => {
                                     </TabsTrigger>
                                 </TabsList>
                             </Tabs>
-                            {teacherTab === "schedule" && myScheduleEntries.length > 0 && (
+                            {(teacherTab === "schedule" ? myScheduleEntries : myClassTimetableEntries).length > 0 && (
                                 <Button
                                     size="sm"
                                     variant="outline"
                                     className="h-9 px-4 text-[13px] font-medium border-gray-200 rounded-md transition-colors shadow-none flex items-center gap-1.5"
-                                    onClick={handleExportSchedulePDF}
+                                    onClick={teacherTab === "schedule" ? handleExportSchedulePDF : handleExportClassPDF}
                                 >
                                     <FaFilePdf size={12} />
                                     Export PDF
