@@ -598,11 +598,13 @@ const TimetablePage = () => {
                     ) : (
                         // Regular (subject-only) teacher: just their schedule
                         <div className="flex items-center gap-3">
-                            <div className="inline-flex items-center gap-2 rounded-md bg-gray-100 border border-gray-200/80 px-3 py-1.5 text-xs font-medium text-gray-600">
-                                <FaChalkboardTeacher size={14} />
-                                Active Faculty Schedule
-                            </div>
-                            {myScheduleEntries.length > 0 && (
+                            <Tabs value={teacherViewMode} onValueChange={setTeacherViewMode} className="bg-gray-100/50 p-1 rounded-lg border border-gray-200/60">
+                                <TabsList className="bg-transparent gap-1 h-auto p-0">
+                                    <TabsTrigger value="schedule" className="rounded-md text-[13px] font-medium data-[state=active]:bg-white data-[state=active]:shadow-sm px-4 py-1.5 data-[state=active]:text-gray-900 text-gray-600">Schedule</TabsTrigger>
+                                    <TabsTrigger value="class" className="rounded-md text-[13px] font-medium data-[state=active]:bg-white data-[state=active]:shadow-sm px-4 py-1.5 data-[state=active]:text-gray-900 text-gray-600">Class</TabsTrigger>
+                                </TabsList>
+                            </Tabs>
+                            {teacherViewMode === "schedule" && myScheduleEntries.length > 0 && (
                                 <Button
                                     size="sm"
                                     variant="outline"
@@ -612,6 +614,12 @@ const TimetablePage = () => {
                                     <FaFilePdf size={12} />
                                     Export PDF
                                 </Button>
+                            )}
+                            {teacherViewMode === "class" && myClassInfo && (
+                                <div className="inline-flex items-center gap-2 rounded-md bg-blue-50 border border-blue-200/80 px-3 py-1.5 text-xs font-medium text-blue-700">
+                                    <FaChalkboardTeacher size={14} />
+                                    Class {myClassInfo.standard}-{myClassInfo.section}
+                                </div>
                             )}
                         </div>
                     )}

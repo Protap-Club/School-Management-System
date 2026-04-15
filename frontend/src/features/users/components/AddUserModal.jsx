@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { FaTimes, FaUserPlus, FaBuilding, FaInfoCircle } from 'react-icons/fa';
 import api from '../../../lib/axios';
 import { useAuth } from '../../../features/auth';
-import { useCreateUser, useUsers } from '../api/queries';
+import { useCreateUser, useUsers, useNextRollNumber } from '../api/queries';
 import { useProfile } from '../../attendance';
 import { useSchoolClasses } from '../../../hooks/useSchoolClasses';
 import { useNavigate } from 'react-router-dom';
@@ -167,6 +167,22 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess, initialData }) =>
 
     const teacherAssignmentLoading = classesLoading || teachersQuery.isLoading;
     const roleLabel = roleToAdd?.charAt(0).toUpperCase() + roleToAdd?.slice(1);
+
+    // Auto-fetch next roll number
+    const { data: nextRollData, isFetching: isRollFetching } = useNextRollNumber(
+        formData.standard,
+        formData.section,
+        { enabled: isOpen && roleToAdd === 'student' && !!formData.standard && !!formData.section }
+    );
+
+    useEffect(() => {
+        if (roleToAdd === 'student' && nextRollData?.data?.nextRollNumber) {
+            setFormData(prev => ({
+                ...prev,
+                rollNumber: String(nextRollData.data.nextRollNumber)
+            }));
+        }
+    }, [nextRollData, roleToAdd]);
 
     useEffect(() => {
         if (!isOpen) return;
@@ -494,7 +510,23 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess, initialData }) =>
                                 )}
                                 
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                    <InputField label="Roll Number" name="rollNumber" value={formData.rollNumber} onChange={handleChange} required isNumeric />
+                                    <div className="relative">
+                                        <InputField 
+                                            label="Roll Number" 
+                                            name="rollNumber" 
+                                            value={formData.rollNumber} 
+                                            onChange={handleChange} 
+                                            required 
+                                            isNumeric 
+                                            disabled={isRollFetching}
+                                        />
+                                        {isRollFetching && (
+                                            <div className="absolute right-3 top-[34px] flex items-center gap-2">
+                                                <div className="w-3 h-3 border-2 border-primary/30 border-t-primary rounded-full animate-spin"></div>
+                                                <span className="text-[10px] text-primary font-bold animate-pulse">SUGGESTING...</span>
+                                            </div>
+                                        )}
+                                    </div>
                                     <SelectField
                                         label="Standard" name="standard" value={formData.standard}
                                         onChange={handleChange} required

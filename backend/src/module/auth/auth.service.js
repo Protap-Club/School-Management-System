@@ -27,6 +27,7 @@ const PASSWORD_RESET_EXPIRY_MINUTES = 15;
 
 // LOGIN
 export const login = async (email, password, platform, metadata = {}) => {
+    
     logger.info("Login attempt", { email, platform });
     
     if (!email || !password) throw new BadRequestError("Email and password are required");

@@ -23,6 +23,7 @@ const Profile = () => {
     const [confirmPassword, setConfirmPassword] = useState('');
     const [showCurrentPassword, setShowCurrentPassword] = useState(false);
     const [showNewPassword, setShowNewPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState(false);
 
@@ -106,150 +107,179 @@ const Profile = () => {
     const avatarSrc = user?.avatarUrl || null;
 
     return (
-        <div className="min-h-screen bg-gray-50 py-6">
-            <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-                {/* Back Button */}
+        <div className="min-h-screen bg-slate-50/50">
+            <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
+                {/* Back Link */}
                 <button
                     onClick={() => navigate('/dashboard')}
-                    className="flex items-center gap-2 text-gray-500 hover:text-gray-900 transition-colors mb-6"
+                    className="group mb-8 flex items-center gap-2 text-slate-500 hover:text-slate-900 transition-all duration-200"
                 >
-                    <ChevronLeft className="w-5 h-5" />
-                    <span className="text-sm font-medium">Back to Dashboard</span>
+                    <div className="p-1.5 rounded-lg bg-white border border-slate-200 group-hover:border-slate-300 shadow-sm transition-all">
+                        <ChevronLeft className="w-4 h-4" />
+                    </div>
+                    <span className="text-sm font-semibold tracking-tight">Back to Dashboard</span>
                 </button>
 
-                {/* Main Layout */}
-                <div className="flex gap-8">
-                    {/* Left Sidebar - Narrower */}
-                    <div className="w-40 shrink-0">
-                        <div className="sticky top-6 space-y-1">
+                {/* Profile Header Card */}
+                <div className="mb-8 relative overflow-hidden rounded-[2.5rem] bg-white border border-slate-200 shadow-xl shadow-slate-200/40 p-1">
+                    <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl -mr-32 -mt-32" />
+                    <div className="absolute bottom-0 left-0 w-48 h-48 bg-indigo-50/50 rounded-full blur-2xl -ml-24 -mb-24" />
+                    
+                    <div className="relative bg-white rounded-[2.2rem] p-6 md:p-8 flex flex-col md:flex-row items-center gap-6 md:gap-8">
+                        <div className="group relative">
+                            <div className="absolute inset-0 bg-gradient-to-tr from-primary to-indigo-500 rounded-full blur-md opacity-20 group-hover:opacity-40 transition-opacity" />
+                            <div className="relative w-32 h-32 md:w-40 md:h-40 rounded-full p-1.5 bg-gradient-to-tr from-slate-100 to-slate-200 shadow-inner">
+                                <div className="w-full h-full rounded-full bg-white flex items-center justify-center text-4xl md:text-5xl font-black text-slate-300 overflow-hidden">
+                                    {avatarSrc ? (
+                                        <img src={avatarSrc} alt={user?.name} className="w-full h-full object-cover" />
+                                    ) : (
+                                        <span>{user?.name?.charAt(0).toUpperCase()}</span>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="text-center md:text-left flex-1 min-w-0">
+                            <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4 mb-3">
+                                <h1 className="text-3xl md:text-4xl font-black text-slate-900 tracking-tight">{user?.name}</h1>
+                                <span className="inline-flex items-center px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-bold uppercase tracking-widest border border-primary/10">
+                                    {formatRole(user?.role)}
+                                </span>
+                            </div>
+                            <div className="flex items-center justify-center md:justify-start gap-2 mt-1 px-1">
+                                <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                                    Academic Year: {(() => {
+                                        const now = new Date();
+                                        const year = now.getFullYear();
+                                        const month = now.getMonth();
+                                        // Academic year usually starts in June (month 5)
+                                        return month >= 5 ? `${year}-${(year + 1).toString().slice(-2)}` : `${year - 1}-${year.toString().slice(-2)}`;
+                                    })()}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Action Grid */}
+                <div className="flex flex-col lg:flex-row gap-8">
+                    {/* Navigation Sidebar */}
+                    <div className="w-full lg:w-64 shrink-0">
+                        <nav className="flex lg:flex-col gap-2 p-1 bg-slate-100/50 rounded-3xl border border-slate-200 overflow-x-auto lg:overflow-visible no-scrollbar">
                             <button
                                 onClick={() => setActiveTab('info')}
-                                className={`w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                                className={`flex items-center gap-3 px-5 py-3.5 rounded-2xl text-sm font-bold tracking-tight transition-all duration-300 min-w-max lg:min-w-0 ${
                                     activeTab === 'info' 
-                                        ? 'bg-white text-gray-900 shadow-sm border border-gray-200' 
-                                        : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
+                                        ? 'bg-white text-primary shadow-xl shadow-slate-200/60 border border-slate-100 scale-[1.02]' 
+                                        : 'text-slate-500 hover:text-slate-800 hover:bg-white/50'
                                 }`}
                             >
-                                Personal Info
+                                <User className={`w-5 h-5 transition-colors ${activeTab === 'info' ? 'text-primary font-bold' : 'text-slate-400'}`} />
+                                Personal info
                             </button>
                             <button
                                 onClick={() => setActiveTab('security')}
-                                className={`w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                                className={`flex items-center gap-3 px-5 py-3.5 rounded-2xl text-sm font-bold tracking-tight transition-all duration-300 min-w-max lg:min-w-0 ${
                                     activeTab === 'security' 
-                                        ? 'bg-white text-gray-900 shadow-sm border border-gray-200' 
-                                        : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
+                                        ? 'bg-white text-primary shadow-xl shadow-slate-200/60 border border-slate-100 scale-[1.02]' 
+                                        : 'text-slate-500 hover:text-slate-800 hover:bg-white/50'
                                 }`}
                             >
-                                Security
+                                <Shield className={`w-5 h-5 transition-colors ${activeTab === 'security' ? 'text-primary font-bold' : 'text-slate-400'}`} />
+                                Privacy & Security
                             </button>
-                        </div>
+                        </nav>
                     </div>
 
-                    {/* Main Content - Wider */}
-                    <div className="flex-1 min-w-0 max-w-3xl">
+                    {/* Content Section */}
+                    <div className="flex-1 min-w-0 animate-in fade-in slide-in-from-bottom-4 duration-500">
                         {activeTab === 'info' ? (
-                            <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
-                                {/* User Info Header */}
-                                <div className="px-6 py-6 border-b border-gray-100">
-                                    <div className="flex items-center gap-4">
-                                        <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center text-2xl font-medium text-gray-500 overflow-hidden shrink-0">
-                                            {avatarSrc ? (
-                                                <img src={avatarSrc} alt={user?.name} className="w-full h-full object-cover" />
-                                            ) : (
-                                                <span>{user?.name?.charAt(0).toUpperCase()}</span>
-                                            )}
-                                        </div>
-                                        <div>
-                                            <h2 className="text-xl font-semibold text-gray-900">{user?.name}</h2>
-                                            <p className="text-gray-500 text-sm">{formatRole(user?.role)}</p>
-                                        </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                {/* Details Card */}
+                                <div className="md:col-span-2 bg-white rounded-[2rem] border border-slate-200 shadow-xl shadow-slate-200/20 overflow-hidden">
+                                    <div className="px-8 py-6 border-b border-slate-100 flex items-center">
+                                        <h3 className="text-xl font-black text-slate-900 tracking-tight italic">Personal Details</h3>
                                     </div>
-                                </div>
+                                    
+                                    <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div className="group p-4 rounded-2xl bg-slate-50/50 border border-transparent hover:border-slate-100 hover:bg-white transition-all flex items-center gap-4">
+                                            <div className="w-12 h-12 rounded-xl bg-white shadow-sm flex items-center justify-center border border-slate-100 group-hover:bg-primary/5 transition-colors">
+                                                <User className="w-5 h-5 text-slate-400 group-hover:text-primary transition-colors" />
+                                            </div>
+                                            <div>
+                                                <p className="text-[10px] uppercase font-black tracking-widest text-slate-400 mb-0.5">Full Name</p>
+                                                <p className="text-base font-bold text-slate-800">{user?.name || 'N/A'}</p>
+                                            </div>
+                                        </div>
 
-                                {/* Info List */}
-                                <div className="divide-y divide-gray-100">
-                                    <div className="px-6 py-4 flex items-center gap-4">
-                                        <div className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center">
-                                            <User className="w-4 h-4 text-gray-600" />
+                                        <div className="group p-4 rounded-2xl bg-slate-50/50 border border-transparent hover:border-slate-100 hover:bg-white transition-all flex items-center gap-4">
+                                            <div className="w-12 h-12 rounded-xl bg-white shadow-sm flex items-center justify-center border border-slate-100 group-hover:bg-primary/5 transition-colors">
+                                                <Mail className="w-5 h-5 text-slate-400 group-hover:text-primary transition-colors" />
+                                            </div>
+                                            <div>
+                                                <p className="text-[10px] uppercase font-black tracking-widest text-slate-400 mb-0.5">Email Address</p>
+                                                <p className="text-base font-bold text-slate-800">{user?.email || 'N/A'}</p>
+                                            </div>
                                         </div>
-                                        <div>
-                                            <p className="text-xs text-gray-500 uppercase tracking-wide">Full Name</p>
-                                            <p className="text-gray-900 font-medium text-sm">{user?.name || 'N/A'}</p>
-                                        </div>
-                                    </div>
 
-                                    <div className="px-6 py-4 flex items-center gap-4">
-                                        <div className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center">
-                                            <Mail className="w-4 h-4 text-gray-600" />
+                                        <div className="group p-4 rounded-2xl bg-slate-50/50 border border-transparent hover:border-slate-100 hover:bg-white transition-all flex items-center gap-4">
+                                            <div className="w-12 h-12 rounded-xl bg-white shadow-sm flex items-center justify-center border border-slate-100 group-hover:bg-primary/5 transition-colors">
+                                                <Shield className="w-5 h-5 text-slate-400 group-hover:text-primary transition-colors" />
+                                            </div>
+                                            <div>
+                                                <p className="text-[10px] uppercase font-black tracking-widest text-slate-400 mb-0.5">Account Role</p>
+                                                <p className="text-base font-bold text-slate-800">{formatRole(user?.role)}</p>
+                                            </div>
                                         </div>
-                                        <div>
-                                            <p className="text-xs text-gray-500 uppercase tracking-wide">Email</p>
-                                            <p className="text-gray-900 font-medium text-sm">{user?.email || 'N/A'}</p>
-                                        </div>
-                                    </div>
 
-                                    <div className="px-6 py-4 flex items-center gap-4">
-                                        <div className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center">
-                                            <Shield className="w-4 h-4 text-gray-600" />
-                                        </div>
-                                        <div>
-                                            <p className="text-xs text-gray-500 uppercase tracking-wide">Role</p>
-                                            <p className="text-gray-900 font-medium text-sm">{formatRole(user?.role)}</p>
+                                        <div className="group p-4 rounded-2xl bg-slate-50/50 border border-transparent hover:border-slate-100 hover:bg-white transition-all flex items-center gap-4">
+                                            <div className="w-12 h-12 rounded-xl bg-white shadow-sm flex items-center justify-center border border-slate-100 group-hover:bg-primary/5 transition-colors">
+                                                <Building2 className="w-5 h-5 text-slate-400 group-hover:text-primary transition-colors" />
+                                            </div>
+                                            <div>
+                                                <p className="text-[10px] uppercase font-black tracking-widest text-slate-400 mb-0.5">Primary School</p>
+                                                <p className="text-base font-bold text-slate-800">{schoolName || user?.schoolName || 'N/A'}</p>
+                                            </div>
                                         </div>
                                     </div>
+                                    
 
-                                    <div className="px-6 py-4 flex items-center gap-4">
-                                        <div className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center">
-                                            <Building2 className="w-4 h-4 text-gray-600" />
-                                        </div>
-                                        <div>
-                                            <p className="text-xs text-gray-500 uppercase tracking-wide">School</p>
-                                            <p className="text-gray-900 font-medium text-sm">{schoolName || user?.schoolName || 'N/A'}</p>
-                                        </div>
-                                    </div>
-
-                                    <div className="px-6 py-4 flex items-center gap-4">
-                                        <div className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center">
-                                            <Calendar className="w-4 h-4 text-gray-600" />
-                                        </div>
-                                        <div>
-                                            <p className="text-xs text-gray-500 uppercase tracking-wide">Member Since</p>
-                                            <p className="text-gray-900 font-medium text-sm">{formatDate(user?.updatedAt)}</p>
-                                        </div>
-                                    </div>
                                 </div>
                             </div>
                         ) : (
-                            <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
-                                {/* Security Header */}
-                                <div className="px-6 py-6 border-b border-gray-100">
-                                    <h2 className="text-lg font-semibold text-gray-900">Password</h2>
-                                    <p className="text-gray-500 text-sm mt-1">Update your password to keep your account secure</p>
+                            <div className="max-w-xl bg-white rounded-[2rem] border border-slate-200 shadow-xl shadow-slate-200/20 overflow-hidden">
+                                <div className="px-8 py-8 border-b border-slate-100">
+                                    <h3 className="text-2xl font-black text-slate-900 tracking-tight italic">Security Update</h3>
+                                    <p className="text-slate-500 text-sm mt-1 font-medium">Reset your authentication credentials securely</p>
                                 </div>
 
-                                <div className="p-6">
+                                <div className="p-8">
                                     {success && (
-                                        <div className="mb-6 p-4 rounded-xl bg-green-50 border border-green-200 text-green-700 text-sm">
-                                            Password updated successfully
+                                        <div className="mb-8 p-4 rounded-2xl bg-emerald-50 border border-emerald-100 text-emerald-700 text-sm font-bold flex items-center gap-3 animate-in zoom-in-95">
+                                            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                                            Password updated! Redirecting to login...
                                         </div>
                                     )}
 
                                     {error && (
-                                        <div className="mb-6 p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm">
+                                        <div className="mb-8 p-4 rounded-2xl bg-red-50 border border-red-100 text-red-700 text-sm font-bold flex items-center gap-3 animate-shake">
+                                            <div className="w-2 h-2 rounded-full bg-red-500" />
                                             {error}
                                         </div>
                                     )}
 
-                                    <form onSubmit={handlePasswordSubmit} className="space-y-5 max-w-md">
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                Current Password
-                                            </label>
-                                            <div className="relative">
+                                    <form onSubmit={handlePasswordSubmit} className="space-y-6">
+                                        <div className="space-y-2">
+                                            <label className="text-xs font-black uppercase tracking-widest text-slate-400 ml-1">Current Password</label>
+                                            <div className="relative group">
+                                                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none group-focus-within:text-primary transition-colors">
+                                                    <Shield size={16} />
+                                                </div>
                                                 <input
                                                     type={showCurrentPassword ? 'text' : 'password'}
-                                                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all text-sm"
-                                                    placeholder="Enter current password"
+                                                    className="w-full pl-11 pr-12 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary focus:bg-white transition-all text-sm font-medium"
+                                                    placeholder="Existing password"
                                                     value={currentPassword}
                                                     onChange={(e) => setCurrentPassword(e.target.value)}
                                                     required
@@ -257,21 +287,22 @@ const Profile = () => {
                                                 <button
                                                     type="button"
                                                     onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                                                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1 rounded-lg transition-colors"
                                                 >
                                                     {showCurrentPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                                                 </button>
                                             </div>
                                         </div>
 
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                New Password
-                                            </label>
-                                            <div className="relative">
+                                        <div className="space-y-2">
+                                            <label className="text-xs font-black uppercase tracking-widest text-slate-400 ml-1">New Password</label>
+                                            <div className="relative group">
+                                                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none group-focus-within:text-primary transition-colors">
+                                                    <Shield size={16} />
+                                                </div>
                                                 <input
                                                     type={showNewPassword ? 'text' : 'password'}
-                                                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all text-sm"
+                                                    className="w-full pl-11 pr-12 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary focus:bg-white transition-all text-sm font-medium"
                                                     placeholder="Minimum 8 characters"
                                                     value={newPassword}
                                                     onChange={(e) => setNewPassword(e.target.value)}
@@ -281,40 +312,55 @@ const Profile = () => {
                                                 <button
                                                     type="button"
                                                     onClick={() => setShowNewPassword(!showNewPassword)}
-                                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                                                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1 rounded-lg transition-colors"
                                                 >
                                                     {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                                                 </button>
                                             </div>
                                         </div>
 
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                Confirm New Password
-                                            </label>
-                                            <input
-                                                type="password"
-                                                className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all text-sm"
-                                                placeholder="Re-enter new password"
-                                                value={confirmPassword}
-                                                onChange={(e) => setConfirmPassword(e.target.value)}
-                                                required
-                                            />
+                                        <div className="space-y-2">
+                                            <label className="text-xs font-black uppercase tracking-widest text-slate-400 ml-1">Confirm New Password</label>
+                                            <div className="relative group">
+                                                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none group-focus-within:text-primary transition-colors">
+                                                    <Shield size={16} />
+                                                </div>
+                                                <input
+                                                    type={showConfirmPassword ? 'text' : 'password'}
+                                                    className="w-full pl-11 pr-12 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary focus:bg-white transition-all text-sm font-medium"
+                                                    placeholder="Verify new password"
+                                                    value={confirmPassword}
+                                                    onChange={(e) => setConfirmPassword(e.target.value)}
+                                                    required
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1 rounded-lg transition-colors"
+                                                >
+                                                    {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                                </button>
+                                            </div>
                                         </div>
 
                                         <button
                                             type="submit"
                                             disabled={updatePasswordMutation.isPending}
-                                            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                                            className="w-full bg-primary hover:bg-primary-hover text-white font-black py-4 px-4 rounded-2xl shadow-xl shadow-primary/30 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed text-sm uppercase tracking-widest"
                                         >
-                                            {updatePasswordMutation.isPending ? 'Updating...' : 'Update Password'}
+                                            {updatePasswordMutation.isPending ? 'Processing...' : 'Secure Account Now'}
                                         </button>
                                     </form>
 
-                                    <div className="mt-6 p-4 bg-gray-50 rounded-lg max-w-md">
-                                        <p className="text-xs text-gray-500">
-                                            <span className="font-medium text-gray-700">Tip:</span> Use at least 8 characters with a mix of letters, numbers, and symbols.
-                                        </p>
+                                    <div className="mt-8 p-6 bg-slate-50 rounded-[1.5rem] border border-slate-100 ring-4 ring-slate-50/50">
+                                        <div className="flex gap-3">
+                                            <div className="w-5 h-5 rounded-full bg-primary/10 text-primary flex items-center justify-center shrink-0 mt-0.5">
+                                                <Shield size={10} />
+                                            </div>
+                                            <p className="text-[11px] text-slate-500 font-medium leading-relaxed">
+                                                <span className="font-black text-slate-700 uppercase tracking-tighter">Security Tip:</span> Mandatory 8 characters required. For maximal safety, mix Uppercase, Numbers (1-9) and special characters (!@#).
+                                            </p>
+                                        </div>
                                     </div>
                                 </div>
                             </div>

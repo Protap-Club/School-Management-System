@@ -142,10 +142,28 @@ export const getMyTimetable = asyncHandler(async (req, res) => {
     const userId = req.user._id;
     const role = req.user.role;
     const platform = req.platform;
+    const { date } = req.query;
 
     logger.debug(`getMyTimetable — userId: ${userId}, schoolId: ${schoolId}, role: ${role}, platform: ${platform}`);
 
-    const result = await timetableService.getUserTimetable(schoolId, userId, role, platform);
+    const result = await timetableService.getUserTimetable(schoolId, userId, role, platform, date);
+    res.status(200).json({
+        success: true,
+        data: result
+    });
+});
+
+// returns the logged-in teacher's class timetable
+// only works for teachers who are assigned as class teachers
+// shows the full timetable for their assigned class
+export const getMyClassTimetable = asyncHandler(async (req, res) => {
+    const schoolId = req.schoolId;
+    const teacherId = req.user._id;
+    const platform = req.platform;
+
+    logger.debug(`getMyClassTimetable — teacherId: ${teacherId}, schoolId: ${schoolId}, platform: ${platform}`);
+
+    const result = await timetableService.getTeacherClassTimetable(schoolId, teacherId, platform);
     res.status(200).json({
         success: true,
         data: result

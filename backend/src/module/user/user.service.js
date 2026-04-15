@@ -875,6 +875,31 @@ export const getSubjectTeacher = async (creator, standard, section, subject) => 
     return user;
 };
 
+export const getNextRollNumber = async (creator, standard, section) => {
+    // Find all student profiles for this class/section in this school
+    const students = await StudentProfile.find({
+        schoolId: creator.schoolId,
+        standard,
+        section
+    }).select("rollNumber").lean();
+
+    if (students.length === 0) {
+        return { nextRollNumber: 1 };
+    }
+
+    // Convert roll numbers to integers and find max
+    const rollNumbers = students
+        .map(s => parseInt(s.rollNumber, 10))
+        .filter(n => !isNaN(n));
+
+    if (rollNumbers.length === 0) {
+        return { nextRollNumber: 1 };
+    }
+
+    const maxRoll = Math.max(...rollNumbers);
+    return { nextRollNumber: maxRoll + 1 };
+};
+
 export const replaceClassTeacher = async (creator, data = {}) => {
     if (![USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN].includes(creator.role)) {
         throw new ForbiddenError("Only admins can replace class teachers");

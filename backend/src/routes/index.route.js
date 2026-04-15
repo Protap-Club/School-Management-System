@@ -13,6 +13,7 @@ import assignmentRoutes from "../module/assignment/assignment.route.js";
 import resultRoutes from "../module/result/result.route.js";
 import securityRoutes from "../module/security/security.route.js";
 import dashboardRoutes from "../module/dashboard/dashboard.route.js";
+import proxyRoutes from "../module/proxy/proxy.route.js";
 import { checkAuth } from "../middlewares/auth.middleware.js";
 import extractSchoolId from "../middlewares/school.middleware.js";
 
@@ -62,6 +63,7 @@ router.use("/examinations", examinationRoutes);
 router.use("/results", resultRoutes);
 router.use("/assignments", assignmentRoutes);
 router.use("/dashboard", dashboardRoutes);
+router.use("/proxies", proxyRoutes);
 
 export default router;
 

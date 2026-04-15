@@ -19,6 +19,7 @@ export {
     useDeleteEntry,
     // Schedule
     useMySchedule,
+    useMyClassSchedule,
     useTeacherSchedule,
     useTeachers,
     useAvailableClasses,
