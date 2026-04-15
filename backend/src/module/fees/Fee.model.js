@@ -239,9 +239,52 @@ const feePaymentSchema = new mongoose.Schema(
 feePaymentSchema.index({ schoolId: 1, studentId: 1, paymentDate: -1 });
 
 // ═══════════════════════════════════════════════════════════════
+// STUDENT PENALTY — Individual penalty assigned to a student
+// ═══════════════════════════════════════════════════════════════
+
+const studentPenaltySchema = new mongoose.Schema(
+    {
+        schoolId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "School",
+            required: true,
+            index: true,
+        },
+        studentId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User",
+            required: true,
+            index: true,
+        },
+        academicYear: { type: Number, required: true },
+        standard: { type: String, required: true, trim: true },
+        section: { type: String, required: true, trim: true },
+        penaltyType: {
+            type: String,
+            required: true,
+            enum: ["DAMAGE", "LATE_FEE", "MISCONDUCT", "LIBRARY_FINE", "UNIFORM_VIOLATION", "OTHER"],
+        },
+        reason: { type: String, required: true, trim: true },
+        amount: { type: Number, required: true, min: [0, "Amount cannot be negative"] },
+        occurrenceDate: { type: Date, required: true },
+        status: {
+            type: String,
+            enum: ["PENDING", "PAID", "WAIVED"],
+            default: "PENDING",
+        },
+        paidAmount: { type: Number, default: 0, min: 0 },
+        createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    },
+    { timestamps: true, id: false }
+);
+
+studentPenaltySchema.index({ schoolId: 1, studentId: 1, academicYear: 1 });
+
+// ═══════════════════════════════════════════════════════════════
 // Exports
 // ═══════════════════════════════════════════════════════════════
 
 export const FeeStructure = mongoose.model("FeeStructure", feeStructureSchema);
 export const FeeAssignment = mongoose.model("FeeAssignment", feeAssignmentSchema);
 export const FeePayment = mongoose.model("FeePayment", feePaymentSchema);
+export const StudentPenalty = mongoose.model("StudentPenalty", studentPenaltySchema);

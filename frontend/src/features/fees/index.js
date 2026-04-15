@@ -1,27 +1,14 @@
-// Fees Feature - Public API
-
-// Query Hooks
 export {
     feeKeys,
-    useFeeStructures,
-    useCreateFeeStructure,
-    useUpdateFeeStructure,
-    useDeleteFeeStructure,
-    useGenerateAssignments,
-    useUpdateAssignment,
-    useRecordPayment,
-    useAllClassesOverview,
-    useClassOverview,
-    useYearlySummary,
+    useFeeStructures, useCreateFeeStructure, useUpdateFeeStructure, useDeleteFeeStructure,
+    useGenerateAssignments, useUpdateAssignment, useRecordPayment,
+    useAllClassesOverview, useClassOverview, useYearlySummary,
     useStudentFeeHistory,
-    useCreateSalary,
-    useSalaries,
-    useUpdateSalaryStatus,
-    useMySalary,
+    useCreateSalary, useSalaries, useUpdateSalaryStatus, useMySalary,
     useUpdateTeacherProfile,
     useMyFees,
-    useFeeTypes,
-    useCreateFeeType,
+    useFeeTypes, useCreateFeeType,
+    useStudentsByClass, useCreateStudentPenalty,
 } from './api/queries';
 
 // Constants
@@ -75,3 +62,15 @@ export const SALARY_LABELS = {
     EXPECTED: 'Expected Salary',
     UPDATE_EXPECTED: 'Update Expected Salary',
 };
+
+export const PENALTY_TYPES = ['DAMAGE', 'LATE_FEE', 'MISCONDUCT', 'LIBRARY_FINE', 'UNIFORM_VIOLATION', 'OTHER'];
+
+export const PENALTY_TYPE_LABELS = {
+    DAMAGE: 'Damage',
+    LATE_FEE: 'Late Fee',
+    MISCONDUCT: 'Misconduct',
+    LIBRARY_FINE: 'Library Fine',
+    UNIFORM_VIOLATION: 'Uniform Violation',
+    OTHER: 'Other',
+};
+

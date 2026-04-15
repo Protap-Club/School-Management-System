@@ -7,7 +7,7 @@ import {
     useGenerateAssignments, useAllClassesOverview, useClassOverview, useYearlySummary,
     useStudentFeeHistory, useRecordPayment, useUpdateAssignment,
     useCreateSalary, useSalaries, useUpdateSalaryStatus, useMySalary, useUpdateTeacherProfile,
-    useMyFees, useFeeTypes,
+    useMyFees, useFeeTypes, useCreateStudentPenalty,
     SALARY_LABELS,
     FEE_TYPES, FEE_TYPE_LABELS, FREQUENCY_LABELS, MONTH_LABELS,
 } from './index';
@@ -184,6 +184,7 @@ const FeesPage = () => {
     const createSalaryMut = useCreateSalary();
     const updateSalaryStatusMut = useUpdateSalaryStatus();
     const updateTeacherProfileMut = useUpdateTeacherProfile();
+    const penaltyMut = useCreateStudentPenalty();
 
     // showToast provided by useToastMessage hook
 
@@ -720,7 +721,17 @@ const FeesPage = () => {
                                     }
                                     setMgmtView('student_list');
                                 }}
+                                onSubmitPenalty={async (data) => {
+                                    try {
+                                        await penaltyMut.mutateAsync(data);
+                                        showToast('success', 'Student penalty assigned successfully');
+                                        setMgmtView('student_list');
+                                    } catch (err) {
+                                        showToast('error', err?.response?.data?.message || err?.response?.data?.error?.message || 'Failed to assign penalty');
+                                    }
+                                }}
                                 isLoading={createMut.isPending || updateMut.isPending}
+                                isPenaltyLoading={penaltyMut.isPending}
                                 isAdmin={isAdmin}
                             />
                         )}

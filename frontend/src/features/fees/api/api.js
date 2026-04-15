@@ -102,4 +102,16 @@ export const feesApi = {
         const response = await api.post('/fees/types', data);
         return response.data;
     },
+
+    // ── Student Penalty ───────────────────────────────────────────
+
+    getStudentsByClass: async ({ standard, section }) => {
+        const response = await api.get(`/fees/students-by-class?standard=${encodeURIComponent(standard)}&section=${encodeURIComponent(section)}`);
+        return response.data;
+    },
+
+    createStudentPenalty: async (data) => {
+        const response = await api.post('/fees/penalties', data);
+        return response.data;
+    },
 };

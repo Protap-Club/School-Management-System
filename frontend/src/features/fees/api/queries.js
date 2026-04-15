@@ -218,3 +218,25 @@ export const useUpdateTeacherProfile = () => {
         },
     });
 };
+
+// ── Student Penalty Hooks ─────────────────────────────────────
+
+export const useStudentsByClass = (standard, section, enabled = false) => {
+    const { accessToken } = useAuth();
+    return useQuery({
+        queryKey: [...feeKeys.all, 'studentsByClass', standard, section],
+        queryFn: () => feesApi.getStudentsByClass({ standard, section }),
+        enabled: enabled && !!standard && !!section && !!accessToken,
+    });
+};
+
+export const useCreateStudentPenalty = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: feesApi.createStudentPenalty,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: feeKeys.all });
+        },
+    });
+};
+

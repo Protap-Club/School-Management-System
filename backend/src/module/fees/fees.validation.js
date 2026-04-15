@@ -230,3 +230,29 @@ export const updateFeeTypeSchema = z.object({
         isActive: z.boolean().optional(),
     }),
 });
+
+// ═══════════════════════════════════════════════════════════════
+// Student Penalty Schemas
+// ═══════════════════════════════════════════════════════════════
+
+export const createStudentPenaltySchema = z.object({
+    body: z.object({
+        studentId: z.string({ required_error: "Student is required" }).min(1),
+        academicYear: z.coerce.number().int().min(2000).max(2100),
+        standard: z.string().min(1),
+        section: z.string().min(1),
+        penaltyType: z.enum(["DAMAGE", "LATE_FEE", "MISCONDUCT", "LIBRARY_FINE", "UNIFORM_VIOLATION", "OTHER"], {
+            required_error: "Penalty type is required",
+        }),
+        reason: z.string({ required_error: "Reason is required" }).min(1).max(500),
+        amount: z.coerce.number({ required_error: "Amount is required" }).min(0),
+        occurrenceDate: z.string({ required_error: "Occurrence date is required" }),
+    }),
+});
+
+export const getStudentsByClassSchema = z.object({
+    query: z.object({
+        standard: z.string({ required_error: "Standard is required" }).min(1),
+        section: z.string({ required_error: "Section is required" }).min(1),
+    }),
+});

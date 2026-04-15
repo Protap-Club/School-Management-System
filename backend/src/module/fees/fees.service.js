@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { FeeStructure, FeeAssignment, FeePayment } from "./Fee.model.js";
+import { FeeStructure, FeeAssignment, FeePayment, StudentPenalty } from "./Fee.model.js";
 import { FeeType } from "./FeeType.model.js";
 import StudentProfile from "../user/model/StudentProfile.model.js";
 import TeacherProfile from "../user/model/TeacherProfile.model.js";
@@ -992,3 +992,42 @@ export const createFeeType = async (schoolId, data, userId) => {
     logger.info(`FeeType created: ${feeType._id} (${feeType.name}) for school ${schoolId}`);
     return feeType;
 };
+
+// ═══════════════════════════════════════════════════════════════
+// ADMIN — Student Penalty
+// ═══════════════════════════════════════════════════════════════
+
+export const getStudentsByClass = async (schoolId, standard, section) => {
+    const students = await StudentProfile.find({
+        schoolId,
+        standard: String(standard).trim(),
+        section: String(section).trim().toUpperCase(),
+    })
+        .select("userId")
+        .populate({ path: "userId", select: "name email", match: { isActive: true, isArchived: false } })
+        .lean();
+
+    return students
+        .filter(s => s.userId)
+        .map(s => ({ _id: s.userId._id, name: s.userId.name }))
+        .sort((a, b) => a.name.localeCompare(b.name));
+};
+
+export const createStudentPenalty = async (schoolId, data, userId) => {
+    const penalty = await StudentPenalty.create({
+        schoolId,
+        studentId: data.studentId,
+        academicYear: Number(data.academicYear),
+        standard: String(data.standard).trim(),
+        section: String(data.section).trim().toUpperCase(),
+        penaltyType: data.penaltyType,
+        reason: data.reason,
+        amount: Number(data.amount),
+        occurrenceDate: new Date(data.occurrenceDate),
+        createdBy: userId,
+    });
+
+    logger.info(`StudentPenalty created: ${penalty._id} (${penalty.penaltyType}) for student ${data.studentId}`);
+    return penalty;
+};
+

@@ -1,9 +1,10 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { FaTimes, FaCheck, FaPlus, FaSave, FaArrowLeft, FaSearch } from 'react-icons/fa';
 import {
     FEE_TYPES, FEE_TYPE_LABELS, FREQUENCY_OPTIONS, FREQUENCY_LABELS,
+    PENALTY_TYPES, PENALTY_TYPE_LABELS,
 } from '../../features/fees';
-import { useFeeTypes, useFeeStructures } from '../../features/fees/api/queries';
+import { useFeeTypes, useFeeStructures, useStudentsByClass } from '../../features/fees/api/queries';
 import FeeTypeSideCard from './FeeTypeSideCard';
 import { useSchoolClasses } from '../../hooks/useSchoolClasses';
 
@@ -158,7 +159,7 @@ const MultiSelect = ({ label, options, selected, onToggle, onSelectAll, error, d
     );
 };
 
-const FeeStructureForm = ({ onCancel, onSubmit, editData, isLoading, isAdmin }) => {
+const FeeStructureForm = ({ onCancel, onSubmit, onSubmitPenalty, editData, isLoading, isPenaltyLoading, isAdmin }) => {
     const isEdit = !!editData;
     const [form, setForm] = useState(() => {
         const initial = editData ? {
@@ -177,10 +178,71 @@ const FeeStructureForm = ({ onCancel, onSubmit, editData, isLoading, isAdmin }) 
     });
 
     const [isMultiMode, setIsMultiMode] = useState(!isEdit);
+    const [formMode, setFormMode] = useState('regular'); // 'regular' | 'penalty'
+
+    // Penalty form state
+    const [penaltyForm, setPenaltyForm] = useState({
+        academicYear: getCurrentAcademicYear(),
+        standard: '',
+        section: '',
+        studentId: '',
+        penaltyType: '',
+        reason: '',
+        amount: '',
+        occurrenceDate: new Date().toISOString().split('T')[0],
+    });
+    const [penaltyErrors, setPenaltyErrors] = useState({});
 
     const [showSideCard, setShowSideCard] = useState(false);
     const { data: feeTypesResp } = useFeeTypes({ enabled: isAdmin });
     const { availableStandards, allUniqueSections, getSectionsForStandard } = useSchoolClasses({ enabled: isAdmin });
+
+    // Fetch students for penalty form
+    const { data: studentsResp, isLoading: studentsLoading } = useStudentsByClass(
+        penaltyForm.standard, penaltyForm.section,
+        isAdmin && formMode === 'penalty' && !!penaltyForm.standard && !!penaltyForm.section
+    );
+    const studentOptions = studentsResp?.data || [];
+
+    const penaltySectionOptions = useMemo(() => {
+        if (!penaltyForm.standard) return allUniqueSections || [];
+        return getSectionsForStandard(penaltyForm.standard) || [];
+    }, [penaltyForm.standard, allUniqueSections, getSectionsForStandard]);
+
+    const handlePenaltyChange = useCallback((field, value) => {
+        setPenaltyForm(prev => {
+            const next = { ...prev, [field]: value };
+            // Reset dependent fields
+            if (field === 'standard') { next.section = ''; next.studentId = ''; }
+            if (field === 'section') { next.studentId = ''; }
+            return next;
+        });
+        setPenaltyErrors(prev => ({ ...prev, [field]: '' }));
+    }, []);
+
+    const validatePenalty = () => {
+        const e = {};
+        if (!penaltyForm.academicYear) e.academicYear = 'Required';
+        if (!penaltyForm.standard) e.standard = 'Required';
+        if (!penaltyForm.section) e.section = 'Required';
+        if (!penaltyForm.studentId) e.studentId = 'Required';
+        if (!penaltyForm.penaltyType) e.penaltyType = 'Required';
+        if (!penaltyForm.reason.trim()) e.reason = 'Required';
+        if (!penaltyForm.amount || Number(penaltyForm.amount) < 0) e.amount = 'Valid amount required';
+        if (!penaltyForm.occurrenceDate) e.occurrenceDate = 'Required';
+        setPenaltyErrors(e);
+        return Object.keys(e).length === 0;
+    };
+
+    const handlePenaltySubmit = (e) => {
+        e.preventDefault();
+        if (!validatePenalty()) return;
+        onSubmitPenalty({
+            ...penaltyForm,
+            academicYear: Number(penaltyForm.academicYear),
+            amount: Number(penaltyForm.amount),
+        });
+    };
     
     // Fetch all structures for checking overlap/duplicates
     const { data: allStructuresResp } = useFeeStructures({ 
@@ -530,6 +592,7 @@ const FeeStructureForm = ({ onCancel, onSubmit, editData, isLoading, isAdmin }) 
                     </button>
                     <h3 className="text-sm font-black text-gray-900 tracking-tight">
                         {(() => {
+                            if (!isEdit && formMode === 'penalty') return 'Add Student Penalty';
                             const label = form.feeType ? (FEE_TYPE_LABELS[form.feeType] || form.feeType.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ')) : '';
                             if (isEdit) return label ? `Edit ${label} Structure` : 'Edit Fee Structure';
                             return label ? `${label} Fee Structure` : 'Add Fee Structure';
@@ -538,6 +601,128 @@ const FeeStructureForm = ({ onCancel, onSubmit, editData, isLoading, isAdmin }) 
                 </div>
             </div>
 
+            {/* Tab Toggle — only in create mode */}
+            {!isEdit && (
+                <div className="px-8 pt-6">
+                    <div className="flex rounded-lg border border-gray-200 overflow-hidden">
+                        <button type="button" onClick={() => setFormMode('regular')}
+                            className={`flex-1 py-2.5 text-[11px] font-black uppercase tracking-widest transition-all ${
+                                formMode === 'regular' ? 'bg-primary text-white' : 'bg-white text-gray-500 hover:bg-gray-50'
+                            }`}>Regular Fee Structure</button>
+                        <button type="button" onClick={() => setFormMode('penalty')}
+                            className={`flex-1 py-2.5 text-[11px] font-black uppercase tracking-widest transition-all ${
+                                formMode === 'penalty' ? 'bg-primary text-white' : 'bg-white text-gray-500 hover:bg-gray-50'
+                            }`}>Student Penalty</button>
+                    </div>
+                </div>
+            )}
+
+            {/* ─── Penalty Form ─────────────────────────────────── */}
+            {!isEdit && formMode === 'penalty' ? (
+                <form onSubmit={handlePenaltySubmit} className="p-8 space-y-6">
+                    {/* Row 1: Academic Year, Standard, Section */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Academic Year *</label>
+                            <select value={penaltyForm.academicYear} onChange={(e) => handlePenaltyChange('academicYear', e.target.value)}
+                                className={inputCls(penaltyErrors.academicYear ? 'academicYear' : '')}>
+                                {getAcademicYearOptions().map(opt => (
+                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                ))}
+                            </select>
+                            {penaltyErrors.academicYear && <p className="text-[10px] text-red-500 mt-1 ml-1 font-bold">{penaltyErrors.academicYear}</p>}
+                        </div>
+                        <div>
+                            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Standard *</label>
+                            <select value={penaltyForm.standard} onChange={(e) => handlePenaltyChange('standard', e.target.value)}
+                                className={inputCls(penaltyErrors.standard ? 'standard' : '')}>
+                                <option value="" disabled hidden>Select Standard</option>
+                                {(availableStandards || []).map(s => <option key={s} value={s}>{s}</option>)}
+                            </select>
+                            {penaltyErrors.standard && <p className="text-[10px] text-red-500 mt-1 ml-1 font-bold">{penaltyErrors.standard}</p>}
+                        </div>
+                        <div>
+                            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Section *</label>
+                            <select value={penaltyForm.section} onChange={(e) => handlePenaltyChange('section', e.target.value)}
+                                className={inputCls(penaltyErrors.section ? 'section' : '')}>
+                                <option value="" disabled hidden>Select Section</option>
+                                {penaltySectionOptions.map(s => <option key={s} value={s}>{s}</option>)}
+                            </select>
+                            {penaltyErrors.section && <p className="text-[10px] text-red-500 mt-1 ml-1 font-bold">{penaltyErrors.section}</p>}
+                        </div>
+                    </div>
+
+                    {/* Row 2: Student, Penalty Type */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Student *</label>
+                            <select value={penaltyForm.studentId} onChange={(e) => handlePenaltyChange('studentId', e.target.value)}
+                                className={inputCls(penaltyErrors.studentId ? 'studentId' : '')}
+                                disabled={!penaltyForm.standard || !penaltyForm.section || studentsLoading}>
+                                <option value="" disabled hidden>Select Student</option>
+                                {studentOptions.map(s => <option key={s._id} value={s._id}>{s.name}</option>)}
+                            </select>
+                            {penaltyErrors.studentId && <p className="text-[10px] text-red-500 mt-1 ml-1 font-bold">{penaltyErrors.studentId}</p>}
+                        </div>
+                        <div>
+                            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Penalty Type *</label>
+                            <select value={penaltyForm.penaltyType} onChange={(e) => handlePenaltyChange('penaltyType', e.target.value)}
+                                className={inputCls(penaltyErrors.penaltyType ? 'penaltyType' : '')}>
+                                <option value="" disabled hidden>Select Type</option>
+                                {PENALTY_TYPES.map(t => <option key={t} value={t}>{PENALTY_TYPE_LABELS[t]}</option>)}
+                            </select>
+                            {penaltyErrors.penaltyType && <p className="text-[10px] text-red-500 mt-1 ml-1 font-bold">{penaltyErrors.penaltyType}</p>}
+                        </div>
+                    </div>
+
+                    {/* Row 3: Reason, Amount */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Reason / Description *</label>
+                            <input type="text" value={penaltyForm.reason} onChange={(e) => handlePenaltyChange('reason', e.target.value)}
+                                className={inputCls(penaltyErrors.reason ? 'reason' : '')} placeholder="E.g. Damaged laboratory glassware" />
+                            {penaltyErrors.reason && <p className="text-[10px] text-red-500 mt-1 ml-1 font-bold">{penaltyErrors.reason}</p>}
+                        </div>
+                        <div>
+                            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Penalty Amount *</label>
+                            <div className="relative">
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm font-bold">₹</span>
+                                <input type="number" value={penaltyForm.amount} onChange={(e) => handlePenaltyChange('amount', e.target.value)}
+                                    className={`${inputCls(penaltyErrors.amount ? 'amount' : '')} pl-7`} placeholder="0.00" min={0} step="0.01" />
+                            </div>
+                            {penaltyErrors.amount && <p className="text-[10px] text-red-500 mt-1 ml-1 font-bold">{penaltyErrors.amount}</p>}
+                        </div>
+                    </div>
+
+                    {/* Row 4: Occurrence Date */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Penalty Occurrence Date *</label>
+                            <input type="date" value={penaltyForm.occurrenceDate} onChange={(e) => handlePenaltyChange('occurrenceDate', e.target.value)}
+                                className={inputCls(penaltyErrors.occurrenceDate ? 'occurrenceDate' : '')} />
+                            {penaltyErrors.occurrenceDate && <p className="text-[10px] text-red-500 mt-1 ml-1 font-bold">{penaltyErrors.occurrenceDate}</p>}
+                        </div>
+                    </div>
+
+                    {/* Buttons */}
+                    <div className="pt-6 border-t border-gray-100 flex gap-4">
+                        <button type="button" onClick={onCancel} disabled={isPenaltyLoading}
+                            className="flex-1 px-8 py-3.5 border-2 border-gray-100 text-gray-500 text-xs font-black rounded-xl hover:bg-gray-50 transition-all disabled:opacity-50 uppercase tracking-widest">Cancel</button>
+                        <button type="submit" disabled={isPenaltyLoading}
+                            className="flex-1 px-8 py-3.5 bg-primary hover:bg-primary-hover text-white text-xs font-black rounded-xl shadow-lg shadow-primary/20 transition-all flex items-center justify-center gap-2 disabled:opacity-70 group uppercase tracking-widest">
+                            {isPenaltyLoading ? (
+                                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                            ) : (
+                                <span className="flex items-center gap-2">
+                                    <FaPlus size={12} className="group-hover:rotate-90 transition-transform" />
+                                    Assign Student Penalty
+                                </span>
+                            )}
+                        </button>
+                    </div>
+                </form>
+            ) : (
+            /* ─── Regular Fee Structure Form ────────────────────── */
             <form onSubmit={handleSubmit} className="p-8 space-y-6">
                 {/* Row 1: Academic, Std, Sect */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -754,6 +939,7 @@ const FeeStructureForm = ({ onCancel, onSubmit, editData, isLoading, isAdmin }) 
                     </button>
                 </div>
                 </form>
+            )}
             </div>
 
             {showSideCard && (

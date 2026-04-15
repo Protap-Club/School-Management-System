@@ -14,6 +14,8 @@ import {
     getMyFees,
     getFeeTypes,
     createFeeType,
+    getStudentsByClass,
+    createStudentPenalty,
 } from "./fees.controller.js";
 import {
     createSalaryEntry,
@@ -41,6 +43,8 @@ import {
     studentFeeHistorySchema,
     myFeesSchema,
     createFeeTypeSchema,
+    createStudentPenaltySchema,
+    getStudentsByClassSchema,
 } from "./fees.validation.js";
 import {
     createSalarySchema,
@@ -199,6 +203,23 @@ router.post(
     checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN]),
     validate(createFeeTypeSchema),
     createFeeType
+);
+
+// ── Student Penalty Routes ────────────────────────────────────
+router.get(
+    "/students-by-class",
+    checkWebOnly,
+    checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN]),
+    validate(getStudentsByClassSchema),
+    getStudentsByClass
+);
+
+router.post(
+    "/penalties",
+    checkWebOnly,
+    checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN]),
+    validate(createStudentPenaltySchema),
+    createStudentPenalty
 );
 
 export default router;

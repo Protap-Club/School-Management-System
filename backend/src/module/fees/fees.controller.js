@@ -176,3 +176,21 @@ export const createFeeType = asyncHandler(async (req, res) => {
         data: feeType,
     });
 });
+
+// ── Student Penalty ───────────────────────────────────────────
+
+export const getStudentsByClass = asyncHandler(async (req, res) => {
+    const { standard, section } = req.query;
+    const students = await feesService.getStudentsByClass(req.schoolId, standard, section);
+    res.status(200).json({ success: true, data: students });
+});
+
+export const createStudentPenalty = asyncHandler(async (req, res) => {
+    const penalty = await feesService.createStudentPenalty(req.schoolId, req.body, req.user._id);
+    res.status(201).json({
+        success: true,
+        message: "Student penalty assigned successfully",
+        data: penalty,
+    });
+    logger.info(`Student penalty created: ${penalty.penaltyType} for student ${req.body.studentId}`);
+});
