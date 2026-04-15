@@ -1,5 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { examApi } from './api';
+import { useSelector } from 'react-redux';
+import { selectAccessToken } from '../../auth/authSlice';
 
 // ── Query Keys ─────────────────────────────────────────────────────
 
@@ -13,14 +15,21 @@ export const EXAM_QUERY_KEYS = {
   myExamsList: (filters) => [...EXAM_QUERY_KEYS.myExams(), filters],
 };
 
+const useProtectedQueryEnabled = (enabled = true) => {
+  const accessToken = useSelector(selectAccessToken);
+  return Boolean(accessToken) && enabled;
+};
+
 // ── Custom Hooks ───────────────────────────────────────────────────
 
 // Get exams list (filtered by role)
 // Normalizes API response to handle server-side pagination
 export const useExams = (filters = {}) => {
+  const enabled = useProtectedQueryEnabled();
   return useQuery({
     queryKey: EXAM_QUERY_KEYS.list(filters),
     queryFn: () => examApi.getExams(filters),
+    enabled,
     select: (response) => {
       // Handle the new paginated shape `{ exams, pagination }` while maintaining backward compatibility
       if (response?.data?.exams || response?.data?.pagination) {
@@ -44,11 +53,12 @@ export const useExams = (filters = {}) => {
 // Get single exam by ID
 // Returns a normalized exam object (or null)
 export const useExam = (examId) => {
+  const enabled = useProtectedQueryEnabled(!!examId);
   return useQuery({
     queryKey: EXAM_QUERY_KEYS.detail(examId),
     queryFn: () => examApi.getExamById(examId),
     select: (response) => response?.data || null,
-    enabled: !!examId,
+    enabled,
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 };
@@ -56,9 +66,11 @@ export const useExam = (examId) => {
 // Get student's exams
 // Normalizes to { termExams: [], classTests: [] }
 export const useMyExams = (filters = {}) => {
+  const enabled = useProtectedQueryEnabled();
   return useQuery({
     queryKey: EXAM_QUERY_KEYS.myExamsList(filters),
     queryFn: () => examApi.getMyExams(filters),
+    enabled,
     select: (response) => response?.data || { termExams: [], classTests: [] },
     staleTime: 5 * 60 * 1000, // 5 minutes
   });

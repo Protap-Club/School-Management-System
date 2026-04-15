@@ -95,7 +95,7 @@ export const login = async (email, password, platform, metadata = {}) => {
     // Attach role-specific profile data (e.g. assignedClasses for teachers)
     if (user.role === USER_ROLES.TEACHER) {
         const teacherProfile = await TeacherProfile.findOne({ userId: user._id })
-            .select("assignedClasses expectedSalary")
+            .select("classTeacherOf assignedClasses expectedSalary")
             .lean();
         userResponse.profile = teacherProfile || null;
     } else if (user.role === USER_ROLES.STUDENT) {

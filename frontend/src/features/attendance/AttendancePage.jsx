@@ -62,7 +62,13 @@ const buildClassGroups = (students = [], teachers = [], configuredClassSections 
     const primaryClassTeacherByClass = {};
 
     teachers.forEach((teacher) => {
-        const primaryClass = teacher.profile?.assignedClasses?.[0];
+        // Prefer classTeacherOf (explicit 1-to-1 class teacher assignment),
+        // fall back to assignedClasses[0] for schools that don't use classTeacherOf.
+        const classTeacherOf = teacher.profile?.classTeacherOf;
+        const primaryClass = (classTeacherOf?.standard && classTeacherOf?.section)
+            ? classTeacherOf
+            : teacher.profile?.assignedClasses?.[0];
+
         if (!primaryClass?.standard || !primaryClass?.section) return;
 
         const key = `${primaryClass.standard} ${primaryClass.section}`.trim();
@@ -179,7 +185,21 @@ const AttendancePage = () => {
     const isLoading = studentsLoading || attendanceLoading || (isAdmin && teachersLoading);
 
     // Derived Data
-    const students = useMemo(() => studentsRes?.data?.users || [], [studentsRes]);
+    const rawStudents = useMemo(() => studentsRes?.data?.users || [], [studentsRes]);
+    
+    const students = useMemo(() => {
+        if (isAdmin) return rawStudents;
+        
+        // For teachers: only show students in their homeroom (classTeacherOf)
+        const classTeacherOf = currentUser?.profile?.classTeacherOf;
+        if (!classTeacherOf?.standard || !classTeacherOf?.section) return [];
+        
+        return rawStudents.filter(s => 
+            s.profile?.standard === classTeacherOf.standard && 
+            s.profile?.section === classTeacherOf.section
+        );
+    }, [isAdmin, rawStudents, currentUser]);
+
     const filteredStudents = useMemo(() => {
         if (!searchQuery) return students;
         const q = searchQuery.toLowerCase();
