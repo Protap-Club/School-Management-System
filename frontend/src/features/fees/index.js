@@ -8,7 +8,7 @@ export {
     useUpdateTeacherProfile,
     useMyFees,
     useFeeTypes, useCreateFeeType,
-    useStudentsByClass, useCreateStudentPenalty,
+    useStudentsByClass, usePenaltyStudentsByClass, useStudentPenalties, useCreateStudentPenalty,
 } from './api/queries';
 
 // Constants

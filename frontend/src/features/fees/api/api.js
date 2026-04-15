@@ -110,6 +110,25 @@ export const feesApi = {
         return response.data;
     },
 
+    getPenaltyStudentsByClass: async ({ academicYear, standard, section }) => {
+        const params = new URLSearchParams();
+        if (academicYear) params.append('academicYear', academicYear);
+        if (standard) params.append('standard', standard);
+        if (section) params.append('section', section);
+        const response = await api.get(`/fees/penalties/students?${params.toString()}`);
+        return response.data;
+    },
+
+    getStudentPenalties: async ({ academicYear, standard, section, studentId }) => {
+        const params = new URLSearchParams();
+        if (academicYear) params.append('academicYear', academicYear);
+        if (standard) params.append('standard', standard);
+        if (section) params.append('section', section);
+        if (studentId) params.append('studentId', studentId);
+        const response = await api.get(`/fees/penalties?${params.toString()}`);
+        return response.data;
+    },
+
     createStudentPenalty: async (data) => {
         const response = await api.post('/fees/penalties', data);
         return response.data;

@@ -256,3 +256,20 @@ export const getStudentsByClassSchema = z.object({
         section: z.string({ required_error: "Section is required" }).min(1),
     }),
 });
+
+export const getPenaltyStudentsByClassSchema = z.object({
+    query: z.object({
+        academicYear: z.coerce.number().int().min(2000).max(2100).optional(),
+        standard: z.string({ required_error: "Standard is required" }).min(1),
+        section: z.string({ required_error: "Section is required" }).min(1),
+    }),
+});
+
+export const getStudentPenaltiesSchema = z.object({
+    query: z.object({
+        academicYear: z.coerce.number().int().min(2000).max(2100).optional(),
+        standard: z.string().min(1).optional(),
+        section: z.string().min(1).optional(),
+        studentId: z.string().min(1).optional(),
+    }),
+});

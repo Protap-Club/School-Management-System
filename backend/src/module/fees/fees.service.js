@@ -1013,6 +1013,94 @@ export const getStudentsByClass = async (schoolId, standard, section) => {
         .sort((a, b) => a.name.localeCompare(b.name));
 };
 
+export const getPenaltyStudentsByClass = async (schoolId, filters = {}) => {
+    const query = {
+        schoolId,
+        standard: String(filters.standard || "").trim(),
+        section: String(filters.section || "").trim().toUpperCase(),
+    };
+
+    if (filters.academicYear) {
+        query.academicYear = Number(filters.academicYear);
+    }
+
+    const penalties = await StudentPenalty.find(query)
+        .select("studentId")
+        .populate({
+            path: "studentId",
+            select: "name email isActive isArchived",
+            match: { isActive: true, isArchived: false },
+        })
+        .lean();
+
+    const studentMap = new Map();
+
+    penalties.forEach((item) => {
+        const student = item.studentId;
+        if (!student?._id) return;
+
+        const key = String(student._id);
+        if (!studentMap.has(key)) {
+            studentMap.set(key, {
+                _id: student._id,
+                name: student.name,
+                email: student.email,
+            });
+        }
+    });
+
+    return Array.from(studentMap.values()).sort((a, b) =>
+        String(a.name || "").localeCompare(String(b.name || ""), undefined, {
+            sensitivity: "base",
+        })
+    );
+};
+
+export const getStudentPenalties = async (schoolId, filters = {}) => {
+    const query = { schoolId };
+
+    if (filters.academicYear) {
+        query.academicYear = Number(filters.academicYear);
+    }
+    if (filters.standard) {
+        query.standard = String(filters.standard).trim();
+    }
+    if (filters.section) {
+        query.section = String(filters.section).trim().toUpperCase();
+    }
+    if (filters.studentId) {
+        query.studentId = filters.studentId;
+    }
+
+    const penalties = await StudentPenalty.find(query)
+        .populate({
+            path: "studentId",
+            select: "name email isActive isArchived",
+            match: { isActive: true, isArchived: false },
+        })
+        .sort({ occurrenceDate: -1, createdAt: -1 })
+        .lean();
+
+    return penalties
+        .filter((item) => item.studentId?._id)
+        .map((item) => ({
+            _id: item._id,
+            studentId: item.studentId._id,
+            studentName: item.studentId.name,
+            studentEmail: item.studentId.email,
+            academicYear: item.academicYear,
+            standard: item.standard,
+            section: item.section,
+            penaltyType: item.penaltyType,
+            reason: item.reason,
+            amount: item.amount,
+            paidAmount: item.paidAmount,
+            status: item.status,
+            occurrenceDate: item.occurrenceDate,
+            createdAt: item.createdAt,
+        }));
+};
+
 export const createStudentPenalty = async (schoolId, data, userId) => {
     const penalty = await StudentPenalty.create({
         schoolId,

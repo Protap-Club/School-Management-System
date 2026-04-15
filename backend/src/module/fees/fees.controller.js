@@ -185,6 +185,16 @@ export const getStudentsByClass = asyncHandler(async (req, res) => {
     res.status(200).json({ success: true, data: students });
 });
 
+export const getPenaltyStudentsByClass = asyncHandler(async (req, res) => {
+    const students = await feesService.getPenaltyStudentsByClass(req.schoolId, req.query);
+    res.status(200).json({ success: true, data: students });
+});
+
+export const getStudentPenalties = asyncHandler(async (req, res) => {
+    const penalties = await feesService.getStudentPenalties(req.schoolId, req.query);
+    res.status(200).json({ success: true, data: penalties });
+});
+
 export const createStudentPenalty = asyncHandler(async (req, res) => {
     const penalty = await feesService.createStudentPenalty(req.schoolId, req.body, req.user._id);
     res.status(201).json({

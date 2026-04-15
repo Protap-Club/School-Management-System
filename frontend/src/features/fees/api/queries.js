@@ -17,6 +17,8 @@ export const feeKeys = {
     mySalary: (filters) => [...feeKeys.all, 'mySalary', filters],
     myFees: (filters) => [...feeKeys.all, 'myFees', filters],
     feeTypes: () => [...feeKeys.all, 'feeTypes'],
+    penaltyStudents: (filters) => [...feeKeys.all, 'penaltyStudents', filters],
+    penalties: (filters) => [...feeKeys.all, 'penalties', filters],
 };
 
 // ── Fee Type Queries ──────────────────────────────────────────
@@ -227,6 +229,24 @@ export const useStudentsByClass = (standard, section, enabled = false) => {
         queryKey: [...feeKeys.all, 'studentsByClass', standard, section],
         queryFn: () => feesApi.getStudentsByClass({ standard, section }),
         enabled: enabled && !!standard && !!section && !!accessToken,
+    });
+};
+
+export const usePenaltyStudentsByClass = (filters = {}, enabled = false) => {
+    const { accessToken } = useAuth();
+    return useQuery({
+        queryKey: feeKeys.penaltyStudents(filters),
+        queryFn: () => feesApi.getPenaltyStudentsByClass(filters),
+        enabled: enabled && !!filters.standard && !!filters.section && !!accessToken,
+    });
+};
+
+export const useStudentPenalties = (filters = {}, enabled = false) => {
+    const { accessToken } = useAuth();
+    return useQuery({
+        queryKey: feeKeys.penalties(filters),
+        queryFn: () => feesApi.getStudentPenalties(filters),
+        enabled: enabled && !!filters.standard && !!filters.section && !!filters.studentId && !!accessToken,
     });
 };
 

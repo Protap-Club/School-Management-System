@@ -7,7 +7,7 @@ import {
     useGenerateAssignments, useAllClassesOverview, useClassOverview, useYearlySummary,
     useStudentFeeHistory, useRecordPayment, useUpdateAssignment,
     useCreateSalary, useSalaries, useUpdateSalaryStatus, useMySalary, useUpdateTeacherProfile,
-    useMyFees, useFeeTypes, useCreateStudentPenalty,
+    useMyFees, useFeeTypes, usePenaltyStudentsByClass, useStudentPenalties, useCreateStudentPenalty,
     SALARY_LABELS,
     FEE_TYPES, FEE_TYPE_LABELS, FREQUENCY_LABELS, MONTH_LABELS,
 } from './index';
@@ -65,7 +65,7 @@ const FeesPage = () => {
     const { message: toast, showMessage: showToast } = useToastMessage(3500);
 
     // Structures state
-    const [structFilters, setStructFilters] = useState({ academicYear: currentYear, standard: '', section: '', feeType: '' });
+    const [structFilters, setStructFilters] = useState({ academicYear: currentYear, standard: '', section: '', studentId: '', feeType: '' });
     const [structModal, setStructModal] = useState({ open: false, editData: null });
     const [genModal, setGenModal] = useState({ open: false, structure: null });
     const [deleteConfirm, setDeleteConfirm] = useState(null);
@@ -129,6 +129,12 @@ const FeesPage = () => {
         return Array.from(merged).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
     }, [allUniqueSections, getSectionsForStandard, structFilters.standard, structFilters.section]);
 
+    const penaltyStudentFilters = useMemo(() => ({
+        academicYear: structFilters.academicYear,
+        standard: String(structFilters.standard || '').trim(),
+        section: String(structFilters.section || '').trim().toUpperCase(),
+    }), [structFilters.academicYear, structFilters.standard, structFilters.section]);
+
     // Queries
     // Pagination state for structures
     const [structPage, setStructPage] = useState(0);
@@ -173,6 +179,19 @@ const FeesPage = () => {
 
     // Student Queries
     const { data: myFeesData, isLoading: myFeesLoading } = useMyFees({ academicYear: summaryYear }, isStudent);
+    const { data: penaltyStudentsResp, isLoading: penaltyStudentsLoading } = usePenaltyStudentsByClass(
+        penaltyStudentFilters,
+        isAdmin && !!penaltyStudentFilters.standard && !!penaltyStudentFilters.section
+    );
+    const { data: penaltyRecordsResp, isLoading: penaltyRecordsLoading } = useStudentPenalties(
+        {
+            academicYear: structFilters.academicYear,
+            standard: String(structFilters.standard || '').trim(),
+            section: String(structFilters.section || '').trim().toUpperCase(),
+            studentId: structFilters.studentId,
+        },
+        isAdmin && !!structFilters.standard && !!structFilters.section && !!structFilters.studentId
+    );
 
     // Mutations
     const createMut = useCreateFeeStructure();
@@ -233,6 +252,26 @@ const FeesPage = () => {
         });
         return combined;
     }, [feeTypesResp]);
+
+    const penaltyStudentOptions = useMemo(() => {
+        const students = penaltyStudentsResp?.data;
+        if (!Array.isArray(students)) return [];
+        return [...students].sort((a, b) =>
+            String(a.name || '').localeCompare(String(b.name || ''), undefined, {
+                sensitivity: 'base',
+            })
+        );
+    }, [penaltyStudentsResp]);
+    const selectedPenaltyStudentId = useMemo(() => {
+        if (!structFilters.studentId) return '';
+        const isValidStudent = penaltyStudentOptions.some(
+            (student) => String(student._id) === String(structFilters.studentId)
+        );
+        return isValidStudent ? structFilters.studentId : '';
+    }, [penaltyStudentOptions, structFilters.studentId]);
+    const penaltyRecords = useMemo(() => (
+        Array.isArray(penaltyRecordsResp?.data) ? penaltyRecordsResp.data : []
+    ), [penaltyRecordsResp]);
 
     const { filteredClassStudents, filteredClassSummary } = useMemo(() => {
         if (!overviewType && overviewStatus === 'all') return { 
@@ -578,6 +617,7 @@ const FeesPage = () => {
                                                     ...prev,
                                                     standard: nextStandard,
                                                     section: shouldResetSection ? '' : prev.section,
+                                                    studentId: '',
                                                 };
                                             });
                                         }}
@@ -585,13 +625,35 @@ const FeesPage = () => {
                                             <option value="">Standard</option>
                                             {standardFilterOptions.map((s) => <option key={s} value={s}>{s}</option>)}
                                         </select>
-                                        <select value={structFilters.section} onChange={(e) => setStructFilters(p => ({ ...p, section: e.target.value }))}
+                                        <select value={structFilters.section} onChange={(e) => setStructFilters(p => ({ ...p, section: e.target.value, studentId: '' }))}
                                             className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg w-32 focus:ring-primary focus:border-primary">
                                             <option value="">Section</option>
                                             {sectionFilterOptions.map((s) => <option key={s} value={s}>{s}</option>)}
                                         </select>
+                                        <select
+                                            value={selectedPenaltyStudentId}
+                                            onChange={(e) => setStructFilters((prev) => ({ ...prev, studentId: e.target.value }))}
+                                            disabled={!structFilters.standard || !structFilters.section || penaltyStudentsLoading || penaltyStudentOptions.length === 0}
+                                            className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg w-44 focus:ring-primary focus:border-primary disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
+                                        >
+                                            <option value="">
+                                                {!structFilters.standard || !structFilters.section
+                                                    ? 'Student'
+                                                    : penaltyStudentsLoading
+                                                        ? 'Loading Students...'
+                                                        : penaltyStudentOptions.length === 0
+                                                            ? 'No Penalized Students'
+                                                            : 'Student'}
+                                            </option>
+                                            {penaltyStudentOptions.map((student) => (
+                                                <option key={student._id} value={student._id}>
+                                                    {student.name}
+                                                </option>
+                                            ))}
+                                        </select>
                                         <select value={structFilters.feeType} onChange={(e) => setStructFilters(p => ({ ...p, feeType: e.target.value }))}
-                                            className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:ring-primary focus:border-primary">
+                                            disabled={!!selectedPenaltyStudentId}
+                                            className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:ring-primary focus:border-primary disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed">
                                             <option value="">All Types</option>
                                             {feeTypesList.map(t => <option key={t.name} value={t.name}>{t.label}</option>)}
                                         </select>
@@ -599,6 +661,53 @@ const FeesPage = () => {
 
                                     {/* Table */}
                                     <div className="overflow-x-auto">
+                                        {selectedPenaltyStudentId ? (
+                                            <table className="w-full text-sm">
+                                                <thead>
+                                                    <tr className="border-b border-gray-100 uppercase">
+                                                        {['Student', 'Class', 'Penalty Type', 'Reason', 'Amount', 'Occurrence Date', 'Status'].map(h => (
+                                                            <th key={h} className="px-4 py-4 text-left text-[10px] font-black text-gray-400 tracking-widest">{h}</th>
+                                                        ))}
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-gray-50">
+                                                    {penaltyRecordsLoading ? (
+                                                        <SkeletonRows rows={4} columns={7} />
+                                                    ) : penaltyRecords.length === 0 ? (
+                                                        <tr><td colSpan={7}><EmptyState icon={FaListAlt} title="No student penalties found" subtitle="This student has no penalty records for the selected class and year." /></td></tr>
+                                                    ) : (
+                                                        penaltyRecords.map((penalty) => (
+                                                            <tr key={penalty._id} className="hover:bg-gray-50/25 transition-colors">
+                                                                <td className="px-4 py-4">
+                                                                    <div className="font-bold text-gray-900">{penalty.studentName}</div>
+                                                                    <div className="text-xs text-gray-500">{penalty.studentEmail || '-'}</div>
+                                                                </td>
+                                                                <td className="px-4 py-4 text-gray-600 font-medium">Std {penalty.standard}-{penalty.section}</td>
+                                                                <td className="px-4 py-4">
+                                                                    <span className="px-2.5 py-1 bg-primary/5 text-primary rounded-lg text-[10px] font-bold uppercase">
+                                                                        {String(penalty.penaltyType || '').replaceAll('_', ' ')}
+                                                                    </span>
+                                                                </td>
+                                                                <td className="px-4 py-4 font-medium text-gray-700">{penalty.reason}</td>
+                                                                <td className="px-4 py-4 font-black text-gray-900">Rs {Number(penalty.amount || 0).toLocaleString()}</td>
+                                                                <td className="px-4 py-4 text-gray-600 font-medium">{penalty.occurrenceDate ? new Date(penalty.occurrenceDate).toLocaleDateString() : '-'}</td>
+                                                                <td className="px-4 py-4">
+                                                                    <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                                                                        penalty.status === 'PAID'
+                                                                            ? 'bg-emerald-50 text-emerald-700'
+                                                                            : penalty.status === 'WAIVED'
+                                                                                ? 'bg-gray-100 text-gray-500'
+                                                                                : 'bg-amber-50 text-amber-700'
+                                                                    }`}>
+                                                                        {penalty.status}
+                                                                    </span>
+                                                                </td>
+                                                            </tr>
+                                                        ))
+                                                    )}
+                                                </tbody>
+                                            </table>
+                                        ) : (
                                         <table className="w-full text-sm">
                                             <thead>
                                                 <tr className="border-b border-gray-100 uppercase">
@@ -645,8 +754,9 @@ const FeesPage = () => {
                                                 )}
                                             </tbody>
                                         </table>
+                                        )}
                                     </div>
-                                    {paginationInfo.totalCount > structPageSize && (
+                                    {!selectedPenaltyStudentId && paginationInfo.totalCount > structPageSize && (
                                         <div className="border-t border-gray-100 bg-white rounded-b-3xl">
                                             <PaginationControls
                                                 currentPage={structPage}

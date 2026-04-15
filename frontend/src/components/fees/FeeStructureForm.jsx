@@ -197,12 +197,41 @@ const FeeStructureForm = ({ onCancel, onSubmit, onSubmitPenalty, editData, isLoa
     const { data: feeTypesResp } = useFeeTypes({ enabled: isAdmin });
     const { availableStandards, allUniqueSections, getSectionsForStandard } = useSchoolClasses({ enabled: isAdmin });
 
+    const normalizedPenaltyStandard = useMemo(
+        () => normalizeStandard(penaltyForm.standard),
+        [penaltyForm.standard]
+    );
+    const normalizedPenaltySection = useMemo(
+        () => normalizeSection(penaltyForm.section),
+        [penaltyForm.section]
+    );
+
     // Fetch students for penalty form
     const { data: studentsResp, isLoading: studentsLoading } = useStudentsByClass(
-        penaltyForm.standard, penaltyForm.section,
-        isAdmin && formMode === 'penalty' && !!penaltyForm.standard && !!penaltyForm.section
+        normalizedPenaltyStandard,
+        normalizedPenaltySection,
+        isAdmin && formMode === 'penalty' && !!normalizedPenaltyStandard && !!normalizedPenaltySection
     );
-    const studentOptions = studentsResp?.data || [];
+    const studentOptions = useMemo(() => {
+        const payload = studentsResp?.data;
+        if (Array.isArray(payload)) return payload;
+        if (Array.isArray(payload?.students)) return payload.students;
+        if (Array.isArray(payload?.users)) return payload.users;
+        return [];
+    }, [studentsResp]);
+    const studentPlaceholder = useMemo(() => {
+        if (!normalizedPenaltyStandard || !normalizedPenaltySection) return 'Select Student';
+        if (studentsLoading) return 'Loading students...';
+        if (studentOptions.length === 0) {
+            return `No students in ${normalizedPenaltyStandard} - ${normalizedPenaltySection}`;
+        }
+        return `Select Student (${studentOptions.length})`;
+    }, [
+        normalizedPenaltyStandard,
+        normalizedPenaltySection,
+        studentOptions.length,
+        studentsLoading,
+    ]);
 
     const penaltySectionOptions = useMemo(() => {
         if (!penaltyForm.standard) return allUniqueSections || [];
@@ -210,8 +239,13 @@ const FeeStructureForm = ({ onCancel, onSubmit, onSubmitPenalty, editData, isLoa
     }, [penaltyForm.standard, allUniqueSections, getSectionsForStandard]);
 
     const handlePenaltyChange = useCallback((field, value) => {
+        const nextValue =
+            field === 'standard' ? normalizeStandard(value) :
+            field === 'section' ? normalizeSection(value) :
+            value;
+
         setPenaltyForm(prev => {
-            const next = { ...prev, [field]: value };
+            const next = { ...prev, [field]: nextValue };
             // Reset dependent fields
             if (field === 'standard') { next.section = ''; next.studentId = ''; }
             if (field === 'section') { next.studentId = ''; }
@@ -240,6 +274,8 @@ const FeeStructureForm = ({ onCancel, onSubmit, onSubmitPenalty, editData, isLoa
         onSubmitPenalty({
             ...penaltyForm,
             academicYear: Number(penaltyForm.academicYear),
+            standard: normalizedPenaltyStandard,
+            section: normalizedPenaltySection,
             amount: Number(penaltyForm.amount),
         });
     };
@@ -658,9 +694,13 @@ const FeeStructureForm = ({ onCancel, onSubmit, onSubmitPenalty, editData, isLoa
                             <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Student *</label>
                             <select value={penaltyForm.studentId} onChange={(e) => handlePenaltyChange('studentId', e.target.value)}
                                 className={inputCls(penaltyErrors.studentId ? 'studentId' : '')}
-                                disabled={!penaltyForm.standard || !penaltyForm.section || studentsLoading}>
-                                <option value="" disabled hidden>Select Student</option>
-                                {studentOptions.map(s => <option key={s._id} value={s._id}>{s.name}</option>)}
+                                disabled={!normalizedPenaltyStandard || !normalizedPenaltySection || studentsLoading || studentOptions.length === 0}>
+                                <option value="" disabled>{studentPlaceholder}</option>
+                                {studentOptions.map((s) => (
+                                    <option key={s._id} value={s._id}>
+                                        {s.name || s.fullName || s.studentName || s.email || 'Unnamed Student'}
+                                    </option>
+                                ))}
                             </select>
                             {penaltyErrors.studentId && <p className="text-[10px] text-red-500 mt-1 ml-1 font-bold">{penaltyErrors.studentId}</p>}
                         </div>
