@@ -558,57 +558,6 @@ const TimetablePage = () => {
                                 )}
                             </div>
                         </div>
-                    ) : (
-                        <div className="flex w-full flex-col gap-3 lg:w-auto lg:flex-row lg:flex-wrap lg:items-center lg:justify-end">
-                            <Tabs value={teacherViewMode} onValueChange={setTeacherViewMode} className="w-full rounded-lg border border-gray-200/60 bg-gray-100/50 p-1 sm:w-auto lg:shrink-0">
-                                <TabsList className="grid h-auto w-full grid-cols-2 gap-1 bg-transparent p-0">
-                                    <Button
-                                        size="sm"
-                                        className="h-9 px-4 text-[13px] font-medium rounded-md transition-colors shadow-none"
-                                        onClick={() => setCreateDialogOpen(true)}
-                                    >
-                                        New Schedule
-                                    </Button>
-                                    {activeTimetableId && selectedTimetableEntries.length > 0 && (
-                                        <Button
-                                            size="sm"
-                                            variant="outline"
-                                            className="h-9 px-4 text-[13px] font-medium border-gray-200 rounded-md transition-colors shadow-none flex items-center gap-1.5"
-                                            onClick={handleExportPDF}
-                                        >
-                                            <FaFilePdf size={12} />
-                                            Export PDF
-                                        </Button>
-                                    )}
-                                </div>
-                            ) : (
-                                <div className="flex items-center gap-3">
-                                    <Select value={activeTeacherId} onValueChange={setSelectedTeacherId}>
-                                        <SelectTrigger className="w-52 h-9 text-[13px] font-medium border-gray-200/80 rounded-md focus:ring-gray-200">
-                                            <SelectValue placeholder="Select teacher" />
-                                        </SelectTrigger>
-                                        <SelectContent className="rounded-md border-gray-200/80 shadow-sm">
-                                            {teachers.map((teacher) => (
-                                                <SelectItem key={teacher._id} value={teacher._id} className="text-[13px]">
-                                                    {teacher.name}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                    {activeTeacherId && teacherScheduleEntries.length > 0 && (
-                                        <Button
-                                            size="sm"
-                                            variant="outline"
-                                            className="h-9 px-4 text-[13px] font-medium border-gray-200 rounded-md transition-colors shadow-none flex items-center gap-1.5"
-                                            onClick={handleExportAdminTeacherPDF}
-                                        >
-                                            <FaFilePdf size={12} />
-                                            Export PDF
-                                        </Button>
-                                    )}
-                                </div>
-                            )}
-                        </div>
                     ) : isTeacher && isClassTeacherFromData ? (
                         // Class teacher: two tabs — homeroom class timetable + personal schedule
                         <div className="flex items-center gap-3">
