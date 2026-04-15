@@ -14,7 +14,6 @@ import { EmptyState } from '../../components/ui/EmptyState';
 import { ButtonSpinner } from '../../components/ui/Spinner';
 import { useToastMessage } from '../../hooks/useToastMessage';
 import { PaginationControls } from '../../components/ui/PaginationControls';
-import { formatValue } from '../../utils';
 import { downloadFile } from '../../utils/downloadFile';
 
 // Constants
@@ -400,24 +399,24 @@ const ExaminationPage = () => {
 
   return (
     <DashboardLayout>
-      <div className="max-w-[1400px] mx-auto p-4 md:p-6 lg:p-8 animate-in fade-in duration-700">
+      <div className="mx-auto max-w-[1400px] animate-in fade-in duration-700">
         <div className={selectedExam ? "no-print" : ""}>
           {/* Header Section */}
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
-            <div className="flex items-center gap-6">
-              <div className="w-16 h-16 bg-white rounded-2xl shadow-lg flex items-center justify-center text-primary transform hover:rotate-6 transition-transform">
+          <div className="mb-8 flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex items-start gap-4 sm:items-center sm:gap-6">
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-primary shadow-lg transition-transform hover:rotate-6 sm:h-16 sm:w-16">
                 <FaCalendarCheck size={32} />
               </div>
-              <div className="space-y-1">
+              <div className="min-w-0 space-y-1">
                 <h1 className="page-title">Examination Schedules</h1>
                 <p className="page-subtitle">Manage and monitor your examination sessions.</p>
               </div>
             </div>
             {(isAdmin || isTeacher) && (
-              <div className="flex items-center gap-3">
+              <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center">
                 <button 
                   onClick={() => setShowModal({ type: 'create', open: true, data: null })}
-                  className="btn-primary px-6 rounded-2xl shadow-lg shadow-primary/20 active:scale-95"
+                  className="btn-primary flex w-full items-center justify-center gap-2 rounded-2xl px-5 py-3 shadow-lg shadow-primary/20 active:scale-95 sm:w-auto sm:px-6"
                 >
                   <FaPlus size={16} />
                   <span>Create New Exam</span>
@@ -453,28 +452,28 @@ const ExaminationPage = () => {
 
           {/* Filters and Search */}
           <div className="bg-white p-2 rounded-[32px] border border-slate-100 shadow-sm mb-8">
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-2">
-              <div className="flex items-center gap-1 bg-slate-50 p-1.5 rounded-2xl border border-slate-100 items-stretch">
+            <div className="flex flex-col gap-4 p-2 xl:flex-row xl:items-center xl:justify-between">
+              <div className="flex flex-wrap items-stretch gap-1 rounded-2xl border border-slate-100 bg-slate-50 p-1.5">
                 <TabButton 
                   tab="all" activeTab={activeTab} setActiveTab={handleActiveTabChange} label={`All Exams`} 
-                  className={activeTab === 'all' ? 'bg-white shadow-sm' : ''}
+                  className={`flex-1 sm:flex-none ${activeTab === 'all' ? 'bg-white shadow-sm' : ''}`}
                 />
                 <TabButton 
                   tab="upcoming" activeTab={activeTab} setActiveTab={handleActiveTabChange} label={`Schedule`}
-                  className={activeTab === 'upcoming' ? 'bg-white shadow-sm' : ''}
+                  className={`flex-1 sm:flex-none ${activeTab === 'upcoming' ? 'bg-white shadow-sm' : ''}`}
                 />
                 <TabButton 
                   tab="drafts" activeTab={activeTab} setActiveTab={handleActiveTabChange} label={`Drafts`}
-                  className={activeTab === 'drafts' ? 'bg-white shadow-sm' : ''}
+                  className={`flex-1 sm:flex-none ${activeTab === 'drafts' ? 'bg-white shadow-sm' : ''}`}
                 />
                 <TabButton 
                   tab="completed" activeTab={activeTab} setActiveTab={handleActiveTabChange} label={`Completed`}
-                  className={activeTab === 'completed' ? 'bg-white shadow-sm' : ''}
+                  className={`flex-1 sm:flex-none ${activeTab === 'completed' ? 'bg-white shadow-sm' : ''}`}
                 />
               </div>
               
-              <div className="flex flex-1 items-center gap-4 max-w-2xl px-2">
-                <div className="relative flex-1 group">
+              <div className="flex w-full flex-col gap-3 px-0 sm:px-2 xl:max-w-2xl">
+                <div className="relative group w-full">
                   <FaSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors" size={16} />
                   <input
                     type="text"
@@ -488,11 +487,11 @@ const ExaminationPage = () => {
                   />
                 </div>
                 
-                <div className="flex items-center gap-2">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <select
                     value={filters.standard}
                     onChange={(e) => handleStandardFilterChange(e.target.value)}
-                    className="px-4 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-slate-700 focus:outline-none hover:bg-slate-100 transition-all cursor-pointer min-w-[130px]"
+                    className="w-full cursor-pointer rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3.5 text-sm font-bold text-slate-700 transition-all hover:bg-slate-100 focus:outline-none"
                   >
                     <option value="">All Classes</option>
                     {availableStandards.map(std => (
@@ -502,7 +501,7 @@ const ExaminationPage = () => {
                   <select
                     value={filters.section}
                     onChange={(e) => handleSectionFilterChange(e.target.value)}
-                    className="px-4 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-slate-700 focus:outline-none hover:bg-slate-100 transition-all cursor-pointer min-w-[120px]"
+                    className="w-full cursor-pointer rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3.5 text-sm font-bold text-slate-700 transition-all hover:bg-slate-100 focus:outline-none"
                   >
                     <option value="">All Sections</option>
                     {(filters.standard ? availableSections : allUniqueSections).map(sec => (
