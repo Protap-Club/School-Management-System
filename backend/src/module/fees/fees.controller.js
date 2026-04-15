@@ -177,6 +177,22 @@ export const createFeeType = asyncHandler(async (req, res) => {
     });
 });
 
+export const getPenaltyTypes = asyncHandler(async (req, res) => {
+    const types = await feesService.getPenaltyTypes(req.schoolId);
+    res.status(200).json({
+        success: true,
+        data: types,
+    });
+});
+
+export const createPenaltyType = asyncHandler(async (req, res) => {
+    const penaltyType = await feesService.createPenaltyType(req.schoolId, req.body, req.user._id);
+    res.status(201).json({
+        success: true,
+        data: penaltyType,
+    });
+});
+
 // ── Student Penalty ───────────────────────────────────────────
 
 export const getStudentsByClass = asyncHandler(async (req, res) => {

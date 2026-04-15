@@ -17,6 +17,7 @@ export const feeKeys = {
     mySalary: (filters) => [...feeKeys.all, 'mySalary', filters],
     myFees: (filters) => [...feeKeys.all, 'myFees', filters],
     feeTypes: () => [...feeKeys.all, 'feeTypes'],
+    penaltyTypes: () => [...feeKeys.all, 'penaltyTypes'],
     penaltyStudents: (filters) => [...feeKeys.all, 'penaltyStudents', filters],
     penalties: (filters) => [...feeKeys.all, 'penalties', filters],
 };
@@ -39,6 +40,26 @@ export const useCreateFeeType = () => {
         mutationFn: feesApi.createFeeType,
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: feeKeys.feeTypes() });
+        },
+    });
+};
+
+export const usePenaltyTypes = (config = {}) => {
+    const { user, accessToken } = useAuth();
+    return useQuery({
+        queryKey: feeKeys.penaltyTypes(),
+        queryFn: feesApi.getPenaltyTypes,
+        ...config,
+        enabled: (config.enabled !== false) && !!user && !!accessToken,
+    });
+};
+
+export const useCreatePenaltyType = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: feesApi.createPenaltyType,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: feeKeys.penaltyTypes() });
         },
     });
 };

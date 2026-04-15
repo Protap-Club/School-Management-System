@@ -103,6 +103,16 @@ export const feesApi = {
         return response.data;
     },
 
+    getPenaltyTypes: async () => {
+        const response = await api.get('/fees/penalty-types');
+        return response.data;
+    },
+
+    createPenaltyType: async (data) => {
+        const response = await api.post('/fees/penalty-types', data);
+        return response.data;
+    },
+
     // ── Student Penalty ───────────────────────────────────────────
 
     getStudentsByClass: async ({ standard, section }) => {

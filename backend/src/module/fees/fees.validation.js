@@ -221,6 +221,8 @@ export const createFeeTypeSchema = z.object({
     }),
 });
 
+export const createPenaltyTypeSchema = createFeeTypeSchema;
+
 export const updateFeeTypeSchema = z.object({
     params: z.object({
         id: objectIdSchema,
@@ -241,9 +243,7 @@ export const createStudentPenaltySchema = z.object({
         academicYear: z.coerce.number().int().min(2000).max(2100),
         standard: z.string().min(1),
         section: z.string().min(1),
-        penaltyType: z.enum(["DAMAGE", "LATE_FEE", "MISCONDUCT", "LIBRARY_FINE", "UNIFORM_VIOLATION", "OTHER"], {
-            required_error: "Penalty type is required",
-        }),
+        penaltyType: z.string({ required_error: "Penalty type is required" }).min(1),
         reason: z.string({ required_error: "Reason is required" }).min(1).max(500),
         amount: z.coerce.number({ required_error: "Amount is required" }).min(0),
         occurrenceDate: z.string({ required_error: "Occurrence date is required" }),

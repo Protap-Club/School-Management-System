@@ -7,9 +7,9 @@ import {
     useGenerateAssignments, useAllClassesOverview, useClassOverview, useYearlySummary,
     useStudentFeeHistory, useRecordPayment, useUpdateAssignment,
     useCreateSalary, useSalaries, useUpdateSalaryStatus, useMySalary, useUpdateTeacherProfile,
-    useMyFees, useFeeTypes, usePenaltyStudentsByClass, useStudentPenalties, useCreateStudentPenalty,
+    useMyFees, useFeeTypes, usePenaltyTypes, usePenaltyStudentsByClass, useStudentPenalties, useCreateStudentPenalty,
     SALARY_LABELS,
-    FEE_TYPES, FEE_TYPE_LABELS, FREQUENCY_LABELS, MONTH_LABELS,
+    FEE_TYPES, FEE_TYPE_LABELS, FREQUENCY_LABELS, MONTH_LABELS, PENALTY_TYPE_LABELS,
 } from './index';
 import { useAuth } from '../auth';
 import { useUsers } from '../users/api/queries';
@@ -195,6 +195,7 @@ const FeesPage = () => {
 
     // Salary Queries
     const { data: feeTypesResp } = useFeeTypes({ enabled: isAdmin });
+    const { data: penaltyTypesResp } = usePenaltyTypes({ enabled: isAdmin });
     const { data: salaryData, isLoading: salariesLoading } = useSalaries({ year: overviewYear }, isAdmin);
     const { data: mySalaryData, isLoading: mySalaryLoading } = useMySalary({ year: overviewYear }, isTeacher);
 
@@ -273,6 +274,17 @@ const FeesPage = () => {
         });
         return combined;
     }, [feeTypesResp]);
+
+    const penaltyTypeLabels = useMemo(() => {
+        const labels = { ...PENALTY_TYPE_LABELS };
+        const backendTypes = penaltyTypesResp?.data || [];
+        backendTypes.forEach((type) => {
+            if (type?.name && type?.label) {
+                labels[type.name] = type.label;
+            }
+        });
+        return labels;
+    }, [penaltyTypesResp]);
 
     const penaltyStudentOptions = useMemo(() => {
         const students = penaltyStudentsResp?.data;
@@ -716,7 +728,7 @@ const FeesPage = () => {
                                                                 <td className="px-4 py-4 text-gray-600 font-medium">Std {penalty.standard}-{penalty.section}</td>
                                                                 <td className="px-4 py-4">
                                                                     <span className="px-2.5 py-1 bg-primary/5 text-primary rounded-lg text-[10px] font-bold uppercase">
-                                                                        {String(penalty.penaltyType || '').replaceAll('_', ' ')}
+                                                                        {penaltyTypeLabels[penalty.penaltyType] || String(penalty.penaltyType || '').replaceAll('_', ' ')}
                                                                     </span>
                                                                 </td>
                                                                 <td className="px-4 py-4 font-medium text-gray-700">{penalty.reason}</td>

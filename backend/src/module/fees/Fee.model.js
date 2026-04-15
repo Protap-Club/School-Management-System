@@ -262,7 +262,6 @@ const studentPenaltySchema = new mongoose.Schema(
         penaltyType: {
             type: String,
             required: true,
-            enum: ["DAMAGE", "LATE_FEE", "MISCONDUCT", "LIBRARY_FINE", "UNIFORM_VIOLATION", "OTHER"],
         },
         reason: { type: String, required: true, trim: true },
         amount: { type: Number, required: true, min: [0, "Amount cannot be negative"] },

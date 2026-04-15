@@ -8,6 +8,7 @@ export {
     useUpdateTeacherProfile,
     useMyFees,
     useFeeTypes, useCreateFeeType,
+    usePenaltyTypes, useCreatePenaltyType,
     useStudentsByClass, usePenaltyStudentsByClass, useStudentPenalties, useCreateStudentPenalty,
 } from './api/queries';
 
@@ -63,7 +64,7 @@ export const SALARY_LABELS = {
     UPDATE_EXPECTED: 'Update Expected Salary',
 };
 
-export const PENALTY_TYPES = ['DAMAGE', 'LATE_FEE', 'MISCONDUCT', 'LIBRARY_FINE', 'UNIFORM_VIOLATION', 'OTHER'];
+export const PENALTY_TYPES = ['DAMAGE', 'LATE_FEE', 'MISCONDUCT', 'LIBRARY_FINE', 'UNIFORM_VIOLATION'];
 
 export const PENALTY_TYPE_LABELS = {
     DAMAGE: 'Damage',
@@ -71,6 +72,5 @@ export const PENALTY_TYPE_LABELS = {
     MISCONDUCT: 'Misconduct',
     LIBRARY_FINE: 'Library Fine',
     UNIFORM_VIOLATION: 'Uniform Violation',
-    OTHER: 'Other',
 };
 

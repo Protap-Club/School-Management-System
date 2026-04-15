@@ -14,6 +14,8 @@ import {
     getMyFees,
     getFeeTypes,
     createFeeType,
+    getPenaltyTypes,
+    createPenaltyType,
     getStudentsByClass,
     getPenaltyStudentsByClass,
     getStudentPenalties,
@@ -45,6 +47,7 @@ import {
     studentFeeHistorySchema,
     myFeesSchema,
     createFeeTypeSchema,
+    createPenaltyTypeSchema,
     createStudentPenaltySchema,
     getStudentsByClassSchema,
     getPenaltyStudentsByClassSchema,
@@ -207,6 +210,20 @@ router.post(
     checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN]),
     validate(createFeeTypeSchema),
     createFeeType
+);
+
+router.get(
+    "/penalty-types",
+    checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN]),
+    getPenaltyTypes
+);
+
+router.post(
+    "/penalty-types",
+    checkWebOnly,
+    checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN]),
+    validate(createPenaltyTypeSchema),
+    createPenaltyType
 );
 
 // ── Student Penalty Routes ────────────────────────────────────

@@ -1,19 +1,42 @@
 import React, { useState } from 'react';
 import { IoClose, IoAddCircleOutline } from 'react-icons/io5';
-import { useCreateFeeType } from '../../features/fees/api/queries';
+import { useCreateFeeType, useCreatePenaltyType } from '../../features/fees/api/queries';
 
-const FeeTypeSideCard = ({ onClose, onSuccess }) => {
+const CARD_CONFIG = {
+    fee: {
+        title: 'New Fee Type',
+        subtitle: 'Define a custom fee category',
+        fieldLabel: 'Fee Type Name',
+        placeholder: 'e.g. Annual Sports Fee',
+        helperText: 'The display name for this fee category',
+        errorText: 'Fee Type Name is required',
+        saveLabel: 'Save Fee Type',
+    },
+    penalty: {
+        title: 'New Penalty Type',
+        subtitle: 'Define a custom penalty category',
+        fieldLabel: 'Penalty Type Name',
+        placeholder: 'e.g. Bus Damage Fine',
+        helperText: 'The display name for this penalty category',
+        errorText: 'Penalty Type Name is required',
+        saveLabel: 'Save Penalty Type',
+    },
+};
+
+const FeeTypeSideCard = ({ onClose, onSuccess, variant = 'fee' }) => {
     const [label, setLabel] = useState('');
     const [error, setError] = useState('');
-
+    const config = CARD_CONFIG[variant] || CARD_CONFIG.fee;
     const createFeeType = useCreateFeeType();
+    const createPenaltyType = useCreatePenaltyType();
+    const createType = variant === 'penalty' ? createPenaltyType : createFeeType;
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
 
         if (!label) {
-            setError('Fee Type Name is required');
+            setError(config.errorText);
             return;
         }
 
@@ -21,14 +44,14 @@ const FeeTypeSideCard = ({ onClose, onSuccess }) => {
         const name = label.trim().toUpperCase().replace(/\s+/g, '_');
 
         try {
-            await createFeeType.mutateAsync({ 
+            await createType.mutateAsync({
                 name, 
                 label: label.trim()
             });
             onSuccess(name);
             onClose();
         } catch (err) {
-            setError(err.response?.data?.message || 'Failed to create fee type');
+            setError(err.response?.data?.message || `Failed to create ${variant} type`);
         }
     };
 
@@ -36,8 +59,8 @@ const FeeTypeSideCard = ({ onClose, onSuccess }) => {
         <div className="bg-white rounded-2xl shadow-xl border border-gray-100 w-80">
             <div className="p-6 border-b border-gray-50 flex items-center justify-between">
                 <div>
-                    <h3 className="text-lg font-bold text-gray-800">New Fee Type</h3>
-                    <p className="text-xs text-gray-500 mt-0.5">Define a custom fee category</p>
+                    <h3 className="text-lg font-bold text-gray-800">{config.title}</h3>
+                    <p className="text-xs text-gray-500 mt-0.5">{config.subtitle}</p>
                 </div>
                 <button 
                     onClick={onClose}
@@ -50,18 +73,18 @@ const FeeTypeSideCard = ({ onClose, onSuccess }) => {
             <form onSubmit={handleSubmit} className="p-6 space-y-5">
                 <div>
                     <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-2 px-1">
-                        Fee Type Name
+                        {config.fieldLabel}
                     </label>
                     <input
                         type="text"
                         value={label}
                         onChange={(e) => setLabel(e.target.value)}
-                        placeholder="e.g. Annual Sports Fee"
+                        placeholder={config.placeholder}
                         className="w-full px-4 py-3 bg-gray-50 border-none rounded-xl text-sm font-medium focus:ring-2 focus:ring-primary/20 transition-all placeholder:text-gray-300"
                         autoFocus
                     />
                     <p className="text-[10px] text-gray-400 mt-1.5 px-1 italic">
-                        The display name for this fee category
+                        {config.helperText}
                     </p>
                 </div>
 
@@ -74,15 +97,15 @@ const FeeTypeSideCard = ({ onClose, onSuccess }) => {
 
                 <button
                     type="submit"
-                    disabled={createFeeType.isPending}
+                    disabled={createType.isPending}
                     className="w-full py-3.5 bg-primary hover:bg-primary-hover text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                 >
-                    {createFeeType.isPending ? (
+                    {createType.isPending ? (
                         <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                     ) : (
                         <IoAddCircleOutline size={18} />
                     )}
-                    Save Fee Type
+                    {config.saveLabel}
                 </button>
             </form>
         </div>

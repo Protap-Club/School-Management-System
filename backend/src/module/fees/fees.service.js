@@ -13,6 +13,98 @@ import {
     sortClassSections,
 } from "../../utils/classSection.util.js";
 
+const TYPE_CATEGORIES = {
+    FEE: "FEE",
+    PENALTY: "PENALTY",
+};
+
+const DEFAULT_FEE_TYPES = [
+    { name: "TUITION", label: "Tuition", isDefault: true },
+    { name: "EXAM", label: "Exam", isDefault: true },
+    { name: "LAB", label: "Lab", isDefault: true },
+    { name: "LIBRARY", label: "Library", isDefault: true },
+    { name: "TRANSPORT", label: "Transport", isDefault: true },
+    { name: "SPORTS", label: "Sports", isDefault: true },
+];
+
+const DEFAULT_PENALTY_TYPES = [
+    { name: "DAMAGE", label: "Damage", isDefault: true },
+    { name: "LATE_FEE", label: "Late Fee", isDefault: true },
+    { name: "MISCONDUCT", label: "Misconduct", isDefault: true },
+    { name: "LIBRARY_FINE", label: "Library Fine", isDefault: true },
+    { name: "UNIFORM_VIOLATION", label: "Uniform Violation", isDefault: true },
+];
+
+const getDefaultTypesByCategory = (category) =>
+    category === TYPE_CATEGORIES.PENALTY ? DEFAULT_PENALTY_TYPES : DEFAULT_FEE_TYPES;
+
+const getTypeQueryByCategory = (schoolId, category) => (
+    category === TYPE_CATEGORIES.FEE
+        ? {
+            schoolId,
+            isActive: true,
+            $or: [
+                { category: TYPE_CATEGORIES.FEE },
+                { category: { $exists: false } },
+            ],
+        }
+        : {
+            schoolId,
+            isActive: true,
+            category,
+        }
+);
+
+const getTypesByCategory = async (schoolId, category) => {
+    const customTypes = await FeeType.find(getTypeQueryByCategory(schoolId, category)).lean();
+    return [...getDefaultTypesByCategory(category), ...customTypes];
+};
+
+const createTypeByCategory = async (schoolId, data, userId, category) => {
+    const normalizedName = String(data.name || "").trim().toUpperCase();
+    const normalizedLabel = String(data.label || "").trim();
+
+    if (!normalizedName || !normalizedLabel) {
+        throw new BadRequestError("Type name and label are required");
+    }
+
+    if (getDefaultTypesByCategory(category).some((type) => type.name === normalizedName)) {
+        throw new ConflictError(`${category === TYPE_CATEGORIES.PENALTY ? "Penalty" : "Fee"} type ${normalizedName} is a system default`);
+    }
+
+    const exists = await FeeType.exists({ schoolId, name: normalizedName });
+    if (exists) {
+        throw new ConflictError(`${category === TYPE_CATEGORIES.PENALTY ? "Penalty" : "Fee"} type ${normalizedName} already exists`);
+    }
+
+    const feeType = await FeeType.create({
+        schoolId,
+        name: normalizedName,
+        label: normalizedLabel,
+        category,
+        createdBy: userId,
+    });
+
+    logger.info(`${category} type created: ${feeType._id} (${feeType.name}) for school ${schoolId}`);
+    return feeType;
+};
+
+const assertTypeExists = async (schoolId, typeName, category) => {
+    const normalizedName = String(typeName || "").trim().toUpperCase();
+    if (!normalizedName) {
+        throw new BadRequestError(`${category === TYPE_CATEGORIES.PENALTY ? "Penalty" : "Fee"} type is required`);
+    }
+
+    const allowedTypes = await getTypesByCategory(schoolId, category);
+    const isAllowed = allowedTypes.some((type) => String(type.name).trim().toUpperCase() === normalizedName);
+
+    if (!isAllowed) {
+        throw new BadRequestError(`Invalid ${category === TYPE_CATEGORIES.PENALTY ? "penalty" : "fee"} type: ${normalizedName}`);
+    }
+
+    return normalizedName;
+};
+
 // ═══════════════════════════════════════════════════════════════
 // ADMIN — Fee Structure CRUD
 // ═══════════════════════════════════════════════════════════════
@@ -954,43 +1046,20 @@ export const getMyFees = async (schoolId, studentId, filters = {}, platform) => 
     return { summary, fees };
 };
 
-// ═══════════════════════════════════════════════════════════════
-// ADMIN — Fee Type Management
-// ═══════════════════════════════════════════════════════════════
-
-const DEFAULT_FEE_TYPES = [
-    { name: "TUITION", label: "Tuition", isDefault: true },
-    { name: "EXAM", label: "Exam", isDefault: true },
-    { name: "LAB", label: "Lab", isDefault: true },
-    { name: "LIBRARY", label: "Library", isDefault: true },
-    { name: "TRANSPORT", label: "Transport", isDefault: true },
-    { name: "SPORTS", label: "Sports", isDefault: true },
-];
-
 export const getFeeTypes = async (schoolId) => {
-    const customTypes = await FeeType.find({ schoolId, isActive: true }).lean();
-    return [...DEFAULT_FEE_TYPES, ...customTypes];
+    return getTypesByCategory(schoolId, TYPE_CATEGORIES.FEE);
 };
 
 export const createFeeType = async (schoolId, data, userId) => {
-    // Check if it's in default list
-    if (DEFAULT_FEE_TYPES.some(t => t.name === data.name)) {
-        throw new ConflictError(`Fee type ${data.name} is a system default`);
-    }
+    return createTypeByCategory(schoolId, data, userId, TYPE_CATEGORIES.FEE);
+};
 
-    const exists = await FeeType.exists({ schoolId, name: data.name });
-    if (exists) {
-        throw new ConflictError(`Fee type ${data.name} already exists`);
-    }
+export const getPenaltyTypes = async (schoolId) => {
+    return getTypesByCategory(schoolId, TYPE_CATEGORIES.PENALTY);
+};
 
-    const feeType = await FeeType.create({
-        schoolId,
-        ...data,
-        createdBy: userId,
-    });
-
-    logger.info(`FeeType created: ${feeType._id} (${feeType.name}) for school ${schoolId}`);
-    return feeType;
+export const createPenaltyType = async (schoolId, data, userId) => {
+    return createTypeByCategory(schoolId, data, userId, TYPE_CATEGORIES.PENALTY);
 };
 
 // ═══════════════════════════════════════════════════════════════
@@ -1102,13 +1171,15 @@ export const getStudentPenalties = async (schoolId, filters = {}) => {
 };
 
 export const createStudentPenalty = async (schoolId, data, userId) => {
+    const penaltyType = await assertTypeExists(schoolId, data.penaltyType, TYPE_CATEGORIES.PENALTY);
+
     const penalty = await StudentPenalty.create({
         schoolId,
         studentId: data.studentId,
         academicYear: Number(data.academicYear),
         standard: String(data.standard).trim(),
         section: String(data.section).trim().toUpperCase(),
-        penaltyType: data.penaltyType,
+        penaltyType,
         reason: data.reason,
         amount: Number(data.amount),
         occurrenceDate: new Date(data.occurrenceDate),

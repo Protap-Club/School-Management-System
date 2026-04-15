@@ -4,7 +4,7 @@ import {
     FEE_TYPES, FEE_TYPE_LABELS, FREQUENCY_OPTIONS, FREQUENCY_LABELS,
     PENALTY_TYPES, PENALTY_TYPE_LABELS,
 } from '../../features/fees';
-import { useFeeTypes, useFeeStructures, useStudentsByClass } from '../../features/fees/api/queries';
+import { useFeeTypes, usePenaltyTypes, useFeeStructures, useStudentsByClass } from '../../features/fees/api/queries';
 import FeeTypeSideCard from './FeeTypeSideCard';
 import { useSchoolClasses } from '../../hooks/useSchoolClasses';
 
@@ -193,8 +193,9 @@ const FeeStructureForm = ({ onCancel, onSubmit, onSubmitPenalty, editData, isLoa
     });
     const [penaltyErrors, setPenaltyErrors] = useState({});
 
-    const [showSideCard, setShowSideCard] = useState(false);
+    const [showSideCard, setShowSideCard] = useState(null);
     const { data: feeTypesResp } = useFeeTypes({ enabled: isAdmin });
+    const { data: penaltyTypesResp } = usePenaltyTypes({ enabled: isAdmin });
     const { availableStandards, allUniqueSections, getSectionsForStandard } = useSchoolClasses({ enabled: isAdmin });
 
     const normalizedPenaltyStandard = useMemo(
@@ -315,6 +316,35 @@ const FeeStructureForm = ({ onCancel, onSubmit, onSubmitPenalty, editData, isLoa
 
         return combined;
     }, [feeTypesResp, form.feeType]);
+
+    const penaltyTypes = React.useMemo(() => {
+        const backendTypes = penaltyTypesResp?.data || [];
+        const defaults = PENALTY_TYPES.map(name => ({
+            name,
+            label: PENALTY_TYPE_LABELS[name],
+            isDefault: true
+        }));
+
+        const combined = [...defaults];
+        backendTypes.forEach(pt => {
+            if (!combined.find(c => c.name === pt.name)) {
+                combined.push(pt);
+            }
+        });
+
+        if (penaltyForm.penaltyType && !combined.find(c => c.name === penaltyForm.penaltyType)) {
+            combined.push({
+                name: penaltyForm.penaltyType,
+                label: penaltyForm.penaltyType
+                    .split('_')
+                    .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+                    .join(' '),
+                isTemp: true
+            });
+        }
+
+        return combined;
+    }, [penaltyTypesResp, penaltyForm.penaltyType]);
 
     const standardOptions = React.useMemo(() => {
         const merged = new Set((availableStandards || []).map(normalizeStandard).filter(Boolean));
@@ -617,9 +647,11 @@ const FeeStructureForm = ({ onCancel, onSubmit, onSubmitPenalty, editData, isLoa
     const inputCls = (field) =>
         `w-full px-3 py-1.5 border rounded-lg text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all ${errors[field] ? 'border-red-300 bg-red-50' : 'border-gray-200 bg-gray-50/10'}`;
 
+    const isSideCardOpen = Boolean(showSideCard);
+
     return (
         <div className="max-w-6xl mx-auto px-4">
-            <div className={`relative w-full max-w-2xl mx-auto transition-transform duration-500 ease-in-out ${showSideCard ? '-translate-x-40 lg:-translate-x-48' : 'translate-x-0'}`}>
+            <div className={`relative w-full max-w-2xl mx-auto transition-transform duration-500 ease-in-out ${isSideCardOpen ? '-translate-x-40 lg:-translate-x-48' : 'translate-x-0'}`}>
                 <div className="bg-white rounded-3xl shadow-xl shadow-gray-200/50 border border-gray-100 overflow-hidden">
             <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
                 <div className="flex items-center gap-2">
@@ -706,10 +738,17 @@ const FeeStructureForm = ({ onCancel, onSubmit, onSubmitPenalty, editData, isLoa
                         </div>
                         <div>
                             <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Penalty Type *</label>
-                            <select value={penaltyForm.penaltyType} onChange={(e) => handlePenaltyChange('penaltyType', e.target.value)}
+                            <select value={penaltyForm.penaltyType} onChange={(e) => {
+                                if (e.target.value === 'ADD_NEW') {
+                                    setShowSideCard('penalty');
+                                } else {
+                                    handlePenaltyChange('penaltyType', e.target.value);
+                                }
+                            }}
                                 className={inputCls(penaltyErrors.penaltyType ? 'penaltyType' : '')}>
                                 <option value="" disabled hidden>Select Type</option>
-                                {PENALTY_TYPES.map(t => <option key={t} value={t}>{PENALTY_TYPE_LABELS[t]}</option>)}
+                                <option value="ADD_NEW" className="text-primary font-bold tracking-tight">+ Add Penalty Type</option>
+                                {penaltyTypes.map(t => <option key={t.name} value={t.name}>{t.label}</option>)}
                             </select>
                             {penaltyErrors.penaltyType && <p className="text-[10px] text-red-500 mt-1 ml-1 font-bold">{penaltyErrors.penaltyType}</p>}
                         </div>
@@ -841,7 +880,7 @@ const FeeStructureForm = ({ onCancel, onSubmit, onSubmitPenalty, editData, isLoa
                                 value={form.feeType}
                                 onChange={(e) => {
                                     if (e.target.value === 'ADD_NEW') {
-                                        setShowSideCard(true);
+                                        setShowSideCard('fee');
                                     } else {
                                         handleChange('feeType', e.target.value);
                                     }
@@ -982,22 +1021,32 @@ const FeeStructureForm = ({ onCancel, onSubmit, onSubmitPenalty, editData, isLoa
             )}
             </div>
 
-            {showSideCard && (
+            {isSideCardOpen && (
                 <div className="absolute top-0 left-full ml-8 z-20 hidden lg:block">
                     <FeeTypeSideCard 
-                        onClose={() => setShowSideCard(false)} 
+                        variant={showSideCard}
+                        onClose={() => setShowSideCard(null)} 
                         onSuccess={(newType) => {
+                            if (showSideCard === 'penalty') {
+                                handlePenaltyChange('penaltyType', newType);
+                                return;
+                            }
                             handleChange('feeType', newType);
                         }}
                     />
                 </div>
             )}
             {/* Fallback for smaller screens to ensure it's still visible */}
-            {showSideCard && (
+            {isSideCardOpen && (
                 <div className="lg:hidden fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
                     <FeeTypeSideCard 
-                        onClose={() => setShowSideCard(false)} 
+                        variant={showSideCard}
+                        onClose={() => setShowSideCard(null)} 
                         onSuccess={(newType) => {
+                            if (showSideCard === 'penalty') {
+                                handlePenaltyChange('penaltyType', newType);
+                                return;
+                            }
                             handleChange('feeType', newType);
                         }}
                     />
