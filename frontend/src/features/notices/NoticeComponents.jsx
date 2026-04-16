@@ -12,6 +12,32 @@ const ALLOWED_EXTENSIONS = ['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png', 'ppt', '
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const MAX_FILES = 3;
 
+/**
+ * Compact download button for user acknowledgment response attachments.
+ * Used inside AcknowledgmentPanel to avoid repeating the same JSX in each map().
+ */
+const AckAttachmentButton = ({ att, onDownload }) => {
+    const fileName = att.originalName || att.filename || 'attachment';
+    const fileExt = fileName.split('.').pop()?.toUpperCase() || 'FILE';
+    return (
+        <button
+            onClick={() => onDownload?.(att.secure_url || att.path, fileName)}
+            className="flex items-center justify-between w-full p-2 bg-gray-50 hover:bg-gray-100 rounded-lg border border-gray-200 transition-colors group"
+        >
+            <div className="flex items-center gap-2 min-w-0 flex-1">
+                <div className="shrink-0">{getFileIcon(fileName)}</div>
+                <div className="min-w-0 flex-1">
+                    <p className="text-xs font-medium text-gray-700 truncate">{fileName}</p>
+                    <p className="text-[10px] text-gray-400 uppercase tracking-wide">{fileExt}</p>
+                </div>
+            </div>
+            <div className="p-1.5 text-gray-400 group-hover:text-primary group-hover:bg-primary/5 rounded-lg transition-colors shrink-0">
+                <FaDownload size={12} />
+            </div>
+        </button>
+    );
+};
+
 const getNoticeAttachments = (item) => {
     const attachments = [];
 
@@ -355,30 +381,13 @@ export const AcknowledgmentPanel = ({ noticeId, handleDownload }) => {
                                     )}
                                     {u.attachments && u.attachments.length > 0 && (
                                         <div className="mt-2 space-y-1">
-                                            {u.attachments.map((att, attIndex) => {
-                                                const fileName = att.originalName || att.filename || 'attachment';
-                                                const fileExt = fileName.split('.').pop()?.toUpperCase() || 'FILE';
-                                                return (
-                                                    <button
-                                                        key={attIndex}
-                                                        onClick={() => handleDownload?.(att.secure_url || att.path, fileName)}
-                                                        className="flex items-center justify-between w-full p-2 bg-gray-50 hover:bg-gray-100 rounded-lg border border-gray-200 transition-colors group"
-                                                    >
-                                                        <div className="flex items-center gap-2 min-w-0 flex-1">
-                                                            <div className="shrink-0">
-                                                                {getFileIcon(fileName)}
-                                                            </div>
-                                                            <div className="min-w-0 flex-1">
-                                                                <p className="text-xs font-medium text-gray-700 truncate">{fileName}</p>
-                                                                <p className="text-[10px] text-gray-400 uppercase tracking-wide">{fileExt}</p>
-                                                            </div>
-                                                        </div>
-                                                        <div className="p-1.5 text-gray-400 group-hover:text-primary group-hover:bg-primary/5 rounded-lg transition-colors shrink-0">
-                                                            <FaDownload size={12} />
-                                                        </div>
-                                                    </button>
-                                                );
-                                            })}
+                                            {u.attachments.map((att, attIndex) => (
+                                                <AckAttachmentButton
+                                                    key={attIndex}
+                                                    att={att}
+                                                    onDownload={handleDownload}
+                                                />
+                                            ))}
                                         </div>
                                     )}
                                 </li>

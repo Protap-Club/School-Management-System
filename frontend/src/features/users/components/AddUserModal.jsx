@@ -8,6 +8,23 @@ import { useSchoolClasses } from '../../../hooks/useSchoolClasses';
 import { useNavigate } from 'react-router-dom';
 import TeacherConflictModal from './TeacherConflictModal';
 
+/**
+ * Returns an error message string if a parent/guardian name is provided
+ * without the corresponding contact number. Returns null when all valid.
+ */
+const getRequiredContactError = (formData) => {
+    if (formData.fatherName?.trim() && !formData.fatherContact?.trim()) {
+        return "Father's contact number is required.";
+    }
+    if (formData.motherName?.trim() && !formData.motherContact?.trim()) {
+        return "Mother's contact number is required.";
+    }
+    if (formData.guardianName?.trim() && !formData.guardianContact?.trim()) {
+        return "Guardian's contact number is required.";
+    }
+    return null;
+};
+
 const InputField = ({ label, name, value, onChange, type = "text", required = false, isNumeric = false, ...props }) => (
     <div className="space-y-1">
         <label className="text-sm font-medium text-gray-700 flex items-center gap-1">
@@ -290,20 +307,11 @@ const AddUserModal = ({ isOpen, onClose, roleToAdd, onSuccess, initialData }) =>
                     return;
                 }
 
-                // New: Requirement for Admin/Super Admin to provide contact number if name is provided
+                // Admin/Super Admin must provide a contact number alongside any guardian name
                 if (!isTeacher) {
-                    if (formData.fatherName?.trim() && !formData.fatherContact?.trim()) {
-                        setError("Father's contact number is required.");
-                        setLoading(false);
-                        return;
-                    }
-                    if (formData.motherName?.trim() && !formData.motherContact?.trim()) {
-                        setError("Mother's contact number is required.");
-                        setLoading(false);
-                        return;
-                    }
-                    if (formData.guardianName?.trim() && !formData.guardianContact?.trim()) {
-                        setError("Guardian's contact number is required.");
+                    const contactError = getRequiredContactError(formData);
+                    if (contactError) {
+                        setError(contactError);
                         setLoading(false);
                         return;
                     }
