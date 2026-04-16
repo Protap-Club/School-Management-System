@@ -16,14 +16,20 @@ spec:
     spec:
       containers:
       - name: backend
-        image: gcr.io/${GCP_PROJECT_ID}/backend:${IMAGE_TAG}
+        image: IMAGE_PLACEHOLDER
         ports:
         - containerPort: 5000
-        envFrom:
-        - secretRef:
-            name: backend-secrets
-        - configMapRef:
-            name: backend-config
+        env:
+          - name: MONGO_URL
+            valueFrom:
+              secretKeyRef:
+                name: backend-secrets
+                key: MONGODB_URI
+        # Optional: Add resource limits for GKE efficiency
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "256Mi"
 ---
 apiVersion: v1
 kind: Service
