@@ -270,18 +270,19 @@ export const createNotice = async (schoolId, userId, data, file, user, metadata)
     // Fire-and-forget audit log
     createAuditLog({
         schoolId,
-        action: AUDIT_ACTIONS.NOTICE_BROADCAST,
         actorId: userId,
         actorRole: user?.role || "unknown",
-        targetEntity: "Notice",
+        action: AUDIT_ACTIONS.NOTICE_BROADCAST,
+        targetModel: "Notice",
         targetId: notice._id,
-        details: {
+        description: `Broadcasted notice: "${notice.title || 'Untitled'}" to ${notice.recipientType} (${notice.recipients?.length ?? 0} recipients)`,
+        metadata: {
             title: notice.title,
             recipientType: notice.recipientType,
             recipientCount: notice.recipients?.length ?? 0,
         },
-        ipAddress: metadata?.ip,
-        userAgent: metadata?.userAgent,
+        ip: metadata?.ip,
+        userAgentString: metadata?.userAgent,
     }).catch(() => {});
 
     return notice;

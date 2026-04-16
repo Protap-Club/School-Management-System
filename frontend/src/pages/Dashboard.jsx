@@ -42,7 +42,7 @@ const Dashboard = () => {
   );
 
   const { data: statsRes, isLoading: statsLoading } = useDashboardStats();
-  const { data: scheduleRes } = useMySchedule(isTeacher);
+  const { data: scheduleRes } = useMySchedule(null, isTeacher);
   const scheduleData = scheduleRes?.data;
   const { data: noticesRes } = useNotices(!isTeacher);
   const { data: usersRes } = useUsers({ 

@@ -74,6 +74,24 @@ export const getAuditLogs = async ({ schoolId, page = 1, limit = 20, filters = {
     if (filters.actorId) {
         query.actorId = filters.actorId;
     }
+    if (filters.actorRole) {
+        query.actorRole = filters.actorRole;
+    }
+    if (filters.targetModel) {
+        query.targetModel = filters.targetModel;
+    }
+    if (filters.search) {
+        query.description = { $regex: filters.search, $options: 'i' };
+    }
+    if (filters.startDate || filters.endDate) {
+        query.createdAt = {};
+        if (filters.startDate) query.createdAt.$gte = new Date(filters.startDate);
+        if (filters.endDate) {
+            const endDate = new Date(filters.endDate);
+            endDate.setHours(23, 59, 59, 999);
+            query.createdAt.$lte = endDate;
+        }
+    }
 
     const skip = (page - 1) * limit;
 

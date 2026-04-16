@@ -121,11 +121,14 @@ export const useDeleteEntry = () => {
     });
 };
 
-export const useMySchedule = (date = null, enabled = true) => {
+export const useMySchedule = (dateOrEnabled = null, enabled = true) => {
+    const date = typeof dateOrEnabled === "string" ? dateOrEnabled : null;
+    const queryEnabled = typeof dateOrEnabled === "boolean" ? dateOrEnabled : enabled;
+
     return useQuery({
         queryKey: timetableKeys.mySchedule(date),
         queryFn: () => timetableApi.getMySchedule(date),
-        enabled,
+        enabled: queryEnabled,
     });
 };
 

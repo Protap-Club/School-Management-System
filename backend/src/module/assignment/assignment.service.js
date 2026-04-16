@@ -358,21 +358,20 @@ export const createAssignment = async (schoolId, user, body, files, metadata) =>
         
         createAuditLog({
             schoolId,
-            actor: user._id,
-            actorModel: user.role === USER_ROLES.SUPER_ADMIN ? "SuperAdmin" : "User",
+            actorId: user._id,
+            actorRole: user.role,
             action: AUDIT_ACTIONS.ASSIGNMENT.CREATED,
-            entityId: assignment._id,
-            entityModel: "Assignment",
-            status: "success",
-            details: {
+            targetModel: "Assignment",
+            targetId: assignment._id,
+            description: `Created assignment: ${assignment.title} for Class ${assignment.standard}-${assignment.section}`,
+            metadata: {
                 title: assignment.title,
                 subject: assignment.subject,
                 standard: assignment.standard,
                 section: assignment.section
             },
-            ipAddress: metadata?.ip,
-            userAgent: metadata?.userAgent,
-            sessionToken: null
+            ip: metadata?.ip,
+            userAgentString: metadata?.userAgent
         }).catch(err => logger.error(`Failed to create audit log: ${err.message}`));
     });
 
@@ -721,16 +720,15 @@ export const updateAssignment = async (schoolId, assignmentId, user, role, body,
 
     createAuditLog({
         schoolId,
-        actor: user._id,
-        actorModel: user.role === USER_ROLES.SUPER_ADMIN ? "SuperAdmin" : "User",
+        actorId: user._id,
+        actorRole: user.role,
         action: AUDIT_ACTIONS.ASSIGNMENT.UPDATED,
-        entityId: assignment._id,
-        entityModel: "Assignment",
-        status: "success",
-        details: { fields: Object.keys(body) },
-        ipAddress: metadata?.ip,
-        userAgent: metadata?.userAgent,
-        sessionToken: null
+        targetModel: "Assignment",
+        targetId: assignment._id,
+        description: `Updated assignment: ${assignment.title}`,
+        metadata: { fields: Object.keys(body) },
+        ip: metadata?.ip,
+        userAgentString: metadata?.userAgent
     }).catch(err => logger.error(`Failed to create audit log: ${err.message}`));
 
     return formatAssignment(assignment.toObject());
@@ -767,19 +765,18 @@ export const deleteAssignment = async (schoolId, assignmentId, user, metadata) =
 
     createAuditLog({
         schoolId,
-        actor: user._id,
-        actorModel: user.role === USER_ROLES.SUPER_ADMIN ? "SuperAdmin" : "User",
+        actorId: user._id,
+        actorRole: user.role,
         action: AUDIT_ACTIONS.ASSIGNMENT.DELETED,
-        entityId: assignmentId,
-        entityModel: "Assignment",
-        status: "success",
-        details: {
+        targetModel: "Assignment",
+        targetId: assignmentId,
+        description: `Deleted assignment: ${assignment.title} along with ${submissions.length} submissions`,
+        metadata: {
             title: assignment.title,
             submissionsCleaned: submissions.length
         },
-        ipAddress: metadata?.ip,
-        userAgent: metadata?.userAgent,
-        sessionToken: null
+        ip: metadata?.ip,
+        userAgentString: metadata?.userAgent
     }).catch(err => logger.error(`Failed to create audit log: ${err.message}`));
 };
 

@@ -1456,3 +1456,28 @@ const getTeacherAssignedClasses = async (teacherId) => {
     const profile = await TeacherProfile.findOne({ userId: teacherId }).select("assignedClasses").lean();
     return profile?.assignedClasses || [];
 };
+
+const getTeacherClassTeacherScope = async (teacherId) => {
+    const profile = await TeacherProfile.findOne({ userId: teacherId })
+        .select("classTeacherOf assignedClasses")
+        .lean();
+
+    if (!profile) {
+        return [];
+    }
+
+    const homeroomClass = normalizeClassSection(profile.classTeacherOf || {});
+    if (homeroomClass.standard && homeroomClass.section) {
+        return [homeroomClass];
+    }
+
+    const primaryAssignedClass = getPrimaryTeacherAssignedClass(profile.assignedClasses || []);
+    if (!primaryAssignedClass) {
+        return [];
+    }
+
+    const normalizedPrimaryClass = normalizeClassSection(primaryAssignedClass);
+    return normalizedPrimaryClass.standard && normalizedPrimaryClass.section
+        ? [normalizedPrimaryClass]
+        : [];
+};

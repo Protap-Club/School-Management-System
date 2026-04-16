@@ -68,7 +68,7 @@ export const connectSocket = (schoolId) => {
             auth: {
                 token: token || null,
             },
-            autoConnect: true,
+            autoConnect: false,
             transports: ['websocket', 'polling'],
             reconnection: true,
             reconnectionAttempts: 10,

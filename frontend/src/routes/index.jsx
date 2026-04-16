@@ -19,6 +19,7 @@ const Fees = lazy(() => import('../pages/Fees'));
 const Examination = lazy(() => import('../pages/Examination'));
 const Assignments = lazy(() => import('../features/assignment/AssignmentPage'));
 const Result = lazy(() => import('../pages/Result'));
+const AuditLog = lazy(() => import('../pages/AuditLog'));
 // Loading fallback component
 const PageLoader = () => (
     <div className="flex items-center justify-center min-h-screen">
@@ -53,6 +54,7 @@ export const routes = {
         examination: '/superadmin/examination',
         result: '/superadmin/result',
         assignments: '/superadmin/assignments',
+        audit: '/superadmin/audit',
     },
 
     // Admin
@@ -100,6 +102,7 @@ export const pages = {
     Examination,
     Assignments,
     Result,
+    AuditLog,
 };
 
 // Export utilities
