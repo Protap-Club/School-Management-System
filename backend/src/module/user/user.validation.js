@@ -75,6 +75,47 @@ export const createUserSchema = z.object({
 });
 
 // ─── Get Users (query params) ───────────────────────────────────────
+export const createTeacherStudentSchema = z.object({
+    body: z.object({
+        name: z.string().trim().min(1, 'Name is required'),
+        email: z.string().trim().email('Invalid email address'),
+        contactNo: z.string().trim().optional(),
+        rollNumber: z.string().trim().min(1, 'Roll number is required'),
+        standard: z.string().trim().min(1, 'Standard is required'),
+        section: z.string().trim().min(1, 'Section is required'),
+        fatherName: z.string().trim().optional(),
+        fatherContact: z.string().trim().optional(),
+        motherName: z.string().trim().optional(),
+        motherContact: z.string().trim().optional(),
+        guardianName: z.string().trim().optional(),
+        guardianContact: z.string().trim().optional(),
+        address: z.string().trim().optional(),
+    }).strict().superRefine((data, ctx) => {
+        const rollNumberValue = Number(data.rollNumber);
+        if (!Number.isFinite(rollNumberValue) || rollNumberValue <= 0 || !/^\d+$/.test(data.rollNumber)) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: 'Roll number must be a positive number',
+                path: ['rollNumber'],
+            });
+        }
+
+        const hasParentOrGuardianName = [
+            data.fatherName,
+            data.motherName,
+            data.guardianName,
+        ].some((value) => String(value || '').trim().length > 0);
+
+        if (!hasParentOrGuardianName) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: 'At least one of fatherName, motherName, or guardianName is required',
+                path: ['guardianName'],
+            });
+        }
+    }),
+});
+
 export const getUsersSchema = z.object({
     query: z.object({
         role: z.enum([...roleValues, 'all']).optional(),

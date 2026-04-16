@@ -2,20 +2,20 @@ import React from 'react';
 import { FaSearch } from 'react-icons/fa';
 
 export const SectionHeader = ({ icon, iconBg, iconColor, title, subtitle }) => (
-    <div className="px-6 py-5 border-b border-gray-100 flex items-center gap-4">
-        <div className={`w-11 h-11 rounded-xl bg-linear-to-br ${iconBg} flex items-center justify-center`}>
+    <div className="flex items-start gap-3 border-b border-gray-100 px-4 py-4 sm:items-center sm:gap-4 sm:px-6 sm:py-5">
+        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-linear-to-br sm:h-11 sm:w-11 ${iconBg}`}>
             {React.cloneElement(icon, { className: iconColor, size: 18 })}
         </div>
-        <div>
-            <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
-            <p className="text-sm text-gray-500">{subtitle}</p>
+        <div className="min-w-0">
+            <h2 className="text-base font-semibold text-gray-900 sm:text-lg">{title}</h2>
+            <p className="text-sm leading-5 text-gray-500">{subtitle}</p>
         </div>
     </div>
 );
 
-export const TabButton = ({ tab, activeTab, icon, label, setActiveTab, count }) => (
+export const TabButton = ({ tab, activeTab, icon, label, setActiveTab, count, className = '' }) => (
     <button onClick={() => setActiveTab(tab)}
-        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${activeTab === tab ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+        className={`inline-flex min-w-0 items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-all sm:px-4 ${activeTab === tab ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'} ${className}`}>
         {icon && React.cloneElement(icon, { size: 12 })}{label}
         {count !== undefined && (
             <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${activeTab === tab ? 'bg-primary text-white' : 'bg-gray-200 text-gray-500'}`}>

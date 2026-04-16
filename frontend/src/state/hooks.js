@@ -6,17 +6,36 @@ import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { useEffect } from 'react';
 
 // ==== Sidebar Hook ====
-import { selectSidebarCollapsed, toggleSidebar as toggleSidebarAction } from './uiSlice';
+import {
+    selectSidebarCollapsed,
+    selectMobileSidebarOpen,
+    toggleSidebar as toggleSidebarAction,
+    toggleMobileSidebar as toggleMobileSidebarAction,
+    setMobileSidebarOpen as setMobileSidebarOpenAction,
+} from './uiSlice';
 
 export const useSidebar = () => {
     const dispatch = useDispatch();
     const isCollapsed = useSelector(selectSidebarCollapsed);
+    const isMobileOpen = useSelector(selectMobileSidebarOpen);
 
     const toggleSidebar = () => {
+        if (typeof window !== 'undefined' && window.innerWidth < 768) {
+            dispatch(toggleMobileSidebarAction());
+            return;
+        }
         dispatch(toggleSidebarAction());
     };
 
-    return { isCollapsed, toggleSidebar };
+    const toggleMobileSidebar = () => {
+        dispatch(toggleMobileSidebarAction());
+    };
+
+    const setMobileSidebarOpen = (isOpen) => {
+        dispatch(setMobileSidebarOpenAction(isOpen));
+    };
+
+    return { isCollapsed, isMobileOpen, toggleSidebar, toggleMobileSidebar, setMobileSidebarOpen };
 };
 
 // ==== Theme Hook ====
@@ -110,6 +129,9 @@ export const useFeatures = () => {
     const features = data?.data?.school?.features || data?.data?.features || {};
 
     const hasFeature = (featureKey) => {
+        // While loading, optimistically return true so widgets aren't hidden on first paint.
+        // Only return false when we have confirmed data saying the feature is off.
+        if (loading) return true;
         return features[featureKey] === true;
     };
 

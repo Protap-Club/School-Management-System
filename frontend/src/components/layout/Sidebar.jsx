@@ -1,7 +1,8 @@
-import React from 'react';
-import { NavLink } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { NavLink, useLocation } from 'react-router-dom';
+import { useDispatch } from 'react-redux';
 import { useAuth } from '../../features/auth';
-import { useSidebar, useFeatures } from '../../state';
+import { useSidebar, useFeatures, setMobileSidebarOpen } from '../../state';
 import {
     FaUserGraduate,
     FaCog,
@@ -17,15 +18,21 @@ import {
 } from 'react-icons/fa';
 
 const Sidebar = () => {
+    const dispatch = useDispatch();
     const { user } = useAuth();
-    const { isCollapsed } = useSidebar();
+    const location = useLocation();
+    const { isCollapsed, isMobileOpen } = useSidebar();
     const { hasFeature } = useFeatures();
+
+    useEffect(() => {
+        dispatch(setMobileSidebarOpen(false));
+    }, [dispatch, location.pathname]);
 
     const getLinks = () => {
         const dashboardLink = { path: '/dashboard', label: 'Dashboard', icon: <FaHome /> };
 
         switch (user?.role) {
-            case 'super_admin':
+            case 'super_admin': {
                 const superAdminLinks = [dashboardLink];
 
                 // Calendar
@@ -56,12 +63,9 @@ const Sidebar = () => {
                     superAdminLinks.push({ path: '/superadmin/fees', label: 'Payment', icon: <FaMoneyCheckAlt /> });
                 }
 
-                // Examination
+                // Examination + Results (combined module)
                 if (hasFeature('examination')) {
                     superAdminLinks.push({ path: '/superadmin/examination', label: 'Examination', icon: <FaGraduationCap /> });
-                }
-
-                if (hasFeature('result')) {
                     superAdminLinks.push({ path: '/superadmin/result', label: 'Results', icon: <FaClipboardCheck /> });
                 }
 
@@ -74,7 +78,8 @@ const Sidebar = () => {
                 superAdminLinks.push({ path: '/superadmin/settings', label: 'Settings', icon: <FaCog /> });
 
                 return superAdminLinks;
-            case 'admin':
+            }
+            case 'admin': {
                 // Build links based on enabled features
                 // Requested Order: Dashboard, Attendance, Timetable, Users, Notice
                 const adminLinks = [dashboardLink];
@@ -107,12 +112,9 @@ const Sidebar = () => {
                     adminLinks.push({ path: '/admin/fees', label: 'Payment', icon: <FaMoneyCheckAlt />, feature: 'fees' });
                 }
 
-                // 8. Examination
+                // Examination + Results (combined module)
                 if (hasFeature('examination')) {
                     adminLinks.push({ path: '/admin/examination', label: 'Examination', icon: <FaGraduationCap /> });
-                }
-
-                if (hasFeature('result')) {
                     adminLinks.push({ path: '/admin/result', label: 'Results', icon: <FaClipboardCheck /> });
                 }
 
@@ -124,7 +126,8 @@ const Sidebar = () => {
                 adminLinks.push({ path: '/admin/settings', label: 'Settings', icon: <FaCog /> });
 
                 return adminLinks;
-            case 'teacher':
+            }
+            case 'teacher': {
                 // Build links based on enabled features
                 // Requested Order: Dashboard, Calendar, Attendance, Timetable, Users, Notice
                 const teacherLinks = [dashboardLink];
@@ -157,12 +160,9 @@ const Sidebar = () => {
                     teacherLinks.push({ path: '/teacher/fees', label: 'Payment', icon: <FaMoneyCheckAlt />, feature: 'fees' });
                 }
 
-                // 8. Examination
+                // Examination + Results (combined module)
                 if (hasFeature('examination')) {
                     teacherLinks.push({ path: '/teacher/examination', label: 'Examination', icon: <FaGraduationCap /> });
-                }
-
-                if (hasFeature('result')) {
                     teacherLinks.push({ path: '/teacher/result', label: 'Results', icon: <FaClipboardCheck /> });
                 }
 
@@ -175,6 +175,7 @@ const Sidebar = () => {
                 // teacherLinks.push({ path: '/teacher/settings', label: 'Settings', icon: <FaCog /> });
 
                 return teacherLinks;
+            }
             default:
                 return [];
         }
@@ -182,7 +183,8 @@ const Sidebar = () => {
 
     return (
         <aside
-            className={`fixed left-0 top-16 h-[calc(100vh-4rem)] bg-white border-r border-gray-100 flex flex-col z-40 transition-all duration-300 ease-in-out shadow-[4px_0_24px_-12px_rgba(0,0,0,0.1)] ${isCollapsed ? 'w-0 md:w-20 -translate-x-full md:translate-x-0' : 'w-64'
+            id="dashboard-sidebar"
+            className={`fixed left-0 top-16 z-40 flex h-[calc(100vh-4rem)] w-[17rem] flex-col border-r border-gray-100 bg-white shadow-[4px_0_24px_-12px_rgba(0,0,0,0.1)] transition-all duration-300 ease-in-out ${isMobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'} ${isCollapsed ? 'md:w-20' : 'md:w-64'
                 }`}
         >
             {/* Scrollable Navigation Area */}
@@ -197,7 +199,7 @@ const Sidebar = () => {
                             const isAttendance = link.label === 'Attendance' && window.location.pathname.includes('/attendance');
                             const actuallyActive = isActive || isAttendance;
 
-                            return `flex items-center ${isCollapsed ? 'justify-center' : 'gap-3'} px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 group ${actuallyActive
+                            return `flex items-center ${isCollapsed ? 'md:justify-center' : 'gap-3'} px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 group ${actuallyActive
                                 ? 'bg-primary/5 text-primary shadow-sm ring-1 ring-primary/10'
                                 : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'
                                 }`;
@@ -206,7 +208,7 @@ const Sidebar = () => {
                         <span className={`shrink-0 text-lg transition-colors duration-200 ${isCollapsed ? '' : ''}`}>
                             {link.icon}
                         </span>
-                        <span className={`transition-all duration-300 overflow-hidden whitespace-nowrap ${isCollapsed ? 'w-0 opacity-0 hidden md:block md:w-0 md:opacity-0' : 'w-auto opacity-100'
+                        <span className={`transition-all duration-300 overflow-hidden whitespace-nowrap ${isCollapsed ? 'md:w-0 md:opacity-0' : 'w-auto opacity-100'
                             }`}>
                             {link.label}
                         </span>
@@ -215,7 +217,7 @@ const Sidebar = () => {
             </nav>
 
             {/* Version Info (Optional Bottom Element) */}
-            <div className={`p-4 border-t border-gray-100 text-center ${isCollapsed ? 'hidden md:block' : ''}`}>
+            <div className={`border-t border-gray-100 p-4 text-center ${isCollapsed ? 'md:block' : ''}`}>
                 <p className="text-xs text-gray-400">v1.0.0</p>
             </div>
         </aside>

@@ -54,16 +54,16 @@ const NoticePage = () => {
                 </div>
             )}
             <div className="space-y-6">
-                <div className="flex items-center gap-6 mb-8">
-                    <div className="w-16 h-16 bg-white rounded-2xl shadow-lg flex items-center justify-center text-primary transform hover:rotate-6 transition-transform">
+                <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-6">
+                    <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-primary shadow-lg transition-transform hover:rotate-6 sm:h-16 sm:w-16">
                         <FaBell size={32} />
                     </div>
-                    <div className="space-y-1">
+                    <div className="min-w-0 space-y-1">
                         <h1 className="page-title">Notice Board</h1>
                         <p className="page-subtitle">{isAdmin ? 'Send notices to the entire school, classes, or specific users' : 'Send notices to your students or groups'}</p>
                     </div>
                 </div>
-                <div className="flex gap-1 bg-gray-100 p-1 rounded-xl w-fit">
+                <div className="flex w-full flex-wrap gap-1 rounded-xl bg-gray-100 p-1 sm:w-fit">
                     {(isAdmin || isTeacher) && <TabButton tab="compose" activeTab={activeTab} icon={<FaPaperPlane />} label="Compose" setActiveTab={setActiveTab} />}
                     {(isTeacher || isAdmin) && <TabButton tab="groups" activeTab={activeTab} icon={<FaUserFriends />} label="Groups" setActiveTab={setActiveTab} />}
                     {(isAdmin || isTeacher) && <TabButton tab="history" activeTab={activeTab} icon={<FaHistory />} label="History" setActiveTab={setActiveTab} />}
@@ -387,7 +387,7 @@ const NoticePage = () => {
                         </div>
 
                         {receivedItems.length > 0 && (
-                            <div className="bg-white rounded-2xl border border-gray-200 p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                            <div className="flex flex-col gap-4 rounded-2xl border border-gray-200 bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
                                 <label className="inline-flex items-center gap-3 text-sm text-gray-700 font-medium">
                                     <input
                                         type="checkbox"
@@ -398,14 +398,14 @@ const NoticePage = () => {
                                     <span>Select all on this page</span>
                                 </label>
 
-                                <div className="flex items-center gap-3">
+                                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                                     <span className="text-sm text-gray-500">
                                         {selectedReceivedNoticeIds.length} selected
                                     </span>
                                     <button
                                         onClick={handleBulkDeleteReceivedNotices}
                                         disabled={selectedReceivedNoticeIds.length === 0 || isDeletingReceived}
-                                        className="inline-flex items-center gap-2 rounded-xl bg-red-50 px-4 py-2.5 text-sm font-semibold text-red-600 transition-colors hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
+                                        className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-red-50 px-4 py-2.5 text-sm font-semibold text-red-600 transition-colors hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
                                     >
                                         <FaTrash size={13} />
                                         <span>{isDeletingReceived ? 'Removing...' : 'Delete Selected'}</span>
@@ -424,11 +424,11 @@ const NoticePage = () => {
                             </div>
                         ) : (
                             pagedReceivedItems.map(item => (
-                                <div key={item._id} className={`bg-white rounded-2xl border shadow-sm p-5 hover:shadow-md transition-shadow ${selectedReceivedNoticeIds.includes(item._id) ? 'border-primary/40 ring-2 ring-primary/10' : 'border-gray-200'}`}>
+                                <div key={item._id} className={`rounded-2xl border bg-white p-4 shadow-sm transition-shadow hover:shadow-md sm:p-5 ${selectedReceivedNoticeIds.includes(item._id) ? 'border-primary/40 ring-2 ring-primary/10' : 'border-gray-200'}`}>
                                     {/* Top Row */}
-                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 py-1 mb-4 border-b border-gray-100 pb-3">
+                                    <div className="mb-4 flex flex-col gap-3 border-b border-gray-100 pb-3 py-1 lg:flex-row lg:items-start lg:justify-between">
                                         {/* Sender Info */}
-                                        <div className="flex items-center gap-3">
+                                        <div className="flex min-w-0 items-start gap-3">
                                             <input
                                                 type="checkbox"
                                                 checked={selectedReceivedNoticeIds.includes(item._id)}
@@ -442,9 +442,9 @@ const NoticePage = () => {
                                                     {(item.createdBy?.name || 'U').charAt(0).toUpperCase()}
                                                 </div>
                                             )}
-                                            <div>
-                                                <div className="flex items-center gap-2">
-                                                    <span className="font-semibold text-gray-900 text-[15px]">
+                                            <div className="min-w-0">
+                                                <div className="flex flex-wrap items-center gap-2">
+                                                    <span className="truncate text-[15px] font-semibold text-gray-900">
                                                         {item.createdBy?.name || 'System User'}
                                                     </span>
                                                     <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-md uppercase tracking-wide ${item.createdBy?.isArchived ? 'bg-red-50 text-red-500' : 'bg-blue-50 text-blue-600'}`}>
@@ -467,7 +467,7 @@ const NoticePage = () => {
                                         </div>
 
                                         {/* Ack Status & Date */}
-                                        <div className="flex items-center gap-3">
+                                        <div className="flex flex-wrap items-center gap-2 sm:gap-3 lg:justify-end">
                                             {item.requiresAcknowledgment === true && !isAdmin && (
                                                 <>
                                                     <ReceiverAckButton noticeId={item._id} currentUserId={currentUser?._id} acknowledgments={item.acknowledgments} />
@@ -489,22 +489,22 @@ const NoticePage = () => {
                                             >
                                                 <FaTrash size={15} />
                                             </button>
-                                            <span className="text-gray-400 font-medium text-[13px] whitespace-nowrap">
+                                            <span className="text-[12px] font-medium text-gray-400 sm:text-[13px]">
                                                 {new Date(item.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })} • {new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                             </span>
                                         </div>
                                     </div>
 
                                     {/* Notice Content */}
-                                    <div className="flex gap-4 ml-1">
-                                        <div className="mt-1">
+                                    <div className="ml-1 flex items-start gap-3 sm:gap-4">
+                                        <div className="mt-1 shrink-0">
                                             <FaPaperclip className="text-blue-500" size={18} />
                                         </div>
                                         <div className="flex-1 w-full min-w-0 pr-2">
-                                            <h3 className="text-[18px] font-extrabold text-gray-900 mb-1.5 leading-tight tracking-tight">
+                                            <h3 className="mb-1.5 break-words text-base font-extrabold leading-tight tracking-tight text-gray-900 sm:text-[18px]">
                                                 {formatValue(item.title, 'Notice')}
                                             </h3>
-                                            <p className="text-[15px] text-gray-600 leading-relaxed whitespace-pre-wrap mb-5">
+                                            <p className="mb-5 whitespace-pre-wrap break-words text-sm leading-relaxed text-gray-600 sm:text-[15px]">
                                                 {item.message}
                                             </p>
 
@@ -516,7 +516,7 @@ const NoticePage = () => {
                             ))
                         )}
                         {receivedItems.length > 0 && totalReceivedPages > 1 && (
-                            <div className="flex items-center justify-between pt-2">
+                            <div className="flex flex-col gap-3 pt-2 sm:flex-row sm:items-center sm:justify-between">
                                 <span className="text-xs text-gray-500">Page {receivedPage} of {totalReceivedPages}</span>
                                 <div className="flex items-center gap-2">
                                     <button
