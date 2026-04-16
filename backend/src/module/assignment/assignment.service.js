@@ -3,6 +3,7 @@ import { Assignment } from "./Assignment.model.js";
 import { Submission } from "./Submission.model.js";
 import StudentProfile from "../user/model/StudentProfile.model.js";
 import TeacherProfile from "../user/model/TeacherProfile.model.js";
+import User from "../user/model/User.model.js";
 import { Timetable, TimetableEntry } from "../timetable/Timetable.model.js";
 import { BadRequestError, NotFoundError, ForbiddenError } from "../../utils/customError.js";
 import { deleteFromCloudinary } from "../../middlewares/upload.middleware.js";
@@ -149,7 +150,6 @@ const assertCanManageAssignment = (role) => {
 };
 
 const getActiveTeacherIds = async (schoolId) => {
-    const User = mongoose.model("User");
     const teachers = await User.find({
         schoolId,
         role: USER_ROLES.TEACHER,
