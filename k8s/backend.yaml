@@ -19,7 +19,7 @@ spec:
       containers:
       - name: backend
         # FIX 2: Satisfies the "Specific Version" check (CI/CD replaces this)
-        image: gcr.io/your-project/backend:v1.0.0-placeholder
+        image: gcr.io/school-mgmt-493518/backend:v1.0.0-placeholder
         ports:
         - containerPort: 5000
         env:
