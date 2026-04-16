@@ -8,7 +8,17 @@ import DashboardLayout from '../layouts/DashboardLayout';
 import { connectSocket, disconnectSocket } from '../api/socket';
 import api from '../lib/axios';
 import { useFeatures } from '../state';
-import {Clock,ChevronRight,Megaphone,Bell,UserPlus} from 'lucide-react';
+import {
+  Users,
+  UserCheck,
+  Clock,
+  MoreHorizontal,
+  ChevronRight,
+  Calendar,
+  Megaphone,
+  Bell,
+  UserPlus
+} from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useQueryClient } from '@tanstack/react-query';
 import { attendanceKeys } from '../features/attendance/api/queries';
@@ -328,7 +338,7 @@ const Dashboard = () => {
               spark: [2, 1, 3, 2, 4, 3, 5],
               nav: 'calendar'
             }
-          ].filter(Boolean).map((card, idx) => (
+          ].map((card, idx) => (
             <Motion.div
               key={idx}
               variants={itemVariants}
@@ -372,8 +382,8 @@ const Dashboard = () => {
 
         {/* Main Content Grid - Timetable Overview replace Attendance Trend */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Timetable Overview (Large) - Only for Teachers with timetable feature */}
-          {isTeacher && hasFeature('timetable') && (
+          {/* Timetable Overview (Large) - Only for Teachers */}
+          {isTeacher && (
             <Motion.div
               variants={itemVariants}
               className="lg:col-span-2 bg-white rounded-[2.5rem] p-8 md:p-10 border border-gray-50 shadow-[0_20px_50px_-15px_rgba(0,0,0,0.05)] overflow-hidden relative group cursor-pointer"
@@ -433,8 +443,8 @@ const Dashboard = () => {
             </Motion.div>
           )}
 
-          {/* School Bulletin - notice feature gate */}
-          {!isTeacher && hasFeature('notice') && (
+          {/* School Bulletin - Added for Admins to fill space nicely */}
+          {!isTeacher && (
             <Motion.div
               variants={itemVariants}
               className="lg:col-span-2 bg-white rounded-[2.5rem] p-8 md:p-10 border border-gray-50 shadow-[0_20px_50px_-15px_rgba(0,0,0,0.05)] overflow-hidden relative group"
@@ -505,8 +515,7 @@ const Dashboard = () => {
             </Motion.div>
           )}
 
-          {/* Attendance Rate Overview Circle - only when attendance is enabled */}
-          {hasFeature('attendance') && (
+          {/* Attendance Circle (Small) - Fixed 0% logic and routing */}
           <Motion.div
             variants={itemVariants}
             className="bg-white rounded-[2.5rem] p-8 border border-gray-50 shadow-[0_20px_50px_-15px_rgba(0,0,0,0.05)] flex flex-col justify-between group cursor-pointer"
@@ -562,7 +571,6 @@ const Dashboard = () => {
               </p>
             </div>
           </Motion.div>
-          )}
         </div>
 
         {/* Classroom Status Matrix - gate by attendance feature */}
@@ -615,4 +623,5 @@ const Dashboard = () => {
 };
 
 export default Dashboard;
+
 
