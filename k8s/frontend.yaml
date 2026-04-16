@@ -16,9 +16,13 @@ spec:
     spec:
       containers:
       - name: frontend
-        image: gcr.io/${GCP_PROJECT_ID}/frontend:${IMAGE_TAG}
+        image: IMAGE_PLACEHOLDER
         ports:
         - containerPort: 80
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
 ---
 apiVersion: v1
 kind: Service
