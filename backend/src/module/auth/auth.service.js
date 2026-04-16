@@ -20,6 +20,8 @@ import {
 import RefreshToken from "./RefreshToken.model.js";
 import PasswordResetToken from "./PasswordResetToken.model.js";
 import { sendPasswordResetEmail } from "../../utils/email.util.js";
+import { createAuditLog } from '../audit/audit.service.js';
+import { AUDIT_ACTIONS } from '../../constants/auditActions.js';
 
 const PASSWORD_RESET_EXPIRY_MINUTES = 15;
 
@@ -44,11 +46,29 @@ export const login = async (email, password, platform, metadata = {}) => {
     // Check account status
     if (!user.isActive) {
         logger.warn("Login failed: Account deactivated", { email, platform, role: user.role });
+        createAuditLog({
+            schoolId: user.schoolId?._id || null,
+            actorId: user._id,
+            actorRole: user.role,
+            action: AUDIT_ACTIONS.LOGIN_FAILED,
+            description: `Failed login attempt for deactivated account (email: ${email})`,
+            ip: metadata.ip,
+            userAgentString: metadata.userAgent
+        }).catch(() => {});
         throw new ForbiddenError("Account is deactivated");
     }
 
     if (user.isArchived) {
         logger.warn("Login failed: Account archived", { email, platform, role: user.role });
+        createAuditLog({
+            schoolId: user.schoolId?._id || null,
+            actorId: user._id,
+            actorRole: user.role,
+            action: AUDIT_ACTIONS.LOGIN_FAILED,
+            description: `Failed login attempt for archived account (email: ${email})`,
+            ip: metadata.ip,
+            userAgentString: metadata.userAgent
+        }).catch(() => {});
         throw new ForbiddenError("Account has been archived. Contact your administrator.");
     }
 
@@ -67,11 +87,30 @@ export const login = async (email, password, platform, metadata = {}) => {
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
         logger.warn("Login failed: Invalid password", { email, platform, role: user.role });
+        createAuditLog({
+            schoolId: user.schoolId?._id || null,
+            actorId: user._id,
+            actorRole: user.role,
+            action: AUDIT_ACTIONS.LOGIN_FAILED,
+            description: `Failed login attempt for email ${email}`,
+            ip: metadata.ip,
+            userAgentString: metadata.userAgent
+        }).catch(() => {});
         throw new UnauthorizedError("Invalid credentials");
     }
 
     // Update login time
     await User.updateOne({ _id: user._id }, { $set: { lastLoginAt: new Date() } });
+
+    createAuditLog({
+        schoolId: user.schoolId?._id || null,
+        actorId: user._id,
+        actorRole: user.role,
+        action: AUDIT_ACTIONS.LOGIN_SUCCESS,
+        description: `${user.name} logged in from ${platform}`,
+        ip: metadata.ip,
+        userAgentString: metadata.userAgent
+    }).catch(() => {});
 
     // Generate tokens
     const accessToken = generateAccessToken(user);
@@ -169,9 +208,24 @@ export const refreshAccessToken = async (oldRefreshToken, metadata = {}) => {
 };
 
 // LOGOUT
-export const logout = async (refreshToken) => {
+export const logout = async (refreshToken, metadata = {}) => {
     if (refreshToken) {
         const tokenHash = hashToken(refreshToken);
+        const tokenDoc = await RefreshToken.findOne({ tokenHash }).populate('userId');
+        
+        if (tokenDoc && tokenDoc.userId) {
+            const user = tokenDoc.userId;
+            createAuditLog({
+                 schoolId: user.schoolId || null,
+                 actorId: user._id,
+                 actorRole: user.role,
+                 action: AUDIT_ACTIONS.LOGOUT,
+                 description: `${user.name || 'User'} logged out`,
+                 ip: metadata.ip,
+                 userAgentString: metadata.userAgent
+            }).catch(() => {});
+        }
+
         await RefreshToken.deleteOne({ tokenHash });
     }
     return { message: "Logged out successfully" };
@@ -270,7 +324,7 @@ export const forgotPassword = async (email, metadata = {}) => {
 };
 
 // RESET PASSWORD - Set new password using reset token
-export const resetPassword = async (token, newPassword) => {
+export const resetPassword = async (token, newPassword, metadata = {}) => {
     logger.info("Password reset attempt");
 
     if (!token || !newPassword) {
@@ -326,6 +380,16 @@ export const resetPassword = async (token, newPassword) => {
     await RefreshToken.deleteMany({ userId: user._id });
 
     logger.info("Password reset successful", { userId: user._id });
+
+    createAuditLog({
+        schoolId: user.schoolId?._id || null,
+        actorId: user._id,
+        actorRole: user.role,
+        action: AUDIT_ACTIONS.PASSWORD_RESET_USED,
+        description: `${user.name} used a password reset link`,
+        ip: metadata.ip,
+        userAgentString: metadata.userAgent
+    }).catch(() => {});
 
     return { message: "Password has been reset successfully. Please login with your new password." };
 };

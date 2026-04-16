@@ -79,7 +79,8 @@ export const recordPayment = asyncHandler(async (req, res) => {
         req.params.id,
         req.body,
         req.user._id,
-        req.user
+        req.user,
+        { ip: req.ip, userAgent: req.headers["user-agent"] }
     );
     res.status(201).json({
         success: true,

@@ -9,6 +9,8 @@ import StudentProfile from "../user/model/StudentProfile.model.js";
 import TeacherProfile from "../user/model/TeacherProfile.model.js";
 import User from "../user/model/User.model.js";
 import { getConfiguredClassSections } from "../../utils/classSection.util.js";
+import { createAuditLog } from "../audit/audit.service.js";
+import { AUDIT_ACTIONS } from "../../constants/auditActions.js";
 
 /**
  * Generates a download URL for a Cloudinary attachment.
@@ -205,7 +207,7 @@ const buildReceivedNoticeQuery = async (schoolId, user) => {
 // NOTICE SERVICES
 
 // Create a new notice
-export const createNotice = async (schoolId, userId, data, file) => {
+export const createNotice = async (schoolId, userId, data, file, user, metadata) => {
     // Parse recipients (sent as JSON string from FormData)
     let recipients = typeof data.recipients === 'string'
         ? JSON.parse(data.recipients)
@@ -264,6 +266,23 @@ export const createNotice = async (schoolId, userId, data, file) => {
 
     await notice.populate("createdBy", "name email role isArchived");
     logger.info(`Notice created: ${notice._id}`);
+
+    // Fire-and-forget audit log
+    createAuditLog({
+        schoolId,
+        action: AUDIT_ACTIONS.NOTICE_BROADCAST,
+        actorId: userId,
+        actorRole: user?.role || "unknown",
+        targetEntity: "Notice",
+        targetId: notice._id,
+        details: {
+            title: notice.title,
+            recipientType: notice.recipientType,
+            recipientCount: notice.recipients?.length ?? 0,
+        },
+        ipAddress: metadata?.ip,
+        userAgent: metadata?.userAgent,
+    }).catch(() => {});
 
     return notice;
 };

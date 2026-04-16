@@ -6,6 +6,8 @@ import logger from "../../config/logger.js";
 import { ConflictError, NotFoundError, BadRequestError, ForbiddenError } from "../../utils/customError.js";
 import { USER_ROLES } from "../../constants/userRoles.js";
 import { assertClassSectionListExists } from "../../utils/classSection.util.js";
+import { createAuditLog } from "../audit/audit.service.js";
+import { AUDIT_ACTIONS } from "../../constants/auditActions.js";
 
 const parseClassKey = (value) => {
     const raw = String(value || "").trim();
@@ -209,7 +211,7 @@ const fetchExamEvents = async ({
 };
 
 // Create a new calendar event
-export const createCalendarEvent = async (eventData, user) => {
+export const createCalendarEvent = async (eventData, user, metadata) => {
     const { title, start, end, allDay, type, description, targetAudience, targetClasses } = eventData;
     const schoolId = user.schoolId;
     const audience = user.role === USER_ROLES.TEACHER ? 'classes' : (targetAudience || 'all');
@@ -251,6 +253,25 @@ export const createCalendarEvent = async (eventData, user) => {
     });
 
     logger.info(`Calendar event created: ${title}`);
+
+    createAuditLog({
+        schoolId,
+        actor: user._id,
+        actorModel: user.role === USER_ROLES.SUPER_ADMIN ? "SuperAdmin" : "User",
+        action: AUDIT_ACTIONS.CALENDAR.EVENT_CREATED,
+        entityId: newEvent._id,
+        entityModel: "CalendarEvent",
+        status: "success",
+        details: {
+            title: newEvent.title,
+            type: newEvent.type,
+            targetAudience: newEvent.targetAudience
+        },
+        ipAddress: metadata?.ip,
+        userAgent: metadata?.userAgent,
+        sessionToken: null
+    }).catch(err => logger.error(`Failed to create audit log: ${err.message}`));
+
     return newEvent;
 };
 
@@ -411,7 +432,7 @@ export const getCalendarEventById = async (id, schoolId) => {
 };
 
 // Update a calendar event
-export const updateCalendarEvent = async (id, updateData, user) => {
+export const updateCalendarEvent = async (id, updateData, user, metadata) => {
     // Check if event exists
     const event = await CalendarEvent.findById(id);
 
@@ -471,11 +492,26 @@ export const updateCalendarEvent = async (id, updateData, user) => {
     ).populate('createdBy', 'name email');
 
     logger.info(`Calendar event updated: ${id}`);
+
+    createAuditLog({
+        schoolId: event.schoolId,
+        actor: user._id,
+        actorModel: user.role === USER_ROLES.SUPER_ADMIN ? "SuperAdmin" : "User",
+        action: AUDIT_ACTIONS.CALENDAR.EVENT_UPDATED,
+        entityId: updatedEvent._id,
+        entityModel: "CalendarEvent",
+        status: "success",
+        details: { fields: Object.keys(updateData) },
+        ipAddress: metadata?.ip,
+        userAgent: metadata?.userAgent,
+        sessionToken: null
+    }).catch(err => logger.error(`Failed to create audit log: ${err.message}`));
+
     return updatedEvent;
 };
 
 // Delete a calendar event
-export const deleteCalendarEvent = async (id, user) => {
+export const deleteCalendarEvent = async (id, user, metadata) => {
     const event = await CalendarEvent.findById(id);
 
     if (!event) {
@@ -496,11 +532,26 @@ export const deleteCalendarEvent = async (id, user) => {
     await CalendarEvent.findByIdAndDelete(id);
 
     logger.info(`Calendar event deleted: ${id}`);
+
+    createAuditLog({
+        schoolId: event.schoolId,
+        actor: user._id,
+        actorModel: user.role === USER_ROLES.SUPER_ADMIN ? "SuperAdmin" : "User",
+        action: AUDIT_ACTIONS.CALENDAR.EVENT_DELETED,
+        entityId: id,
+        entityModel: "CalendarEvent",
+        status: "success",
+        details: { title: event.title },
+        ipAddress: metadata?.ip,
+        userAgent: metadata?.userAgent,
+        sessionToken: null
+    }).catch(err => logger.error(`Failed to create audit log: ${err.message}`));
+
     return { message: "Event deleted successfully" };
 };
 
 // Delete events by date
-export const deleteCalendarEventsByDate = async (dateStr, user, eventId) => {
+export const deleteCalendarEventsByDate = async (dateStr, user, eventId, metadata) => {
     const date = new Date(dateStr);
     if (isNaN(date.getTime())) {
         throw new BadRequestError("Invalid date provided");
@@ -524,6 +575,21 @@ export const deleteCalendarEventsByDate = async (dateStr, user, eventId) => {
         }
         
         await CalendarEvent.findByIdAndDelete(eventId);
+
+        createAuditLog({
+            schoolId: event.schoolId,
+            actor: user._id,
+            actorModel: user.role === USER_ROLES.SUPER_ADMIN ? "SuperAdmin" : "User",
+            action: AUDIT_ACTIONS.CALENDAR.EVENT_DELETED,
+            entityId: eventId,
+            entityModel: "CalendarEvent",
+            status: "success",
+            details: { title: event.title, deletedByDate: true },
+            ipAddress: metadata?.ip,
+            userAgent: metadata?.userAgent,
+            sessionToken: null
+        }).catch(err => logger.error(`Failed to create audit log: ${err.message}`));
+
         return { message: "Event deleted successfully", deletedCount: 1 };
     }
 
@@ -552,5 +618,20 @@ export const deleteCalendarEventsByDate = async (dateStr, user, eventId) => {
     }
 
     const result = await CalendarEvent.deleteMany(query);
+
+    createAuditLog({
+        schoolId: user.schoolId,
+        actor: user._id,
+        actorModel: user.role === USER_ROLES.SUPER_ADMIN ? "SuperAdmin" : "User",
+        action: AUDIT_ACTIONS.CALENDAR.EVENT_DELETED,
+        entityId: null, // Bulk
+        entityModel: "CalendarEvent",
+        status: "success",
+        details: { deletedCount: result.deletedCount, date: dateStr },
+        ipAddress: metadata?.ip,
+        userAgent: metadata?.userAgent,
+        sessionToken: null
+    }).catch(err => logger.error(`Failed to create audit log: ${err.message}`));
+
     return { message: `${result.deletedCount} event(s) deleted`, deletedCount: result.deletedCount };
 };

@@ -1,4 +1,6 @@
 import User from "./model/User.model.js";
+import { createAuditLog } from "../audit/audit.service.js";
+import { AUDIT_ACTIONS } from "../../constants/auditActions.js";
 import StudentProfile from "./model/StudentProfile.model.js";
 import TeacherProfile from "./model/TeacherProfile.model.js";
 import School from "../school/School.model.js";
@@ -360,7 +362,7 @@ const transferTeacherResponsibilities = async (
 
 // CREATE USER
 
-export const createTeacherStudent = async (creator, payload = {}) => {
+export const createTeacherStudent = async (creator, payload = {}, metadata = {}) => {
     if (creator.role !== USER_ROLES.TEACHER) {
         throw new ForbiddenError("Only teachers can create students from mobile");
     }
@@ -423,10 +425,10 @@ export const createTeacherStudent = async (creator, payload = {}) => {
         guardianName: payload.guardianName?.trim() || undefined,
         guardianContact: payload.guardianContact?.trim() || undefined,
         address: payload.address?.trim() || undefined,
-    });
+    }, metadata);
 };
 
-export const createUser = async (creator, userData) => {
+export const createUser = async (creator, userData, metadata = {}) => {
     const { name, email, role, skipEmail, forceOverride = false } = userData;
 
     // Hierarchy check: creator can only create roles below their own
@@ -537,6 +539,16 @@ export const createUser = async (creator, userData) => {
     }
 
     const { _id, name: n, email: e, role: r, schoolId: s, createdBy: cb } = newUser;
+
+    createAuditLog({
+        schoolId: targetSchoolId,
+        actorId: creator._id,
+        actorRole: creator.role,
+        action: AUDIT_ACTIONS.USER_CREATED,
+        description: `Created new ${r} user: ${e}`,
+        ...metadata
+    }).catch(() => {});
+
     return { user: { _id, name: n, email: e, role: r, schoolId: s, createdBy: cb } };
 };
 
@@ -928,6 +940,15 @@ export const toggleArchive = async (creator, userIds, isArchived, options = {}) 
         targetIds: verifiedIds
     }, `Users ${isArchived ? 'archived' : 'restored'}`);
 
+    createAuditLog({
+        schoolId: creator.schoolId,
+        actorId: creator._id,
+        actorRole: creator.role,
+        action: AUDIT_ACTIONS.USER_BULK_ACTION,
+        description: `${isArchived ? 'Archived' : 'Restored'} ${result.modifiedCount} user(s)`,
+        ...options.metadata
+    }).catch(() => {});
+
     return {
         modifiedCount: result.modifiedCount,
         requestedCount: ids.length,
@@ -989,7 +1010,7 @@ export const getNextRollNumber = async (creator, standard, section) => {
     return { nextRollNumber: maxRoll + 1 };
 };
 
-export const replaceClassTeacher = async (creator, data = {}) => {
+export const replaceClassTeacher = async (creator, data = {}, metadata = {}) => {
     if (![USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN].includes(creator.role)) {
         throw new ForbiddenError("Only admins can replace class teachers");
     }
@@ -1113,6 +1134,15 @@ export const replaceClassTeacher = async (creator, data = {}) => {
         await profile.save();
     }
 
+    createAuditLog({
+        schoolId: creator.schoolId,
+        actorId: creator._id,
+        actorRole: creator.role,
+        action: AUDIT_ACTIONS.USER_UPDATED,
+        description: `Replaced class teacher for ${normalizedClass.standard}-${normalizedClass.section} (mode: ${mode})`,
+        ...metadata
+    }).catch(() => {});
+
     return {
         standard: normalizedClass.standard,
         section: normalizedClass.section,
@@ -1124,7 +1154,7 @@ export const replaceClassTeacher = async (creator, data = {}) => {
 };
 
 // UPDATE TEACHER PROFILE (e.g. expectedSalary) - Fixed conflict checking
-export const updateTeacherProfile = async (creator, userId, data) => {
+export const updateTeacherProfile = async (creator, userId, data, metadata = {}) => {
     // Only admins can update profiles in this way
     if (![USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN].includes(creator.role)) {
         throw new ForbiddenError("Only admins can update teacher profiles");
@@ -1165,11 +1195,20 @@ export const updateTeacherProfile = async (creator, userId, data) => {
     if (!updatedProfile) throw new NotFoundError("Teacher profile not found");
 
     logger.info(`Teacher profile updated for user ${userId} by ${creator._id}`);
+
+    createAuditLog({
+        schoolId: creator.schoolId,
+        actorId: creator._id,
+        actorRole: creator.role,
+        action: AUDIT_ACTIONS.USER_UPDATED,
+        description: `Updated teacher profile for user ${user.email}`,
+        ...metadata
+    }).catch(() => {});
     return updatedProfile;
 };
 
 // UPDATE USER (admin/super admin)
-export const updateUser = async (creator, userId, payload = {}) => {
+export const updateUser = async (creator, userId, payload = {}, metadata = {}) => {
     const user = await User.findOne({ _id: userId, schoolId: creator.schoolId });
     if (!user) throw new NotFoundError("User not found");
 
@@ -1311,13 +1350,22 @@ export const updateUser = async (creator, userId, payload = {}) => {
         .populate("adminProfile")
         .lean();
 
+    createAuditLog({
+        schoolId: creator.schoolId,
+        actorId: creator._id,
+        actorRole: creator.role,
+        action: AUDIT_ACTIONS.USER_UPDATED,
+        description: `Updated user ${user.email} (${user.role})`,
+        ...metadata
+    }).catch(() => {});
+
     return formatUserResponse(refreshed);
 };
 
 // UPDATE AVATAR
-export const updateAvatar = async (userId, avatarUrl, avatarPublicId) => {
+export const updateAvatar = async (userId, avatarUrl, avatarPublicId, metadata = {}) => {
     // 1. FETCH USER
-    const user = await User.findById(userId).select("avatarUrl avatarPublicId");
+    const user = await User.findById(userId).select("avatarUrl avatarPublicId role schoolId");
 
     if (!user) {
         throw new NotFoundError("User not found");
@@ -1346,6 +1394,15 @@ export const updateAvatar = async (userId, avatarUrl, avatarPublicId) => {
         userId,
         newAvatarPublicId: avatarPublicId
     }, "Avatar updated successfully");
+
+    createAuditLog({
+        schoolId: user.schoolId || null,
+        actorId: userId,
+        actorRole: user.role, 
+        action: AUDIT_ACTIONS.USER_UPDATED,
+        description: `User updated avatar`,
+        ...metadata
+    }).catch(() => {});
 
     return {
         avatarUrl: user.avatarUrl,

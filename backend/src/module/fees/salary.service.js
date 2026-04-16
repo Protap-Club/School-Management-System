@@ -3,6 +3,8 @@ import User from "../user/model/User.model.js";
 import TeacherProfile from "../user/model/TeacherProfile.model.js";
 import { NotFoundError, ConflictError, BadRequestError } from "../../utils/customError.js";
 import logger from "../../config/logger.js";
+import { createAuditLog } from "../audit/audit.service.js";
+import { AUDIT_ACTIONS } from "../../constants/auditActions.js";
 
 // ── Create Salary Entry ────────────────────────────────────────
 export const createSalaryEntry = async (schoolId, data, userId) => {
@@ -84,7 +86,7 @@ export const getTeacherSalary = async (schoolId, teacherId, year) => {
 };
 
 // ── Update Salary Status/Amount (Admin) ────────────────────────
-export const updateSalaryStatus = async (schoolId, id, data) => {
+export const updateSalaryStatus = async (schoolId, id, data, user, metadata) => {
     const salary = await Salary.findOne({ _id: id, schoolId });
     if (!salary) throw new NotFoundError("Salary record not found");
 
@@ -111,5 +113,25 @@ export const updateSalaryStatus = async (schoolId, id, data) => {
 
     await salary.save();
     logger.info(`Salary ${id} updated (status: ${salary.status}, amount: ${salary.amount})`);
+
+    // Fire-and-forget audit log
+    createAuditLog({
+        schoolId,
+        action: AUDIT_ACTIONS.SALARY_UPDATED,
+        actorId: user._id,
+        actorRole: user.role,
+        targetEntity: "Salary",
+        targetId: salary._id,
+        details: {
+            teacherId: salary.teacherId,
+            month: salary.month,
+            year: salary.year,
+            amount: salary.amount,
+            status: salary.status,
+        },
+        ipAddress: metadata?.ip,
+        userAgent: metadata?.userAgent,
+    }).catch(() => {});
+
     return salary;
 };
