@@ -5,7 +5,7 @@ metadata:
   labels:
     app: frontend
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app: frontend
@@ -24,14 +24,14 @@ spec:
         - containerPort: 80
         resources:
           requests:
-            cpu: "100m"
-            memory: "128Mi"
+            cpu: "512m"
+            memory: "512Mi"
             # FIX 3: Specify ephemeral storage request
-            ephemeral-storage: "512Mi"
+            ephemeral-storage: "1Gi"
           limits:
             # FIX 4: Specify memory and storage limits
-            cpu: "300m"
-            memory: "256Mi"
+            cpu: "512Mi"
+            memory: "1Gi"
             ephemeral-storage: "1Gi"
 ---
 apiVersion: v1
