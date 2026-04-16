@@ -1323,7 +1323,7 @@ export const updateAvatar = async (userId, avatarUrl, avatarPublicId) => {
         throw new NotFoundError("User not found");
     }
 
-    // 3. STORE OLD AVATAR INFO
+    // Store old avatar info for cleanup
     const oldAvatarPublicId = user.avatarPublicId;
 
     // 4. UPDATE USER
@@ -1394,21 +1394,6 @@ const formatUserResponse = (user) => {
     };
 };
 
-const getTeacherClassTeacherScope = async (teacherId) => {
-    const profile = await TeacherProfile.findOne({ userId: teacherId })
-        .select("classTeacherOf")
-        .lean();
-
-    const classTeacherOf = profile?.classTeacherOf;
-    if (!classTeacherOf?.standard || !classTeacherOf?.section) {
-        return [];
-    }
-
-    return [{
-        standard: String(classTeacherOf.standard).trim(),
-        section: String(classTeacherOf.section).trim().toUpperCase(),
-    }];
-};
 
 const getTeacherAssignedClasses = async (teacherId) => {
     const profile = await TeacherProfile.findOne({ userId: teacherId }).select("assignedClasses").lean();

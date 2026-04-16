@@ -155,10 +155,7 @@ const UserDetailModal = ({ user, onClose, initialMode = 'view', onSuccess }) => 
     try {
       setSaveError('');
 
-      // New Validation for Admin/Super Admin
-      const { user: currentUser } = JSON.parse(localStorage.getItem('auth_user') || '{}');
-      const isTeacherLoggedIn = currentUser?.role === 'teacher';
-
+      // isTeacherLoggedIn is derived from useAuth() at line 24 — do not read from localStorage
       if (!isTeacherLoggedIn && isStudent) {
         if (formData.profile?.fatherName?.trim() && !formData.profile?.fatherContact?.trim()) {
           setSaveError("Father's contact number is required.");

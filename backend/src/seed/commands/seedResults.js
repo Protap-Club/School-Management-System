@@ -4,6 +4,9 @@ import StudentProfile from "../../module/user/model/StudentProfile.model.js";
 import Result from "../../module/result/result.model.js";
 import User from "../../module/user/model/User.model.js";
 import logger from "../../config/logger.js";
+import { loadSeedJson } from "../lib/loadJson.js";
+
+const { schools: schoolsDef } = loadSeedJson("schools.json");
 
 const hashInt = (input) => {
   let h = 2166136261;
@@ -39,7 +42,8 @@ function getMarksWithBellCurve(baseIntelligence, maxMarks, subjectIndex) {
 const seedResults = async () => {
   logger.info("=== Seeding Results ===");
 
-  const schools = await School.find();
+  const schoolCodes = (schoolsDef || []).map((school) => school.code);
+  const schools = await School.find({ code: { $in: schoolCodes } }).select("_id code");
 
   for (const school of schools) {
     // Only generate results for exams that are COMPLETED (meaning they are in the past)
@@ -48,6 +52,13 @@ const seedResults = async () => {
     if (completedExams.length === 0) {
         continue;
     }
+
+    // Make seeding idempotent for completed exams in this school.
+    // Avoid duplicate key failures on (examId, studentId) unique index.
+    await Result.deleteMany({
+      schoolId: school._id,
+      examId: { $in: completedExams.map((exam) => exam._id) },
+    });
 
     const admin = await User.findOne({
       schoolId: school._id,
@@ -60,14 +71,17 @@ const seedResults = async () => {
 
     for (const exam of completedExams) {
       // Find students in this class
-      const students = await StudentProfile.find({
+      const studentProfiles = await StudentProfile.find({
           schoolId: school._id,
           standard: exam.standard,
           section: exam.section
-      });
+      }).select("userId");
 
-      for (const student of students) {
-         const baseIntelligence = getBaseIntelligence(student.userId);
+      // Defensive dedupe in case legacy data has duplicate student profiles.
+      const uniqueStudentIds = [...new Set(studentProfiles.map((profile) => String(profile.userId)))];
+
+      for (const studentId of uniqueStudentIds) {
+         const baseIntelligence = getBaseIntelligence(studentId);
          
          const resultsBySubject = [];
          let obtainedTotal = 0;
@@ -103,7 +117,7 @@ const seedResults = async () => {
 
          records.push({
              examId: exam._id,
-             studentId: student.userId,
+             studentId,
              schoolId: school._id,
              subjects: resultsBySubject,
              totalMarks: maxTotal,

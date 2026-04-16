@@ -1,12 +1,12 @@
+// cspell:words Sparkline superadmin
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion as Motion } from 'framer-motion';
 import { useAuth } from '../features/auth';
 import { useDashboardStats } from '../hooks/useDashboardStats';
 import DashboardLayout from '../layouts/DashboardLayout';
 import { connectSocket, disconnectSocket } from '../api/socket';
 import api from '../lib/axios';
-import { useSchoolClasses } from '../hooks/useSchoolClasses';
 import { useFeatures } from '../state';
 import {
   Users,
@@ -43,35 +43,22 @@ const Dashboard = () => {
 
   const { data: statsRes, isLoading: statsLoading } = useDashboardStats();
   const { data: scheduleRes } = useMySchedule(isTeacher);
+  const scheduleData = scheduleRes?.data;
   const { data: noticesRes } = useNotices(!isTeacher);
   const { data: usersRes } = useUsers({ 
     role: 'all', 
     pageSize: 3, 
     enabled: !isTeacher
   });
-  const { classSections: configuredClassSections } = useSchoolClasses({ enabled: isAdmin || isSuperAdmin });
 
   const [selectedClass, setSelectedClass] = useState('all');
-  const [attendanceData, setAttendanceData] = useState([]);
   const [calendarEventsCount, setCalendarEventsCount] = useState(0);
 
-  const parseTime = (timeStr) => {
-    if (!timeStr) return 0;
-    const match = timeStr.match(/(\d+):(\d+)\s*(AM|PM)/i);
-    if (!match) return 0;
-    let [_, hours, minutes, modifier] = match;
-    hours = parseInt(hours, 10);
-    minutes = parseInt(minutes, 10);
-    if (modifier.toUpperCase() === 'PM' && hours < 12) hours += 12;
-    if (modifier.toUpperCase() === 'AM' && hours === 12) hours = 0;
-    return hours * 60 + minutes;
-  };
-
   const todaySchedule = useMemo(() => {
-    if (!isTeacher || !scheduleRes?.data) return [];
+    if (!scheduleData) return [];
     const todayName = new Date().toLocaleDateString('en-US', { weekday: 'long' });
     const todayKey = DAY_MAP[todayName];
-    const rawSessions = scheduleRes.data[todayKey] || [];
+    const rawSessions = scheduleData[todayKey] || [];
 
     // Deduplicate by slot to avoid showing multiple classes for the same period if data is messy
     const uniqueSlots = new Map();
@@ -87,28 +74,7 @@ const Dashboard = () => {
       const timeB = b.timeSlotId?.startTime || '';
       return timeA.localeCompare(timeB);
     });
-  }, [isTeacher, scheduleRes?.data]);
-
-  const activeSessionInfo = useMemo(() => {
-    if (!todaySchedule.length) return { index: 0, status: 'Up Next' };
-    const now = new Date();
-    const currentMinutes = now.getHours() * 60 + now.getMinutes();
-
-    const nowOnIndex = todaySchedule.findIndex(s => {
-      const start = parseTime(s.timeSlotId?.startTime);
-      const end = parseTime(s.timeSlotId?.endTime);
-      return currentMinutes >= start && currentMinutes <= end;
-    });
-
-    if (nowOnIndex !== -1) return { index: nowOnIndex, status: 'Now On' };
-
-    const upNextIndex = todaySchedule.findIndex(s => {
-      const start = parseTime(s.timeSlotId?.startTime);
-      return start > currentMinutes;
-    });
-
-    return { index: upNextIndex === -1 ? 0 : upNextIndex, status: 'Up Next' };
-  }, [todaySchedule]);
+  }, [scheduleData]);
 
   // Fetch current month calendar events for overview
   useEffect(() => {
@@ -206,21 +172,17 @@ const Dashboard = () => {
     return { overall, matrix, trend };
   }, [statsRes]);
 
-  useEffect(() => {
-    if (!(isAdmin || isSuperAdmin) || selectedClass === 'all') return;
-
-    const isStillValid = stats.matrix.some(m => m.name === selectedClass);
-    if (!isStillValid) {
-      setSelectedClass('all');
-    }
+  const activeSelectedClass = useMemo(() => {
+    if (!(isAdmin || isSuperAdmin) || selectedClass === 'all') return selectedClass;
+    return stats.matrix.some((m) => m.name === selectedClass) ? selectedClass : 'all';
   }, [stats.matrix, isAdmin, isSuperAdmin, selectedClass]);
 
   const filteredStats = useMemo(() => {
-    if ((isAdmin || isSuperAdmin) && selectedClass !== 'all') {
-      return stats.matrix.find(m => m.name === selectedClass) || stats.overall;
+    if ((isAdmin || isSuperAdmin) && activeSelectedClass !== 'all') {
+      return stats.matrix.find(m => m.name === activeSelectedClass) || stats.overall;
     }
     return stats.overall;
-  }, [stats, selectedClass, isAdmin, isSuperAdmin]);
+  }, [stats, activeSelectedClass, isAdmin, isSuperAdmin]);
 
   const teacherProfile = isTeacher ? (user?.profile || {}) : {};
   const teacherClassTeacherLabel = teacherProfile?.classTeacherOf?.standard && teacherProfile?.classTeacherOf?.section
@@ -278,14 +240,14 @@ const Dashboard = () => {
 
   return (
     <DashboardLayout>
-      <motion.div
-        className="max-w-[1600px] mx-auto space-y-8 p-4 md:p-6 lg:p-8"
+      <Motion.div
+        className="max-w-400 mx-auto space-y-8 p-4 md:p-6 lg:p-8"
         initial="hidden"
         animate="visible"
         variants={containerVariants}
       >
         {/* Modern Header Section - Personalized Greeting */}
-        <motion.div variants={itemVariants} className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 mb-10">
+        <Motion.div variants={itemVariants} className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 mb-10">
           <div className="space-y-1">
             <h1 className="text-4xl md:text-5xl font-black text-gray-900 tracking-tight">
               Welcome, <span className="text-primary">{user?.name?.split(' ')[0] || 'User'}</span>
@@ -300,8 +262,8 @@ const Dashboard = () => {
               </div>
             )}
             {(isAdmin || isSuperAdmin) && (
-              <Select value={selectedClass} onValueChange={setSelectedClass}>
-                <SelectTrigger className="h-10 rounded-full bg-white border-gray-100 shadow-sm text-gray-700 hover:bg-gray-50 transition-all font-bold text-xs px-6 min-w-[160px]">
+              <Select value={activeSelectedClass} onValueChange={setSelectedClass}>
+                <SelectTrigger className="h-10 rounded-full bg-white border-gray-100 shadow-sm text-gray-700 hover:bg-gray-50 transition-all font-bold text-xs px-6 min-w-40">
                   <SelectValue placeholder="Select Class" />
                 </SelectTrigger>
                 <SelectContent position="popper" className="rounded-2xl border-gray-100 shadow-2xl">
@@ -313,10 +275,10 @@ const Dashboard = () => {
               </Select>
             )}
           </div>
-        </motion.div>
+        </Motion.div>
 
         {isTeacher && (
-          <motion.div variants={itemVariants} className="bg-white rounded-[2rem] p-6 border border-gray-50 shadow-[0_10px_40px_-15px_rgba(0,0,0,0.05)]">
+          <Motion.div variants={itemVariants} className="bg-white rounded-[2rem] p-6 border border-gray-50 shadow-[0_10px_40px_-15px_rgba(0,0,0,0.05)]">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
               <div className="rounded-2xl border border-primary/10 bg-primary/5 p-4">
                 <p className="text-[10px] font-black uppercase tracking-widest text-primary">Class Teacher Of</p>
@@ -335,7 +297,7 @@ const Dashboard = () => {
                 </p>
               </div>
             </div>
-          </motion.div>
+          </Motion.div>
         )}
 
         {/* Top Metric Cards — conditionally include attendance/calendar based on feature flags */}
@@ -344,7 +306,6 @@ const Dashboard = () => {
             hasFeature('attendance') && {
               label: 'Total Students',
               value: filteredStats.total,
-              icon: Users,
               color: 'indigo',
               trend: '+12.5%',
               trendText: 'Enrollment Growth',
@@ -353,7 +314,6 @@ const Dashboard = () => {
             hasFeature('attendance') && {
               label: 'Present Today',
               value: filteredStats.present,
-              icon: UserCheck,
               color: 'emerald',
               trend: 'Live',
               trendText: 'Checked-in students',
@@ -363,7 +323,6 @@ const Dashboard = () => {
             hasFeature('attendance') && {
               label: 'Absent Today',
               value: filteredStats.absent,
-              icon: Users,
               color: 'red',
               trend: 'Requires Action',
               trendText: 'Not checked-in',
@@ -373,15 +332,14 @@ const Dashboard = () => {
             hasFeature('calendar') && {
               label: 'Calendar Overview',
               value: `${calendarEventsCount} Events`,
-              icon: Calendar,
               color: 'amber',
               trend: 'Upcoming',
               trendText: 'View Schedule',
               spark: [2, 1, 3, 2, 4, 3, 5],
               nav: 'calendar'
             }
-          ].filter(Boolean).map((card, idx) => (
-            <motion.div
+          ].map((card, idx) => (
+            <Motion.div
               key={idx}
               variants={itemVariants}
               className={`bg-white rounded-[2rem] p-6 border border-gray-50 shadow-[0_10px_40px_-15px_rgba(0,0,0,0.05)] hover:shadow-[0_20px_60px_-15px_rgba(0,0,0,0.1)] transition-all duration-500 group relative overflow-hidden cursor-pointer`}
@@ -391,7 +349,7 @@ const Dashboard = () => {
                 } else {
                   const filter = card.nav ? `?show=${card.nav}` : '';
                   const path = (isAdmin || isSuperAdmin)
-                    ? (selectedClass === 'all' ? `/${rolePrefix}/attendance${filter}` : `/${rolePrefix}/attendance/${encodeURIComponent(selectedClass)}${filter}`)
+                    ? (activeSelectedClass === 'all' ? `/${rolePrefix}/attendance${filter}` : `/${rolePrefix}/attendance/${encodeURIComponent(activeSelectedClass)}${filter}`)
                     : `/${rolePrefix}/attendance${filter}`;
                   navigate(path);
                 }
@@ -413,20 +371,20 @@ const Dashboard = () => {
                 </div>
                 <div className="pt-2 flex items-center justify-between gap-4">
                   <span className="text-[10px] text-gray-400 font-medium whitespace-nowrap">{card.trendText}</span>
-                  <div className="flex-1 h-[30px] flex items-center">
+                  <div className="flex-1 h-7.5 flex items-center">
                     <Sparkline data={card.spark} color={`var(--color-${card.color}-600)`} width={80} height={30} />
                   </div>
                 </div>
               </div>
-            </motion.div>
+            </Motion.div>
           ))}
         </div>
 
         {/* Main Content Grid - Timetable Overview replace Attendance Trend */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Timetable Overview (Large) - Only for Teachers with timetable feature */}
-          {isTeacher && hasFeature('timetable') && (
-            <motion.div
+          {/* Timetable Overview (Large) - Only for Teachers */}
+          {isTeacher && (
+            <Motion.div
               variants={itemVariants}
               className="lg:col-span-2 bg-white rounded-[2.5rem] p-8 md:p-10 border border-gray-50 shadow-[0_20px_50px_-15px_rgba(0,0,0,0.05)] overflow-hidden relative group cursor-pointer"
               onClick={() => navigate(`/${rolePrefix}/timetable`)}
@@ -482,12 +440,12 @@ const Dashboard = () => {
                   </button>
                 </div>
               </div>
-            </motion.div>
+            </Motion.div>
           )}
 
-          {/* School Bulletin - notice feature gate */}
-          {!isTeacher && hasFeature('notice') && (
-            <motion.div
+          {/* School Bulletin - Added for Admins to fill space nicely */}
+          {!isTeacher && (
+            <Motion.div
               variants={itemVariants}
               className="lg:col-span-2 bg-white rounded-[2.5rem] p-8 md:p-10 border border-gray-50 shadow-[0_20px_50px_-15px_rgba(0,0,0,0.05)] overflow-hidden relative group"
             >
@@ -554,17 +512,16 @@ const Dashboard = () => {
                   </button>
                 </div>
               </div>
-            </motion.div>
+            </Motion.div>
           )}
 
-          {/* Attendance Rate Overview Circle - only when attendance is enabled */}
-          {hasFeature('attendance') && (
-          <motion.div
+          {/* Attendance Circle (Small) - Fixed 0% logic and routing */}
+          <Motion.div
             variants={itemVariants}
             className="bg-white rounded-[2.5rem] p-8 border border-gray-50 shadow-[0_20px_50px_-15px_rgba(0,0,0,0.05)] flex flex-col justify-between group cursor-pointer"
             onClick={() => {
               const path = (isAdmin || isSuperAdmin)
-                ? (selectedClass === 'all' ? `/${rolePrefix}/attendance` : `/${rolePrefix}/attendance/${encodeURIComponent(selectedClass)}`)
+                ? (activeSelectedClass === 'all' ? `/${rolePrefix}/attendance` : `/${rolePrefix}/attendance/${encodeURIComponent(activeSelectedClass)}`)
                 : `/${rolePrefix}/attendance`;
               navigate(path);
             }}
@@ -580,7 +537,7 @@ const Dashboard = () => {
                 size={180}
                 strokeWidth={14}
                 color="var(--color-primary)"
-                label={parseFloat(filteredStats.rate) === 0 ? "0% AS OF NOW" : (selectedClass === 'all' ? 'Overall' : `Class ${selectedClass}`)}
+                label={parseFloat(filteredStats.rate) === 0 ? "0% AS OF NOW" : (activeSelectedClass === 'all' ? 'Overall' : `Class ${activeSelectedClass}`)}
               />
 
               <div className="w-full space-y-3">
@@ -596,7 +553,7 @@ const Dashboard = () => {
                       <span className="text-gray-900">{row.value} ({row.percentage}%)</span>
                     </div>
                     <div className="h-1.5 w-full bg-gray-50 rounded-full overflow-hidden">
-                      <motion.div
+                      <Motion.div
                         className={`h-full bg-${row.color}-500`}
                         initial={{ width: 0 }}
                         animate={{ width: `${row.percentage}%` }}
@@ -613,14 +570,13 @@ const Dashboard = () => {
                 <Clock size={12} /> Last Sync: {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} IST
               </p>
             </div>
-          </motion.div>
-          )}
+          </Motion.div>
         </div>
 
         {/* Classroom Status Matrix - gate by attendance feature */}
         {hasFeature('attendance') && (
         <div className="grid grid-cols-1 pb-10">
-          <motion.div variants={itemVariants} className="space-y-6">
+          <Motion.div variants={itemVariants} className="space-y-6">
             <div className="flex justify-between items-end px-2">
               <div>
                 <h2 className="text-2xl font-black text-gray-900 tracking-tight uppercase">Classroom <span className="text-primary">Attendance Matrix</span></h2>
@@ -630,7 +586,7 @@ const Dashboard = () => {
 
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
               {stats.matrix.map((cls, idx) => (
-                <motion.div
+                <Motion.div
                   key={idx}
                   whileHover={{ y: -5 }}
                   className="bg-white p-4 rounded-3xl border border-gray-50 shadow-sm hover:shadow-md transition-all cursor-pointer group"
@@ -646,7 +602,7 @@ const Dashboard = () => {
                   <div className="space-y-1">
                     <p className="text-[11px] font-black text-gray-900">{cls.rate}%</p>
                     <div className="h-1 w-full bg-gray-50 rounded-full overflow-hidden">
-                      <motion.div
+                      <Motion.div
                         className={`h-full ${parseFloat(cls.rate) > 90 ? 'bg-emerald-500' : 'bg-amber-500'}`}
                         initial={{ width: 0 }}
                         animate={{ width: `${cls.rate}%` }}
@@ -654,16 +610,18 @@ const Dashboard = () => {
                       />
                     </div>
                   </div>
-                </motion.div>
+                </Motion.div>
               ))}
             </div>
-          </motion.div>
+          </Motion.div>
         </div>
         )}
-      </motion.div>
+      </Motion.div>
 
     </DashboardLayout>
   );
 };
 
 export default Dashboard;
+
+
