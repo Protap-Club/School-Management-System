@@ -16,6 +16,7 @@ import { useToastMessage } from '../../hooks/useToastMessage';
 import { PaginationControls } from '../../components/ui/PaginationControls';
 import { formatValue } from '../../utils';
 import { downloadFile } from '../../utils/downloadFile';
+import { useExamSubmit } from './useExamSubmit';
 
 // Constants
 const EXAM_TYPES = {
@@ -37,21 +38,7 @@ const STATUS_DOT_STYLES = {
   CANCELLED: 'bg-rose-500',
 };
 
-const sanitizeAttachmentForApi = (attachment = {}) => {
-  const sanitized = {
-    url: attachment.url,
-  };
-
-  if (attachment.publicId) sanitized.publicId = attachment.publicId;
-  if (attachment.name) sanitized.name = attachment.name;
-  if (attachment.originalName) sanitized.originalName = attachment.originalName;
-  if (attachment.fileType) sanitized.fileType = attachment.fileType;
-  if (attachment.mimeType) sanitized.mimeType = attachment.mimeType;
-  if (typeof attachment.size === 'number') sanitized.size = attachment.size;
-  if (attachment.uploadedAt) sanitized.uploadedAt = attachment.uploadedAt;
-
-  return sanitized;
-};
+// sanitizeAttachmentForApi has been moved to useExamSubmit.js
 
 const resolveEntityId = (entity) =>
   String(entity?._id || entity?.id || entity?.userId || '');
@@ -397,6 +384,16 @@ const ExaminationPage = () => {
       showMessage('error', 'Download failed');
     }
   }, [showMessage]);
+
+  const { handleExamSubmit } = useExamSubmit({
+    showModal,
+    setShowModal,
+    createExamMutation,
+    updateExamMutation,
+    patchScheduleSyllabusMutation,
+    uploadScheduleAttachmentsMutation,
+    showMessage,
+  });
 
   return (
     <DashboardLayout>
@@ -868,188 +865,7 @@ const ExaminationPage = () => {
             onClose={() => {
               setShowModal({ type: '', open: false, data: null });
             }}
-            onSubmit={async (data) => {
-              const originalSchedule = showModal.data?.schedule || [];
-              const originalById = new Map(
-                originalSchedule.map((item) => [String(item._id || ''), item])
-              );
-              const getAttachmentSignature = (attachments = []) =>
-                (attachments || [])
-                  .map((attachment) => `${attachment?.publicId || ''}|${attachment?.url || ''}`)
-                  .sort()
-                  .join(',');
-
-              if (showModal.type === 'editSyllabus') {
-                const examId = showModal.data?._id;
-                if (!examId) {
-                  showMessage('error', 'Exam not found for syllabus update.');
-                  return;
-                }
-
-                const syllabusPatchQueue = (data.schedule || []).map((item, index) => {
-                  const scheduleItemId = item._id || originalSchedule?.[index]?._id;
-                  const originalItem = originalById.get(String(scheduleItemId || '')) || originalSchedule?.[index] || {};
-                  const syllabusChanged = String(item.syllabus || '') !== String(originalItem?.syllabus || '');
-                  const attachmentsChanged =
-                    getAttachmentSignature(item.attachments || []) !== getAttachmentSignature(originalItem?.attachments || []);
-
-                  return {
-                    index,
-                    scheduleItemId,
-                    shouldPatch: Boolean(scheduleItemId) && (syllabusChanged || attachmentsChanged),
-                    syllabus: item.syllabus || '',
-                    attachments: item.attachments || [],
-                    attachmentFiles: item.attachmentFiles || [],
-                  };
-                });
-
-                try {
-                  for (const item of syllabusPatchQueue) {
-                    if (item.shouldPatch) {
-                      await patchScheduleSyllabusMutation.mutateAsync({
-                        examId,
-                        scheduleItemId: item.scheduleItemId,
-                        updateData: {
-                          syllabus: item.syllabus,
-                          attachments: (item.attachments || []).map(sanitizeAttachmentForApi),
-                          // If we'll also upload new files right after, let the upload
-                          // broadcast the single notice — suppress the duplicate here.
-                          suppressNotice: item.attachmentFiles.length > 0,
-                        },
-                      });
-                    }
-
-                    if (item.attachmentFiles.length > 0) {
-                      if (!item.scheduleItemId) {
-                        throw new Error(`Missing schedule item id for paper #${item.index + 1}`);
-                      }
-                      await uploadScheduleAttachmentsMutation.mutateAsync({
-                        examId,
-                        scheduleItemId: item.scheduleItemId,
-                        files: item.attachmentFiles,
-                      });
-                    }
-                  }
-                } catch (error) {
-                  console.error('Syllabus update failed:', error);
-                  const updateMessage =
-                    error.response?.data?.message ||
-                    error.response?.data?.error?.message ||
-                    error.message ||
-                    'Failed to update syllabus';
-
-                  showMessage('error', updateMessage);
-                  return;
-                }
-
-                showMessage('success', 'Exam syllabus and attachments updated successfully');
-                setShowModal({ type: '', open: false, data: null });
-                return;
-              }
-
-              const scheduleAttachmentQueue = (data.schedule || [])
-                .map((item, index) => ({
-                  index,
-                  files: item.attachmentFiles || [],
-                  existingScheduleItemId: item._id || '',
-                }))
-                .filter((entry) => entry.files.length > 0);
-
-              const examPayload = {
-                ...data,
-                schedule: (data.schedule || []).map((item) => {
-                  const { attachmentFiles: _attachmentFiles, ...safeItem } = item;
-                  return {
-                    ...safeItem,
-                    attachments: (safeItem.attachments || []).map(sanitizeAttachmentForApi),
-                  };
-                }),
-              };
-
-              let savedExamId = showModal.data?._id;
-              let savedSchedule = [];
-
-              try {
-                if (showModal.type === 'create') {
-                  const createdExamResponse = await createExamMutation.mutateAsync(examPayload);
-                  savedExamId = createdExamResponse?.data?._id;
-                  savedSchedule = createdExamResponse?.data?.schedule || [];
-                } else {
-                  const updatedExamResponse = await updateExamMutation.mutateAsync({
-                    examId: showModal.data._id,
-                    updateData: examPayload,
-                  });
-                  savedExamId = updatedExamResponse?.data?._id || savedExamId;
-                  savedSchedule = updatedExamResponse?.data?.schedule || [];
-                }
-              } catch (error) {
-                console.error('Failed to save exam:', error);
-                let message =
-                  error.response?.data?.message ||
-                  error.response?.data?.error?.message ||
-                  error.message ||
-                  'Operation failed';
-
-                const validationErrors = error.response?.data?.errors || error.response?.data?.error?.details;
-                if (error.response?.status === 422 && validationErrors) {
-                  const fieldErrors = validationErrors;
-                  if (Array.isArray(fieldErrors)) {
-                    const detail = fieldErrors.map((e) => `${(e.path || e.field || '').split('.').pop()}: ${e.message}`).join(', ');
-                    message = `Validation Error: ${detail}`;
-                  }
-                }
-
-                showMessage('error', message);
-                return;
-              }
-
-              if (scheduleAttachmentQueue.length > 0) {
-                if (!savedExamId) {
-                  showMessage(
-                    'error',
-                    'Exam was saved, but attachments could not be uploaded because the exam id is missing.'
-                  );
-                  setShowModal({ type: '', open: false, data: null });
-                  return;
-                }
-
-                try {
-                  for (const item of scheduleAttachmentQueue) {
-                    const mappedScheduleItemId = item.existingScheduleItemId || savedSchedule?.[item.index]?._id;
-
-                    if (!mappedScheduleItemId) {
-                      throw new Error(`Missing schedule item id for paper #${item.index + 1}`);
-                    }
-
-                    await uploadScheduleAttachmentsMutation.mutateAsync({
-                      examId: savedExamId,
-                      scheduleItemId: mappedScheduleItemId,
-                      files: item.files,
-                    });
-                  }
-                } catch (error) {
-                  console.error('Exam saved but schedule attachment upload failed:', error);
-                  const uploadMessage =
-                    error.response?.data?.message ||
-                    error.response?.data?.error?.message ||
-                    error.message ||
-                    'Attachment upload failed';
-
-                  showMessage(
-                    'error',
-                    `Exam ${showModal.type === 'create' ? 'created' : 'updated'}, but one or more attachments failed: ${uploadMessage}`
-                  );
-                  setShowModal({ type: '', open: false, data: null });
-                  return;
-                }
-              }
-
-              showMessage(
-                'success',
-                `Exam ${showModal.type === 'create' ? 'created' : 'updated'} successfully${scheduleAttachmentQueue.length > 0 ? ' with paper attachments' : ''}`
-              );
-              setShowModal({ type: '', open: false, data: null });
-            }}
+            onSubmit={handleExamSubmit}
             editData={showModal.type === 'edit' || showModal.type === 'editSyllabus' ? showModal.data : null}
             syllabusOnly={showModal.type === 'editSyllabus'}
             isLoading={
