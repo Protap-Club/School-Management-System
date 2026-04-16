@@ -55,7 +55,7 @@ export const StudentOverviewPanel = ({
                     <div className="flex items-center justify-between mb-4">
                         <div>
                             <h2 className="text-xl font-bold text-gray-900">{selectedStudent.name}</h2>
-                            <p className="text-sm text-gray-500">Fee History — {overviewYear}</p>
+                            <p className="text-sm text-gray-500">Fee History — {overviewYear} - {overviewYear + 1}</p>
                         </div>
                         <div className="flex gap-4 text-sm">
                             <div className="text-center px-4 py-2 bg-gray-50 rounded-xl"><p className="text-xs text-gray-500">Total Due</p><p className="text-lg font-bold">₹{(studentSummary.totalDue || 0).toLocaleString()}</p></div>
@@ -133,7 +133,7 @@ export const StudentOverviewPanel = ({
                         <div className="flex flex-col md:flex-row md:items-center gap-4">
                             <div>
                                 <h2 className="text-xl font-bold text-gray-900">Class {selectedClass.standard}-{selectedClass.section}</h2>
-                                <p className="text-sm text-gray-500">{MONTH_LABELS[overviewMonth]} {overviewYear}</p>
+                                <p className="text-sm text-gray-500">{MONTH_LABELS[overviewMonth]} {overviewYear} - {overviewYear + 1}</p>
                             </div>
                             <div className="flex items-center gap-2 bg-gray-50 p-1.5 rounded-xl border border-gray-100">
                                 <FaFilter className="text-gray-400 ml-2" size={12} />
@@ -300,7 +300,7 @@ export const StudentOverviewPanel = ({
                             {isLoadingOverview ? (
                                 <SkeletonRows rows={4} columns={8} />
                             ) : overviewClasses.length === 0 ? (
-                                <tr><td colSpan={8}><EmptyState icon={FaEye} title="No fee data" subtitle="Generate assignments first to see overview" /></td></tr>
+                                <tr><td colSpan={8}><EmptyState icon={FaInfoCircle} title="No fee structure created yet" subtitle="Please create a fee structure for this month/year to see data." /></td></tr>
                             ) : (
                                 overviewClasses.map(cls => {
                                     const pct = cls.totalDue > 0 ? Math.round((cls.totalCollected / cls.totalDue) * 100) : 0;

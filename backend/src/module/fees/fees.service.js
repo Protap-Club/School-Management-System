@@ -605,6 +605,7 @@ export const getAllClassesFeeOverview = async (schoolId, academicYear, month) =>
             $match: {
                 schoolId: new mongoose.Types.ObjectId(schoolId),
                 academicYear: Number(academicYear),
+                applicableMonths: Number(month),
                 isActive: true,
             },
         },

@@ -17,7 +17,7 @@ const getAcademicYearOptions = () => {
         const startYear = year + i;
         options.push({
             value: startYear,
-            label: `${startYear}-${startYear + 1}`
+            label: `${startYear} - ${startYear + 1}`
         });
     }
     return options;
