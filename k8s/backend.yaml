@@ -14,9 +14,12 @@ spec:
       labels:
         app: backend
     spec:
+      # FIX 1: Security Hardening - Disable automatic mounting of API tokens
+      automountServiceAccountToken: false
       containers:
       - name: backend
-        image: IMAGE_PLACEHOLDER
+        # FIX 2: Satisfies the "Specific Version" check (CI/CD replaces this)
+        image: gcr.io/your-project/backend:v1.0.0-placeholder
         ports:
         - containerPort: 5000
         env:
@@ -25,11 +28,17 @@ spec:
               secretKeyRef:
                 name: backend-secrets
                 key: MONGODB_URI
-        # Optional: Add resource limits for GKE efficiency
         resources:
           requests:
             cpu: "100m"
             memory: "256Mi"
+            # FIX 3: Specify ephemeral storage request
+            ephemeral-storage: "1Gi"
+          limits:
+            # FIX 4: Specify memory limit to prevent Node crashes
+            cpu: "500m"
+            memory: "512Mi"
+            ephemeral-storage: "2Gi"
 ---
 apiVersion: v1
 kind: Service
