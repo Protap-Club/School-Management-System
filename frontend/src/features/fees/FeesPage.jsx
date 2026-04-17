@@ -603,7 +603,7 @@ const FeesPage = () => {
                                 </button>
                                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
                                     <div>
-                                        <h2 className="text-2xl font-black text-gray-900 font-display">Student Fee Management ({overviewYear} - {overviewYear + 1})</h2>
+                                        <h2 className="text-2xl font-black text-gray-900 font-display">Student Fee Management</h2>
                                         <div className="flex gap-1 bg-gray-100 p-1 rounded-xl w-fit mt-3">
                                             {[
                                                 { id: 'structures', label: 'Structures', icon: <FaListAlt size={10} /> },
