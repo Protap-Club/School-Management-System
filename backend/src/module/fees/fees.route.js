@@ -25,6 +25,7 @@ import {
     getClassPenaltyOverview,
     getYearlyPenaltySummary,
     getMyPenalties,
+    deleteStudentPenalty,
 } from "./fees.controller.js";
 import {
     createSalaryEntry,
@@ -308,6 +309,14 @@ router.patch(
     checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN]),
     validate(updatePenaltyStatusSchema),
     updatePenaltyStatus
+);
+
+router.delete(
+    "/penalties/:id",
+    checkWebOnly,
+    checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN]),
+    validate(feeStructureIdParamsSchema),
+    deleteStudentPenalty
 );
 
 // Final verification log for routing registration

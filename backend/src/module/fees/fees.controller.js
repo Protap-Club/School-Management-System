@@ -265,3 +265,9 @@ export const getMyPenalties = asyncHandler(async (req, res) => {
         data: result,
     });
 });
+
+export const deleteStudentPenalty = asyncHandler(async (req, res) => {
+    await feesService.deleteStudentPenalty(req.schoolId, req.params.id);
+    res.status(204).end();
+    logger.info(`Student penalty deleted: ${req.params.id} by admin ${req.user._id}`);
+});

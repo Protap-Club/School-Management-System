@@ -170,4 +170,9 @@ export const feesApi = {
         const response = await api.get(`/fees/my-penalties?${params.toString()}`);
         return response.data;
     },
+
+    deleteStudentPenalty: async (penaltyId) => {
+        const response = await api.delete(`/fees/penalties/${penaltyId}`);
+        return response.data;
+    },
 };

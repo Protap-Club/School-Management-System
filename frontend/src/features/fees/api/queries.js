@@ -291,6 +291,16 @@ export const useUpdatePenaltyStatus = () => {
     });
 };
 
+export const useDeleteStudentPenalty = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: feesApi.deleteStudentPenalty,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: feeKeys.all });
+        },
+    });
+};
+
 export const useAllClassesPenaltyOverview = (academicYear, isAdmin = false) => {
     const { accessToken } = useAuth();
     return useQuery({

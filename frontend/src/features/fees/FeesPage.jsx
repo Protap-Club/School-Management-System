@@ -8,7 +8,7 @@ import {
     useStudentFeeHistory, useRecordPayment, useUpdateAssignment,
     useCreateSalary, useSalaries, useUpdateSalaryStatus, useMySalary, useUpdateTeacherProfile,
     useMyFees, useFeeTypes, usePenaltyTypes, usePenaltyStudentsByClass, useStudentPenalties, useCreateStudentPenalty,
-    useUpdatePenaltyStatus, useAllClassesPenaltyOverview, useClassPenaltyOverview, useYearlyPenaltySummary, useMyPenalties,
+    useUpdatePenaltyStatus, useDeleteStudentPenalty, useAllClassesPenaltyOverview, useClassPenaltyOverview, useYearlyPenaltySummary, useMyPenalties,
     SALARY_LABELS,
     FEE_TYPES, FEE_TYPE_LABELS, FREQUENCY_LABELS, MONTH_LABELS, PENALTY_TYPE_LABELS,
 } from './index';
@@ -125,6 +125,8 @@ const FeesPage = () => {
     const [payForm, setPayForm] = useState({ month: currentMonth, year: currentYear, amount: '' });
     const [payFormErrors, setPayFormErrors] = useState({});
 
+    const [penaltyDeleteConfirm, setPenaltyDeleteConfirm] = useState(null);
+
     // Filter logic
     useEffect(() => {
         setOverviewPage(1);
@@ -240,6 +242,7 @@ const FeesPage = () => {
     const updateTeacherProfileMut = useUpdateTeacherProfile();
     const penaltyMut = useCreateStudentPenalty();
     const penaltyStatusMut = useUpdatePenaltyStatus();
+    const deletePenaltyMut = useDeleteStudentPenalty();
 
     // showToast provided by useToastMessage hook
 
@@ -476,6 +479,17 @@ const FeesPage = () => {
             await penaltyStatusMut.mutateAsync({ penaltyId, status });
             showToast('success', `Penalty marked as ${status}`);
         } catch (err) { showToast('error', err?.response?.data?.message || 'Failed to update penalty status'); }
+    };
+
+    const handleDeletePenalty = async (id) => {
+        try {
+            await deletePenaltyMut.mutateAsync(id);
+            showToast('success', 'Penalty deleted successfully');
+            setPenaltyDeleteConfirm(null);
+        } catch (err) { 
+            showToast('error', err?.response?.data?.message || 'Failed to delete'); 
+            setPenaltyDeleteConfirm(null);
+        }
     };
 
     const renderTabBtn = (tab, icon, label) => (
@@ -734,11 +748,11 @@ const FeesPage = () => {
                                             <table className="w-full text-sm">
                                                 <thead>
                                                     <tr className="border-b border-gray-100 uppercase">
-                                                        {['Student', 'Class', 'Penalty Type', 'Reason', 'Amount', 'Occurrence Date', 'Status'].map(h => (
+                                                        {['Student', 'Class', 'Penalty Type', 'Reason', 'Amount', 'Occurrence Date', 'Status', 'Actions'].map(h => (
                                                             <th
                                                                 key={h}
                                                                 className={`px-4 py-4 text-[10px] font-black text-gray-400 tracking-widest ${
-                                                                    h === 'Status' ? 'text-center' : 'text-left'
+                                                                    h === 'Status' || h === 'Actions' ? 'text-center' : 'text-left'
                                                                 }`}
                                                             >
                                                                 {h}
@@ -748,9 +762,9 @@ const FeesPage = () => {
                                                 </thead>
                                                 <tbody className="divide-y divide-gray-50">
                                                     {penaltyRecordsLoading ? (
-                                                        <SkeletonRows rows={4} columns={7} />
+                                                        <SkeletonRows rows={4} columns={8} />
                                                     ) : penaltyRecords.length === 0 ? (
-                                                        <tr><td colSpan={7}><EmptyState icon={FaListAlt} title="No student penalties found" subtitle="This student has no penalty records for the selected class and year." /></td></tr>
+                                                        <tr><td colSpan={8}><EmptyState icon={FaListAlt} title="No student penalties found" subtitle="This student has no penalty records for the selected class and year." /></td></tr>
                                                     ) : (
                                                         penaltyRecords.map((penalty) => (
                                                             <tr key={penalty._id} className="hover:bg-gray-50/25 transition-colors">
@@ -777,6 +791,14 @@ const FeesPage = () => {
                                                                     }`}>
                                                                         {penalty.status}
                                                                     </span>
+                                                                </td>
+                                                                <td className="px-4 py-4 text-center">
+                                                                    <div className="flex items-center justify-center gap-1">
+                                                                        <button onClick={() => setPenaltyDeleteConfirm(penalty.penaltyId || penalty._id)}
+                                                                            title="Delete Penalty" className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
+                                                                            <FaTrash size={12} />
+                                                                        </button>
+                                                                    </div>
                                                                 </td>
                                                             </tr>
                                                         ))
@@ -1538,6 +1560,27 @@ const FeesPage = () => {
                             <button onClick={() => handleDeleteStructure(deleteConfirm)} disabled={deleteMut.isPending}
                                 className="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white font-medium rounded-xl transition-colors flex items-center justify-center gap-2 disabled:opacity-70">
                                 {deleteMut.isPending ? <ButtonSpinner /> : <FaTrash size={12} />}Delete
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {/* Penalty Delete Confirmation */}
+            {penaltyDeleteConfirm && (
+                <div className={MODAL_OVERLAY}>
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden animate-fadeIn">
+                        <div className="p-6 text-center">
+                            <div className="w-14 h-14 bg-red-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                                <FaTrash className="text-red-500" size={20} />
+                            </div>
+                            <h3 className="text-lg font-semibold text-gray-900 mb-2">Delete Student Penalty?</h3>
+                            <p className="text-sm text-gray-500 px-4">This will permanently remove the penalty record for everyone (Super Admin, Admins, and the Student app).</p>
+                        </div>
+                        <div className="px-6 py-4 border-t border-gray-100 flex gap-3">
+                            <button onClick={() => setPenaltyDeleteConfirm(null)} className="flex-1 px-4 py-2.5 border border-gray-200 text-gray-700 font-medium rounded-xl hover:bg-gray-50 transition-colors">Cancel</button>
+                            <button onClick={() => handleDeletePenalty(penaltyDeleteConfirm)} disabled={deletePenaltyMut.isPending}
+                                className="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white font-medium rounded-xl transition-colors flex items-center justify-center gap-2 disabled:opacity-70">
+                                {deletePenaltyMut.isPending ? <ButtonSpinner /> : <FaTrash size={12} />}Delete
                             </button>
                         </div>
                     </div>

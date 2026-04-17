@@ -1411,3 +1411,16 @@ export const getMyPenalties = async (schoolId, studentId, filters = {}) => {
     return { summary, penalties: records };
 };
 
+export const deleteStudentPenalty = async (schoolId, penaltyId) => {
+    const penalty = await StudentPenalty.findOneAndDelete({
+        _id: penaltyId,
+        schoolId: new mongoose.Types.ObjectId(schoolId),
+    });
+
+    if (!penalty) {
+        throw new ApiError(404, "Student penalty not found");
+    }
+
+    return penalty;
+};
+
