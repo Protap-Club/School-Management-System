@@ -14,16 +14,23 @@ export const AuditLogPage = () => {
         targetModel: '',
         startDate: '',
         endDate: '',
+        // new structured filters
+        action_type: '',
+        severity: '',
+        outcome: '',
     });
 
     const { data, isLoading, isError } = useAuditLogs({
-        page: filters.page + 1, // API usually expects 1-indexed for pagination
+        page: filters.page + 1, // API expects 1-indexed
         limit: filters.limit,
         search: filters.search,
         actorRole: filters.actorRole,
         targetModel: filters.targetModel,
         startDate: filters.startDate,
         endDate: filters.endDate,
+        action_type: filters.action_type,
+        severity: filters.severity,
+        outcome: filters.outcome,
     });
 
     const handlePageChange = (newPage) => {
@@ -53,7 +60,7 @@ export const AuditLogPage = () => {
                 ) : (
                     <div className="flex flex-col rounded-xl overflow-hidden shadow-sm border border-slate-200 bg-white">
                         <AuditLogTable logs={data?.data} isLoading={isLoading} />
-                        
+
                         <PaginationControls
                             currentPage={filters.page}
                             totalItems={data?.pagination?.total || 0}
@@ -67,3 +74,4 @@ export const AuditLogPage = () => {
         </DashboardLayout>
     );
 };
+
