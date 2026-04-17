@@ -4,7 +4,6 @@
 import { lazy, Suspense } from 'react';
 
 // Lazy load pages for code-splitting
-// Lazy load pages for code-splitting
 const Login = lazy(() => import('@/features/auth/LoginPage'));
 const Dashboard = lazy(() => import('@/features/dashboard/DashboardPage'));
 const UsersPage = lazy(() => import('@/features/users/UsersPage'));
@@ -19,6 +18,7 @@ const Fees = lazy(() => import('@/features/fees/FeesPage'));
 const Examination = lazy(() => import('@/features/examination/ExaminationPage'));
 const Assignments = lazy(() => import('@/features/assignment/AssignmentPage'));
 const Result = lazy(() => import('@/features/result/ResultPage'));
+const AuditLog = lazy(() => import('@/features/audit/AuditLogPage'));
 // Loading fallback component
 const PageLoader = () => (
     <div className="flex items-center justify-center min-h-screen">
@@ -53,6 +53,7 @@ export const routes = {
         examination: '/superadmin/examination',
         result: '/superadmin/result',
         assignments: '/superadmin/assignments',
+        audit: '/superadmin/audit',
     },
 
     // Admin
@@ -100,6 +101,7 @@ export const pages = {
     Examination,
     Assignments,
     Result,
+    AuditLog,
 };
 
 // Export utilities

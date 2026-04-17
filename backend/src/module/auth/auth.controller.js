@@ -81,8 +81,12 @@ export const refresh = async (req, res, next) => {
 // Handle user logout — clears refresh token from DB and cookie
 export const logout = asyncHandler(async (req, res) => {
     const refreshToken = req.cookies?.refreshToken || req.body?.refreshToken;
+    const metadata = {
+        userAgent: req.headers["user-agent"],
+        ip: req.ip || req.headers["x-forwarded-for"] || req.connection.remoteAddress,
+    };
 
-    await authService.logout(refreshToken);
+    await authService.logout(refreshToken, metadata);
 
     // Clear the refresh cookie
     res.clearCookie("refreshToken", {
@@ -139,8 +143,12 @@ export const forgotPassword = asyncHandler(async (req, res) => {
 // Reset password - Set new password using reset token
 export const resetPassword = asyncHandler(async (req, res) => {
     const { token, newPassword } = req.body;
+    const metadata = {
+        userAgent: req.headers["user-agent"],
+        ip: req.ip || req.headers["x-forwarded-for"] || req.connection.remoteAddress,
+    };
 
-    const result = await authService.resetPassword(token, newPassword);
+    const result = await authService.resetPassword(token, newPassword, metadata);
 
     res.status(200).json({
         success: true,

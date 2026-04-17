@@ -13,7 +13,9 @@ export const createNotice = asyncHandler(async (req, res) => {
         req.schoolId,
         req.user._id,
         req.body,
-        req.file || null
+        req.file || null,
+        req.user,
+        { ip: req.ip, userAgent: req.headers["user-agent"] }
     );
 
     res.status(201).json({

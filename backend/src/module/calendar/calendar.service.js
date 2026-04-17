@@ -6,6 +6,8 @@ import logger from "../../config/logger.js";
 import { ConflictError, NotFoundError, BadRequestError, ForbiddenError } from "../../utils/customError.js";
 import { USER_ROLES } from "../../constants/userRoles.js";
 import { assertClassSectionListExists } from "../../utils/classSection.util.js";
+import { createAuditLog } from "../audit/audit.service.js";
+import { AUDIT_ACTIONS } from "../../constants/auditActions.js";
 
 const parseClassKey = (value) => {
     const raw = String(value || "").trim();
@@ -209,7 +211,7 @@ const fetchExamEvents = async ({
 };
 
 // Create a new calendar event
-export const createCalendarEvent = async (eventData, user) => {
+export const createCalendarEvent = async (eventData, user, metadata) => {
     const { title, start, end, allDay, type, description, targetAudience, targetClasses } = eventData;
     const schoolId = user.schoolId;
     const audience = user.role === USER_ROLES.TEACHER ? 'classes' : (targetAudience || 'all');
@@ -251,6 +253,24 @@ export const createCalendarEvent = async (eventData, user) => {
     });
 
     logger.info(`Calendar event created: ${title}`);
+
+    createAuditLog({
+        schoolId,
+        actorId: user._id,
+        actorRole: user.role,
+        action: AUDIT_ACTIONS.CALENDAR.EVENT_CREATED,
+        targetModel: "CalendarEvent",
+        targetId: newEvent._id,
+        description: `Created new calendar event: "${newEvent.title}"`,
+        metadata: {
+            title: newEvent.title,
+            type: newEvent.type,
+            targetAudience: newEvent.targetAudience
+        },
+        ip: metadata?.ip,
+        userAgentString: metadata?.userAgent
+    });
+
     return newEvent;
 };
 
@@ -411,7 +431,7 @@ export const getCalendarEventById = async (id, schoolId) => {
 };
 
 // Update a calendar event
-export const updateCalendarEvent = async (id, updateData, user) => {
+export const updateCalendarEvent = async (id, updateData, user, metadata) => {
     // Check if event exists
     const event = await CalendarEvent.findById(id);
 
@@ -471,11 +491,25 @@ export const updateCalendarEvent = async (id, updateData, user) => {
     ).populate('createdBy', 'name email');
 
     logger.info(`Calendar event updated: ${id}`);
+
+    createAuditLog({
+        schoolId: event.schoolId,
+        actorId: user._id,
+        actorRole: user.role,
+        action: AUDIT_ACTIONS.CALENDAR.EVENT_UPDATED,
+        targetModel: "CalendarEvent",
+        targetId: updatedEvent._id,
+        description: `Updated calendar event: "${updatedEvent.title}"`,
+        metadata: { fields: Object.keys(updateData) },
+        ip: metadata?.ip,
+        userAgentString: metadata?.userAgent
+    });
+
     return updatedEvent;
 };
 
 // Delete a calendar event
-export const deleteCalendarEvent = async (id, user) => {
+export const deleteCalendarEvent = async (id, user, metadata) => {
     const event = await CalendarEvent.findById(id);
 
     if (!event) {
@@ -496,11 +530,25 @@ export const deleteCalendarEvent = async (id, user) => {
     await CalendarEvent.findByIdAndDelete(id);
 
     logger.info(`Calendar event deleted: ${id}`);
+
+    createAuditLog({
+        schoolId: event.schoolId,
+        actorId: user._id,
+        actorRole: user.role,
+        action: AUDIT_ACTIONS.CALENDAR.EVENT_DELETED,
+        targetModel: "CalendarEvent",
+        targetId: id,
+        description: `Deleted calendar event: "${event.title}"`,
+        metadata: { title: event.title },
+        ip: metadata?.ip,
+        userAgentString: metadata?.userAgent
+    });
+
     return { message: "Event deleted successfully" };
 };
 
 // Delete events by date
-export const deleteCalendarEventsByDate = async (dateStr, user, eventId) => {
+export const deleteCalendarEventsByDate = async (dateStr, user, eventId, metadata) => {
     const date = new Date(dateStr);
     if (isNaN(date.getTime())) {
         throw new BadRequestError("Invalid date provided");
@@ -524,6 +572,20 @@ export const deleteCalendarEventsByDate = async (dateStr, user, eventId) => {
         }
         
         await CalendarEvent.findByIdAndDelete(eventId);
+
+        createAuditLog({
+            schoolId: event.schoolId,
+            actorId: user._id,
+            actorRole: user.role,
+            action: AUDIT_ACTIONS.CALENDAR.EVENT_DELETED,
+            targetModel: "CalendarEvent",
+            targetId: eventId,
+            description: `Deleted calendar event by date: "${event.title}"`,
+            metadata: { title: event.title, deletedByDate: true },
+            ip: metadata?.ip,
+            userAgentString: metadata?.userAgent
+        });
+
         return { message: "Event deleted successfully", deletedCount: 1 };
     }
 
@@ -552,5 +614,19 @@ export const deleteCalendarEventsByDate = async (dateStr, user, eventId) => {
     }
 
     const result = await CalendarEvent.deleteMany(query);
+
+    createAuditLog({
+        schoolId: user.schoolId,
+        actorId: user._id,
+        actorRole: user.role,
+        action: AUDIT_ACTIONS.CALENDAR.EVENT_DELETED,
+        targetModel: "CalendarEvent",
+        targetId: null, // Bulk
+        description: `Bulk deleted ${result.deletedCount} calendar event(s) for ${dateStr}`,
+        metadata: { deletedCount: result.deletedCount, date: dateStr },
+        ip: metadata?.ip,
+        userAgentString: metadata?.userAgent
+    });
+
     return { message: `${result.deletedCount} event(s) deleted`, deletedCount: result.deletedCount };
 };

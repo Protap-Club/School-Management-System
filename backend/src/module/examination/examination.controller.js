@@ -117,7 +117,8 @@ export const updateStatus = asyncHandler(async (req, res) => {
         req.schoolId,
         req.params.id,
         req.body.status,
-        req.user
+        req.user,
+        { ip: req.ip, userAgent: req.headers["user-agent"] }
     );
     res.status(200).json({
         success: true,

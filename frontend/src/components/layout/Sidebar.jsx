@@ -15,6 +15,7 @@ import {
     FaGraduationCap,
     FaBook,
     FaClipboardCheck,
+    FaHistory,
 } from 'react-icons/fa';
 
 const Sidebar = () => {
@@ -74,6 +75,9 @@ const Sidebar = () => {
                     superAdminLinks.push({ path: '/superadmin/assignments', label: 'Assignments', icon: <FaBook /> });
                 }
 
+                // Audit Logs
+                superAdminLinks.push({ path: '/superadmin/audit', label: 'Audit Log', icon: <FaHistory /> });
+
                 // Settings always last
                 superAdminLinks.push({ path: '/superadmin/settings', label: 'Settings', icon: <FaCog /> });
 
@@ -121,6 +125,9 @@ const Sidebar = () => {
                 if (hasFeature('assignment')) {
                     adminLinks.push({ path: '/admin/assignments', label: 'Assignments', icon: <FaBook /> });
                 }
+
+                // Audit Logs
+                adminLinks.push({ path: '/admin/audit', label: 'Audit Log', icon: <FaHistory /> });
 
                 // Settings always last
                 adminLinks.push({ path: '/admin/settings', label: 'Settings', icon: <FaCog /> });

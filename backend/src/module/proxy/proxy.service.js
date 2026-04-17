@@ -5,6 +5,8 @@ import { NotFoundError, ConflictError, BadRequestError } from "../../utils/custo
 import logger from "../../config/logger.js";
 import { USER_ROLES } from "../../constants/userRoles.js";
 import * as noticeService from "../notice/notice.service.js";
+import { createAuditLog } from "../audit/audit.service.js";
+import { AUDIT_ACTIONS } from "../../constants/auditActions.js";
 
 /**
  * Get day of week string from date
@@ -171,7 +173,8 @@ export const getAvailableTeachersForProxy = async (schoolId, date, dayOfWeek, ti
  */
 const DAYS_OF_WEEK = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-export const createProxyRequest = async (teacherId, schoolId, data) => {
+export const createProxyRequest = async (user, schoolId, data, metadata) => {
+    const teacherId = user._id;
     const { date, dayOfWeek, timeSlotId, reason } = data;
 
     // Parse and validate date - normalize to start of day
@@ -264,6 +267,24 @@ export const createProxyRequest = async (teacherId, schoolId, data) => {
     });
 
     logger.info(`Proxy request created: ${proxyRequest._id} by teacher ${teacherId} for ${dayOfWeek} slot ${timeSlot.slotNumber}`);
+
+    createAuditLog({
+        schoolId,
+        actor: user._id,
+        actorModel: user.role === USER_ROLES.SUPER_ADMIN ? "SuperAdmin" : "User",
+        action: AUDIT_ACTIONS.PROXY.REQUEST_CREATED,
+        entityId: proxyRequest._id,
+        entityModel: "ProxyRequest",
+        status: "success",
+        details: {
+            dayOfWeek,
+            timeSlotId,
+            date: requestDate
+        },
+        ipAddress: metadata?.ip,
+        userAgent: metadata?.userAgent,
+        sessionToken: null
+    }).catch(err => logger.error(`Failed to create audit log: ${err.message}`));
 
     return proxyRequest;
 };
@@ -378,7 +399,8 @@ export const getTeacherProxyRequests = async (teacherId, schoolId, filters = {})
 /**
  * Assign a proxy teacher (admin action)
  */
-export const assignProxyTeacher = async (adminId, schoolId, requestId, data) => {
+export const assignProxyTeacher = async (user, schoolId, requestId, data, metadata) => {
+    const adminId = user._id;
     const { proxyTeacherId, notes } = data;
 
     // Get the proxy request
@@ -457,13 +479,32 @@ export const assignProxyTeacher = async (adminId, schoolId, requestId, data) => 
 
     logger.info(`Proxy assigned: ${proxyAssignment._id} for request ${requestId}`);
 
+    createAuditLog({
+        schoolId,
+        actor: user._id,
+        actorModel: user.role === USER_ROLES.SUPER_ADMIN ? "SuperAdmin" : "User",
+        action: AUDIT_ACTIONS.PROXY.TEACHER_ASSIGNED,
+        entityId: proxyAssignment._id,
+        entityModel: "ProxyAssignment",
+        status: "success",
+        details: {
+            proxyRequestId: requestId,
+            proxyTeacherId,
+            originalTeacherId: proxyRequest.teacherId
+        },
+        ipAddress: metadata?.ip,
+        userAgent: metadata?.userAgent,
+        sessionToken: null
+    }).catch(err => logger.error(`Failed to create audit log: ${err.message}`));
+
     return proxyAssignment;
 };
 
 /**
  * Mark a class as free period (admin action)
  */
-export const markAsFreePeriod = async (adminId, schoolId, requestId, notes) => {
+export const markAsFreePeriod = async (user, schoolId, requestId, notes, metadata) => {
+    const adminId = user._id;
     // Get the proxy request
     const proxyRequest = await ProxyRequest.findOne({
         _id: requestId,
@@ -516,13 +557,28 @@ export const markAsFreePeriod = async (adminId, schoolId, requestId, notes) => {
 
     logger.info(`Free period marked: ${proxyAssignment._id} for request ${requestId}`);
 
+    createAuditLog({
+        schoolId,
+        actor: user._id,
+        actorModel: user.role === USER_ROLES.SUPER_ADMIN ? "SuperAdmin" : "User",
+        action: AUDIT_ACTIONS.PROXY.FREE_PERIOD_MARKED,
+        entityId: proxyAssignment._id,
+        entityModel: "ProxyAssignment",
+        status: "success",
+        details: { proxyRequestId: requestId },
+        ipAddress: metadata?.ip,
+        userAgent: metadata?.userAgent,
+        sessionToken: null
+    }).catch(err => logger.error(`Failed to create audit log: ${err.message}`));
+
     return proxyAssignment;
 };
 
 /**
  * Direct admin assignment (without teacher request)
  */
-export const createDirectProxyAssignment = async (adminId, schoolId, data) => {
+export const createDirectProxyAssignment = async (user, schoolId, data, metadata) => {
+    const adminId = user._id;
     const {
         originalTeacherId,
         proxyTeacherId,
@@ -607,6 +663,24 @@ export const createDirectProxyAssignment = async (adminId, schoolId, data) => {
     });
 
     logger.info(`Direct proxy assignment created: ${proxyAssignment._id}`);
+
+    createAuditLog({
+        schoolId,
+        actor: user._id,
+        actorModel: user.role === USER_ROLES.SUPER_ADMIN ? "SuperAdmin" : "User",
+        action: AUDIT_ACTIONS.PROXY.DIRECT_ASSIGNMENT_CREATED,
+        entityId: proxyAssignment._id,
+        entityModel: "ProxyAssignment",
+        status: "success",
+        details: {
+            type,
+            originalTeacherId,
+            proxyTeacherId: type === "proxy" ? proxyTeacherId : null
+        },
+        ipAddress: metadata?.ip,
+        userAgent: metadata?.userAgent,
+        sessionToken: null
+    }).catch(err => logger.error(`Failed to create audit log: ${err.message}`));
 
     return proxyAssignment;
 };
@@ -699,7 +773,8 @@ export const getTimetableWithProxyOverrides = async (schoolId, standard, section
 /**
  * Cancel a proxy request (teacher can cancel their own pending request)
  */
-export const cancelProxyRequest = async (teacherId, schoolId, requestId) => {
+export const cancelProxyRequest = async (user, schoolId, requestId, metadata) => {
+    const teacherId = user._id;
     const proxyRequest = await ProxyRequest.findOne({
         _id: requestId,
         schoolId,
@@ -715,6 +790,20 @@ export const cancelProxyRequest = async (teacherId, schoolId, requestId) => {
     await proxyRequest.save();
 
     logger.info(`Proxy request cancelled: ${requestId}`);
+
+    createAuditLog({
+        schoolId,
+        actor: user._id,
+        actorModel: user.role === USER_ROLES.SUPER_ADMIN ? "SuperAdmin" : "User",
+        action: AUDIT_ACTIONS.PROXY.REQUEST_CANCELLED,
+        entityId: proxyRequest._id,
+        entityModel: "ProxyRequest",
+        status: "success",
+        details: { status: "cancelled" },
+        ipAddress: metadata?.ip,
+        userAgent: metadata?.userAgent,
+        sessionToken: null
+    }).catch(err => logger.error(`Failed to create audit log: ${err.message}`));
 
     return proxyRequest;
 };
