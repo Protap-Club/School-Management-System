@@ -4,6 +4,7 @@ import { SkeletonRows } from '../../../components/ui/SkeletonRows';
 import { EmptyState } from '../../../components/ui/EmptyState';
 import { FEE_TYPE_LABELS, MONTH_LABELS } from '../index';
 import FeeStatusBadge from './FeeStatusBadge';
+import { generateFeeReceipt, generateWaiverNote, generatePenaltyReceipt, generatePenaltyWaiver } from '../../../utils/pdfGenerator';
 
 
 
@@ -62,7 +63,7 @@ const StudentFeesTab = ({
                 <table className="w-full text-sm text-left">
                     <thead>
                         <tr className="border-b border-gray-100 italic">
-                            {['Month', 'Fee Name', 'Amount', 'Status', 'Payments'].map(h => (
+                            {['Month', 'Fee Name', 'Amount', 'Status', 'Payments', 'Actions'].map(h => (
                                 <th key={h} className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">{h}</th>
                             ))}
                         </tr>
@@ -90,13 +91,25 @@ const StudentFeesTab = ({
                                                 {f.payments.map((p, pi) => (
                                                     <div key={pi} className="flex items-center gap-2 text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md w-fit">
                                                         <FaReceipt size={10} />
-                                                        <span>₹{p.amount.toLocaleString()} on {new Date(p.date).toLocaleDateString()}</span>
+                                                        <span>₹{p.amount.toLocaleString()}</span>
                                                     </div>
                                                 ))}
                                             </div>
                                         ) : (
                                             <span className="text-[10px] font-bold text-gray-400 italic font-medium">No payments</span>
                                         )}
+                                    </td>
+                                    <td className="px-6 py-5">
+                                        <div className="flex items-center gap-2">
+                                            {f.status === 'PAID' && (
+                                                <button onClick={() => generateFeeReceipt(f, { name: 'Student' })} 
+                                                    title="Download Receipt" className="p-2 text-primary hover:bg-primary/5 rounded-xl transition-all"><FaFileInvoice size={14} /></button>
+                                            )}
+                                            {f.status === 'WAIVED' && (
+                                                <button onClick={() => generateWaiverNote(f, { name: 'Student' })} 
+                                                    title="Download Waiver Note" className="p-2 text-amber-500 hover:bg-amber-50 rounded-xl transition-all"><FaFileInvoice size={14} /></button>
+                                            )}
+                                        </div>
                                     </td>
                                 </tr>
                             ))
@@ -117,7 +130,7 @@ const StudentFeesTab = ({
                 <table className="w-full text-sm text-left">
                     <thead>
                         <tr className="border-b border-gray-100 italic">
-                            {['Reason', 'Type', 'Amount', 'Date', 'Status'].map(h => (
+                            {['Reason', 'Type', 'Amount', 'Date', 'Status', 'Actions'].map(h => (
                                 <th key={h} className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">{h}</th>
                             ))}
                         </tr>
@@ -144,6 +157,18 @@ const StudentFeesTab = ({
                                     </td>
                                     <td className="px-6 py-5">
                                         <FeeStatusBadge status={p.status} />
+                                    </td>
+                                    <td className="px-6 py-5">
+                                        <div className="flex items-center gap-2">
+                                            {p.status === 'PAID' && (
+                                                <button onClick={() => generatePenaltyReceipt(p, { name: 'Student' })} 
+                                                    title="Download Receipt" className="p-2 text-primary hover:bg-primary/5 rounded-xl transition-all"><FaFileInvoice size={14} /></button>
+                                            )}
+                                            {p.status === 'WAIVED' && (
+                                                <button onClick={() => generatePenaltyWaiver(p, { name: 'Student' })} 
+                                                    title="Download Waiver Note" className="p-2 text-amber-500 hover:bg-amber-50 rounded-xl transition-all"><FaFileInvoice size={14} /></button>
+                                            )}
+                                        </div>
                                     </td>
                                 </tr>
                             ))

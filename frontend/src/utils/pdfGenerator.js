@@ -85,6 +85,84 @@ export const generateFeeReport = (classStudents, summary, classInfo, month, year
 };
 
 /**
+ * Generates a PDF report for class penalties overview
+ */
+export const generatePenaltyReport = (penaltyStudents, summary, classInfo, year) => {
+    console.log('Generating Penalty Report...', { penaltyStudents, summary, classInfo, year });
+    
+    try {
+        const doc = new jsPDF();
+        const pageWidth = doc.internal.pageSize.width;
+
+        // Header
+        doc.setFontSize(22);
+        doc.setTextColor(40, 40, 40);
+        doc.text('Student Penalty Report', PAGE_CENTER(doc, 'Student Penalty Report'), 20);
+
+        doc.setFontSize(12);
+        doc.setTextColor(100, 100, 100);
+        doc.text(`Class: ${formatValue(classInfo?.standard)}-${formatValue(classInfo?.section)}`, 14, 30);
+        doc.text(`Academic Year: ${year || ''} - ${Number(year) + 1}`, 14, 37);
+        doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 14, 44);
+
+        // Summary Box
+        doc.setDrawColor(230, 230, 230);
+        doc.setFillColor(245, 245, 245);
+        doc.roundedRect(14, 55, pageWidth - 28, 30, 3, 3, 'F');
+        
+        doc.setFontSize(10);
+        doc.setTextColor(120, 120, 120);
+        doc.text('TOTAL PENALTIES', 25, 65);
+        doc.text('TOTAL COLLECTED', pageWidth / 2 - 15, 65);
+        doc.text('TOTAL PENDING', pageWidth - 65, 65);
+
+        doc.setFontSize(14);
+        doc.setTextColor(40, 40, 40);
+        doc.text(`${summary?.totalStudents || 0}`, 25, 75);
+        doc.setTextColor(16, 185, 129); // emerald-600
+        doc.text(`INR ${summary?.totalCollected?.toLocaleString() || 0}`, pageWidth / 2 - 15, 75);
+        doc.setTextColor(245, 158, 11); // amber-600
+        doc.text(`INR ${summary?.totalPending?.toLocaleString() || 0}`, pageWidth - 65, 75);
+
+        // Table
+        const tableData = (penaltyStudents || []).flatMap(student => 
+            (student?.penalties || []).map((p, idx) => [
+                idx === 0 ? student.name : '',
+                p.reason || 'N/A',
+                p.penaltyType || 'N/A',
+                `INR ${p.amount?.toLocaleString() || 0}`,
+                p.status === 'PAID' ? `INR ${(p.paidAmount || p.amount).toLocaleString()}` : '—',
+                p.status,
+                p.occurrenceDate ? new Date(p.occurrenceDate).toLocaleDateString() : '-'
+            ])
+        );
+
+        if (tableData.length > 0) {
+            autoTable(doc, {
+                startY: 95,
+                head: [['Student', 'Reason', 'Type', 'Amount', 'Collected', 'Status', 'Date']],
+                body: tableData,
+                theme: 'striped',
+                headStyles: { fillColor: [239, 68, 68], textColor: [255, 255, 255], fontStyle: 'bold' },
+                styles: { fontSize: 9, cellPadding: 4 },
+                columnStyles: {
+                    5: { fontStyle: 'bold' }
+                },
+                alternateRowStyles: { fillColor: [250, 250, 250] }
+            });
+        } else {
+            doc.text('No items found for the selected period.', 14, 105);
+        }
+
+        doc.save(`Penalty_Report_${classInfo?.standard || 'Class'}_${classInfo?.section || ''}_${year || ''}.pdf`);
+        console.log('Penalty Report Generated Successfully');
+    } catch (error) {
+        console.error('Failed to generate Penalty PDF Report:', error);
+        alert('Could not generate PDF. Please check the console for errors.');
+    }
+};
+
+/**
  * Generates a PDF receipt for a teacher's salary payment
  */
 export const generateSalaryReceipt = (salary, teacher) => {
@@ -412,6 +490,109 @@ export const generateWaiverNote = (fee, student) => {
     } catch (error) {
         console.error('Failed to generate Waiver Note PDF:', error);
         alert('Could not generate waiver note PDF. Please check the console for details.');
+    }
+};
+
+/**
+ * Generates a PDF receipt for a student's penalty payment
+ */
+export const generatePenaltyReceipt = (p, student) => {
+    console.log('Generating Penalty Receipt...', { p, student });
+    
+    try {
+        const doc = new jsPDF();
+        const pageWidth = doc.internal.pageSize.width;
+
+        // Header
+        doc.setFontSize(16);
+        doc.setTextColor(239, 68, 68); // Red for penalty
+        doc.text('PENALTY PAYMENT RECEIPT', 14, 25);
+
+        // School Info
+        doc.setFontSize(16);
+        doc.setTextColor(40, 40, 40);
+        doc.setFont(undefined, 'bold');
+        doc.text('Navrachna International School', pageWidth - 14, 22, { align: 'right' });
+        doc.setFontSize(10);
+        doc.setFont(undefined, 'normal');
+        doc.text('Academic Year 2026', pageWidth - 14, 29, { align: 'right' });
+
+        doc.line(14, 38, pageWidth - 14, 38);
+
+        // Details
+        doc.setFont(undefined, 'bold');
+        doc.text('STUDENT DETAILS', 14, 55);
+        doc.setFont(undefined, 'normal');
+        doc.text(`Name: ${student?.name || '-'}`, 14, 65);
+        doc.text(`Class: ${p.standard || '-'}-${p.section || '-'}`, 14, 72);
+
+        doc.setFont(undefined, 'bold');
+        doc.text('PENALTY DETAILS', pageWidth / 2 + 10, 55);
+        doc.setFont(undefined, 'normal');
+        doc.text(`Reason: ${p.reason || '-'}`, pageWidth / 2 + 10, 65);
+        doc.text(`Type: ${p.penaltyType || '-'}`, pageWidth / 2 + 10, 72);
+        doc.text(`Date: ${p.occurrenceDate ? new Date(p.occurrenceDate).toLocaleDateString() : 'N/A'}`, pageWidth / 2 + 10, 79);
+
+        // Table
+        autoTable(doc, {
+            startY: 95,
+            head: [['Description', 'Status', 'Amount']],
+            body: [
+                [`Penalty Fee: ${p.reason}`, 'PAID', `INR ${p.amount?.toLocaleString() || 0}`],
+                ['Total Paid', 'SUCCESS', `INR ${(p.paidAmount || p.amount).toLocaleString() || 0}`]
+            ],
+            theme: 'grid',
+            headStyles: { fillColor: [243, 244, 246], textColor: [40, 40, 40] }
+        });
+
+        const finalY = (doc.lastAutoTable?.finalY || 130) + 15;
+        doc.roundedRect(pageWidth - 94, finalY, 80, 24, 2, 2, 'FD');
+        doc.setFont(undefined, 'bold');
+        doc.text('TOTAL PAID', pageWidth - 54, finalY + 9, { align: 'center' });
+        doc.setTextColor(16, 185, 129); // emerald-600
+        doc.text(`INR ${(p.paidAmount || p.amount).toLocaleString() || 0}`, pageWidth - 54, finalY + 18, { align: 'center' });
+
+        doc.save(`Penalty_Receipt_${student?.name || 'student'}.pdf`);
+    } catch (error) {
+        console.error('Failed to generate Penalty Receipt PDF:', error);
+    }
+};
+
+/**
+ * Generates a PDF waiver note for an excused penalty
+ */
+export const generatePenaltyWaiver = (p, student) => {
+    console.log('Generating Penalty Waiver...', { p, student });
+    
+    try {
+        const doc = new jsPDF();
+        const pageWidth = doc.internal.pageSize.width;
+
+        doc.setFontSize(16);
+        doc.setTextColor(245, 158, 11); // amber-600
+        doc.text('PENALTY WAIVER NOTE', 14, 25);
+
+        doc.text('Navrachna International School', pageWidth - 14, 22, { align: 'right' });
+        doc.line(14, 38, pageWidth - 14, 38);
+
+        doc.setFont(undefined, 'bold');
+        doc.text('STUDENT DETAILS', 14, 55);
+        doc.setFont(undefined, 'normal');
+        doc.text(`Name: ${student?.name || '-'}`, 14, 65);
+
+        doc.setFont(undefined, 'bold');
+        doc.text('WAIVER DETAILS', pageWidth / 2 + 10, 55);
+        doc.setFont(undefined, 'normal');
+        doc.text(`Original Penalty: ${p.reason || '-'}`, pageWidth / 2 + 10, 65);
+        doc.text(`Type: ${p.penaltyType || '-'}`, pageWidth / 2 + 10, 72);
+
+        doc.setFillColor(255, 251, 235);
+        doc.roundedRect(14, 100, pageWidth - 28, 30, 3, 3, 'FD');
+        doc.text('This penalty has been officially waived by the school management.', 20, 115);
+
+        doc.save(`Penalty_Waiver_${student?.name || 'student'}.pdf`);
+    } catch (error) {
+        console.error('Failed to generate Penalty Waiver PDF:', error);
     }
 };
 

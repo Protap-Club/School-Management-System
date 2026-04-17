@@ -7,8 +7,8 @@ import { MONTH_LABELS, FEE_TYPE_LABELS } from '../index';
 import { SkeletonRows } from '../../../components/ui/SkeletonRows';
 import { EmptyState } from '../../../components/ui/EmptyState';
 import FeeStatusBadge from './FeeStatusBadge';
-import { generateFeeReport, generateFeeReceipt, generateWaiverNote } from '../../../utils/pdfGenerator';
-import { generateFeeExcel } from '../../../utils/excelGenerator';
+import { generateFeeReport, generateFeeReceipt, generateWaiverNote, generatePenaltyReport, generatePenaltyReceipt, generatePenaltyWaiver } from '../../../utils/pdfGenerator';
+import { generateFeeExcel, generatePenaltyExcel } from '../../../utils/excelGenerator';
 
 // ── Student Overview Sub-Tab ─────────────────────────────────────────────────
 export const StudentOverviewPanel = ({
@@ -134,12 +134,23 @@ export const StudentOverviewPanel = ({
                                                 <td className="px-4 py-3"><FeeStatusBadge status={p.status} /></td>
                                                 <td className="px-4 py-3 text-gray-500 text-[10px] font-bold">{p.occurrenceDate ? new Date(p.occurrenceDate).toLocaleDateString() : '-'}</td>
                                                 <td className="px-4 py-3 text-center">
-                                                    {isAdmin && p.status === 'PENDING' && (
+                                                    {isAdmin && p.status === 'PENDING' ? (
                                                         <div className="flex items-center gap-1">
                                                             <button onClick={() => handlePenaltyStatusUpdate(p.penaltyId, 'PAID')}
                                                                 title="Mark as Paid" className="p-1.5 text-emerald-500 hover:bg-emerald-50 rounded-lg transition-colors"><FaMoneyBillWave size={12} /></button>
                                                             <button onClick={() => handlePenaltyStatusUpdate(p.penaltyId, 'WAIVED')}
                                                                 title="Waive Penalty" className="p-1.5 text-orange-500 hover:bg-orange-50 rounded-lg transition-colors"><FaBan size={12} /></button>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="flex items-center gap-1">
+                                                            {p.status === 'PAID' && (
+                                                                <button onClick={() => generatePenaltyReceipt({ ...p, standard: selectedClass?.standard, section: selectedClass?.section }, selectedStudent)}
+                                                                    title="Download Receipt" className="p-1.5 text-primary hover:bg-primary/5 rounded-lg transition-colors"><FaFileInvoice size={12} /></button>
+                                                            )}
+                                                            {p.status === 'WAIVED' && (
+                                                                <button onClick={() => generatePenaltyWaiver({ ...p, standard: selectedClass?.standard, section: selectedClass?.section }, selectedStudent)}
+                                                                    title="Download Waiver Note" className="p-1.5 text-amber-500 hover:bg-amber-50 rounded-lg transition-colors"><FaFileInvoice size={12} /></button>
+                                                            )}
                                                         </div>
                                                     )}
                                                 </td>
@@ -187,9 +198,7 @@ export const StudentOverviewPanel = ({
                                             <option value="pending">Pending</option>
                                         </select>
                                     </>
-                                ) : (
-                                    <div className="px-4 py-1 text-sm font-bold text-amber-600 uppercase tracking-widest">Penalty View</div>
-                                )}
+                                ) : null}
                             </div>
                         </div>
                         <div className="flex gap-1 bg-gray-100 p-1 rounded-xl">
@@ -209,11 +218,25 @@ export const StudentOverviewPanel = ({
                                     <>
                                         <div className="fixed inset-0 z-10" onClick={() => setExportMenuOpen(false)}></div>
                                         <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-gray-100 py-1 z-20">
-                                            <button onClick={() => { generateFeeReport(filteredClassStudents, filteredClassSummary, selectedClass, overviewMonth, overviewYear); setExportMenuOpen(false); }}
+                                            <button onClick={() => { 
+                                                if (overviewMode === 'fee') {
+                                                    generateFeeReport(filteredClassStudents, filteredClassSummary, selectedClass, overviewMonth, overviewYear);
+                                                } else {
+                                                    generatePenaltyReport(classPenaltyStudents, classPenaltySummary, selectedClass, overviewYear);
+                                                }
+                                                setExportMenuOpen(false); 
+                                            }}
                                                 className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-primary transition-colors flex items-center gap-2">
                                                 <FaFileInvoice size={12} /> Download PDF
                                             </button>
-                                            <button onClick={() => { generateFeeExcel(filteredClassStudents, filteredClassSummary, selectedClass, overviewMonth, overviewYear); setExportMenuOpen(false); }}
+                                            <button onClick={() => { 
+                                                if (overviewMode === 'fee') {
+                                                    generateFeeExcel(filteredClassStudents, filteredClassSummary, selectedClass, overviewMonth, overviewYear);
+                                                } else {
+                                                    generatePenaltyExcel(classPenaltyStudents, classPenaltySummary, selectedClass, overviewYear);
+                                                }
+                                                setExportMenuOpen(false); 
+                                            }}
                                                 className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-emerald-600 transition-colors flex items-center gap-2">
                                                 <FaListAlt size={12} /> Download XLSX
                                             </button>
@@ -319,12 +342,23 @@ export const StudentOverviewPanel = ({
                                                         <td className="px-4 py-3"><FeeStatusBadge status={p.status} /></td>
                                                         <td className="px-4 py-3 text-gray-500 text-[10px] font-bold">{p.occurrenceDate ? new Date(p.occurrenceDate).toLocaleDateString() : '-'}</td>
                                                         <td className="px-4 py-3">
-                                                            {isAdmin && p.status === 'PENDING' && (
+                                                            {isAdmin && p.status === 'PENDING' ? (
                                                                 <div className="flex items-center gap-1">
                                                                     <button onClick={() => handlePenaltyStatusUpdate(p.penaltyId, 'PAID')}
                                                                         title="Mark as Paid" className="p-1.5 text-emerald-500 hover:bg-emerald-50 rounded-lg transition-colors"><FaMoneyBillWave size={12} /></button>
                                                                     <button onClick={() => handlePenaltyStatusUpdate(p.penaltyId, 'WAIVED')}
                                                                         title="Waive Penalty" className="p-1.5 text-orange-500 hover:bg-orange-50 rounded-lg transition-colors"><FaBan size={12} /></button>
+                                                                </div>
+                                                            ) : (
+                                                                <div className="flex items-center gap-1">
+                                                                    {p.status === 'PAID' && (
+                                                                        <button onClick={() => generatePenaltyReceipt({ ...p, standard: selectedClass.standard, section: selectedClass.section }, student)}
+                                                                            title="Download Receipt" className="p-1.5 text-primary hover:bg-primary/5 rounded-lg transition-colors"><FaFileInvoice size={12} /></button>
+                                                                    )}
+                                                                    {p.status === 'WAIVED' && (
+                                                                        <button onClick={() => generatePenaltyWaiver({ ...p, standard: selectedClass.standard, section: selectedClass.section }, student)}
+                                                                            title="Download Waiver Note" className="p-1.5 text-amber-500 hover:bg-amber-50 rounded-lg transition-colors"><FaFileInvoice size={12} /></button>
+                                                                    )}
                                                                 </div>
                                                             )}
                                                         </td>

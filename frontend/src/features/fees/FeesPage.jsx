@@ -734,11 +734,11 @@ const FeesPage = () => {
                                             <table className="w-full text-sm">
                                                 <thead>
                                                     <tr className="border-b border-gray-100 uppercase">
-                                                        {['Student', 'Class', 'Penalty Type', 'Reason', 'Amount', 'Occurrence Date', 'Status', 'Actions'].map(h => (
+                                                        {['Student', 'Class', 'Penalty Type', 'Reason', 'Amount', 'Occurrence Date', 'Status'].map(h => (
                                                             <th
                                                                 key={h}
                                                                 className={`px-4 py-4 text-[10px] font-black text-gray-400 tracking-widest ${
-                                                                    h === 'Status' || h === 'Actions' ? 'text-center' : 'text-left'
+                                                                    h === 'Status' ? 'text-center' : 'text-left'
                                                                 }`}
                                                             >
                                                                 {h}
@@ -748,9 +748,9 @@ const FeesPage = () => {
                                                 </thead>
                                                 <tbody className="divide-y divide-gray-50">
                                                     {penaltyRecordsLoading ? (
-                                                        <SkeletonRows rows={4} columns={8} />
+                                                        <SkeletonRows rows={4} columns={7} />
                                                     ) : penaltyRecords.length === 0 ? (
-                                                        <tr><td colSpan={8}><EmptyState icon={FaListAlt} title="No student penalties found" subtitle="This student has no penalty records for the selected class and year." /></td></tr>
+                                                        <tr><td colSpan={7}><EmptyState icon={FaListAlt} title="No student penalties found" subtitle="This student has no penalty records for the selected class and year." /></td></tr>
                                                     ) : (
                                                         penaltyRecords.map((penalty) => (
                                                             <tr key={penalty._id} className="hover:bg-gray-50/25 transition-colors">
@@ -777,20 +777,6 @@ const FeesPage = () => {
                                                                     }`}>
                                                                         {penalty.status}
                                                                     </span>
-                                                                </td>
-                                                                <td className="px-4 py-4 text-center">
-                                                                    {penalty.status === 'PENDING' && (
-                                                                        <div className="flex items-center justify-center gap-1">
-                                                                            <button onClick={() => handlePenaltyStatusUpdate(penalty._id, 'PAID')}
-                                                                                title="Mark as Paid" className="p-1.5 text-emerald-500 hover:bg-emerald-50 rounded-lg transition-colors">
-                                                                                <FaCheck size={12} />
-                                                                            </button>
-                                                                            <button onClick={() => handlePenaltyStatusUpdate(penalty._id, 'WAIVED')}
-                                                                                title="Waive Penalty" className="p-1.5 text-gray-400 hover:text-orange-500 hover:bg-orange-50 rounded-lg transition-colors">
-                                                                                <FaBan size={12} />
-                                                                            </button>
-                                                                        </div>
-                                                                    )}
                                                                 </td>
                                                             </tr>
                                                         ))
