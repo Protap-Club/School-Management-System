@@ -14,25 +14,22 @@ spec:
       labels:
         app: frontend
     spec:
-      # FIX 1: Security Hardening - Disable automounting service account tokens
       automountServiceAccountToken: false
       containers:
       - name: frontend
-        # FIX 2: Satisfies the "Specific Version" check
         image: gcr.io/school-mgmt-493518/frontend:v1.0.0-placeholder
         ports:
         - containerPort: 80
         resources:
           requests:
-            cpu: "512Mi"
-            memory: "2Gi"
-            # FIX 3: Specify ephemeral storage request
-            ephemeral-storage: "4Gi"
+            # FIX: Use millicores (m) for CPU, not Mi
+            cpu: "100m"         
+            memory: "256Mi"     
+            ephemeral-storage: "512Mi"
           limits:
-            # FIX 4: Specify memory and storage limits
-            cpu: "512Mi"
-            memory: "2Gi"
-            ephemeral-storage: "4Gi"
+            cpu: "200m"         
+            memory: "512Mi"     
+            ephemeral-storage: "1Gi"
 ---
 apiVersion: v1
 kind: Service
