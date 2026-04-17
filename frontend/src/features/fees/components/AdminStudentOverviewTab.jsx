@@ -469,9 +469,10 @@ export const StudentOverviewPanel = ({
                                 <tr><td colSpan={8}><EmptyState icon={FaInfoCircle} title="No records found" subtitle={`No ${overviewMode} data for this period.`} /></td></tr>
                             ) : (
                                 (overviewMode === 'fee' ? overviewClasses : penaltyOverviewClasses).map(cls => {
-                                    const totalAmount = overviewMode === 'fee' ? cls.totalDue : cls.totalAssigned;
-                                    const collectedAmount = overviewMode === 'fee' ? cls.totalCollected : cls.totalCollected;
-                                    const pct = totalAmount > 0 ? Math.round((collectedAmount / totalAmount) * 100) : 0;
+                                    const totalAmount = overviewMode === 'fee' ? (cls.totalDue || 0) : (cls.totalAssigned || 0);
+                                    const collectedAmount = cls.totalCollected || 0;
+                                    const settledAmount = (overviewMode === 'fee' ? (cls.totalCollected || 0) + (cls.totalWaived || 0) : (cls.totalCollected || 0) + (cls.totalWaived || 0));
+                                    const pct = totalAmount > 0 ? Math.round((settledAmount / totalAmount) * 100) : 0;
                                     return (
                                         <tr key={`${cls.standard}-${cls.section}`} className="hover:bg-gray-50/50 transition-colors">
                                             <td className="px-4 py-3 font-medium text-gray-900">{cls.standard}-{cls.section}</td>

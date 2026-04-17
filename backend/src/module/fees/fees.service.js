@@ -804,7 +804,7 @@ export const getYearlyFeeSummary = async (schoolId, academicYear) => {
 
     const monthlyBreakdown = monthlyRows.map((row) => {
         const collectionRate = row.totalDue > 0
-            ? Number(((row.totalCollected / row.totalDue) * 100).toFixed(2)) : 0;
+            ? Number((((row.totalCollected + row.totalWaived) / row.totalDue) * 100).toFixed(2)) : 0;
         return {
             month: row._id,
             label: MONTH_LABELS[row._id],
@@ -823,7 +823,7 @@ export const getYearlyFeeSummary = async (schoolId, academicYear) => {
         totalPending: row.totalPending,
         totalWaived: row.totalWaived,
         collectionRate: row.totalDue > 0
-            ? Number(((row.totalCollected / row.totalDue) * 100).toFixed(2)) : 0,
+            ? Number((((row.totalCollected + row.totalWaived) / row.totalDue) * 100).toFixed(2)) : 0,
     }));
 
     const yearTotal = {
@@ -833,7 +833,7 @@ export const getYearlyFeeSummary = async (schoolId, academicYear) => {
         totalWaived: monthlyBreakdown.reduce((s, m) => s + m.totalWaived, 0),
     };
     yearTotal.collectionRate = yearTotal.totalDue > 0
-        ? Number(((yearTotal.totalCollected / yearTotal.totalDue) * 100).toFixed(2)) : 0;
+        ? Number((((yearTotal.totalCollected + yearTotal.totalWaived) / yearTotal.totalDue) * 100).toFixed(2)) : 0;
 
     return { academicYear: Number(academicYear), monthlyBreakdown, typeBreakdown, yearTotal };
 };
@@ -1363,7 +1363,7 @@ export const getYearlyPenaltySummary = async (schoolId, academicYear) => {
         totalWaived: row.totalWaived,
         count: row.count,
         collectionRate: row.totalAssigned > 0
-            ? Number(((row.totalCollected / row.totalAssigned) * 100).toFixed(2)) : 0,
+            ? Number((((row.totalCollected + row.totalWaived) / row.totalAssigned) * 100).toFixed(2)) : 0,
     }));
 
     const yearTotal = {
@@ -1374,7 +1374,7 @@ export const getYearlyPenaltySummary = async (schoolId, academicYear) => {
         count: monthlyBreakdown.reduce((s, m) => s + m.count, 0),
     };
     yearTotal.collectionRate = yearTotal.totalAssigned > 0
-        ? Number(((yearTotal.totalCollected / yearTotal.totalAssigned) * 100).toFixed(2)) : 0;
+        ? Number((((yearTotal.totalCollected + yearTotal.totalWaived) / yearTotal.totalAssigned) * 100).toFixed(2)) : 0;
 
     return { academicYear: Number(academicYear), monthlyBreakdown, yearTotal };
 };
