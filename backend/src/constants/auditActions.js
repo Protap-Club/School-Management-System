@@ -23,8 +23,30 @@ export const AUDIT_ACTIONS = Object.freeze({
     SUBSTITUTE_ASSIGNED: 'proxy.substitute_assigned',
     // Assignment
     ASSIGNMENT_CREATED: 'assignment.created',
+    ASSIGNMENT_UPDATED: 'assignment.updated',
     ASSIGNMENT_DELETED: 'assignment.deleted',
+    ASSIGNMENT_SUBMITTED: 'assignment.submitted',
     // Calendar
     EVENT_CREATED: 'calendar.event_created',
+    EVENT_UPDATED: 'calendar.event_updated',
     EVENT_DELETED: 'calendar.event_deleted',
+    // Compatibility aliases for grouped usages in services
+    ASSIGNMENT: Object.freeze({
+        CREATED: 'assignment.created',
+        UPDATED: 'assignment.updated',
+        DELETED: 'assignment.deleted',
+        SUBMITTED: 'assignment.submitted',
+    }),
+    CALENDAR: Object.freeze({
+        EVENT_CREATED: 'calendar.event_created',
+        EVENT_UPDATED: 'calendar.event_updated',
+        EVENT_DELETED: 'calendar.event_deleted',
+    }),
+    PROXY: Object.freeze({
+        REQUEST_CREATED: 'proxy.request_created',
+        TEACHER_ASSIGNED: 'proxy.substitute_assigned',
+        FREE_PERIOD_MARKED: 'proxy.free_period_marked',
+        DIRECT_ASSIGNMENT_CREATED: 'proxy.direct_assignment_created',
+        REQUEST_CANCELLED: 'proxy.request_cancelled',
+    }),
 });

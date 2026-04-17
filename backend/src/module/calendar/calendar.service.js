@@ -256,21 +256,20 @@ export const createCalendarEvent = async (eventData, user, metadata) => {
 
     createAuditLog({
         schoolId,
-        actor: user._id,
-        actorModel: user.role === USER_ROLES.SUPER_ADMIN ? "SuperAdmin" : "User",
+        actorId: user._id,
+        actorRole: user.role,
         action: AUDIT_ACTIONS.CALENDAR.EVENT_CREATED,
-        entityId: newEvent._id,
-        entityModel: "CalendarEvent",
-        status: "success",
-        details: {
+        targetModel: "CalendarEvent",
+        targetId: newEvent._id,
+        description: `Created new calendar event: "${newEvent.title}"`,
+        metadata: {
             title: newEvent.title,
             type: newEvent.type,
             targetAudience: newEvent.targetAudience
         },
-        ipAddress: metadata?.ip,
-        userAgent: metadata?.userAgent,
-        sessionToken: null
-    }).catch(err => logger.error(`Failed to create audit log: ${err.message}`));
+        ip: metadata?.ip,
+        userAgentString: metadata?.userAgent
+    });
 
     return newEvent;
 };
@@ -495,17 +494,16 @@ export const updateCalendarEvent = async (id, updateData, user, metadata) => {
 
     createAuditLog({
         schoolId: event.schoolId,
-        actor: user._id,
-        actorModel: user.role === USER_ROLES.SUPER_ADMIN ? "SuperAdmin" : "User",
+        actorId: user._id,
+        actorRole: user.role,
         action: AUDIT_ACTIONS.CALENDAR.EVENT_UPDATED,
-        entityId: updatedEvent._id,
-        entityModel: "CalendarEvent",
-        status: "success",
-        details: { fields: Object.keys(updateData) },
-        ipAddress: metadata?.ip,
-        userAgent: metadata?.userAgent,
-        sessionToken: null
-    }).catch(err => logger.error(`Failed to create audit log: ${err.message}`));
+        targetModel: "CalendarEvent",
+        targetId: updatedEvent._id,
+        description: `Updated calendar event: "${updatedEvent.title}"`,
+        metadata: { fields: Object.keys(updateData) },
+        ip: metadata?.ip,
+        userAgentString: metadata?.userAgent
+    });
 
     return updatedEvent;
 };
@@ -535,17 +533,16 @@ export const deleteCalendarEvent = async (id, user, metadata) => {
 
     createAuditLog({
         schoolId: event.schoolId,
-        actor: user._id,
-        actorModel: user.role === USER_ROLES.SUPER_ADMIN ? "SuperAdmin" : "User",
+        actorId: user._id,
+        actorRole: user.role,
         action: AUDIT_ACTIONS.CALENDAR.EVENT_DELETED,
-        entityId: id,
-        entityModel: "CalendarEvent",
-        status: "success",
-        details: { title: event.title },
-        ipAddress: metadata?.ip,
-        userAgent: metadata?.userAgent,
-        sessionToken: null
-    }).catch(err => logger.error(`Failed to create audit log: ${err.message}`));
+        targetModel: "CalendarEvent",
+        targetId: id,
+        description: `Deleted calendar event: "${event.title}"`,
+        metadata: { title: event.title },
+        ip: metadata?.ip,
+        userAgentString: metadata?.userAgent
+    });
 
     return { message: "Event deleted successfully" };
 };
@@ -578,17 +575,16 @@ export const deleteCalendarEventsByDate = async (dateStr, user, eventId, metadat
 
         createAuditLog({
             schoolId: event.schoolId,
-            actor: user._id,
-            actorModel: user.role === USER_ROLES.SUPER_ADMIN ? "SuperAdmin" : "User",
+            actorId: user._id,
+            actorRole: user.role,
             action: AUDIT_ACTIONS.CALENDAR.EVENT_DELETED,
-            entityId: eventId,
-            entityModel: "CalendarEvent",
-            status: "success",
-            details: { title: event.title, deletedByDate: true },
-            ipAddress: metadata?.ip,
-            userAgent: metadata?.userAgent,
-            sessionToken: null
-        }).catch(err => logger.error(`Failed to create audit log: ${err.message}`));
+            targetModel: "CalendarEvent",
+            targetId: eventId,
+            description: `Deleted calendar event by date: "${event.title}"`,
+            metadata: { title: event.title, deletedByDate: true },
+            ip: metadata?.ip,
+            userAgentString: metadata?.userAgent
+        });
 
         return { message: "Event deleted successfully", deletedCount: 1 };
     }
@@ -621,17 +617,16 @@ export const deleteCalendarEventsByDate = async (dateStr, user, eventId, metadat
 
     createAuditLog({
         schoolId: user.schoolId,
-        actor: user._id,
-        actorModel: user.role === USER_ROLES.SUPER_ADMIN ? "SuperAdmin" : "User",
+        actorId: user._id,
+        actorRole: user.role,
         action: AUDIT_ACTIONS.CALENDAR.EVENT_DELETED,
-        entityId: null, // Bulk
-        entityModel: "CalendarEvent",
-        status: "success",
-        details: { deletedCount: result.deletedCount, date: dateStr },
-        ipAddress: metadata?.ip,
-        userAgent: metadata?.userAgent,
-        sessionToken: null
-    }).catch(err => logger.error(`Failed to create audit log: ${err.message}`));
+        targetModel: "CalendarEvent",
+        targetId: null, // Bulk
+        description: `Bulk deleted ${result.deletedCount} calendar event(s) for ${dateStr}`,
+        metadata: { deletedCount: result.deletedCount, date: dateStr },
+        ip: metadata?.ip,
+        userAgentString: metadata?.userAgent
+    });
 
     return { message: `${result.deletedCount} event(s) deleted`, deletedCount: result.deletedCount };
 };

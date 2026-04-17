@@ -91,7 +91,7 @@ export const AuditLogTable = ({ logs, isLoading }) => {
                                 <td className="px-6 py-4">
                                     <div className="flex flex-col">
                                         <span className="font-semibold text-slate-700">
-                                            {log.actorId ? `${log.actorId.firstName || ''} ${log.actorId.lastName || ''}`.trim() : 'System'}
+                                            {log.actorId ? (log.actorId.name || 'Unknown User') : 'System'}
                                         </span>
                                         <span className={`text-[10px] font-bold uppercase tracking-wider w-max px-2 py-0.5 rounded-full mt-1 ${
                                             log.actorRole === 'super_admin' ? 'bg-purple-100 text-purple-700' :

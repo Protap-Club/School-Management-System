@@ -100,7 +100,7 @@ export const getAuditLogs = async ({ schoolId, page = 1, limit = 20, filters = {
             .sort({ createdAt: -1 })
             .skip(skip)
             .limit(limit)
-            .populate('actorId', 'firstName lastName email profileImage role'),
+            .populate('actorId', 'name email avatarUrl role'),
         AuditLog.countDocuments(query)
     ]);
 
