@@ -14,11 +14,9 @@ spec:
       labels:
         app: backend
     spec:
-      # FIX 1: Security Hardening - Disable automatic mounting of API tokens
       automountServiceAccountToken: false
       containers:
       - name: backend
-        # FIX 2: Satisfies the "Specific Version" check (CI/CD replaces this)
         image: gcr.io/school-mgmt-493518/backend:v1.0.0-placeholder
         ports:
         - containerPort: 5000
@@ -30,15 +28,14 @@ spec:
                 key: MONGODB_URI
         resources:
           requests:
-            cpu: "512Mi"
-            memory: "2Gi"
-            # FIX 3: Specify ephemeral storage request
-            ephemeral-storage: "2Gi"
+            # FIX: CPU must be in cores/millicores, not Mi (Megabytes)
+            cpu: "250m"        # 0.25 of a CPU core
+            memory: "512Mi"    # Reduced for better schedulability
+            ephemeral-storage: "1Gi"
           limits:
-            # FIX 4: Specify memory limit to prevent Node crashes
-            cpu: "2Gi"
-            memory: "2Gi"
-            ephemeral-storage: "2Gi"
+            cpu: "500m"        # Allow bursting to 0.5 core
+            memory: "1Gi"      # Hard limit for memory
+            ephemeral-storage: "1Gi"
 ---
 apiVersion: v1
 kind: Service
