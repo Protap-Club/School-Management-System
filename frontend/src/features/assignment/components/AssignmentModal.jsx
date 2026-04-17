@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { FaBook, FaPaperclip, FaSave, FaTimes, FaTrash } from 'react-icons/fa';
 import { useUsers } from '../../users/api/queries';
 import { useAssignmentOptions } from '../hooks/useAssignmentOptions';
+import { useAuth } from '../../auth';
 import {
   useAssignmentById,
   useCreateAssignment,
@@ -115,12 +116,22 @@ const SelectField = ({
 );
 
 export const AssignmentModal = ({ isOpen, onClose, assignmentToEdit = null }) => {
+  const { user } = useAuth();
   const createMutation = useCreateAssignment();
   const updateMutation = useUpdateAssignment();
   const removeAttachmentMutation = useRemoveAssignmentAttachment();
   const { data: detailResponse, isLoading: detailLoading } = useAssignmentById(assignmentToEdit?._id, isOpen && Boolean(assignmentToEdit));
   const teachersQuery = useUsers({ role: 'teacher', pageSize: 5000, enabled: isOpen });
-  const { loading: optionsLoading, availableStandards, getSectionsForStandard, getSubjectsForSections } = useAssignmentOptions();
+  const {
+    loading: optionsLoading,
+    availableStandards,
+    getSectionsForStandard,
+    getSubjectsForSections,
+    isTeacher,
+    hasSingleSubject,
+    singleSubject,
+    assignedClasses,
+  } = useAssignmentOptions(user);
   const fileInputRef = useRef(null);
 
   const [formData, setFormData] = useState({ ...INITIAL_FORM });
@@ -154,13 +165,58 @@ export const AssignmentModal = ({ isOpen, onClose, assignmentToEdit = null }) =>
   }, [selectedSections, teacherMatchesBySection]);
 
   const teacherOptions = useMemo(() => {
-    const options = singleSectionTeachers.map((teacher) => ({ label: teacher.name, value: teacher._id }));
-    if (formData.assignedTeacher && !options.some((item) => String(item.value) === String(formData.assignedTeacher))) {
-      const current = teachers.find((teacher) => String(teacher._id) === String(formData.assignedTeacher));
-      if (current) options.push({ label: current.name, value: current._id });
+    const options = new Map();
+    
+    // Debug logging
+    console.log('=== Teacher Options Debug ===');
+    console.log('isTeacher:', isTeacher);
+    console.log('user:', user);
+    console.log('teachers count:', teachers.length);
+    console.log('singleSectionTeachers count:', singleSectionTeachers.length);
+    console.log('selectedSections:', selectedSections);
+    console.log('formData:', { standard: formData.standard, subject: formData.subject });
+    console.log('assignedClasses:', assignedClasses);
+    
+    // Log teacher data structure
+    console.log('First teacher data:', teachers[0]);
+    console.log('Single section teachers:', singleSectionTeachers);
+    
+    // Add teachers that match the class-section-subject mapping
+    singleSectionTeachers.forEach((teacher) => {
+      console.log('Adding matching teacher:', teacher.name, teacher._id);
+      options.set(String(teacher._id), { label: teacher.name, value: teacher._id });
+    });
+    
+    // For teachers creating assignments, ensure they can see themselves if they teach this class-section-subject
+    if (isTeacher && user?._id && selectedSections.length === 1 && formData.subject) {
+      const isMappedToAssignment = assignedClasses.some((item) =>
+        String(item.standard).trim() === String(formData.standard).trim() &&
+        normalizeSection(item.section) === normalizeSection(selectedSections[0]) &&
+        Array.isArray(item.subjects) && item.subjects.includes(formData.subject)
+      );
+      
+      console.log('Teacher mapping check:', { isMappedToAssignment, userName: user.name });
+      
+      if (isMappedToAssignment && !options.has(String(user._id))) {
+        console.log('Adding current teacher to options:', user.name);
+        options.set(String(user._id), { label: user.name, value: user._id });
+      }
     }
-    return options;
-  }, [formData.assignedTeacher, singleSectionTeachers, teachers]);
+    
+    // Add currently selected teacher if not already in options
+    if (formData.assignedTeacher && !options.has(String(formData.assignedTeacher))) {
+      const current = teachers.find((teacher) => String(teacher._id) === String(formData.assignedTeacher));
+      if (current) {
+        console.log('Adding selected teacher:', current.name);
+        options.set(String(formData.assignedTeacher), { label: current.name, value: current._id });
+      }
+    }
+    
+    const finalOptions = Array.from(options.values());
+    console.log('Final teacher options:', finalOptions);
+    console.log('=== End Debug ===');
+    return finalOptions;
+  }, [formData.assignedTeacher, formData.standard, formData.subject, selectedSections, singleSectionTeachers, teachers, isTeacher, user, assignedClasses]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -181,9 +237,11 @@ export const AssignmentModal = ({ isOpen, onClose, assignmentToEdit = null }) =>
         status: assignmentToEdit.status || 'active',
       });
     } else {
-      setFormData({ ...INITIAL_FORM });
+      // For teachers with single subject, pre-fill the subject
+      const initialSubject = isTeacher && hasSingleSubject ? singleSubject : '';
+      setFormData({ ...INITIAL_FORM, subject: initialSubject });
     }
-  }, [isOpen, assignmentToEdit]);
+  }, [isOpen, assignmentToEdit, isTeacher, hasSingleSubject, singleSubject]);
 
   useEffect(() => {
     if (detailedAssignment?.attachments) {
@@ -209,12 +267,32 @@ export const AssignmentModal = ({ isOpen, onClose, assignmentToEdit = null }) =>
       if (next.sections.length !== 1 && next.assignedTeacher) {
         next = { ...next, assignedTeacher: '' };
       }
-      if (!isEditing && next.sections.length === 1 && !next.assignedTeacher && singleSectionTeachers.length === 1) {
-        next = { ...next, assignedTeacher: String(singleSectionTeachers[0]._id) };
+      // Auto-select assigned teacher logic
+      if (!isEditing && next.sections.length === 1 && !next.assignedTeacher) {
+        if (singleSectionTeachers.length === 1) {
+          // Only one teacher mapped to this class-section-subject
+          next = { ...next, assignedTeacher: String(singleSectionTeachers[0]._id) };
+        } else if (isTeacher && user?._id) {
+          // For teachers creating assignments, auto-select themselves if they teach this class-section-subject
+          const isMappedToAssignment = assignedClasses.some((item) =>
+            String(item.standard).trim() === String(next.standard).trim() &&
+            normalizeSection(item.section) === normalizeSection(next.sections[0]) &&
+            Array.isArray(item.subjects) && item.subjects.includes(next.subject)
+          );
+          if (isMappedToAssignment) {
+            next = { ...next, assignedTeacher: String(user._id) };
+          }
+        }
       }
+
+      // For teachers with single subject, ensure subject is always set
+      if (isTeacher && hasSingleSubject && !next.subject) {
+        next = { ...next, subject: singleSubject };
+      }
+
       return next;
     });
-  }, [availableStandards, getSubjectsForSections, isEditing, isOpen, sectionOptions, singleSectionTeachers]);
+  }, [availableStandards, getSubjectsForSections, isEditing, isOpen, sectionOptions, singleSectionTeachers, isTeacher, user?._id, assignedClasses, hasSingleSubject, singleSubject]);
 
   if (!isOpen) return null;
 
@@ -377,9 +455,9 @@ export const AssignmentModal = ({ isOpen, onClose, assignmentToEdit = null }) =>
                   value={formData.subject}
                   onChange={handleChange}
                   options={subjects.map((item) => ({ label: item, value: item }))}
-                  placeholder={selectedSections.length ? 'Select Subject' : 'Select Section First'}
+                  placeholder={hasSingleSubject ? singleSubject : (selectedSections.length ? 'Select Subject' : 'Select Section First')}
                   loading={optionsLoading}
-                  disabled={isEditing || selectedSections.length === 0}
+                  disabled={isEditing || selectedSections.length === 0 || hasSingleSubject}
                   error={fieldErrors.subject}
                   required
                 />
@@ -439,6 +517,12 @@ export const AssignmentModal = ({ isOpen, onClose, assignmentToEdit = null }) =>
 
               {selectedSections.length === 1 && formData.subject && singleSectionTeachers.length === 1 && (
                 <p className="text-xs text-emerald-600">Responsible teacher auto-selected from the subject mapping.</p>
+              )}
+
+              {isTeacher && selectedSections.length === 1 && formData.assignedTeacher && (
+                <p className="text-xs text-blue-600">
+                  You will be assigned as the responsible teacher for this assignment.
+                </p>
               )}
 
               {!isEditing && selectedSections.length > 1 && formData.subject && (
