@@ -728,3 +728,6 @@ export const generateTimetable = async ({
 
   doc.save(filename);
 };
+
+// Backward-compatible alias used by timetable page imports.
+export const generateTimetablePDF = generateTimetable;
