@@ -5,9 +5,9 @@ import RequireFeature from './components/RequireFeature';
 
 // Lazy-loaded pages from routes config
 import { pages, PageLoader } from './routes';
-import UpdatePassword from './pages/UpdatePassword';
-import ForgotPassword from './pages/ForgotPassword';
-import ResetPassword from './pages/ResetPassword';
+import UpdatePassword from '@/features/auth/UpdatePasswordPage';
+import ForgotPassword from '@/features/auth/ForgotPasswordPage';
+import ResetPassword from '@/features/auth/ResetPasswordPage';
 
 function App() {
     // Destructure lazy-loaded page components

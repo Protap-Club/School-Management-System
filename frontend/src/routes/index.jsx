@@ -111,8 +111,8 @@ export const prefetchRoutes = () => {
         // Use requestIdleCallback if available, fallback to setTimeout
         const runPrefetch = () => {
             // Pre-load critical modules
-            import('../pages/Dashboard').catch(() => {});
-            import('../features/attendance/AttendancePage').catch(() => {});
+            import('@/features/dashboard/DashboardPage').catch(() => {});
+            import('@/features/attendance/AttendancePage').catch(() => {});
         };
 
         if ('requestIdleCallback' in window) {
