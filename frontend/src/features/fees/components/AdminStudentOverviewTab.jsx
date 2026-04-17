@@ -283,8 +283,20 @@ export const StudentOverviewPanel = ({
                                 <option key={m} value={m}>{MONTH_LABELS[m]}</option>
                             ))}
                         </select>
-                        <input type="number" value={overviewYear} onChange={(e) => setOverviewYear(Number(e.target.value))}
-                            className="px-3 py-2 text-sm border border-gray-200 rounded-lg w-24 focus:ring-primary focus:border-primary" min={2000} max={2100} />
+                        <select 
+                            value={overviewYear} 
+                            onChange={(e) => setOverviewYear(Number(e.target.value))}
+                            className="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-primary focus:border-primary font-medium"
+                        >
+                            {Array.from({ length: 8 }, (_, i) => {
+                                const year = new Date().getFullYear() - 2 + i;
+                                return (
+                                    <option key={year} value={year}>
+                                        {year} - {year + 1}
+                                    </option>
+                                );
+                            })}
+                        </select>
                     </div>
                 </div>
                 <div className="overflow-x-auto">
@@ -351,8 +363,20 @@ export const StudentYearlySummaryPanel = ({
                             <h2 className="text-xl font-bold text-gray-900">Yearly Collection Breakdown</h2>
                             <p className="text-sm text-gray-500">Monthly breakdown of fee collection</p>
                         </div>
-                        <input type="number" value={summaryYear} onChange={(e) => setSummaryYear(Number(e.target.value))}
-                            className="px-3 py-2 text-sm border border-gray-200 rounded-lg w-28 focus:ring-primary focus:border-primary font-medium" min={2000} max={2100} />
+                        <select 
+                            value={summaryYear} 
+                            onChange={(e) => setSummaryYear(Number(e.target.value))}
+                            className="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-primary focus:border-primary font-medium"
+                        >
+                            {Array.from({ length: 8 }, (_, i) => {
+                                const year = new Date().getFullYear() - 2 + i;
+                                return (
+                                    <option key={year} value={year}>
+                                        {year} - {year + 1}
+                                    </option>
+                                );
+                            })}
+                        </select>
                     </div>
 
                     {yearTotal.totalDue > 0 && (

@@ -49,7 +49,7 @@ const StudentFeesTab = ({
                     onChange={(e) => setSummaryYear(Number(e.target.value))}
                     className="px-4 py-2.5 bg-gray-50 border-none rounded-xl text-sm font-bold text-gray-700 focus:ring-2 focus:ring-primary/20 cursor-pointer"
                 >
-                    {[currentYear, currentYear - 1].map(y => <option key={y} value={y}>Academic Year {y}</option>)}
+                    {[currentYear, currentYear - 1].map(y => <option key={y} value={y}>{y} - {y + 1}</option>)}
                 </select>
             </div>
 

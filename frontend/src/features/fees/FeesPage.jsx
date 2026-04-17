@@ -1000,7 +1000,7 @@ const FeesPage = () => {
                                                                 <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100 bg-gray-50/50">
                                                                     <button type="button" onClick={() => { setPayForm(p => ({ ...p, year: Number(p.year) - 1 })); setPayFormErrors(p => ({ ...p, year: '' })); }}
                                                                         className="p-1.5 hover:bg-gray-200 rounded-lg transition-all text-gray-500 hover:text-gray-800"><FaChevronLeft size={12} /></button>
-                                                                    <span className="text-sm font-black text-gray-900 tracking-wide">{payForm.year}</span>
+                                                                                                                                         <span className="text-sm font-black text-gray-900 tracking-wide">{payForm.year} - {Number(payForm.year) + 1}</span>
                                                                     <button type="button" onClick={() => { setPayForm(p => ({ ...p, year: Number(p.year) + 1 })); setPayFormErrors(p => ({ ...p, year: '' })); }}
                                                                         className="p-1.5 hover:bg-gray-200 rounded-lg transition-all text-gray-500 hover:text-gray-800"><FaChevronRight size={12} /></button>
                                                                 </div>
@@ -1057,7 +1057,7 @@ const FeesPage = () => {
                                                                     min={0}
                                                                 />
                                                                 {payFormErrors.amount && <p className="text-[10px] text-red-500 mt-1.5 ml-1 font-bold">{payFormErrors.amount}</p>}
-                                                                <p className="text-[10px] text-gray-400 mt-2 ml-1 font-medium">Selected: <span className="font-black text-gray-700">{MONTH_LABELS[payForm.month]} {payForm.year}</span></p>
+                                                                <p className="text-[10px] text-gray-400 mt-2 ml-1 font-medium">Selected: <span className="font-black text-gray-700">{MONTH_LABELS[payForm.month]} {payForm.year} - {Number(payForm.year) + 1}</span></p>
                                                             </div>
                                                         </div>
 

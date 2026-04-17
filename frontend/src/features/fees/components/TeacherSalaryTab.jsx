@@ -32,7 +32,7 @@ const TeacherSalaryTab = ({
         <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm">
             <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
                 <h2 className="text-lg font-bold text-gray-900 font-display">Salary Payout History</h2>
-                <p className="text-xs font-medium text-gray-500">{overviewYear}</p>
+                <p className="text-xs font-medium text-gray-500">{overviewYear} - {overviewYear + 1}</p>
             </div>
             <div className="overflow-x-auto">
                 <table className="w-full text-sm text-left">
