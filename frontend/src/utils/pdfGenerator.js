@@ -566,14 +566,22 @@ export const generateTimetable = async ({
   );
 
   // ── Dynamic row sizing ──────────────────────────────────────────────────────
-  const TABLE_START_Y = 40;
+  const TABLE_START_Y = 38;
   const PAGE_H = doc.internal.pageSize.height;
-  const BODY_FONT = 7.5;
-  const LINE_H_MM = BODY_FONT * 0.353;
   const rowCount = timeSlots.length || 1;
-  const availH = PAGE_H - TABLE_START_Y - 10 - 10; // footer reserve
-  const targetRowH = availH / rowCount;
-  const cellPadV = Math.min(4, Math.max(1.5, (targetRowH - 2 * LINE_H_MM) / 2));
+  const totalRows = rowCount + 1; // Include the table header row
+
+  // Even more refined height calculation for single page fit
+  const footerReserve = 12;
+  const headHeightEst = 8; // estimated head height in mm
+  const availH = PAGE_H - TABLE_START_Y - headHeightEst - footerReserve;
+  const targetRowH = Math.max(7, availH / totalRows);
+
+  // Dynamic font scaling
+  const BODY_FONT = totalRows > 12 ? 6.5 : (totalRows > 10 ? 7 : 7.5);
+  const LINE_H_MM = BODY_FONT * 0.353;
+
+  const cellPadV = Math.min(3, Math.max(0.5, (targetRowH - (2 * LINE_H_MM)) / 2));
   const cellPadH = 3;
   const PADDING = 1.2;
 
@@ -587,13 +595,13 @@ export const generateTimetable = async ({
         {
           content: timeLabel,
           rawExt: { isTimeBreak: true },
-          styles: { fontStyle: 'normal', fontSize: 8, textColor: COLORS.muted },
+          styles: { fontStyle: 'normal', fontSize: BODY_FONT + 0.5, textColor: COLORS.muted },
         },
         {
           content: slot.label ?? 'Break',
           colSpan: DAYS.length,
           rawExt: { isBreak: true },
-          styles: { halign: 'center', valign: 'middle', fontStyle: 'italic', fontSize: 10, textColor: COLORS.subtle },
+          styles: { halign: 'center', valign: 'middle', fontStyle: 'italic', fontSize: BODY_FONT + 2, textColor: COLORS.subtle },
         },
       ];
     }
@@ -618,7 +626,7 @@ export const generateTimetable = async ({
       {
         content: timeLabel,
         rawExt: { isTimePeriod: true },
-        styles: { fontStyle: 'bold', fontSize: 8.5, textColor: COLORS.secondary },
+        styles: { fontStyle: 'bold', fontSize: BODY_FONT + 0.5, textColor: COLORS.secondary },
       },
       ...dayColumns,
     ];
@@ -633,23 +641,25 @@ export const generateTimetable = async ({
     headStyles: {
       textColor: COLORS.white,
       fontStyle: 'bold',
-      fontSize: 9.5,
+      fontSize: BODY_FONT + 1.5,
       halign: 'center',
-      cellPadding: { top: 7, bottom: 7, left: cellPadH, right: cellPadH },
+      cellPadding: { top: 4, bottom: 4, left: cellPadH, right: cellPadH },
       lineWidth: 0,
     },
     styles: {
       fontSize: BODY_FONT,
-      cellPadding: { top: cellPadV + 2, bottom: cellPadV + 2, left: cellPadH, right: cellPadH },
+      cellPadding: { top: cellPadV, bottom: cellPadV, left: cellPadH, right: cellPadH },
       valign: 'middle',
       lineWidth: 0,
       overflow: 'linebreak',
+      minCellHeight: targetRowH,
     },
     columnStyles: {
-      0: { halign: 'center', cellWidth: 28, valign: 'middle' },
+      0: { halign: 'center', cellWidth: 26, valign: 'middle' },
     },
-    margin: { left: 24, right: 24 },
+    margin: { left: 18, right: 18, bottom: 10 },
     pageBreak: 'avoid',
+    rowPageBreak: 'avoid',
 
     willDrawCell: ({ doc, cell, section }) => {
       if (section === 'head') {
@@ -670,7 +680,7 @@ export const generateTimetable = async ({
         doc.setFillColor(...COLORS.white);
         doc.roundedRect(cell.x + PADDING, cell.y + PADDING, cell.width - PADDING * 2, cell.height - PADDING * 2, 3, 3, 'F');
         doc.setDrawColor(...COLORS.secondary);
-        doc.setLineWidth(2);
+        doc.setLineWidth(1.5);
         doc.line(cell.x + PADDING + 3, cell.y + PADDING + 4, cell.x + PADDING + 3, cell.y + cell.height - PADDING - 4);
         cell.text = []; // drawn manually in didDrawCell
         return;
@@ -685,31 +695,34 @@ export const generateTimetable = async ({
       if (section !== 'body' || !cell.raw?.rawExt?.isEntry) return;
 
       const { subject, secondary } = cell.raw.rawExt;
-      const textX = cell.x + cellPadH + 6;
-      const maxW = cell.width - cellPadH * 2 - 6;
+      const textX = cell.x + cellPadH + 5;
+      const maxW = cell.width - cellPadH * 2 - 5;
+
+      const subjectSize = BODY_FONT + 0.5;
+      const secondarySize = BODY_FONT - 0.5;
 
       doc.setFont(undefined, 'bold');
-      doc.setFontSize(8.5);
+      doc.setFontSize(subjectSize);
       const subjectLines = doc.splitTextToSize(subject, maxW);
-      const subjectH = subjectLines.length * 3.5;
+      const subjectH = subjectLines.length * (subjectSize * 0.353 * 1.1);
 
       doc.setFont(undefined, 'normal');
-      doc.setFontSize(7.5);
+      doc.setFontSize(secondarySize);
       const secondaryLines = secondary ? doc.splitTextToSize(secondary, maxW) : [];
-      const secondaryH = secondaryLines.length * 3;
+      const secondaryH = secondaryLines.length * (secondarySize * 0.353 * 1.1);
 
-      const totalH = subjectH + (secondaryLines.length ? secondaryH + 1.5 : 0);
-      let y = cell.y + (cell.height - totalH) / 2 + 3;
+      const totalContentH = subjectH + (secondaryLines.length ? secondaryH + 0.8 : 0);
+      let y = cell.y + (cell.height - totalContentH) / 2 + (subjectSize * 0.353);
 
       doc.setFont(undefined, 'bold');
-      doc.setFontSize(8.5);
+      doc.setFontSize(subjectSize);
       doc.setTextColor(...COLORS.primary);
       doc.text(subjectLines, textX, y);
 
       if (secondaryLines.length) {
         y += subjectH + 0.5;
         doc.setFont(undefined, 'normal');
-        doc.setFontSize(7.5);
+        doc.setFontSize(secondarySize);
         doc.setTextColor(...COLORS.muted);
         doc.text(secondaryLines, textX, y);
       }
