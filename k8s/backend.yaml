@@ -33,11 +33,11 @@ spec:
             cpu: "512Mi"
             memory: "2Gi"
             # FIX 3: Specify ephemeral storage request
-            ephemeral-storage: "4Gi"
+            ephemeral-storage: "2Gi"
           limits:
             # FIX 4: Specify memory limit to prevent Node crashes
-            cpu: "1Gi"
-            memory: "1Gi"
+            cpu: "2Gi"
+            memory: "2Gi"
             ephemeral-storage: "2Gi"
 ---
 apiVersion: v1
