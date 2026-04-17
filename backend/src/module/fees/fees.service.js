@@ -1105,3 +1105,309 @@ export const createStudentPenalty = async (schoolId, data, userId) => {
     return penalty;
 };
 
+// ═══════════════════════════════════════════════════════════════
+// ADMIN — Update Penalty Status (PENDING → PAID / WAIVED)
+// ═══════════════════════════════════════════════════════════════
+
+export const updatePenaltyStatus = async (schoolId, penaltyId, data) => {
+    const penalty = await StudentPenalty.findOne({ _id: penaltyId, schoolId });
+    if (!penalty) throw new NotFoundError("Penalty not found");
+
+    if (penalty.status !== "PENDING") {
+        throw new BadRequestError(`Cannot update penalty — current status is already ${penalty.status}`);
+    }
+
+    if (data.status === "PAID") {
+        penalty.status = "PAID";
+        penalty.paidAmount = penalty.amount;
+    } else if (data.status === "WAIVED") {
+        penalty.status = "WAIVED";
+        penalty.paidAmount = 0;
+    } else {
+        throw new BadRequestError("Invalid status. Only PAID or WAIVED are allowed.");
+    }
+
+    await penalty.save();
+    logger.info(`StudentPenalty ${penaltyId} status updated to ${data.status}`);
+    return penalty;
+};
+
+// ═══════════════════════════════════════════════════════════════
+// ADMIN — All-Classes Penalty Overview
+// ═══════════════════════════════════════════════════════════════
+
+export const getAllClassesPenaltyOverview = async (schoolId, academicYear) => {
+    const pipeline = [
+        {
+            $match: {
+                schoolId: new mongoose.Types.ObjectId(schoolId),
+                academicYear: Number(academicYear),
+            },
+        },
+        // Group by class + student to get unique student count
+        {
+            $group: {
+                _id: {
+                    standard: "$standard",
+                    section: "$section",
+                    studentId: "$studentId",
+                },
+                studentTotalAssigned: { $sum: "$amount" },
+                studentCollected: {
+                    $sum: {
+                        $cond: [{ $eq: ["$status", "PAID"] }, "$paidAmount", 0],
+                    },
+                },
+                studentPending: {
+                    $sum: {
+                        $cond: [{ $eq: ["$status", "PENDING"] }, "$amount", 0],
+                    },
+                },
+                studentWaived: {
+                    $sum: {
+                        $cond: [{ $eq: ["$status", "WAIVED"] }, "$amount", 0],
+                    },
+                },
+            },
+        },
+        // Group by class
+        {
+            $group: {
+                _id: { standard: "$_id.standard", section: "$_id.section" },
+                studentCount: { $sum: 1 },
+                totalAssigned: { $sum: "$studentTotalAssigned" },
+                totalCollected: { $sum: "$studentCollected" },
+                totalPending: { $sum: "$studentPending" },
+                totalWaived: { $sum: "$studentWaived" },
+            },
+        },
+        {
+            $project: {
+                _id: 0,
+                standard: "$_id.standard",
+                section: "$_id.section",
+                studentCount: 1,
+                totalAssigned: 1,
+                totalCollected: 1,
+                totalPending: 1,
+                totalWaived: 1,
+            },
+        },
+    ];
+
+    const rawClasses = await StudentPenalty.aggregate(pipeline);
+    const classes = sortClassSections(rawClasses);
+
+    return { classes };
+};
+
+// ═══════════════════════════════════════════════════════════════
+// ADMIN — Class-Level Penalty Overview (student-by-student)
+// ═══════════════════════════════════════════════════════════════
+
+export const getClassPenaltyOverview = async (schoolId, academicYear, standard, section) => {
+    const pipeline = [
+        {
+            $match: {
+                schoolId: new mongoose.Types.ObjectId(schoolId),
+                academicYear: Number(academicYear),
+                standard: String(standard).trim(),
+                section: String(section).trim().toUpperCase(),
+            },
+        },
+        // Look up student user info
+        {
+            $lookup: {
+                from: "users",
+                localField: "studentId",
+                foreignField: "_id",
+                as: "user",
+                pipeline: [{ $project: { name: 1, email: 1 } }],
+            },
+        },
+        { $unwind: "$user" },
+        // Project penalty shape
+        {
+            $project: {
+                _id: 0,
+                studentId: 1,
+                name: "$user.name",
+                email: "$user.email",
+                penalty: {
+                    penaltyId: "$_id",
+                    penaltyType: "$penaltyType",
+                    reason: "$reason",
+                    amount: "$amount",
+                    paidAmount: "$paidAmount",
+                    status: "$status",
+                    occurrenceDate: "$occurrenceDate",
+                },
+            },
+        },
+        // Group by student
+        {
+            $group: {
+                _id: "$studentId",
+                name: { $first: "$name" },
+                email: { $first: "$email" },
+                penalties: { $push: "$penalty" },
+            },
+        },
+        {
+            $project: {
+                _id: 0,
+                studentId: "$_id",
+                name: 1,
+                email: 1,
+                penalties: 1,
+            },
+        },
+        // Facet for both list and summary
+        {
+            $facet: {
+                students: [{ $match: {} }],
+                summary: [
+                    { $unwind: "$penalties" },
+                    {
+                        $group: {
+                            _id: null,
+                            totalAssigned: { $sum: "$penalties.amount" },
+                            totalCollected: {
+                                $sum: {
+                                    $cond: [{ $eq: ["$penalties.status", "PAID"] }, "$penalties.paidAmount", 0],
+                                },
+                            },
+                            totalPending: {
+                                $sum: {
+                                    $cond: [{ $eq: ["$penalties.status", "PENDING"] }, "$penalties.amount", 0],
+                                },
+                            },
+                            totalWaived: {
+                                $sum: {
+                                    $cond: [{ $eq: ["$penalties.status", "WAIVED"] }, "$penalties.amount", 0],
+                                },
+                            },
+                        },
+                    },
+                ],
+            },
+        },
+    ];
+
+    const [result] = await StudentPenalty.aggregate(pipeline);
+
+    const summary = result?.summary?.[0] || {
+        totalAssigned: 0,
+        totalCollected: 0,
+        totalPending: 0,
+        totalWaived: 0,
+    };
+    summary.totalStudents = result?.students?.length || 0;
+
+    return { summary, students: result?.students || [] };
+};
+
+// ═══════════════════════════════════════════════════════════════
+// ADMIN — Yearly Penalty Summary
+// ═══════════════════════════════════════════════════════════════
+
+export const getYearlyPenaltySummary = async (schoolId, academicYear) => {
+    const MONTH_LABELS_ARR = ["", "January", "February", "March", "April", "May", "June",
+        "July", "August", "September", "October", "November", "December"];
+
+    const pipeline = [
+        {
+            $match: {
+                schoolId: new mongoose.Types.ObjectId(schoolId),
+                academicYear: Number(academicYear),
+            },
+        },
+        {
+            $addFields: {
+                penaltyMonth: { $month: "$occurrenceDate" },
+            },
+        },
+        {
+            $group: {
+                _id: "$penaltyMonth",
+                totalAssigned: { $sum: "$amount" },
+                totalCollected: {
+                    $sum: {
+                        $cond: [{ $eq: ["$status", "PAID"] }, "$paidAmount", 0],
+                    },
+                },
+                totalPending: {
+                    $sum: {
+                        $cond: [{ $eq: ["$status", "PENDING"] }, "$amount", 0],
+                    },
+                },
+                totalWaived: {
+                    $sum: {
+                        $cond: [{ $eq: ["$status", "WAIVED"] }, "$amount", 0],
+                    },
+                },
+                count: { $sum: 1 },
+            },
+        },
+        { $sort: { _id: 1 } },
+    ];
+
+    const monthlyRows = await StudentPenalty.aggregate(pipeline);
+
+    const monthlyBreakdown = monthlyRows.map((row) => ({
+        month: row._id,
+        label: MONTH_LABELS_ARR[row._id] || `Month ${row._id}`,
+        totalAssigned: row.totalAssigned,
+        totalCollected: row.totalCollected,
+        totalPending: row.totalPending,
+        totalWaived: row.totalWaived,
+        count: row.count,
+        collectionRate: row.totalAssigned > 0
+            ? Number(((row.totalCollected / row.totalAssigned) * 100).toFixed(2)) : 0,
+    }));
+
+    const yearTotal = {
+        totalAssigned: monthlyBreakdown.reduce((s, m) => s + m.totalAssigned, 0),
+        totalCollected: monthlyBreakdown.reduce((s, m) => s + m.totalCollected, 0),
+        totalPending: monthlyBreakdown.reduce((s, m) => s + m.totalPending, 0),
+        totalWaived: monthlyBreakdown.reduce((s, m) => s + m.totalWaived, 0),
+        count: monthlyBreakdown.reduce((s, m) => s + m.count, 0),
+    };
+    yearTotal.collectionRate = yearTotal.totalAssigned > 0
+        ? Number(((yearTotal.totalCollected / yearTotal.totalAssigned) * 100).toFixed(2)) : 0;
+
+    return { academicYear: Number(academicYear), monthlyBreakdown, yearTotal };
+};
+
+// ═══════════════════════════════════════════════════════════════
+// STUDENT — My Penalties (mobile + web)
+// ═══════════════════════════════════════════════════════════════
+
+export const getMyPenalties = async (schoolId, studentId, filters = {}) => {
+    const query = { schoolId, studentId };
+    if (filters.academicYear) query.academicYear = Number(filters.academicYear);
+
+    const penalties = await StudentPenalty.find(query)
+        .sort({ occurrenceDate: -1, createdAt: -1 })
+        .lean();
+
+    const records = penalties.map((p) => ({
+        penaltyId: p._id,
+        academicYear: p.academicYear,
+        penaltyType: p.penaltyType,
+        reason: p.reason,
+        amount: p.amount,
+        paidAmount: p.paidAmount,
+        status: p.status,
+        occurrenceDate: p.occurrenceDate,
+    }));
+
+    const summary = {
+        totalAssigned: records.reduce((s, r) => s + r.amount, 0),
+        totalPaid: records.reduce((s, r) => s + r.paidAmount, 0),
+        totalPending: records.filter(r => r.status === "PENDING").reduce((s, r) => s + r.amount, 0),
+    };
+
+    return { summary, penalties: records };
+};
+

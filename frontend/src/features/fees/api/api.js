@@ -143,4 +143,31 @@ export const feesApi = {
         const response = await api.post('/fees/penalties', data);
         return response.data;
     },
+
+    updatePenaltyStatus: async ({ penaltyId, status }) => {
+        const response = await api.patch(`/fees/penalties/${penaltyId}`, { status });
+        return response.data;
+    },
+
+    getAllClassesPenaltyOverview: async ({ academicYear }) => {
+        const response = await api.get(`/fees/penalties/overview/all-classes?academicYear=${academicYear}`);
+        return response.data;
+    },
+
+    getClassPenaltyOverview: async ({ standard, section, academicYear }) => {
+        const response = await api.get(`/fees/penalties/overview/${standard}/${section}?academicYear=${academicYear}`);
+        return response.data;
+    },
+
+    getYearlyPenaltySummary: async ({ academicYear }) => {
+        const response = await api.get(`/fees/penalties/summary/yearly?academicYear=${academicYear}`);
+        return response.data;
+    },
+
+    getMyPenalties: async (filters = {}) => {
+        const params = new URLSearchParams();
+        if (filters.academicYear) params.append('academicYear', filters.academicYear);
+        const response = await api.get(`/fees/my-penalties?${params.toString()}`);
+        return response.data;
+    },
 };

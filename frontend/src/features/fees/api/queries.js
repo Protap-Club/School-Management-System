@@ -281,3 +281,49 @@ export const useCreateStudentPenalty = () => {
     });
 };
 
+export const useUpdatePenaltyStatus = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: feesApi.updatePenaltyStatus,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: feeKeys.all });
+        },
+    });
+};
+
+export const useAllClassesPenaltyOverview = (academicYear, isAdmin = false) => {
+    const { accessToken } = useAuth();
+    return useQuery({
+        queryKey: [...feeKeys.all, 'penaltyOverviewAll', academicYear],
+        queryFn: () => feesApi.getAllClassesPenaltyOverview({ academicYear }),
+        enabled: !!academicYear && isAdmin && !!accessToken,
+    });
+};
+
+export const useClassPenaltyOverview = (standard, section, academicYear) => {
+    const { user, accessToken } = useAuth();
+    const isAdmin = ['admin', 'super_admin'].includes(user?.role);
+    return useQuery({
+        queryKey: [...feeKeys.all, 'penaltyOverviewClass', standard, section, academicYear],
+        queryFn: () => feesApi.getClassPenaltyOverview({ standard, section, academicYear }),
+        enabled: !!standard && !!section && !!academicYear && isAdmin && !!accessToken,
+    });
+};
+
+export const useYearlyPenaltySummary = (academicYear, isAdmin = false) => {
+    const { accessToken } = useAuth();
+    return useQuery({
+        queryKey: [...feeKeys.all, 'penaltySummaryYearly', academicYear],
+        queryFn: () => feesApi.getYearlyPenaltySummary({ academicYear }),
+        enabled: !!academicYear && isAdmin && !!accessToken,
+    });
+};
+
+export const useMyPenalties = (filters = {}, isStudent = false) => {
+    const { accessToken } = useAuth();
+    return useQuery({
+        queryKey: [...feeKeys.all, 'myPenalties', filters],
+        queryFn: () => feesApi.getMyPenalties(filters),
+        enabled: isStudent && !!accessToken,
+    });
+};

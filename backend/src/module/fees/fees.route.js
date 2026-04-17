@@ -20,6 +20,11 @@ import {
     getPenaltyStudentsByClass,
     getStudentPenalties,
     createStudentPenalty,
+    updatePenaltyStatus,
+    getAllClassesPenaltyOverview,
+    getClassPenaltyOverview,
+    getYearlyPenaltySummary,
+    getMyPenalties,
 } from "./fees.controller.js";
 import {
     createSalaryEntry,
@@ -52,6 +57,11 @@ import {
     getStudentsByClassSchema,
     getPenaltyStudentsByClassSchema,
     getStudentPenaltiesSchema,
+    updatePenaltyStatusSchema,
+    allClassesPenaltyOverviewSchema,
+    classPenaltyOverviewSchema,
+    yearlyPenaltySummarySchema,
+    myPenaltiesSchema,
 } from "./fees.validation.js";
 import {
     createSalarySchema,
@@ -71,6 +81,13 @@ router.get(
     checkRole([USER_ROLES.STUDENT]),
     validate(myFeesSchema),
     getMyFees
+);
+
+router.get(
+    "/my-penalties",
+    checkRole([USER_ROLES.STUDENT]),
+    validate(myPenaltiesSchema),
+    getMyPenalties
 );
 
 // ── Shared: Student Fee History (Admin Only, mobile + web)
@@ -226,7 +243,33 @@ router.post(
     createPenaltyType
 );
 
-// ── Student Penalty Routes ────────────────────────────────────
+// ── Student Penalty Dashboards & Reports ─────────────────────────────
+// (Specific subpaths moved to top to prevent conflict)
+router.get(
+    "/penalties/overview/all-classes",
+    checkWebOnly,
+    checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN]),
+    validate(allClassesPenaltyOverviewSchema),
+    getAllClassesPenaltyOverview
+);
+
+router.get(
+    "/penalties/overview/:standard/:section",
+    checkWebOnly,
+    checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN]),
+    validate(classPenaltyOverviewSchema),
+    getClassPenaltyOverview
+);
+
+router.get(
+    "/penalties/summary/yearly",
+    checkWebOnly,
+    checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN]),
+    validate(yearlyPenaltySummarySchema),
+    getYearlyPenaltySummary
+);
+
+// ── Student Penalty Management ──────────────────────────────
 router.get(
     "/students-by-class",
     checkWebOnly,
@@ -258,5 +301,16 @@ router.post(
     validate(createStudentPenaltySchema),
     createStudentPenalty
 );
+
+router.patch(
+    "/penalties/:id",
+    checkWebOnly,
+    checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN]),
+    validate(updatePenaltyStatusSchema),
+    updatePenaltyStatus
+);
+
+// Final verification log for routing registration
+// console.log("Student Penalty Routes registered successfully");
 
 export default router;

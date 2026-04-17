@@ -220,3 +220,48 @@ export const createStudentPenalty = asyncHandler(async (req, res) => {
     });
     logger.info(`Student penalty created: ${penalty.penaltyType} for student ${req.body.studentId}`);
 });
+
+export const updatePenaltyStatus = asyncHandler(async (req, res) => {
+    const result = await feesService.updatePenaltyStatus(req.schoolId, req.params.id, req.body);
+    res.status(200).json({
+        success: true,
+        message: `Penalty status updated to ${req.body.status}`,
+        data: result,
+    });
+});
+
+export const getAllClassesPenaltyOverview = asyncHandler(async (req, res) => {
+    const { academicYear } = req.query;
+    const result = await feesService.getAllClassesPenaltyOverview(req.schoolId, academicYear);
+    res.status(200).json({
+        success: true,
+        data: result,
+    });
+});
+
+export const getClassPenaltyOverview = asyncHandler(async (req, res) => {
+    const { standard, section } = req.params;
+    const { academicYear } = req.query;
+    const result = await feesService.getClassPenaltyOverview(req.schoolId, academicYear, standard, section);
+    res.status(200).json({
+        success: true,
+        data: result,
+    });
+});
+
+export const getYearlyPenaltySummary = asyncHandler(async (req, res) => {
+    const { academicYear } = req.query;
+    const result = await feesService.getYearlyPenaltySummary(req.schoolId, academicYear);
+    res.status(200).json({
+        success: true,
+        data: result,
+    });
+});
+
+export const getMyPenalties = asyncHandler(async (req, res) => {
+    const result = await feesService.getMyPenalties(req.schoolId, req.user._id, req.query);
+    res.status(200).json({
+        success: true,
+        data: result,
+    });
+});

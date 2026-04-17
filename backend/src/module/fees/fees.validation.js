@@ -296,3 +296,42 @@ export const getStudentPenaltiesSchema = z.object({
         studentId: z.string().min(1).optional(),
     }),
 });
+
+export const updatePenaltyStatusSchema = z.object({
+    params: z.object({
+        id: objectIdSchema,
+    }),
+    body: z.object({
+        status: z.enum(["PAID", "WAIVED"], {
+            required_error: "Status is required (PAID or WAIVED)",
+        }),
+    }),
+});
+
+export const allClassesPenaltyOverviewSchema = z.object({
+    query: z.object({
+        academicYear: z.union([z.string(), z.number()]).transform((val) => Number(val)),
+    }),
+});
+
+export const classPenaltyOverviewSchema = z.object({
+    params: z.object({
+        standard: z.string({ required_error: "Standard is required" }).nonempty(),
+        section: z.string({ required_error: "Section is required" }).nonempty(),
+    }),
+    query: z.object({
+        academicYear: z.union([z.string(), z.number()]).transform((val) => Number(val)),
+    }),
+});
+
+export const yearlyPenaltySummarySchema = z.object({
+    query: z.object({
+        academicYear: z.union([z.string(), z.number()]).transform((val) => Number(val)),
+    }),
+});
+
+export const myPenaltiesSchema = z.object({
+    query: z.object({
+        academicYear: z.union([z.string(), z.number()]).optional().transform((val) => (val ? Number(val) : undefined)),
+    }).optional(),
+});

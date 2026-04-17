@@ -8,6 +8,7 @@ import {
     useStudentFeeHistory, useRecordPayment, useUpdateAssignment,
     useCreateSalary, useSalaries, useUpdateSalaryStatus, useMySalary, useUpdateTeacherProfile,
     useMyFees, useFeeTypes, usePenaltyTypes, usePenaltyStudentsByClass, useStudentPenalties, useCreateStudentPenalty,
+    useUpdatePenaltyStatus, useAllClassesPenaltyOverview, useClassPenaltyOverview, useYearlyPenaltySummary, useMyPenalties,
     SALARY_LABELS,
     FEE_TYPES, FEE_TYPE_LABELS, FREQUENCY_LABELS, MONTH_LABELS, PENALTY_TYPE_LABELS,
 } from './index';
@@ -94,6 +95,7 @@ const FeesPage = () => {
     // Overview state
     const [overviewYear, setOverviewYear] = useState(currentYear);
     const [overviewMonth, setOverviewMonth] = useState(currentMonth);
+    const [overviewMode, setOverviewMode] = useState('fee'); // 'fee' | 'penalty'
     const [selectedClass, setSelectedClass] = useState(null);
     const [overviewType, setOverviewType] = useState('');
     const [overviewStatus, setOverviewStatus] = useState('all');
@@ -193,6 +195,16 @@ const FeesPage = () => {
         selectedStudent?.studentId, overviewYear
     );
 
+    // Penalty Overview Queries
+    const { data: penaltyOverviewData, isLoading: penaltyOverviewLoading } = useAllClassesPenaltyOverview(
+        overviewYear, isAdmin && overviewMode === 'penalty'
+    );
+    const { data: classPenaltyData, isLoading: classPenaltyLoading } = useClassPenaltyOverview(
+        selectedClass?.standard, selectedClass?.section,
+        overviewYear
+    );
+    const { data: yearlyPenaltyData, isLoading: yearlyPenaltyLoading } = useYearlyPenaltySummary(summaryYear, isAdmin);
+
     // Salary Queries
     const { data: feeTypesResp } = useFeeTypes({ enabled: isAdmin });
     const { data: penaltyTypesResp } = usePenaltyTypes({ enabled: isAdmin });
@@ -201,6 +213,7 @@ const FeesPage = () => {
 
     // Student Queries
     const { data: myFeesData, isLoading: myFeesLoading } = useMyFees({ academicYear: summaryYear }, isStudent);
+    const { data: myPenaltiesData, isLoading: myPenaltiesLoading } = useMyPenalties({ academicYear: summaryYear }, isStudent);
     const { data: penaltyStudentsResp, isLoading: penaltyStudentsLoading } = usePenaltyStudentsByClass(
         penaltyStudentFilters,
         isAdmin && !!penaltyStudentFilters.standard && !!penaltyStudentFilters.section
@@ -226,6 +239,7 @@ const FeesPage = () => {
     const updateSalaryStatusMut = useUpdateSalaryStatus();
     const updateTeacherProfileMut = useUpdateTeacherProfile();
     const penaltyMut = useCreateStudentPenalty();
+    const penaltyStatusMut = useUpdatePenaltyStatus();
 
     // showToast provided by useToastMessage hook
 
@@ -250,7 +264,7 @@ const FeesPage = () => {
         }
     }, [classSections, selectedClass]);
 
-    const isLoadingOverview = overviewLoading;
+    const isLoadingOverview = overviewMode === 'penalty' ? penaltyOverviewLoading : overviewLoading;
     const classStudents = classData?.data?.students || [];
     const classSummary = classData?.data?.summary || {};
     const yearlyBreakdown = yearlyData?.data?.monthlyBreakdown || [];
@@ -258,6 +272,16 @@ const FeesPage = () => {
     const yearTotal = yearlyData?.data?.yearTotal || {};
     const studentFees = studentData?.data?.fees || [];
     const studentSummary = studentData?.data?.summary || {};
+
+    // Penalty overview derived data
+    const penaltyOverviewClasses = useMemo(() => {
+        if (!isAdmin) return [];
+        return penaltyOverviewData?.data?.classes || [];
+    }, [isAdmin, penaltyOverviewData]);
+    const classPenaltyStudents = classPenaltyData?.data?.students || [];
+    const classPenaltySummary = classPenaltyData?.data?.summary || {};
+    const yearlyPenaltyBreakdown = yearlyPenaltyData?.data?.monthlyBreakdown || [];
+    const yearlyPenaltyTotal = yearlyPenaltyData?.data?.yearTotal || {};
 
     const feeTypesList = useMemo(() => {
         const backendTypes = feeTypesResp?.data || [];
@@ -447,6 +471,13 @@ const FeesPage = () => {
         } catch (err) { showToast('error', err?.response?.data?.message || 'Failed to waive'); }
     };
 
+    const handlePenaltyStatusUpdate = async (penaltyId, status) => {
+        try {
+            await penaltyStatusMut.mutateAsync({ penaltyId, status });
+            showToast('success', `Penalty marked as ${status}`);
+        } catch (err) { showToast('error', err?.response?.data?.message || 'Failed to update penalty status'); }
+    };
+
     const renderTabBtn = (tab, icon, label) => (
         <button key={tab} onClick={() => {
             setActiveTab(tab);
@@ -468,6 +499,8 @@ const FeesPage = () => {
 
     const myFees = myFeesData?.data?.fees || [];
     const mySummary = myFeesData?.data?.summary || {};
+    const myPenalties = myPenaltiesData?.data?.penalties || [];
+    const myPenaltySummary = myPenaltiesData?.data?.summary || {};
 
 
 
@@ -701,11 +734,11 @@ const FeesPage = () => {
                                             <table className="w-full text-sm">
                                                 <thead>
                                                     <tr className="border-b border-gray-100 uppercase">
-                                                        {['Student', 'Class', 'Penalty Type', 'Reason', 'Amount', 'Occurrence Date', 'Status'].map(h => (
+                                                        {['Student', 'Class', 'Penalty Type', 'Reason', 'Amount', 'Occurrence Date', 'Status', 'Actions'].map(h => (
                                                             <th
                                                                 key={h}
                                                                 className={`px-4 py-4 text-[10px] font-black text-gray-400 tracking-widest ${
-                                                                    h === 'Status' ? 'text-center' : 'text-left'
+                                                                    h === 'Status' || h === 'Actions' ? 'text-center' : 'text-left'
                                                                 }`}
                                                             >
                                                                 {h}
@@ -715,9 +748,9 @@ const FeesPage = () => {
                                                 </thead>
                                                 <tbody className="divide-y divide-gray-50">
                                                     {penaltyRecordsLoading ? (
-                                                        <SkeletonRows rows={4} columns={7} />
+                                                        <SkeletonRows rows={4} columns={8} />
                                                     ) : penaltyRecords.length === 0 ? (
-                                                        <tr><td colSpan={7}><EmptyState icon={FaListAlt} title="No student penalties found" subtitle="This student has no penalty records for the selected class and year." /></td></tr>
+                                                        <tr><td colSpan={8}><EmptyState icon={FaListAlt} title="No student penalties found" subtitle="This student has no penalty records for the selected class and year." /></td></tr>
                                                     ) : (
                                                         penaltyRecords.map((penalty) => (
                                                             <tr key={penalty._id} className="hover:bg-gray-50/25 transition-colors">
@@ -732,7 +765,7 @@ const FeesPage = () => {
                                                                     </span>
                                                                 </td>
                                                                 <td className="px-4 py-4 font-medium text-gray-700">{penalty.reason}</td>
-                                                                <td className="px-4 py-4 font-black text-gray-900">Rs {Number(penalty.amount || 0).toLocaleString()}</td>
+                                                                <td className="px-4 py-4 font-black text-gray-900">₹{Number(penalty.amount || 0).toLocaleString()}</td>
                                                                 <td className="px-4 py-4 text-gray-600 font-medium">{penalty.occurrenceDate ? new Date(penalty.occurrenceDate).toLocaleDateString() : '-'}</td>
                                                                 <td className="px-4 py-4 text-center">
                                                                     <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
@@ -744,6 +777,20 @@ const FeesPage = () => {
                                                                     }`}>
                                                                         {penalty.status}
                                                                     </span>
+                                                                </td>
+                                                                <td className="px-4 py-4 text-center">
+                                                                    {penalty.status === 'PENDING' && (
+                                                                        <div className="flex items-center justify-center gap-1">
+                                                                            <button onClick={() => handlePenaltyStatusUpdate(penalty._id, 'PAID')}
+                                                                                title="Mark as Paid" className="p-1.5 text-emerald-500 hover:bg-emerald-50 rounded-lg transition-colors">
+                                                                                <FaCheck size={12} />
+                                                                            </button>
+                                                                            <button onClick={() => handlePenaltyStatusUpdate(penalty._id, 'WAIVED')}
+                                                                                title="Waive Penalty" className="p-1.5 text-gray-400 hover:text-orange-500 hover:bg-orange-50 rounded-lg transition-colors">
+                                                                                <FaBan size={12} />
+                                                                            </button>
+                                                                        </div>
+                                                                    )}
                                                                 </td>
                                                             </tr>
                                                         ))
@@ -846,6 +893,15 @@ const FeesPage = () => {
                                     overviewClasses={overviewClasses}
                                     setOverviewYear={setOverviewYear}
                                     setOverviewMonth={setOverviewMonth}
+                                    overviewMode={overviewMode}
+                                    setOverviewMode={setOverviewMode}
+                                    penaltyOverviewClasses={penaltyOverviewClasses}
+                                    classPenaltyStudents={classPenaltyStudents}
+                                    classPenaltySummary={classPenaltySummary}
+                                    classPenaltyLoading={classPenaltyLoading}
+                                    handlePenaltyStatusUpdate={handlePenaltyStatusUpdate}
+                                    penaltyTypeLabels={penaltyTypeLabels}
+                                    overviewData={overviewData}
                                 />
                             )}
                             {studentSubTab === 'yearly' && (
@@ -856,6 +912,9 @@ const FeesPage = () => {
                                     yearTotal={yearTotal}
                                     summaryYear={summaryYear}
                                     setSummaryYear={setSummaryYear}
+                                    yearlyPenaltyLoading={yearlyPenaltyLoading}
+                                    yearlyPenaltyBreakdown={yearlyPenaltyBreakdown}
+                                    yearlyPenaltyTotal={yearlyPenaltyTotal}
                                 />
                             )}
                         </div>
@@ -1389,7 +1448,10 @@ const FeesPage = () => {
                     <StudentFeesTab
                         myFees={myFees}
                         myFeesLoading={myFeesLoading}
+                        myPenalties={myPenalties}
+                        myPenaltiesLoading={myPenaltiesLoading}
                         mySummary={mySummary}
+                        myPenaltySummary={myPenaltySummary}
                         summaryYear={summaryYear}
                         setSummaryYear={setSummaryYear}
                     />

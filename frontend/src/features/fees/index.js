@@ -10,6 +10,8 @@ export {
     useFeeTypes, useCreateFeeType,
     usePenaltyTypes, useCreatePenaltyType,
     useStudentsByClass, usePenaltyStudentsByClass, useStudentPenalties, useCreateStudentPenalty,
+    useUpdatePenaltyStatus, useAllClassesPenaltyOverview, useClassPenaltyOverview,
+    useYearlyPenaltySummary, useMyPenalties,
 } from './api/queries';
 
 // Constants
