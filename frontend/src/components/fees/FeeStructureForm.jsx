@@ -240,10 +240,20 @@ const FeeStructureForm = ({ onCancel, onSubmit, onSubmitPenalty, editData, isLoa
     }, [penaltyForm.standard, allUniqueSections, getSectionsForStandard]);
 
     const handlePenaltyChange = useCallback((field, value) => {
-        const nextValue =
+        let nextValue =
             field === 'standard' ? normalizeStandard(value) :
             field === 'section' ? normalizeSection(value) :
             value;
+            
+        let SundayError = '';
+
+        if (field === 'occurrenceDate' && value) {
+            const dateObj = new Date(value + 'T00:00:00');
+            if (dateObj.getDay() === 0) {
+                SundayError = 'Sundays are not allowed.';
+                nextValue = ''; // Block Sunday selection
+            }
+        }
 
         setPenaltyForm(prev => {
             const next = { ...prev, [field]: nextValue };
@@ -252,7 +262,10 @@ const FeeStructureForm = ({ onCancel, onSubmit, onSubmitPenalty, editData, isLoa
             if (field === 'section') { next.studentId = ''; }
             return next;
         });
-        setPenaltyErrors(prev => ({ ...prev, [field]: '' }));
+        setPenaltyErrors(prev => ({ 
+            ...prev, 
+            [field]: SundayError || '' 
+        }));
     }, []);
 
     const validatePenalty = () => {
@@ -264,7 +277,21 @@ const FeeStructureForm = ({ onCancel, onSubmit, onSubmitPenalty, editData, isLoa
         if (!penaltyForm.penaltyType) e.penaltyType = 'Required';
         if (!penaltyForm.reason.trim()) e.reason = 'Required';
         if (!penaltyForm.amount || Number(penaltyForm.amount) < 0) e.amount = 'Valid amount required';
-        if (!penaltyForm.occurrenceDate) e.occurrenceDate = 'Required';
+        
+        if (!penaltyForm.occurrenceDate) {
+            e.occurrenceDate = 'Required';
+        } else {
+            const dateObj = new Date(penaltyForm.occurrenceDate + 'T00:00:00');
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            if (dateObj.getDay() === 0) {
+                e.occurrenceDate = 'Sundays are not allowed';
+            } else if (dateObj < today) {
+                e.occurrenceDate = 'Past dates are not allowed';
+            }
+        }
+
         setPenaltyErrors(e);
         return Object.keys(e).length === 0;
     };
@@ -777,8 +804,13 @@ const FeeStructureForm = ({ onCancel, onSubmit, onSubmitPenalty, editData, isLoa
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Penalty Occurrence Date *</label>
-                            <input type="date" value={penaltyForm.occurrenceDate} onChange={(e) => handlePenaltyChange('occurrenceDate', e.target.value)}
-                                className={inputCls(penaltyErrors.occurrenceDate ? 'occurrenceDate' : '')} />
+                            <input 
+                                type="date" 
+                                value={penaltyForm.occurrenceDate} 
+                                onChange={(e) => handlePenaltyChange('occurrenceDate', e.target.value)}
+                                min={new Date().toISOString().split('T')[0]}
+                                className={inputCls(penaltyErrors.occurrenceDate ? 'occurrenceDate' : '')} 
+                            />
                             {penaltyErrors.occurrenceDate && <p className="text-[10px] text-red-500 mt-1 ml-1 font-bold">{penaltyErrors.occurrenceDate}</p>}
                         </div>
                     </div>

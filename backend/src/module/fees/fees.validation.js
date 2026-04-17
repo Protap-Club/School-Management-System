@@ -246,6 +246,30 @@ export const createStudentPenaltySchema = z.object({
         reason: z.string({ required_error: "Reason is required" }).min(1).max(500),
         amount: z.coerce.number({ required_error: "Amount is required" }).min(0),
         occurrenceDate: z.string({ required_error: "Occurrence date is required" }),
+    }).superRefine((data, ctx) => {
+        if (data.occurrenceDate) {
+            const dateObj = new Date(data.occurrenceDate + 'T00:00:00');
+            const now = new Date();
+            now.setHours(0, 0, 0, 0);
+
+            // 1. Disable Past Dates
+            if (dateObj < now) {
+                ctx.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    message: "Penalty occurrence date cannot be in the past",
+                    path: ["occurrenceDate"],
+                });
+            }
+
+            // 2. Disable Sundays
+            if (dateObj.getDay() === 0) {
+                ctx.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    message: "Sundays are not allowed for penalty occurrence",
+                    path: ["occurrenceDate"],
+                });
+            }
+        }
     }),
 });
 
