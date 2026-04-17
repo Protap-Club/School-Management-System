@@ -34,7 +34,7 @@ export const login = async (email, password, platform, metadata = {}) => {
 
     const user = await User.findOne({ email })
         .select("+password")
-        .populate("schoolId", "name code");
+        .populate("schoolId", "name code theme");
 
     if (!user) {
         logger.warn("Login failed: User not found", { email, platform });

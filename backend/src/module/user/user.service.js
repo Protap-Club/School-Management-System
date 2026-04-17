@@ -605,7 +605,7 @@ export const getUsers = async (creator, filters = {}) => {
 
     let userQuery = User.find(query)
         .select("-password -__v")
-        .populate("schoolId", "name code")
+        .populate("schoolId", "name code theme")
         .sort({ createdAt: -1 })
         .skip(page * pageSize)
         .limit(pageSize)
