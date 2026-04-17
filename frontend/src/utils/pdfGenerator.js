@@ -16,36 +16,52 @@ export const generateFeeReport = (classStudents, summary, classInfo, month, year
     try {
         const doc = new jsPDF();
         const pageWidth = doc.internal.pageSize.width;
+        const navy = [30, 41, 59]; // slate-800
+        const emerald = [5, 150, 105]; // emerald-600
+        const amber = [245, 158, 11]; // amber-600
 
-        // Header
+        // Decorative Header Bar
+        doc.setFillColor(...navy);
+        doc.rect(0, 0, pageWidth, 40, 'F');
+        
         doc.setFontSize(22);
-        doc.setTextColor(40, 40, 40);
-        doc.text('Student Fee Report', PAGE_CENTER(doc, 'Student Fee Report'), 20);
-
-        doc.setFontSize(12);
-        doc.setTextColor(100, 100, 100);
-        doc.text(`Class: ${formatValue(classInfo?.standard)}-${formatValue(classInfo?.section)}`, 14, 30);
-        doc.text(`Date: ${MONTH_LABELS[month] || ''} ${year || ''}`, 14, 37);
-        doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 14, 44);
-
-        // Summary Box
-        doc.setDrawColor(230, 230, 230);
-        doc.setFillColor(245, 245, 245);
-        doc.roundedRect(14, 55, pageWidth - 28, 30, 3, 3, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.setFont(undefined, 'bold');
+        doc.text('STUDENT FEE REPORT', 20, 27);
         
         doc.setFontSize(10);
-        doc.setTextColor(120, 120, 120);
-        doc.text('TOTAL STUDENTS', 25, 65);
-        doc.text('TOTAL COLLECTED', pageWidth / 2 - 15, 65);
-        doc.text('TOTAL PENDING', pageWidth - 65, 65);
+        doc.setFont(undefined, 'normal');
+        doc.text('NAVRACHNA INTERNATIONAL SCHOOL', pageWidth - 20, 20, { align: 'right' });
+        doc.text(`DATE: ${MONTH_LABELS[month] || ''} ${year || ''}`, pageWidth - 20, 27, { align: 'right' });
+
+        // Metadata
+        doc.setFontSize(10);
+        doc.setTextColor(...navy);
+        doc.setFont(undefined, 'bold');
+        doc.text(`CLASS: ${formatValue(classInfo?.standard)}-${formatValue(classInfo?.section)}`, 20, 50);
+        doc.setFont(undefined, 'normal');
+        doc.setTextColor(100, 100, 100);
+        doc.text(`Generated on: ${new Date().toLocaleDateString()}`, pageWidth - 20, 50, { align: 'right' });
+
+        // Summary Box
+        doc.setDrawColor(...navy);
+        doc.setFillColor(249, 250, 251);
+        doc.roundedRect(20, 60, pageWidth - 40, 30, 2, 2, 'FD');
+        
+        doc.setFontSize(9);
+        doc.setTextColor(100, 100, 100);
+        doc.text('TOTAL STUDENTS', 35, 70);
+        doc.text('TOTAL COLLECTED', pageWidth / 2, 70, { align: 'center' });
+        doc.text('TOTAL PENDING', pageWidth - 35, 70, { align: 'right' });
 
         doc.setFontSize(14);
-        doc.setTextColor(40, 40, 40);
-        doc.text(`${summary?.totalStudents || 0}`, 25, 75);
-        doc.setTextColor(16, 185, 129); // emerald-600
-        doc.text(`INR ${summary?.totalCollected?.toLocaleString() || 0}`, pageWidth / 2 - 15, 75);
-        doc.setTextColor(245, 158, 11); // amber-600
-        doc.text(`INR ${summary?.totalPending?.toLocaleString() || 0}`, pageWidth - 65, 75);
+        doc.setFont(undefined, 'bold');
+        doc.setTextColor(...navy);
+        doc.text(`${summary?.totalStudents || 0}`, 35, 80);
+        doc.setTextColor(...emerald);
+        doc.text(`INR ${summary?.totalCollected?.toLocaleString() || 0}`, pageWidth / 2, 80, { align: 'center' });
+        doc.setTextColor(...amber);
+        doc.text(`INR ${summary?.totalPending?.toLocaleString() || 0}`, pageWidth - 35, 80, { align: 'right' });
 
         // Table
         const tableData = (classStudents || []).flatMap(student => 
@@ -87,42 +103,58 @@ export const generateFeeReport = (classStudents, summary, classInfo, month, year
 /**
  * Generates a PDF report for class penalties overview
  */
-export const generatePenaltyReport = (penaltyStudents, summary, classInfo, year) => {
-    console.log('Generating Penalty Report...', { penaltyStudents, summary, classInfo, year });
+export const generatePenaltyReport = (penaltyStudents, summary, classInfo, month, year) => {
+    console.log('Generating Penalty Report...', { penaltyStudents, summary, classInfo, month, year });
     
     try {
         const doc = new jsPDF();
         const pageWidth = doc.internal.pageSize.width;
+        const navy = [30, 41, 59]; // slate-800
+        const emerald = [5, 150, 105]; // emerald-600
+        const amber = [245, 158, 11]; // amber-600
 
-        // Header
+        // Decorative Header Bar
+        doc.setFillColor(...navy);
+        doc.rect(0, 0, pageWidth, 40, 'F');
+        
         doc.setFontSize(22);
-        doc.setTextColor(40, 40, 40);
-        doc.text('Student Penalty Report', PAGE_CENTER(doc, 'Student Penalty Report'), 20);
-
-        doc.setFontSize(12);
-        doc.setTextColor(100, 100, 100);
-        doc.text(`Class: ${formatValue(classInfo?.standard)}-${formatValue(classInfo?.section)}`, 14, 30);
-        doc.text(`Academic Year: ${year || ''} - ${Number(year) + 1}`, 14, 37);
-        doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 14, 44);
-
-        // Summary Box
-        doc.setDrawColor(230, 230, 230);
-        doc.setFillColor(245, 245, 245);
-        doc.roundedRect(14, 55, pageWidth - 28, 30, 3, 3, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.setFont(undefined, 'bold');
+        doc.text('CLASS PENALTY REPORT', 20, 27);
         
         doc.setFontSize(10);
-        doc.setTextColor(120, 120, 120);
-        doc.text('TOTAL PENALTIES', 25, 65);
-        doc.text('TOTAL COLLECTED', pageWidth / 2 - 15, 65);
-        doc.text('TOTAL PENDING', pageWidth - 65, 65);
+        doc.setFont(undefined, 'normal');
+        doc.text('NAVRACHNA INTERNATIONAL SCHOOL', pageWidth - 20, 20, { align: 'right' });
+        doc.text(`DATE: ${MONTH_LABELS[month] || ''} ${year || ''}`, pageWidth - 20, 27, { align: 'right' });
+
+        // Metadata
+        doc.setFontSize(10);
+        doc.setTextColor(...navy);
+        doc.setFont(undefined, 'bold');
+        doc.text(`CLASS: ${formatValue(classInfo?.standard)}-${formatValue(classInfo?.section)}`, 20, 50);
+        doc.setFont(undefined, 'normal');
+        doc.setTextColor(100, 100, 100);
+        doc.text(`Generated on: ${new Date().toLocaleDateString()}`, pageWidth - 20, 50, { align: 'right' });
+
+        // Summary Box
+        doc.setDrawColor(...navy);
+        doc.setFillColor(249, 250, 251);
+        doc.roundedRect(20, 60, pageWidth - 40, 30, 2, 2, 'FD');
+        
+        doc.setFontSize(9);
+        doc.setTextColor(100, 100, 100);
+        doc.text('TOTAL PENALTIES', 35, 70);
+        doc.text('TOTAL COLLECTED', pageWidth / 2, 70, { align: 'center' });
+        doc.text('TOTAL PENDING', pageWidth - 35, 70, { align: 'right' });
 
         doc.setFontSize(14);
-        doc.setTextColor(40, 40, 40);
-        doc.text(`${summary?.totalStudents || 0}`, 25, 75);
-        doc.setTextColor(16, 185, 129); // emerald-600
-        doc.text(`INR ${summary?.totalCollected?.toLocaleString() || 0}`, pageWidth / 2 - 15, 75);
-        doc.setTextColor(245, 158, 11); // amber-600
-        doc.text(`INR ${summary?.totalPending?.toLocaleString() || 0}`, pageWidth - 65, 75);
+        doc.setFont(undefined, 'bold');
+        doc.setTextColor(...navy);
+        doc.text(`${summary?.totalStudents || 0}`, 35, 80);
+        doc.setTextColor(...emerald);
+        doc.text(`INR ${summary?.totalCollected?.toLocaleString() || 0}`, pageWidth / 2, 80, { align: 'center' });
+        doc.setTextColor(...amber);
+        doc.text(`INR ${summary?.totalPending?.toLocaleString() || 0}`, pageWidth - 35, 80, { align: 'right' });
 
         // Table
         const tableData = (penaltyStudents || []).flatMap(student => 
@@ -139,26 +171,22 @@ export const generatePenaltyReport = (penaltyStudents, summary, classInfo, year)
 
         if (tableData.length > 0) {
             autoTable(doc, {
-                startY: 95,
+                startY: 100,
                 head: [['Student', 'Reason', 'Type', 'Amount', 'Collected', 'Status', 'Date']],
                 body: tableData,
-                theme: 'striped',
-                headStyles: { fillColor: [239, 68, 68], textColor: [255, 255, 255], fontStyle: 'bold' },
-                styles: { fontSize: 9, cellPadding: 4 },
-                columnStyles: {
-                    5: { fontStyle: 'bold' }
-                },
-                alternateRowStyles: { fillColor: [250, 250, 250] }
+                theme: 'grid',
+                headStyles: { fillColor: [...navy], textColor: [255, 255, 255], fontStyle: 'bold' },
+                styles: { fontSize: 8.5, cellPadding: 4 },
+                columnStyles: { 5: { fontStyle: 'bold' } },
+                alternateRowStyles: { fillColor: [249, 250, 251] }
             });
         } else {
-            doc.text('No items found for the selected period.', 14, 105);
+            doc.text('No penalty records found for the selected period.', 20, 105);
         }
 
         doc.save(`Penalty_Report_${classInfo?.standard || 'Class'}_${classInfo?.section || ''}_${year || ''}.pdf`);
-        console.log('Penalty Report Generated Successfully');
     } catch (error) {
         console.error('Failed to generate Penalty PDF Report:', error);
-        alert('Could not generate PDF. Please check the console for errors.');
     }
 };
 
@@ -171,105 +199,81 @@ export const generateSalaryReceipt = (salary, teacher) => {
     try {
         const doc = new jsPDF();
         const pageWidth = doc.internal.pageSize.width;
+        const navy = [30, 41, 59]; // slate-800
+        const emerald = [5, 150, 105]; // emerald-600
 
-        // Design Elements
-        // Removed filled rect background for print friendliness
-        doc.setFontSize(16); // Reduced from 18
-        doc.setTextColor(40, 40, 40); // Black text for title
-        doc.text('SALARY RECEIPT', 14, 25);
-
-        // School Info
-        doc.setFontSize(16); // Increased from 14
-        doc.setTextColor(40, 40, 40); // Black text
+        // Decorative Header Bar
+        doc.setFillColor(...navy);
+        doc.rect(0, 0, pageWidth, 40, 'F');
+        
+        doc.setFontSize(22);
+        doc.setTextColor(255, 255, 255);
         doc.setFont(undefined, 'bold');
-        doc.text('Navrachna International School', pageWidth - 14, 22, { align: 'right' }); // Adjusted y
+        doc.text('SALARY RECEIPT', 20, 27);
+        
         doc.setFontSize(10);
         doc.setFont(undefined, 'normal');
-        doc.setTextColor(100, 100, 100); // Dark Gray
-        doc.text('Academic Year 2026', pageWidth - 14, 29, { align: 'right' }); // Adjusted y
+        doc.text('NAVRACHNA INTERNATIONAL SCHOOL', pageWidth - 20, 20, { align: 'right' });
+        doc.text(`RECEIPT: SAL-${salary?._id?.substring(salary._id.length - 6).toUpperCase()}`, pageWidth - 20, 27, { align: 'right' });
 
-        // Subtle Header Divider
-        doc.setDrawColor(220, 220, 220); // Light/Medium gray
-        doc.setLineWidth(0.5);
-        doc.line(14, 38, pageWidth - 14, 38);
+        // Content
+        let y = 60;
+        const drawSection = (title, items, x) => {
+            doc.setFontSize(11);
+            doc.setTextColor(...navy);
+            doc.setFont(undefined, 'bold');
+            doc.text(title, x, y);
+            doc.setDrawColor(...navy);
+            doc.line(x, y + 2, x + 40, y + 2);
+            
+            doc.setFont(undefined, 'normal');
+            doc.setFontSize(10);
+            doc.setTextColor(70, 70, 70);
+            items.forEach((item, i) => {
+                doc.text(item, x, y + 12 + (i * 8));
+            });
+        };
 
-        // Details Section
-        doc.setTextColor(40, 40, 40);
-        doc.setFontSize(11);
-        doc.setFont(undefined, 'bold');
-        doc.text('TEACHER DETAILS', 14, 55);
-        doc.line(14, 57, 60, 57);
+        drawSection('TEACHER DETAILS', [
+            `Name: ${formatValue(teacher?.name)}`,
+            `Email: ${formatValue(teacher?.email)}`,
+            `Contact: ${formatValue(teacher?.contactNo)}`
+        ], 20);
 
-        doc.setFont(undefined, 'normal');
-        doc.setFontSize(10);
-        doc.text(`Name: ${formatValue(teacher?.name)}`, 14, 65);
-        doc.text(`Email: ${formatValue(teacher?.email)}`, 14, 72);
-        doc.text(`Contact No: ${formatValue(teacher?.contactNo)}`, 14, 79);
+        drawSection('PAYMENT DETAILS', [
+            `Period: ${formatValue(MONTH_LABELS[salary?.month])} ${formatValue(salary?.year)}`,
+            `Status: ${salary?.status || 'PAID'}`,
+            `Date: ${salary?.paidDate ? new Date(salary.paidDate).toLocaleDateString() : 'N/A'}`
+        ], pageWidth / 2 + 10);
 
-        doc.setFont(undefined, 'bold');
-        doc.setFontSize(11);
-        doc.text('PAYMENT DETAILS', pageWidth / 2 + 10, 55);
-        doc.line(pageWidth / 2 + 10, 57, pageWidth / 2 + 60, 57);
-
-        doc.setFont(undefined, 'normal');
-        doc.setFontSize(10);
-        doc.text(`Receipt No: PAY-${formatValue(salary?._id?.substring(salary._id.length - 6).toUpperCase(), 'N/A')}`, pageWidth / 2 + 10, 65);
-        doc.text(`Month/Year: ${formatValue(MONTH_LABELS[salary?.month], '')} ${formatValue(salary?.year, '')}`, pageWidth / 2 + 10, 72);
-        doc.text(`Payment Date: ${salary?.paidDate ? new Date(salary.paidDate).toLocaleDateString() : 'N/A'}`, pageWidth / 2 + 10, 79);
-
-        // Summary Table
+        // Table
         autoTable(doc, {
-            startY: 95,
+            startY: 105,
             head: [['Description', 'Status', 'Amount']],
             body: [
-                ['Monthly Net Salary', salary?.status || '', `INR ${salary?.amount?.toLocaleString() || 0}`],
-                ['Total Disbursed', 'PAID', `INR ${salary?.amount?.toLocaleString() || 0}`]
+                ['Monthly Net Salary', salary?.status || 'PAID', `INR ${salary?.amount?.toLocaleString() || 0}`],
+                ['Total Disbursed', 'SUCCESS', `INR ${salary?.amount?.toLocaleString() || 0}`]
             ],
             theme: 'grid',
-            headStyles: { fillColor: [243, 244, 246], textColor: [40, 40, 40], fontStyle: 'bold', lineWidth: 0.1 },
-            styles: { cellPadding: 6, lineColor: [229, 231, 235], lineWidth: 0.1 },
-            columnStyles: {
-                2: { halign: 'center', fontStyle: 'bold' } // Center aligned
-            },
-            didParseCell: function(data) {
-                // Ensure the Amount heading is also centered
-                if (data.section === 'head' && data.column.index === 2) {
-                    data.cell.styles.halign = 'center';
-                }
-            }
+            headStyles: { fillColor: [...navy], textColor: [255, 255, 255], fontStyle: 'bold' },
+            styles: { cellPadding: 6, lineColor: [229, 231, 235] },
+            columnStyles: { 2: { halign: 'center', fontStyle: 'bold' } }
         });
 
-        // Total Amount Box
-        const finalY = (doc.lastAutoTable?.finalY || 120) + 15; // Increased spacing
-        const boxWidth = 80;
-        const boxX = pageWidth - 14 - boxWidth; // Aligned with right margin of table
-        
-        doc.setFillColor(249, 250, 251); // gray-50
-        doc.setDrawColor(229, 231, 235); // gray-200
-        doc.roundedRect(boxX, finalY, boxWidth, 24, 2, 2, 'FD'); // Fill and stroke
-        
-        doc.setTextColor(100, 100, 100); // gray text for label
-        doc.setFontSize(9); // Size for TOTAL PAID
+        // Total Box
+        const finalY = (doc.lastAutoTable?.finalY || 135) + 15;
+        doc.setFillColor(249, 250, 251);
+        doc.setDrawColor(...navy);
+        doc.roundedRect(pageWidth - 94, finalY, 80, 24, 2, 2, 'FD');
         doc.setFont(undefined, 'bold');
-        // Center text horizontally in the box
-        doc.text('TOTAL PAID', boxX + (boxWidth / 2), finalY + 9, { align: 'center' });
-        
-        doc.setTextColor(40, 40, 40); // black text for amount
-        doc.setFontSize(14); // Size for Amount
-        doc.setFont(undefined, 'bold');
-        doc.text(`INR ${salary?.amount?.toLocaleString() || 0}`, boxX + (boxWidth / 2), finalY + 18, { align: 'center' });
+        doc.setTextColor(...navy);
+        doc.text('TOTAL PAID', pageWidth - 54, finalY + 9, { align: 'center' });
+        doc.setTextColor(...emerald);
+        doc.text(`INR ${salary?.amount?.toLocaleString() || 0}`, pageWidth - 54, finalY + 18, { align: 'center' });
 
-        // Footer
-        doc.setTextColor(150, 150, 150);
-        doc.setFontSize(8);
-        doc.setFont(undefined, 'normal');
-        doc.text('This is a computer generated receipt and does not require a physical signature.', PAGE_CENTER(doc, 'This is a computer generated receipt and does not require a physical signature.'), 280);
-
-        doc.save(`Salary_Receipt_${MONTH_LABELS[salary?.month] || ''}_${salary?.year || ''}_${(teacher?.name || 'teacher').replace(/\s+/g, '_')}.pdf`);
-        console.log('Salary Receipt Generated Successfully');
+        doc.save(`Salary_Receipt_${(teacher?.name || 'teacher').replace(/\s+/g, '_')}.pdf`);
     } catch (error) {
         console.error('Failed to generate Salary Receipt PDF:', error);
-        alert('Could not generate receipt PDF. Please check the console for details.');
     }
 };
 
@@ -283,103 +287,81 @@ export const generateFeeReceipt = (fee, student) => {
         const doc = new jsPDF();
         const pageWidth = doc.internal.pageSize.width;
         const latestPayment = fee.payments?.[0] || {};
+        const navy = [30, 41, 59]; // slate-800
+        const emerald = [5, 150, 105]; // emerald-600
 
-        // Design Elements
-        doc.setFontSize(16);
-        doc.setTextColor(40, 40, 40);
-        doc.text('FEE PAYMENT RECEIPT', 14, 25);
-
-        // School Info
-        doc.setFontSize(16);
-        doc.setTextColor(40, 40, 40);
+        // Decorative Header Bar
+        doc.setFillColor(...navy);
+        doc.rect(0, 0, pageWidth, 40, 'F');
+        
+        doc.setFontSize(22);
+        doc.setTextColor(255, 255, 255);
         doc.setFont(undefined, 'bold');
-        doc.text('Navrachna International School', pageWidth - 14, 22, { align: 'right' });
+        doc.text('FEE RECEIPT', 20, 27);
+        
         doc.setFontSize(10);
         doc.setFont(undefined, 'normal');
-        doc.setTextColor(100, 100, 100);
-        doc.text('Academic Year 2026', pageWidth - 14, 29, { align: 'right' });
+        doc.text('NAVRACHNA INTERNATIONAL SCHOOL', pageWidth - 20, 20, { align: 'right' });
+        doc.text(`RECEIPT: FEE-${latestPayment.receiptNumber || 'N/A'}`, pageWidth - 20, 27, { align: 'right' });
 
-        // Subtle Header Divider
-        doc.setDrawColor(220, 220, 220);
-        doc.setLineWidth(0.5);
-        doc.line(14, 38, pageWidth - 14, 38);
+        // Content
+        let y = 60;
+        const drawSection = (title, items, x) => {
+            doc.setFontSize(11);
+            doc.setTextColor(...navy);
+            doc.setFont(undefined, 'bold');
+            doc.text(title, x, y);
+            doc.setDrawColor(...navy);
+            doc.line(x, y + 2, x + 40, y + 2);
+            
+            doc.setFont(undefined, 'normal');
+            doc.setFontSize(10);
+            doc.setTextColor(70, 70, 70);
+            items.forEach((item, i) => {
+                doc.text(item, x, y + 12 + (i * 8));
+            });
+        };
 
-        // Details Section
-        doc.setTextColor(40, 40, 40);
-        doc.setFontSize(11);
-        doc.setFont(undefined, 'bold');
-        doc.text('STUDENT DETAILS', 14, 55);
-        doc.line(14, 57, 60, 57);
+        drawSection('STUDENT DETAILS', [
+            `Name: ${student?.name || '-'}`,
+            `Email: ${student?.email || '-'}`,
+            `Class: ${fee.standard || '-'}-${fee.section || '-'}`
+        ], 20);
 
-        doc.setFont(undefined, 'normal');
-        doc.setFontSize(10);
-        doc.text(`Name: ${student?.name || '-'}`, 14, 65);
-        doc.text(`Email: ${student?.email || '-'}`, 14, 72);
-        doc.text(`Class: ${fee.standard || '-'}-${fee.section || '-'}`, 14, 79);
+        drawSection('PAYMENT DETAILS', [
+            `Type: ${fee.name || fee.feeType || '-'}`,
+            `Month: ${MONTH_LABELS[fee.month] || '-'} ${fee.year || ''}`,
+            `Mode: ${latestPayment.paymentMode || 'Online'}`
+        ], pageWidth / 2 + 10);
 
-        doc.setFont(undefined, 'bold');
-        doc.setFontSize(11);
-        doc.text('PAYMENT DETAILS', pageWidth / 2 + 10, 55);
-        doc.line(pageWidth / 2 + 10, 57, pageWidth / 2 + 60, 57);
-
-        doc.setFont(undefined, 'normal');
-        doc.setFontSize(10);
-        doc.text(`Receipt No: ${latestPayment.receiptNumber || 'N/A'}`, pageWidth / 2 + 10, 65);
-        doc.text(`Fee Type: ${fee.name || fee.feeType || '-'}`, pageWidth / 2 + 10, 72);
-        doc.text(`Payment Date: ${latestPayment.paymentDate ? new Date(latestPayment.paymentDate).toLocaleDateString() : 'N/A'}`, pageWidth / 2 + 10, 79);
-        doc.text(`Payment Mode: ${latestPayment.paymentMode || '-'}`, pageWidth / 2 + 10, 86);
-
-        // Summary Table
+        // Table
         autoTable(doc, {
             startY: 105,
             head: [['Description', 'Status', 'Amount']],
             body: [
-                [`${fee.name || fee.feeType} Fee${MONTH_LABELS[fee.month] ? ` (${MONTH_LABELS[fee.month]})` : ''}`, fee.status || 'PAID', `INR ${fee.amount?.toLocaleString() || 0}`],
-                ['Total Paid', 'SUCCESS', `INR ${fee.paid?.toLocaleString() || 0}`]
+                [`${fee.name || fee.feeType} Fee (${MONTH_LABELS[fee.month] || ''})`, fee.status || 'PAID', `INR ${fee.amount?.toLocaleString() || 0}`],
+                ['Total Collected', 'SUCCESS', `INR ${fee.paid?.toLocaleString() || 0}`]
             ],
             theme: 'grid',
-            headStyles: { fillColor: [243, 244, 246], textColor: [40, 40, 40], fontStyle: 'bold', lineWidth: 0.1 },
-            styles: { cellPadding: 6, lineColor: [229, 231, 235], lineWidth: 0.1 },
-            columnStyles: {
-                2: { halign: 'center', fontStyle: 'bold' }
-            },
-            didParseCell: function(data) {
-                if (data.section === 'head' && data.column.index === 2) {
-                    data.cell.styles.halign = 'center';
-                }
-            }
+            headStyles: { fillColor: [...navy], textColor: [255, 255, 255], fontStyle: 'bold' },
+            styles: { cellPadding: 6, lineColor: [229, 231, 235] },
+            columnStyles: { 2: { halign: 'center', fontStyle: 'bold' } }
         });
 
-        // Total Amount Box
-        const finalY = (doc.lastAutoTable?.finalY || 130) + 15;
-        const boxWidth = 80;
-        const boxX = pageWidth - 14 - boxWidth;
-        
+        // Total Box
+        const finalY = (doc.lastAutoTable?.finalY || 135) + 15;
         doc.setFillColor(249, 250, 251);
-        doc.setDrawColor(229, 231, 235);
-        doc.roundedRect(boxX, finalY, boxWidth, 24, 2, 2, 'FD');
-        
-        doc.setTextColor(100, 100, 100);
-        doc.setFontSize(9);
+        doc.setDrawColor(...navy);
+        doc.roundedRect(pageWidth - 94, finalY, 80, 24, 2, 2, 'FD');
         doc.setFont(undefined, 'bold');
-        doc.text('TOTAL PAID', boxX + (boxWidth / 2), finalY + 9, { align: 'center' });
-        
-        doc.setTextColor(16, 185, 129); // emerald-600
-        doc.setFontSize(14);
-        doc.setFont(undefined, 'bold');
-        doc.text(`INR ${fee.paid?.toLocaleString() || 0}`, boxX + (boxWidth / 2), finalY + 18, { align: 'center' });
+        doc.setTextColor(...navy);
+        doc.text('TOTAL PAID', pageWidth - 54, finalY + 9, { align: 'center' });
+        doc.setTextColor(...emerald);
+        doc.text(`INR ${fee.paid?.toLocaleString() || 0}`, pageWidth - 54, finalY + 18, { align: 'center' });
 
-        // Footer
-        doc.setTextColor(150, 150, 150);
-        doc.setFontSize(8);
-        doc.setFont(undefined, 'normal');
-        doc.text('This is a computer generated receipt and does not require a physical signature.', PAGE_CENTER(doc, 'This is a computer generated receipt and does not require a physical signature.'), 280);
-
-        doc.save(`Fee_Receipt_${MONTH_LABELS[fee.month] ? `${MONTH_LABELS[fee.month]}_` : ''}${(student?.name || 'student').replace(/\s+/g, '_')}.pdf`);
-        console.log('Fee Receipt Generated Successfully');
+        doc.save(`Fee_Receipt_${(student?.name || 'student').replace(/\s+/g, '_')}.pdf`);
     } catch (error) {
         console.error('Failed to generate Fee Receipt PDF:', error);
-        alert('Could not generate receipt PDF. Please check the console for details.');
     }
 };
 
@@ -392,104 +374,82 @@ export const generateWaiverNote = (fee, student) => {
     try {
         const doc = new jsPDF();
         const pageWidth = doc.internal.pageSize.width;
+        const navy = [30, 41, 59]; // slate-800
+        const emerald = [5, 150, 105]; // emerald-600
 
-        // Design Elements
-        doc.setFontSize(16);
-        doc.setTextColor(245, 158, 11); // amber-600
-        doc.text('FEE WAIVER NOTE', 14, 25);
-
-        // School Info
-        doc.setFontSize(16);
-        doc.setTextColor(40, 40, 40);
-        doc.setFont(undefined, 'bold');
-        doc.text('Navrachna International School', pageWidth - 14, 22, { align: 'right' });
-        doc.setFontSize(10);
-        doc.setFont(undefined, 'normal');
-        doc.setTextColor(100, 100, 100);
-        doc.text('Academic Year 2026', pageWidth - 14, 29, { align: 'right' });
-
-        // Subtle Header Divider
-        doc.setDrawColor(220, 220, 220);
-        doc.setLineWidth(0.5);
-        doc.line(14, 38, pageWidth - 14, 38);
-
-        // Details Section
-        doc.setTextColor(40, 40, 40);
-        doc.setFontSize(11);
-        doc.setFont(undefined, 'bold');
-        doc.text('STUDENT DETAILS', 14, 55);
-        doc.line(14, 57, 60, 57);
-
-        doc.setFont(undefined, 'normal');
-        doc.setFontSize(10);
-        doc.text(`Name: ${student?.name || '-'}`, 14, 65);
-        doc.text(`Email: ${student?.email || '-'}`, 14, 72);
-        doc.text(`Class: ${fee.standard || '-'}-${fee.section || '-'}`, 14, 79);
-
-        doc.setFont(undefined, 'bold');
-        doc.setFontSize(11);
-        doc.text('WAIVER DETAILS', pageWidth / 2 + 10, 55);
-        doc.line(pageWidth / 2 + 10, 57, pageWidth / 2 + 60, 57);
-
-        doc.setFont(undefined, 'normal');
-        doc.setFontSize(10);
-        doc.text(`Ref No: WAV-${Math.random().toString(36).substring(7).toUpperCase()}`, pageWidth / 2 + 10, 65);
-        doc.text(`Fee Type: ${fee.name || fee.feeType || '-'}`, pageWidth / 2 + 10, 72);
-        doc.text(`Waiver Date: ${new Date().toLocaleDateString()}`, pageWidth / 2 + 10, 79);
-
-        // Official Statement
-        doc.setDrawColor(245, 158, 11); // amber-600
-        doc.setFillColor(255, 251, 235); // amber-50
-        doc.roundedRect(14, 100, pageWidth - 28, 40, 3, 3, 'FD');
+        // Decorative Header Bar
+        doc.setFillColor(...navy);
+        doc.rect(0, 0, pageWidth, 40, 'F');
         
-        doc.setTextColor(146, 64, 14); // amber-800
-        doc.setFontSize(11);
+        doc.setFontSize(22);
+        doc.setTextColor(255, 255, 255);
         doc.setFont(undefined, 'bold');
-        doc.text('OFFICIAL MANAGEMENT STATEMENT:', 20, 112);
+        doc.text('WAIVER NOTE', 20, 27);
         
-        doc.setFont(undefined, 'normal');
         doc.setFontSize(10);
-        doc.text('This is to certify that the aforementioned fee has been officially waived by the', 20, 120);
-        doc.text('school management. No further payment is required for this specific fee assignment.', 20, 125);
-        
-        if (fee.remarks) {
-            doc.setFont(undefined, 'italic');
-            doc.setTextColor(100, 100, 100);
-            doc.text(`Remarks: "${fee.remarks}"`, 20, 135);
-        }
+        doc.setFont(undefined, 'normal');
+        doc.text('NAVRACHNA INTERNATIONAL SCHOOL', pageWidth - 20, 20, { align: 'right' });
+        doc.text(`REF: WAV-${Date.now().toString(36).toUpperCase()}`, pageWidth - 20, 27, { align: 'right' });
 
-        // Summary Table
-        autoTable(doc, {
-            startY: 150,
-            head: [['Description', 'Status', 'Original Amount']],
-            body: [
-                [`${fee.name || fee.feeType} Fee${MONTH_LABELS[fee.month] ? ` (${MONTH_LABELS[fee.month]})` : ''}`, 'WAIVED', `INR ${fee.amount?.toLocaleString() || 0}`],
-                ['Net Payable', 'N/A', 'INR 0']
-            ],
-            theme: 'grid',
-            headStyles: { fillColor: [243, 244, 246], textColor: [40, 40, 40], fontStyle: 'bold', lineWidth: 0.1 },
-            styles: { cellPadding: 6, lineColor: [229, 231, 235], lineWidth: 0.1 },
-            columnStyles: {
-                2: { halign: 'center', fontStyle: 'bold' }
-            },
-            didParseCell: function(data) {
-                if (data.section === 'head' && data.column.index === 2) {
-                    data.cell.styles.halign = 'center';
-                }
-            }
-        });
+        // Content
+        let y = 60;
+        const drawSection = (title, items, x) => {
+            doc.setFontSize(11);
+            doc.setTextColor(...navy);
+            doc.setFont(undefined, 'bold');
+            doc.text(title, x, y);
+            doc.setDrawColor(...navy);
+            doc.line(x, y + 2, x + 40, y + 2);
+            
+            doc.setFont(undefined, 'normal');
+            doc.setFontSize(10);
+            doc.setTextColor(70, 70, 70);
+            items.forEach((item, i) => {
+                doc.text(item, x, y + 12 + (i * 8));
+            });
+        };
+
+        drawSection('STUDENT DETAILS', [
+            `Name: ${student?.name || '-'}`,
+            `Email: ${student?.email || '-'}`,
+            `Class: ${fee.standard || '-'}-${fee.section || '-'}`
+        ], 20);
+
+        drawSection('FEE DETAILS', [
+            `Type: ${fee.name || fee.feeType || '-'}`,
+            `Month: ${MONTH_LABELS[fee.month] || '-'} ${fee.year || ''}`,
+            `Status: OFFICIALLY WAIVED`
+        ], pageWidth / 2 + 10);
+
+        // Official Box
+        doc.setFillColor(240, 253, 244); // emerald-50
+        doc.setDrawColor(...emerald);
+        doc.roundedRect(20, 110, pageWidth - 40, 35, 2, 2, 'FD');
+        
+        doc.setTextColor(...emerald);
+        doc.setFont(undefined, 'bold');
+        doc.setFontSize(12);
+        doc.text('MANAGEMENT STATEMENT', pageWidth / 2, 122, { align: 'center' });
+        
+        doc.setFont(undefined, 'italic');
+        doc.setFontSize(10);
+        doc.text('This fee has been officially waived by the school management and no further payment is required.', pageWidth / 2, 132, { align: 'center' });
+
+        // Signature Area
+        doc.setTextColor(...navy);
+        doc.setFont(undefined, 'normal');
+        doc.text('AUTHORIZED SIGNATORY', pageWidth - 70, 180);
+        doc.setDrawColor(200, 200, 200);
+        doc.line(pageWidth - 70, 175, pageWidth - 20, 175);
 
         // Footer
-        doc.setTextColor(150, 150, 150);
         doc.setFontSize(8);
-        doc.setFont(undefined, 'normal');
-        doc.text('This is a computer generated waiver note and does not require a physical signature.', PAGE_CENTER(doc, 'This is a computer generated waiver note and does not require a physical signature.'), 280);
+        doc.setTextColor(150, 150, 150);
+        doc.text('This is an official document providing proof of fee exemption for the academic record.', PAGE_CENTER(doc, 'This is an official document providing proof of fee exemption for the academic record.'), 285);
 
-        doc.save(`Fee_Waiver_${MONTH_LABELS[fee.month] || ''}_${(student?.name || 'student').replace(/\s+/g, '_')}.pdf`);
-        console.log('Waiver Note Generated Successfully');
+        doc.save(`Waiver_Note_${student?.name || 'student'}.pdf`);
     } catch (error) {
         console.error('Failed to generate Waiver Note PDF:', error);
-        alert('Could not generate waiver note PDF. Please check the console for details.');
     }
 };
 
@@ -502,54 +462,76 @@ export const generatePenaltyReceipt = (p, student) => {
     try {
         const doc = new jsPDF();
         const pageWidth = doc.internal.pageSize.width;
+        const navy = [30, 41, 59]; // slate-800
+        const emerald = [5, 150, 105]; // emerald-600
 
-        // Header
-        doc.setFontSize(16);
-        doc.setTextColor(239, 68, 68); // Red for penalty
-        doc.text('PENALTY PAYMENT RECEIPT', 14, 25);
-
-        // School Info
-        doc.setFontSize(16);
-        doc.setTextColor(40, 40, 40);
+        // Decorative Header Bar (Navy)
+        doc.setFillColor(...navy);
+        doc.rect(0, 0, pageWidth, 40, 'F');
+        
+        doc.setFontSize(22);
+        doc.setTextColor(255, 255, 255);
         doc.setFont(undefined, 'bold');
-        doc.text('Navrachna International School', pageWidth - 14, 22, { align: 'right' });
+        doc.text('PENALTY RECEIPT', 20, 27);
+        
         doc.setFontSize(10);
         doc.setFont(undefined, 'normal');
-        doc.text('Academic Year 2026', pageWidth - 14, 29, { align: 'right' });
+        doc.text('NAVRACHNA INTERNATIONAL SCHOOL', pageWidth - 20, 20, { align: 'right' });
+        doc.text(`RECEIPT: PN-${p?.penaltyId?.substring(p.penaltyId.length - 6).toUpperCase() || 'N/A'}`, pageWidth - 20, 27, { align: 'right' });
 
-        doc.line(14, 38, pageWidth - 14, 38);
+        // Content
+        let y = 60;
+        const drawSection = (title, items, x) => {
+            doc.setFontSize(11);
+            doc.setTextColor(...navy);
+            doc.setFont(undefined, 'bold');
+            doc.text(title, x, y);
+            doc.setDrawColor(...navy);
+            doc.line(x, y + 2, x + 40, y + 2);
+            
+            doc.setFont(undefined, 'normal');
+            doc.setFontSize(10);
+            doc.setTextColor(70, 70, 70);
+            items.forEach((item, i) => {
+                doc.text(item, x, y + 12 + (i * 8));
+            });
+        };
 
-        // Details
-        doc.setFont(undefined, 'bold');
-        doc.text('STUDENT DETAILS', 14, 55);
-        doc.setFont(undefined, 'normal');
-        doc.text(`Name: ${student?.name || '-'}`, 14, 65);
-        doc.text(`Class: ${p.standard || '-'}-${p.section || '-'}`, 14, 72);
+        drawSection('STUDENT DETAILS', [
+            `Name: ${student?.name || '-'}`,
+            `Email: ${student?.email || '-'}`,
+            `Class: ${p.standard || '-'}-${p.section || '-'}`
+        ], 20);
 
-        doc.setFont(undefined, 'bold');
-        doc.text('PENALTY DETAILS', pageWidth / 2 + 10, 55);
-        doc.setFont(undefined, 'normal');
-        doc.text(`Reason: ${p.reason || '-'}`, pageWidth / 2 + 10, 65);
-        doc.text(`Type: ${p.penaltyType || '-'}`, pageWidth / 2 + 10, 72);
-        doc.text(`Date: ${p.occurrenceDate ? new Date(p.occurrenceDate).toLocaleDateString() : 'N/A'}`, pageWidth / 2 + 10, 79);
+        drawSection('PENALTY DETAILS', [
+            `Type: ${p.penaltyType || '-'}`,
+            `Reason: ${p.reason || '-'}`,
+            `Date: ${p.occurrenceDate ? new Date(p.occurrenceDate).toLocaleDateString() : 'N/A'}`
+        ], pageWidth / 2 + 10);
 
         // Table
         autoTable(doc, {
-            startY: 95,
+            startY: 105,
             head: [['Description', 'Status', 'Amount']],
             body: [
-                [`Penalty Fee: ${p.reason}`, 'PAID', `INR ${p.amount?.toLocaleString() || 0}`],
-                ['Total Paid', 'SUCCESS', `INR ${(p.paidAmount || p.amount).toLocaleString() || 0}`]
+                [`Penalty for: ${p.reason}`, 'PAID', `INR ${p.amount?.toLocaleString() || 0}`],
+                ['Total Collected', 'SUCCESS', `INR ${(p.paidAmount || p.amount).toLocaleString() || 0}`]
             ],
             theme: 'grid',
-            headStyles: { fillColor: [243, 244, 246], textColor: [40, 40, 40] }
+            headStyles: { fillColor: [...navy], textColor: [255, 255, 255], fontStyle: 'bold' },
+            styles: { cellPadding: 6, lineColor: [229, 231, 235] },
+            columnStyles: { 2: { halign: 'center', fontStyle: 'bold' } }
         });
 
-        const finalY = (doc.lastAutoTable?.finalY || 130) + 15;
+        // Total Box
+        const finalY = (doc.lastAutoTable?.finalY || 135) + 15;
+        doc.setFillColor(249, 250, 251);
+        doc.setDrawColor(...navy);
         doc.roundedRect(pageWidth - 94, finalY, 80, 24, 2, 2, 'FD');
         doc.setFont(undefined, 'bold');
+        doc.setTextColor(...navy);
         doc.text('TOTAL PAID', pageWidth - 54, finalY + 9, { align: 'center' });
-        doc.setTextColor(16, 185, 129); // emerald-600
+        doc.setTextColor(...emerald);
         doc.text(`INR ${(p.paidAmount || p.amount).toLocaleString() || 0}`, pageWidth - 54, finalY + 18, { align: 'center' });
 
         doc.save(`Penalty_Receipt_${student?.name || 'student'}.pdf`);
@@ -567,28 +549,78 @@ export const generatePenaltyWaiver = (p, student) => {
     try {
         const doc = new jsPDF();
         const pageWidth = doc.internal.pageSize.width;
+        const navy = [30, 41, 59]; // slate-800
+        const emerald = [5, 150, 105]; // emerald-600
 
-        doc.setFontSize(16);
-        doc.setTextColor(245, 158, 11); // amber-600
-        doc.text('PENALTY WAIVER NOTE', 14, 25);
-
-        doc.text('Navrachna International School', pageWidth - 14, 22, { align: 'right' });
-        doc.line(14, 38, pageWidth - 14, 38);
-
+        // Decorative Header Bar
+        doc.setFillColor(...navy);
+        doc.rect(0, 0, pageWidth, 40, 'F');
+        
+        doc.setFontSize(22);
+        doc.setTextColor(255, 255, 255);
         doc.setFont(undefined, 'bold');
-        doc.text('STUDENT DETAILS', 14, 55);
+        doc.text('PENALTY WAIVER', 20, 27);
+        
+        doc.setFontSize(10);
         doc.setFont(undefined, 'normal');
-        doc.text(`Name: ${student?.name || '-'}`, 14, 65);
+        doc.text('NAVRACHNA INTERNATIONAL SCHOOL', pageWidth - 20, 20, { align: 'right' });
+        doc.text(`REF: PWN-${Date.now().toString(36).toUpperCase()}`, pageWidth - 20, 27, { align: 'right' });
 
+        // Content
+        let y = 60;
+        const drawSection = (title, items, x) => {
+            doc.setFontSize(11);
+            doc.setTextColor(...navy);
+            doc.setFont(undefined, 'bold');
+            doc.text(title, x, y);
+            doc.setDrawColor(...navy);
+            doc.line(x, y + 2, x + 45, y + 2);
+            
+            doc.setFont(undefined, 'normal');
+            doc.setFontSize(10);
+            doc.setTextColor(70, 70, 70);
+            items.forEach((item, i) => {
+                doc.text(item, x, y + 12 + (i * 8));
+            });
+        };
+
+        drawSection('STUDENT DETAILS', [
+            `Name: ${student?.name || '-'}`,
+            `Email: ${student?.email || '-'}`,
+            `Class: ${p.standard || '-'}-${p.section || '-'}`
+        ], 20);
+
+        drawSection('PENALTY DETAILS', [
+            `Type: ${p.penaltyType || '-'}`,
+            `Original Reason: ${p.reason || '-'}`,
+            `Original Amount: INR ${p.amount || 0}`
+        ], pageWidth / 2 + 10);
+
+        // Official Box
+        doc.setFillColor(240, 253, 244); // emerald-50
+        doc.setDrawColor(...emerald);
+        doc.roundedRect(20, 110, pageWidth - 40, 35, 2, 2, 'FD');
+        
+        doc.setTextColor(...emerald);
         doc.setFont(undefined, 'bold');
-        doc.text('WAIVER DETAILS', pageWidth / 2 + 10, 55);
-        doc.setFont(undefined, 'normal');
-        doc.text(`Original Penalty: ${p.reason || '-'}`, pageWidth / 2 + 10, 65);
-        doc.text(`Type: ${p.penaltyType || '-'}`, pageWidth / 2 + 10, 72);
+        doc.setFontSize(12);
+        doc.text('ADMINISTRATIVE WAIVER', pageWidth / 2, 122, { align: 'center' });
+        
+        doc.setFont(undefined, 'italic');
+        doc.setFontSize(10);
+        doc.text('This penalty has been reviewed and officially waived by the management.', pageWidth / 2, 132, { align: 'center' });
 
-        doc.setFillColor(255, 251, 235);
-        doc.roundedRect(14, 100, pageWidth - 28, 30, 3, 3, 'FD');
-        doc.text('This penalty has been officially waived by the school management.', 20, 115);
+        // Signature Area
+        doc.setTextColor(...navy);
+        doc.setFont(undefined, 'normal');
+        doc.text('AUTHORIZED SIGNATORY', pageWidth - 70, 180);
+        doc.setDrawColor(200, 200, 200);
+        doc.line(pageWidth - 70, 175, pageWidth - 20, 175);
+
+        // Footer
+        doc.setFontSize(8);
+        doc.setTextColor(150, 150, 150);
+        doc.text('This document confirms that the student is no longer liable for the aforementioned penalty.', PAGE_CENTER(doc, 'This document confirms that the student is no longer liable for the aforementioned penalty.'), 285);
 
         doc.save(`Penalty_Waiver_${student?.name || 'student'}.pdf`);
     } catch (error) {
