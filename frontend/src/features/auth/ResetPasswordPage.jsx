@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { FaArrowLeft, FaCheckCircle, FaEye, FaEyeSlash } from 'react-icons/fa';
-import { authApi } from '../features/auth';
+import { authApi } from '.';
 
 const ResetPassword = () => {
     const [searchParams] = useSearchParams();

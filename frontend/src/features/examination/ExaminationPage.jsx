@@ -7,7 +7,7 @@ import {
 } from './index';
 import { useProfile, useStudents } from '../attendance';
 import { useSchoolClasses } from '../../hooks/useSchoolClasses';
-import ExamModal from '../../components/examination/ExamModal';
+import ExamModal from './components/ExamModal';
 import { FaPlus, FaEdit, FaTrash, FaCalendarAlt, FaClock,
   FaChalkboardTeacher, FaCheckCircle, FaExclamationTriangle, FaBan, FaSearch, FaTimes, FaInfoCircle, FaLayerGroup, FaCalendarCheck, FaPaperclip, FaUsers, FaLock } from 'react-icons/fa';
 import { TabButton } from '../../components/ui/NoticeUIComponents';

@@ -2,31 +2,27 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion as Motion } from 'framer-motion';
-import { useAuth } from '../features/auth';
-import { useDashboardStats } from '../hooks/useDashboardStats';
-import DashboardLayout from '../layouts/DashboardLayout';
-import { connectSocket, disconnectSocket } from '../api/socket';
-import api from '../lib/axios';
-import { useFeatures } from '../state';
+import { useAuth } from '@/features/auth';
+import { useDashboardStats } from './hooks/useDashboardStats';
+import DashboardLayout from '@/layouts/DashboardLayout';
+import { connectSocket, disconnectSocket } from '@/api/socket';
+import api from '@/lib/axios';
+import { useFeatures } from '@/state';
 import {
-  Users,
-  UserCheck,
   Clock,
-  MoreHorizontal,
   ChevronRight,
-  Calendar,
   Megaphone,
   Bell,
   UserPlus
 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useQueryClient } from '@tanstack/react-query';
-import { attendanceKeys } from '../features/attendance/api/queries';
-import { CircularProgress, Sparkline } from '../components/dashboard/SvgCharts';
-import { useMySchedule, DAY_MAP } from '../features/timetable';
-import { useNotices } from '../features/notices';
-import { useUsers } from '../features/users';
-import { formatValue } from '../utils';
+import { attendanceKeys } from '@/features/attendance/api/queries';
+import { CircularProgress, Sparkline } from './components/SvgCharts';
+import { useMySchedule, DAY_MAP } from '@/features/timetable';
+import { useNotices } from '@/features/notices';
+import { useUsers } from '@/features/users';
+import { formatValue } from '@/utils';
 
 const Dashboard = () => {
   const { user, accessToken } = useAuth();
@@ -241,7 +237,7 @@ const Dashboard = () => {
   return (
     <DashboardLayout>
       <Motion.div
-        className="max-w-400 mx-auto space-y-8 p-4 md:p-6 lg:p-8"
+        className="max-w-[1600px] mx-auto space-y-8 p-4 md:p-6 lg:p-8"
         initial="hidden"
         animate="visible"
         variants={containerVariants}
@@ -263,7 +259,7 @@ const Dashboard = () => {
             )}
             {(isAdmin || isSuperAdmin) && (
               <Select value={activeSelectedClass} onValueChange={setSelectedClass}>
-                <SelectTrigger className="h-10 rounded-full bg-white border-gray-100 shadow-sm text-gray-700 hover:bg-gray-50 transition-all font-bold text-xs px-6 min-w-40">
+                <SelectTrigger className="h-10 rounded-full bg-white border-gray-100 shadow-sm text-gray-700 hover:bg-gray-50 transition-all font-bold text-xs px-6 min-w-[160px]">
                   <SelectValue placeholder="Select Class" />
                 </SelectTrigger>
                 <SelectContent position="popper" className="rounded-2xl border-gray-100 shadow-2xl">
@@ -338,7 +334,7 @@ const Dashboard = () => {
               spark: [2, 1, 3, 2, 4, 3, 5],
               nav: 'calendar'
             }
-          ].map((card, idx) => (
+          ].filter(Boolean).map((card, idx) => (
             <Motion.div
               key={idx}
               variants={itemVariants}
@@ -371,7 +367,7 @@ const Dashboard = () => {
                 </div>
                 <div className="pt-2 flex items-center justify-between gap-4">
                   <span className="text-[10px] text-gray-400 font-medium whitespace-nowrap">{card.trendText}</span>
-                  <div className="flex-1 h-7.5 flex items-center">
+                  <div className="flex-1 h-[30px] flex items-center">
                     <Sparkline data={card.spark} color={`var(--color-${card.color}-600)`} width={80} height={30} />
                   </div>
                 </div>
@@ -468,7 +464,7 @@ const Dashboard = () => {
                     noticesRes.data.data.slice(0, 3).map((notice, i) => (
                       <div key={notice._id || i} className="p-5 rounded-[1.5rem] border border-gray-50 bg-white hover:border-primary/20 hover:shadow-sm transition-all flex items-start gap-4 group/notice cursor-pointer" onClick={() => navigate(`/${rolePrefix}/notice`)}>
                         <div className={`w-10 h-10 rounded-xl flex items-center justify-center bg-gray-50 text-gray-400 group-hover/notice:bg-primary group-hover/notice:text-white transition-colors`}>
-                          <Megaphone size={18} />
+                           <Megaphone size={18} />
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex justify-between items-start">

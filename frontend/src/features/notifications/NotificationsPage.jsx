@@ -1,10 +1,10 @@
 import React, { useState, useMemo } from 'react';
-import DashboardLayout from '../layouts/DashboardLayout';
-import { useAuth } from '../features/auth';
-import { useReceivedNotices } from '../features/notices';
+import DashboardLayout from '@/layouts/DashboardLayout';
+import { useAuth } from '@/features/auth';
+import { useReceivedNotices } from '@/features/notices';
 import { useNavigate } from 'react-router-dom';
 import { FaBell, FaInfoCircle, FaClock, FaChevronDown, FaFileAlt, FaArrowRight, FaPaperclip } from 'react-icons/fa';
-import { getRelativeTime, formatValue } from '../utils';
+import { getRelativeTime, formatValue } from '@/utils';
 
 const NOTIFICATION_TYPE_CONFIG = {
   file: { icon: <FaFileAlt className="text-purple-500" size={20} />, bg: 'bg-purple-50 border-purple-100', border: 'border-l-purple-500' },

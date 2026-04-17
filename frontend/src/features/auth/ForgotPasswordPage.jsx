@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { FaArrowLeft, FaCheckCircle } from 'react-icons/fa';
-import { authApi } from '../features/auth';
+import { authApi } from '.';
 
 const ForgotPassword = () => {
     const [email, setEmail] = useState('');
