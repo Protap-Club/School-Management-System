@@ -795,7 +795,7 @@ const FeesPage = () => {
                                                                 <td className="px-4 py-4 text-center">
                                                                     <div className="flex items-center justify-center gap-1">
                                                                         <button onClick={() => setPenaltyDeleteConfirm(penalty.penaltyId || penalty._id)}
-                                                                            title="Delete Penalty" className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
+                                                                            title="Delete Penalty" className="p-1.5 text-red-500 hover:bg-red-50 hover:text-red-600 rounded-lg transition-colors">
                                                                             <FaTrash size={12} />
                                                                         </button>
                                                                     </div>
