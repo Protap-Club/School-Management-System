@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../features/auth';
+import { useAuth } from '@/features/auth';
 import { useMutation } from '@tanstack/react-query';
-import { authApi } from '../features/auth/api/api';
+import { authApi } from '@/features/auth';
 import { User, Mail, Shield, Building2, Calendar, ChevronLeft, Eye, EyeOff } from 'lucide-react';
-import api from '../lib/axios';
+import api from '@/lib/axios';
 
 const Profile = () => {
     const { user, logout } = useAuth();

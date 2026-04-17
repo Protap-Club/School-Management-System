@@ -2,23 +2,23 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import CreatableSelect from 'react-select/creatable';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import DashboardLayout from '../layouts/DashboardLayout';
-import { useAuth } from '../features/auth';
-import { useTheme, useFeatures } from '../state';
-import api from '../lib/axios';
-import { ButtonSpinner, PageSpinner } from '../components/ui/Spinner';
-import { useToastMessage } from '../hooks/useToastMessage';
-import { settingsKeys } from '../features/settings/api/queries';
-import AddUserModal from '../features/users/components/AddUserModal';
+import DashboardLayout from '@/layouts/DashboardLayout';
+import { useAuth } from '@/features/auth';
+import { useTheme, useFeatures } from '@/state';
+import api from '@/lib/axios';
+import { ButtonSpinner, PageSpinner } from '@/components/ui/Spinner';
+import { useToastMessage } from '@/hooks/useToastMessage';
+import { settingsKeys } from './api/queries';
+import AddUserModal from '@/features/users/components/AddUserModal';
 import {
     getSchoolClassesQueryKey,
     makeSchoolClassesQueryData,
     useSchoolClasses,
-} from '../hooks/useSchoolClasses';
+} from '@/hooks/useSchoolClasses';
 import {
     makeClassKey,
     normalizeClassSection,
-} from '../utils/classSection';
+} from '@/utils/classSection';
 import {
     FaPalette,
     FaImage,
@@ -681,7 +681,7 @@ const Settings = () => {
             {showPostCreateModal && createdClassInfo && (
                 <div className="fixed inset-0 z-[115] flex items-center justify-center px-4">
                     <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md animate-fadeIn" />
-                    <div className="relative w-full max-w-md rounded-[2.5rem] bg-white border border-slate-100 shadow-2xl p-8 overflow-hidden animate-scaleUp">
+                    <div className="relative w-full max-md rounded-[2.5rem] bg-white border border-slate-100 shadow-2xl p-8 overflow-hidden animate-scaleUp">
                         {/* Decorative blobs */}
                         <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-50 rounded-full blur-3xl -mr-16 -mt-16 opacity-60" />
                         <div className="absolute bottom-0 left-0 w-24 h-24 bg-indigo-50 rounded-full blur-2xl -ml-12 -mb-12 opacity-50" />

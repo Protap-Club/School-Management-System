@@ -2,9 +2,9 @@ import React, { useState, useCallback } from 'react';
 import { FaTimes, FaCheck, FaPlus, FaSave } from 'react-icons/fa';
 import {
     FEE_TYPES, FEE_TYPE_LABELS, FREQUENCY_OPTIONS, FREQUENCY_LABELS,
-} from '../../features/fees';
-import { useFeeTypes } from '../../features/fees/api/queries';
-import { useSchoolClasses } from '../../hooks/useSchoolClasses';
+} from '@/features/fees';
+import { useFeeTypes } from '@/features/fees/api/queries';
+import { useSchoolClasses } from '@/hooks/useSchoolClasses';
 
 const INITIAL_FORM = {
     academicYear: new Date().getFullYear(),

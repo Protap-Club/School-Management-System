@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { IoClose, IoAddCircleOutline } from 'react-icons/io5';
-import { useCreateFeeType } from '../../features/fees/api/queries';
+import { useCreateFeeType } from '../api/queries';
 
 const FeeTypeSideCard = ({ onClose, onSuccess }) => {
     const [label, setLabel] = useState('');

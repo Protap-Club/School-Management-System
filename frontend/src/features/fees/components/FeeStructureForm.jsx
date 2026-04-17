@@ -2,10 +2,10 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { FaTimes, FaCheck, FaPlus, FaSave, FaArrowLeft } from 'react-icons/fa';
 import {
     FEE_TYPES, FEE_TYPE_LABELS, FREQUENCY_OPTIONS, FREQUENCY_LABELS,
-} from '../../features/fees';
-import { useFeeTypes, useFeeStructures } from '../../features/fees/api/queries';
+} from '@/features/fees';
+import { useFeeTypes, useFeeStructures } from '@/features/fees/api/queries';
 import FeeTypeSideCard from './FeeTypeSideCard';
-import { useSchoolClasses } from '../../hooks/useSchoolClasses';
+import { useSchoolClasses } from '@/hooks/useSchoolClasses';
 
 const INITIAL_FORM = {
     academicYear: new Date().getFullYear(),
@@ -55,7 +55,7 @@ const MultiSelect = ({ label, options, selected, onToggle, onSelectAll, error, d
                         <div className="px-3 pb-2 mb-2 border-b border-gray-50 flex items-center justify-between">
                             <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Select {label}</span>
                              <button type="button" onClick={onSelectAll} disabled={options.length === 0}
-                                className="text-[9px] font-black text-primary uppercase tracking-widest hover:underline disabled:opacity-30 disabled:no-underline">
+                                 className="text-[9px] font-black text-primary uppercase tracking-widest hover:underline disabled:opacity-30 disabled:no-underline">
                                 {selected.length > 0 && selected.length === options.length ? "Deselect All" : "Select All"}
                             </button>
                         </div>

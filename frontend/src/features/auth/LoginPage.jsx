@@ -1,5 +1,5 @@
 import React, { useCallback, useState, useEffect } from 'react';
-import { useAuth } from '../features/auth';
+import { useAuth } from '.';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { FaUser, FaLock } from 'react-icons/fa';
 import { Eye, EyeOff } from 'lucide-react';

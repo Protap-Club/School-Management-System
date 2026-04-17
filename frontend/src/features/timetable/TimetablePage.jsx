@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { FaCalendarAlt, FaChalkboardTeacher, FaCheck, FaChevronLeft, FaChevronRight, FaExclamationTriangle, FaFilePdf, FaTimes, FaUserClock } from "react-icons/fa";
+import { FaCalendarAlt, FaCheck, FaChevronLeft, FaChevronRight, FaExclamationTriangle, FaFilePdf, FaTimes, FaUserClock } from "react-icons/fa";
 import { readError } from "../../utils";
 import { generateTimetablePDF } from "../../utils/pdfGenerator";
 import { ButtonSpinner } from "../../components/ui/Spinner";
@@ -543,18 +543,31 @@ const TimetablePage = () => {
                                         )}
                                     </div>
                                 ) : (
-                                    <Select value={activeTeacherId} onValueChange={setSelectedTeacherId}>
-                                        <SelectTrigger className="h-10 w-full rounded-md border-gray-200/80 text-[13px] font-medium focus:ring-gray-200 sm:w-52">
-                                            <SelectValue placeholder="Select teacher" />
-                                        </SelectTrigger>
-                                        <SelectContent className="rounded-md border-gray-200/80 shadow-sm">
-                                            {teachers.map((teacher) => (
-                                                <SelectItem key={teacher._id} value={teacher._id} className="text-[13px]">
-                                                    {teacher.name}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
+                                    <div className="flex w-full flex-col gap-3 sm:flex-row sm:flex-wrap lg:w-auto lg:flex-nowrap lg:items-center lg:justify-end">
+                                        <Select value={activeTeacherId} onValueChange={setSelectedTeacherId}>
+                                            <SelectTrigger className="h-10 w-full rounded-md border-gray-200/80 text-[13px] font-medium focus:ring-gray-200 sm:w-52">
+                                                <SelectValue placeholder="Select teacher" />
+                                            </SelectTrigger>
+                                            <SelectContent className="rounded-md border-gray-200/80 shadow-sm">
+                                                {teachers.map((teacher) => (
+                                                    <SelectItem key={teacher._id} value={teacher._id} className="text-[13px]">
+                                                        {teacher.name}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                        {teacherScheduleEntries.length > 0 && activeTeacherId && (
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                className="flex h-10 w-full items-center justify-center gap-1.5 rounded-md border-gray-200 px-4 text-[13px] font-medium shadow-none transition-colors sm:w-auto"
+                                                onClick={handleExportAdminTeacherPDF}
+                                            >
+                                                <FaFilePdf size={12} />
+                                                Export PDF
+                                            </Button>
+                                        )}
+                                    </div>
                                 )}
                             </div>
                         </div>
@@ -586,14 +599,8 @@ const TimetablePage = () => {
                     ) : (
                         // Regular (subject-only) teacher: just their schedule
                         <div className="flex items-center gap-3">
-                            <Tabs value={teacherViewMode} onValueChange={setTeacherViewMode} className="bg-gray-100/50 p-1 rounded-lg border border-gray-200/60">
-                                <TabsList className="bg-transparent gap-1 h-auto p-0">
-                                    <TabsTrigger value="schedule" className="rounded-md text-[13px] font-medium data-[state=active]:bg-white data-[state=active]:shadow-sm px-4 py-1.5 data-[state=active]:text-gray-900 text-gray-600">Schedule</TabsTrigger>
-                                    <TabsTrigger value="class" className="rounded-md text-[13px] font-medium data-[state=active]:bg-white data-[state=active]:shadow-sm px-4 py-1.5 data-[state=active]:text-gray-900 text-gray-600">Class</TabsTrigger>
-                                </TabsList>
-                            </Tabs>
                             <div className="flex w-full flex-col gap-3 sm:flex-row sm:flex-wrap lg:w-auto lg:flex-nowrap lg:items-center lg:justify-end">
-                                {teacherViewMode === "schedule" && myScheduleEntries.length > 0 && (
+                                {myScheduleEntries.length > 0 && (
                                     <Button
                                         size="sm"
                                         variant="outline"
@@ -603,12 +610,6 @@ const TimetablePage = () => {
                                         <FaFilePdf size={12} />
                                         Export PDF
                                     </Button>
-                                )}
-                                {teacherViewMode === "class" && myClassInfo && (
-                                    <div className="inline-flex w-full items-center justify-center gap-2 rounded-md border border-blue-200/80 bg-blue-50 px-3 py-2 text-center text-xs font-medium text-blue-700 sm:w-auto">
-                                        <FaChalkboardTeacher size={14} />
-                                        Class {myClassInfo.standard}-{myClassInfo.section}
-                                    </div>
                                 )}
                             </div>
                         </div>

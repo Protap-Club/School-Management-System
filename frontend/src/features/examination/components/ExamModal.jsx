@@ -1,11 +1,11 @@
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { FaTimes, FaPlus, FaTrash, FaCalendarAlt, FaClock, FaBookOpen, FaInfoCircle, FaCheckCircle, FaExclamationTriangle, FaSearch, FaChevronDown, FaPaperclip } from 'react-icons/fa';
-import { useSchoolClasses } from '../../hooks/useSchoolClasses';
-import { useUsers } from '../../features/users/api/queries';
-import { ButtonSpinner, PageSpinner } from '../../components/ui/Spinner';
+import { useSchoolClasses } from '@/hooks/useSchoolClasses';
+import { useUsers } from '@/features/users/api/queries';
+import { ButtonSpinner, PageSpinner } from '@/components/ui/Spinner';
 import { createPortal } from 'react-dom';
-import { downloadFile } from '../../utils/downloadFile';
-import { MultiSelectDropdown } from '../ui/MultiSelectDropdown';
+import { downloadFile } from '@/utils/downloadFile';
+import { MultiSelectDropdown } from '@/components/ui/MultiSelectDropdown';
 // cspell:ignore msword openxmlformats officedocument wordprocessingml opendocument
 
 const TeacherSelectDropdown = ({ value, onChange, options, className }) => {
@@ -1119,4 +1119,3 @@ const ExamModal = ({ isOpen, onClose, onSubmit, editData, isLoading, userRole, u
 };
 
 export default ExamModal;
-

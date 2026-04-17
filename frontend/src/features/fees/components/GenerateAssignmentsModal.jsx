@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { FaTimes, FaBolt } from 'react-icons/fa';
-import { MONTH_LABELS } from '../../features/fees';
+import { MONTH_LABELS } from '..';
 
 const GenerateAssignmentsModal = ({ isOpen, onClose, onSubmit, structure, isLoading }) => {
     const [month, setMonth] = useState(new Date().getMonth() + 1);

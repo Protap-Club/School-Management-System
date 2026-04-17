@@ -12,10 +12,10 @@ import {
 } from './index';
 import { useAuth } from '../auth';
 import { useUsers } from '../users/api/queries';
-import FeeStructureModal from '../../components/fees/FeeStructureModal';
-import PaymentModal from '../../components/fees/PaymentModal';
-import FeeStructureForm from '../../components/fees/FeeStructureForm';
-import SalaryForm from '../../components/fees/SalaryForm';
+import FeeStructureModal from './components/FeeStructureModal';
+import PaymentModal from './components/PaymentModal';
+import FeeStructureForm from './components/FeeStructureForm';
+import SalaryForm from './components/SalaryForm';
 import TeacherSalaryTab from './components/TeacherSalaryTab';
 import StudentStructuresTab from './components/StudentStructuresTab';
 import StudentFeesTab from './components/StudentFeesTab';

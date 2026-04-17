@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { FaTimes, FaMoneyBillWave } from 'react-icons/fa';
-import { PAYMENT_MODES, PAYMENT_MODE_LABELS } from '../../features/fees';
+import { PAYMENT_MODES, PAYMENT_MODE_LABELS } from '..';
 
 const PaymentModal = ({ isOpen, onClose, onSubmit, assignment, isLoading }) => {
     const [form, setForm] = useState({ amount: '', paymentMode: '', transactionRef: '', remarks: '' });

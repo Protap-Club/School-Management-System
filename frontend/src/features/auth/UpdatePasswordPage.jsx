@@ -2,8 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FaLock, FaEye, FaEyeSlash } from 'react-icons/fa';
 import { useMutation } from '@tanstack/react-query';
-import { authApi } from '../features/auth/api/api';
-import { useAuth } from '../features/auth';
+import { authApi, useAuth } from '.';
 
 const UpdatePassword = () => {
     const { user, loading: authLoading } = useAuth();

@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { FaTimes, FaPlus, FaArrowLeft, FaSearch, FaUser, FaChevronDown, FaCheck } from 'react-icons/fa';
-import { MONTH_LABELS } from '../../features/fees';
-import { useUsers } from '../../features/users/api/queries';
+import { MONTH_LABELS } from '@/features/fees';
+import { useUsers } from '@/features/users/api/queries';
 
 const INITIAL_FORM = {
     teacherId: '',
