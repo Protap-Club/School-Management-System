@@ -32,26 +32,25 @@ export const createFeeStructureSchema = z.object({
 
         // 1. Current Month Based Behavior: Past months disallowed
         if (Array.isArray(data.applicableMonths)) {
-            const isPastYear = data.academicYear < currentYear;
-            const isCurrentYear = data.academicYear === currentYear;
-            const isFutureYear = data.academicYear > currentYear;
+            const ACADEMIC_YEAR_START_MONTH = 6;
+            const now = new Date();
+            const currentMonth = now.getMonth() + 1;
+            const currentYear = now.getFullYear();
 
-            let hasPastMonth = false;
-            if (isPastYear) {
-                hasPastMonth = true; // All months in a past year are past
-            } else if (isCurrentYear) {
-                // All frequencies now block past months for the current year
-                hasPastMonth = data.applicableMonths.some(m => m < currentMonth);
-            } else if (isFutureYear) {
-                hasPastMonth = false; // Future years are never in the past
-            }
+            const isPast = data.applicableMonths.some(m => {
+                // Determine the actual calendar year for this month within the academic session
+                // Session 2025 starts June 2025 and ends May 2026
+                const targetCalendarYear = m < ACADEMIC_YEAR_START_MONTH ? data.academicYear + 1 : data.academicYear;
+                
+                if (targetCalendarYear < currentYear) return true;
+                if (targetCalendarYear === currentYear && m < currentMonth) return true;
+                return false;
+            });
 
-            if (hasPastMonth) {
+            if (isPast) {
                 ctx.addIssue({
                     code: z.ZodIssueCode.custom,
-                    message: isPastYear 
-                        ? `Cannot select months for a past academic year (${data.academicYear}).` 
-                        : `Month selection must start from ${new Date(currentYear, currentMonth-1).toLocaleString('default', { month: 'long' })} onwards for ${currentYear}.`,
+                    message: `Selection includes past months. Fees can only be created for the current month (${new Date(currentYear, currentMonth - 1).toLocaleString('default', { month: 'long' })} ${currentYear}) or future.`,
                     path: ["applicableMonths"],
                 });
             }

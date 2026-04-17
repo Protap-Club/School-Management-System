@@ -307,8 +307,11 @@ export const generateAssignments = async (schoolId, feeStructureId, month, year,
             return { total: 0, created: 0, skipped: 0, message: "No students found in this class" };
         }
 
-        // Calculate due date
-        const dueDate = new Date(year, month - 1, structure.dueDay || 10);
+        // Calculate actual calendar year for the due date
+        // If month is Jan-May (1-5), it belongs to the second half of the academic session (Year + 1)
+        const ACADEMIC_YEAR_START_MONTH = 6;
+        const targetYear = month < ACADEMIC_YEAR_START_MONTH ? year + 1 : year;
+        const dueDate = new Date(targetYear, month - 1, structure.dueDay || 10);
 
         // Step 1: Find existing assignments in one query
         const existingAssignments = await FeeAssignment.find({
