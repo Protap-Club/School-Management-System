@@ -8,13 +8,20 @@ import asyncHandler from '../../utils/asyncHandler.js';
  */
 export const getAuditLogs = asyncHandler(async (req, res) => {
     // req.schoolId is enforced by school.middleware.js
-    const { page, limit, action, actorId, actorRole, targetModel, search, startDate, endDate } = req.query;
+    const {
+        page, limit,
+        action, actorId, actorRole, targetModel, search, startDate, endDate,
+        action_type, severity, outcome
+    } = req.query;
 
     const result = await auditService.getAuditLogs({
         schoolId: req.schoolId,
         page,
         limit,
-        filters: { action, actorId, actorRole, targetModel, search, startDate, endDate }
+        filters: {
+            action, actorId, actorRole, targetModel, search, startDate, endDate,
+            action_type, severity, outcome
+        }
     });
 
     return sendPaginated(
@@ -24,3 +31,4 @@ export const getAuditLogs = asyncHandler(async (req, res) => {
         "Audit logs retrieved successfully"
     );
 });
+
