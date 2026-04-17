@@ -613,20 +613,24 @@ export const StudentYearlySummaryPanel = ({
                         <p className="text-sm text-gray-500">Yearly breakdown of student penalty collections</p>
                     </div>
 
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
-                        <div className="bg-red-50 border border-red-100 rounded-2xl p-4 text-center">
-                            <p className="text-xs font-semibold text-red-500 mb-1 uppercase tracking-wider">Assigned</p>
-                            <p className="text-xl font-bold text-red-900">₹{(yearlyPenaltyTotal.totalAssigned || 0).toLocaleString()}</p>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
+                        <div className="bg-gray-50 border border-gray-100 rounded-2xl p-4 text-center">
+                            <p className="text-xs font-semibold text-gray-500 mb-1 uppercase tracking-wider">Assigned</p>
+                            <p className="text-xl font-bold text-gray-900">₹{(yearlyPenaltyTotal.totalAssigned || 0).toLocaleString()}</p>
                         </div>
                         <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-4 text-center">
                             <p className="text-xs font-semibold text-emerald-600 mb-1 uppercase tracking-wider">Collected</p>
                             <p className="text-xl font-bold text-emerald-700">₹{(yearlyPenaltyTotal.totalCollected || 0).toLocaleString()}</p>
                         </div>
+                        <div className="bg-red-50 border border-red-100 rounded-2xl p-4 text-center">
+                            <p className="text-xs font-semibold text-red-600 mb-1 uppercase tracking-wider">Waived</p>
+                            <p className="text-xl font-bold text-red-700">₹{(yearlyPenaltyTotal.totalWaived || 0).toLocaleString()}</p>
+                        </div>
                         <div className="bg-amber-50 border border-amber-100 rounded-2xl p-4 text-center">
                             <p className="text-xs font-semibold text-amber-600 mb-1 uppercase tracking-wider">Pending</p>
                             <p className="text-xl font-bold text-amber-700">₹{(yearlyPenaltyTotal.totalPending || 0).toLocaleString()}</p>
                         </div>
-                        <div className="bg-primary/5 border border-primary/10 rounded-2xl p-4 text-center">
+                        <div className="bg-primary/5 border border-primary/10 rounded-2xl p-4 text-center col-span-2 sm:col-span-1">
                             <p className="text-xs font-semibold text-primary mb-1 uppercase tracking-wider">Rate</p>
                             <p className="text-xl font-bold text-primary">{yearlyPenaltyTotal.collectionRate || 0}%</p>
                         </div>
