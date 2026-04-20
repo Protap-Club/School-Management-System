@@ -21,7 +21,7 @@ const timeSchema = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Invalid time f
 // ═══════════════════════════════════════════════════════════════
 
 const scheduleItemSchema = z.object({
-    _id: objectIdSchema.optional(),
+    _id: z.union([objectIdSchema, z.literal("")]).optional(),
     subject: z.string({ required_error: "Subject is required" }).nonempty().max(100),
     examDate: z.string({ required_error: "Exam date is required" })
         .datetime({ offset: true })
@@ -83,8 +83,8 @@ export const updateExamSchema = z.object({
         schedule: z.array(scheduleItemSchema).optional(),
         status: z.enum(["DRAFT", "PUBLISHED", "COMPLETED", "CANCELLED"]).optional(),
         examType: z.enum(["TERM_EXAM", "CLASS_TEST"]).optional(),
-        standard: z.string().optional(),
-        section: z.string().optional(),
+        standard: z.union([z.string(), z.array(z.string())]).optional(),
+        section: z.union([z.string(), z.array(z.string())]).optional(),
         academicYear: z.number().optional(),
         schoolId: objectIdSchema.optional(),
     }),
