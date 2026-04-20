@@ -8,268 +8,96 @@ const SCHOOL_NAME = 'Navrachna International School';
 const ACADEMIC_YEAR = 'Academic Year 2026';
 
 const MONTH_LABELS = {
-  1: 'January', 2: 'February', 3: 'March', 4: 'April',
-  5: 'May', 6: 'June', 7: 'July', 8: 'August',
-  9: 'September', 10: 'October', 11: 'November', 12: 'December',
-};
-
-const COLORS = {
-  primary:     [30, 41, 59],    // slate-800
-  secondary:   [71, 85, 105],   // slate-600
-  muted:       [100, 116, 139], // slate-500
-  subtle:      [148, 163, 184], // slate-400
-  border:      [226, 232, 240], // slate-200
-  bg:          [248, 250, 252], // slate-50
-  white:       [255, 255, 255],
-  success:     [16, 185, 129],  // emerald-500
-  warning:     [245, 158, 11],  // amber-500
-  warningBg:   [255, 251, 235], // amber-50
-  warningText: [146, 64, 14],   // amber-800
-  tableHead:   [79, 70, 229],   // indigo-600
-};
-
-// ─── Shared Helpers ───────────────────────────────────────────────────────────
-
-/** Centers text horizontally on the page. */
-const centerX = (doc, text) => {
-  const pageWidth = doc.internal.pageSize.width;
-  return (pageWidth - doc.getTextWidth(text)) / 2;
-};
-
-/** Returns the page width for the given doc. */
-const pageWidth = (doc) => doc.internal.pageSize.width;
-
-/** Converts 24h "HH:MM" → "HH:MM AM/PM". Passes through if already formatted. */
-const formatTime = (t) => {
-  if (!t || /am|pm/i.test(t)) return t ?? '';
-  const [h, m] = t.split(':').map(Number);
-  if (isNaN(h)) return t;
-  const period = h >= 12 ? 'PM' : 'AM';
-  return `${String(h % 12 || 12).padStart(2, '0')}:${String(m ?? 0).padStart(2, '0')} ${period}`;
+    1: 'January', 2: 'February', 3: 'March', 4: 'April', 5: 'May', 6: 'June',
+    7: 'July', 8: 'August', 9: 'September', 10: 'October', 11: 'November', 12: 'December'
 };
 
 /**
- * Draws a two-column page header used by receipts and notes.
- *  Left  → document title
- *  Right → school name + academic year
- */
-const drawReceiptHeader = (doc, title, titleColor = COLORS.primary) => {
-  const pw = pageWidth(doc);
-
-  // Top accent bar
-  doc.setFillColor(...COLORS.primary);
-  doc.rect(0, 0, pw, 4, 'F');
-
-  // Document title (left)
-  doc.setFontSize(16);
-  doc.setFont(undefined, 'bold');
-  doc.setTextColor(...titleColor);
-  doc.text(title, 14, 22);
-
-  // School name (right)
-  doc.setFontSize(14);
-  doc.setTextColor(...COLORS.primary);
-  doc.text(SCHOOL_NAME, pw - 14, 19, { align: 'right' });
-
-  // Academic year (right)
-  doc.setFontSize(9);
-  doc.setFont(undefined, 'normal');
-  doc.setTextColor(...COLORS.muted);
-  doc.text(ACADEMIC_YEAR, pw - 14, 27, { align: 'right' });
-
-  // Divider
-  doc.setDrawColor(...COLORS.border);
-  doc.setLineWidth(0.4);
-  doc.line(14, 33, pw - 14, 33);
-};
-
-/**
- * Draws a two-column details section starting at y=50.
- *  @param {Array<{label:string, value:string}>} leftItems
- *  @param {Array<{label:string, value:string}>} rightItems
- *  @param {string} leftTitle
- *  @param {string} rightTitle
- */
-const drawDetailsSection = (doc, leftTitle, leftItems, rightTitle, rightItems) => {
-  const pw = pageWidth(doc);
-  const midX = pw / 2 + 10;
-
-  const drawColumn = (title, items, x, underlineEnd) => {
-    doc.setFontSize(10);
-    doc.setFont(undefined, 'bold');
-    doc.setTextColor(...COLORS.primary);
-    doc.text(title, x, 48);
-
-    doc.setDrawColor(...COLORS.muted);
-    doc.setLineWidth(0.3);
-    doc.line(x, 50, underlineEnd, 50);
-
-    doc.setFont(undefined, 'normal');
-    doc.setFontSize(9.5);
-    items.forEach(({ label, value }, i) => {
-      const y = 59 + i * 7;
-      doc.setTextColor(...COLORS.muted);
-      doc.text(`${label}:`, x, y);
-      doc.setTextColor(...COLORS.primary);
-      doc.text(String(value ?? '-'), x + 28, y);
-    });
-  };
-
-  drawColumn(leftTitle, leftItems, 14, 60);
-  drawColumn(rightTitle, rightItems, midX, midX + 50);
-};
-
-/**
- * Draws a summary box (e.g. "TOTAL PAID") aligned to the right.
- * @param {string}  label      - Small label text above the amount
- * @param {string}  amount     - Amount string (e.g. "INR 5,000")
- * @param {number}  y          - Top Y position of the box
- * @param {number[]} amtColor  - RGB color for the amount text
- */
-const drawTotalBox = (doc, label, amount, y, amtColor = COLORS.primary) => {
-  const pw = pageWidth(doc);
-  const boxW = 88;
-  const boxX = pw - 14 - boxW;
-
-  doc.setFillColor(...COLORS.bg);
-  doc.setDrawColor(...COLORS.border);
-  doc.setLineWidth(0.3);
-  doc.roundedRect(boxX, y, boxW, 26, 2, 2, 'FD');
-
-  doc.setFontSize(8);
-  doc.setFont(undefined, 'bold');
-  doc.setTextColor(...COLORS.muted);
-  doc.text(label, boxX + boxW / 2, y + 10, { align: 'center' });
-
-  doc.setFontSize(14);
-  doc.setTextColor(...amtColor);
-  doc.text(amount, boxX + boxW / 2, y + 20, { align: 'center' });
-};
-
-/** Draws a standard computer-generated footer at y=280. */
-const drawFooter = (doc, text) => {
-  doc.setFontSize(7.5);
-  doc.setFont(undefined, 'normal');
-  doc.setTextColor(...COLORS.subtle);
-  doc.text(text, centerX(doc, text), 280);
-};
-
-/** Shared autoTable config for receipt-style tables. */
-const receiptTableConfig = (startY, body) => ({
-  startY,
-  head: [['Description', 'Status', 'Amount']],
-  body,
-  theme: 'grid',
-  headStyles: {
-    fillColor: COLORS.bg,
-    textColor: COLORS.primary,
-    fontStyle: 'bold',
-    lineWidth: 0.1,
-    fontSize: 9,
-  },
-  styles: {
-    cellPadding: 6,
-    lineColor: COLORS.border,
-    lineWidth: 0.1,
-    fontSize: 9,
-  },
-  columnStyles: {
-    2: { halign: 'center', fontStyle: 'bold' },
-  },
-  didParseCell: (data) => {
-    if (data.section === 'head' && data.column.index === 2) {
-      data.cell.styles.halign = 'center';
-    }
-  },
-});
-
-/** Returns "INR X,XXX" formatted string. */
-const inr = (amount) => `INR ${Number(amount ?? 0).toLocaleString('en-IN')}`;
-
-// ─── PDF Generators ───────────────────────────────────────────────────────────
-
-/**
- * Generates a class fee overview report.
+ * Generates a PDF report for class fees overview
  */
 export const generateFeeReport = (classStudents, summary, classInfo, month, year) => {
-  try {
-    const doc = new jsPDF();
-    const pw = pageWidth(doc);
-    const monthLabel = MONTH_LABELS[month] ?? '';
+    console.log('Generating Fee Report...', { classStudents, summary, classInfo, month, year });
+    
+    try {
+        const doc = new jsPDF();
+        const pageWidth = doc.internal.pageSize.width;
+        const navy = [30, 41, 59]; // slate-800
+        const emerald = [5, 150, 105]; // emerald-600
+        const amber = [245, 158, 11]; // amber-600
 
-    // Header
-    doc.setFillColor(...COLORS.primary);
-    doc.rect(0, 0, pw, 4, 'F');
+        // Decorative Header Bar
+        doc.setFillColor(...navy);
+        doc.rect(0, 0, pageWidth, 40, 'F');
+        
+        doc.setFontSize(18);
+        doc.setTextColor(255, 255, 255);
+        doc.setFont(undefined, 'bold');
+        doc.text('STUDENT FEE REPORT', 20, 27);
+        
+        doc.setFontSize(10);
+        doc.setFont(undefined, 'normal');
+        doc.text('NAVRACHNA INTERNATIONAL SCHOOL', pageWidth - 20, 20, { align: 'right' });
+        const periodText = month ? `${MONTH_LABELS[month]} ${year} - ${year + 1}` : `${year} - ${year + 1}`;
+        doc.text(`REPORT PERIOD: ${periodText}`, pageWidth - 20, 27, { align: 'right' });
 
-    doc.setFontSize(20);
-    doc.setFont(undefined, 'bold');
-    doc.setTextColor(...COLORS.primary);
-    doc.text('Student Fee Report', 14, 20);
+        // Metadata
+        doc.setFontSize(10);
+        doc.setTextColor(...navy);
+        doc.setFont(undefined, 'bold');
+        doc.text(`CLASS: ${formatValue(classInfo?.standard)}-${formatValue(classInfo?.section)}`, 20, 50);
+        doc.setFont(undefined, 'normal');
+        doc.setTextColor(100, 100, 100);
+        doc.text(`Generated on: ${new Date().toLocaleDateString()}`, pageWidth - 20, 50, { align: 'right' });
 
-    doc.setFontSize(9);
-    doc.setFont(undefined, 'normal');
-    doc.setTextColor(...COLORS.muted);
-    doc.text(`Class: ${formatValue(classInfo?.standard)}-${formatValue(classInfo?.section)}`, 14, 30);
-    doc.text(`Period: ${monthLabel} ${year ?? ''}`, 14, 37);
-    doc.text(`Generated: ${new Date().toLocaleDateString('en-IN')}`, 14, 44);
+        // Summary Box
+        doc.setDrawColor(...navy);
+        doc.setFillColor(249, 250, 251);
+        doc.roundedRect(20, 60, pageWidth - 40, 30, 2, 2, 'FD');
+        
+        doc.setFontSize(9);
+        doc.setTextColor(100, 100, 100);
+        doc.text('TOTAL STUDENTS', 35, 70);
+        doc.text('TOTAL COLLECTED', pageWidth / 2, 70, { align: 'center' });
+        doc.text('TOTAL PENDING', pageWidth - 35, 70, { align: 'right' });
 
-    // Summary cards
-    const cardY = 52;
-    const cardH = 28;
-    const cardW = (pw - 28 - 8) / 3;
+        doc.setFontSize(14);
+        doc.setFont(undefined, 'bold');
+        doc.setTextColor(...navy);
+        doc.text(`${summary?.totalStudents || 0}`, 35, 80);
+        doc.setTextColor(...emerald);
+        doc.text(`INR ${summary?.totalCollected?.toLocaleString() || 0}`, pageWidth / 2, 80, { align: 'center' });
+        doc.setTextColor(...amber);
+        doc.text(`INR ${summary?.totalPending?.toLocaleString() || 0}`, pageWidth - 35, 80, { align: 'right' });
 
-    const cards = [
-      { label: 'TOTAL STUDENTS', value: String(summary?.totalStudents ?? 0), color: COLORS.primary },
-      { label: 'TOTAL COLLECTED', value: inr(summary?.totalCollected), color: COLORS.success },
-      { label: 'TOTAL PENDING', value: inr(summary?.totalPending), color: COLORS.warning },
-    ];
+        // Table
+        const tableData = (classStudents || []).flatMap(student => 
+            (student?.fees || []).map((fee, idx) => [
+                idx === 0 ? student.rollNumber || '-' : '',
+                idx === 0 ? student.name : '',
+                fee.name || fee.feeType,
+                `INR ${fee.amount?.toLocaleString() || 0}`,
+                fee.status === 'WAIVED' ? '—' : `INR ${fee.paid?.toLocaleString() || 0}`,
+                fee.status,
+                fee.dueDate ? new Date(fee.dueDate).toLocaleDateString() : '-'
+            ])
+        );
 
-    cards.forEach(({ label, value, color }, i) => {
-      const x = 14 + i * (cardW + 4);
-      doc.setFillColor(...COLORS.bg);
-      doc.setDrawColor(...COLORS.border);
-      doc.setLineWidth(0.3);
-      doc.roundedRect(x, cardY, cardW, cardH, 2, 2, 'FD');
-
-      doc.setFontSize(7.5);
-      doc.setFont(undefined, 'normal');
-      doc.setTextColor(...COLORS.muted);
-      doc.text(label, x + 6, cardY + 9);
-
-      doc.setFontSize(13);
-      doc.setFont(undefined, 'bold');
-      doc.setTextColor(...color);
-      doc.text(value, x + 6, cardY + 21);
-    });
-
-    // Table
-    const tableData = (classStudents ?? []).flatMap((student) =>
-      (student?.fees ?? []).map((fee, idx) => [
-        idx === 0 ? (student.name ?? '') : '',
-        fee.name ?? fee.feeType ?? '',
-        inr(fee.amount),
-        fee.status === 'WAIVED' ? '—' : inr(fee.paid),
-        fee.status ?? '',
-        fee.dueDate ? new Date(fee.dueDate).toLocaleDateString('en-IN') : '-',
-      ])
-    );
-
-    if (tableData.length > 0) {
-      autoTable(doc, {
-        startY: cardY + cardH + 8,
-        head: [['Student', 'Fee Type', 'Amount', 'Paid', 'Status', 'Due Date']],
-        body: tableData,
-        theme: 'striped',
-        headStyles: { fillColor: COLORS.tableHead, textColor: COLORS.white, fontStyle: 'bold', fontSize: 9 },
-        styles: { fontSize: 8.5, cellPadding: 4 },
-        columnStyles: { 4: { fontStyle: 'bold' } },
-        alternateRowStyles: { fillColor: COLORS.bg },
-      });
-    } else {
-      doc.setFontSize(9);
-      doc.setTextColor(...COLORS.muted);
-      doc.text('No records found for the selected filters.', 14, cardY + cardH + 16);
-    }
+        if (tableData.length > 0) {
+            autoTable(doc, {
+                startY: 95,
+                head: [['Roll No', 'Student', 'Fee Type', 'Amount', 'Paid', 'Status', 'Due Date']],
+                body: tableData,
+                theme: 'striped',
+                headStyles: { fillColor: [79, 70, 229], textColor: [255, 255, 255], fontStyle: 'bold' },
+                styles: { fontSize: 9, cellPadding: 4 },
+                columnStyles: {
+                    4: { fontStyle: 'bold' }
+                },
+                alternateRowStyles: { fillColor: [250, 250, 250] }
+            });
+        } else {
+            doc.text('No records found for the selected filters.', 14, 105);
+        }
 
     const std = classInfo?.standard ?? 'Class';
     const sec = classInfo?.section ?? '';
@@ -281,165 +109,534 @@ export const generateFeeReport = (classStudents, summary, classInfo, month, year
 };
 
 /**
- * Generates a salary receipt for a teacher.
+ * Generates a PDF report for class penalties overview
+ */
+export const generatePenaltyReport = (penaltyStudents, summary, classInfo, month, year) => {
+    console.log('Generating Penalty Report...', { penaltyStudents, summary, classInfo, month, year });
+    
+    try {
+        const doc = new jsPDF();
+        const pageWidth = doc.internal.pageSize.width;
+        const navy = [30, 41, 59]; // slate-800
+        const emerald = [5, 150, 105]; // emerald-600
+        const amber = [245, 158, 11]; // amber-600
+
+        // Decorative Header Bar
+        doc.setFillColor(...navy);
+        doc.rect(0, 0, pageWidth, 40, 'F');
+        
+        doc.setFontSize(18);
+        doc.setTextColor(255, 255, 255);
+        doc.setFont(undefined, 'bold');
+        doc.text('CLASS PENALTY REPORT', 20, 27);
+        
+        doc.setFontSize(10);
+        doc.setFont(undefined, 'normal');
+        doc.text('NAVRACHNA INTERNATIONAL SCHOOL', pageWidth - 20, 20, { align: 'right' });
+        // Handle case where month might be swapped with year or missing
+        const displayYear = year || month; 
+        doc.text(`REPORT PERIOD: ${displayYear} - ${displayYear + 1}`, pageWidth - 20, 27, { align: 'right' });
+
+        // Metadata
+        doc.setFontSize(10);
+        doc.setTextColor(...navy);
+        doc.setFont(undefined, 'bold');
+        doc.text(`CLASS: ${formatValue(classInfo?.standard)}-${formatValue(classInfo?.section)}`, 20, 50);
+        doc.setFont(undefined, 'normal');
+        doc.setTextColor(100, 100, 100);
+        doc.text(`Generated on: ${new Date().toLocaleDateString()}`, pageWidth - 20, 50, { align: 'right' });
+
+        // Summary Box
+        doc.setDrawColor(...navy);
+        doc.setFillColor(249, 250, 251);
+        doc.roundedRect(20, 60, pageWidth - 40, 30, 2, 2, 'FD');
+        
+        doc.setFontSize(9);
+        doc.setTextColor(100, 100, 100);
+        doc.text('TOTAL PENALTIES', 35, 70);
+        doc.text('TOTAL COLLECTED', pageWidth / 2, 70, { align: 'center' });
+        doc.text('TOTAL PENDING', pageWidth - 35, 70, { align: 'right' });
+
+        doc.setFontSize(14);
+        doc.setFont(undefined, 'bold');
+        doc.setTextColor(...navy);
+        doc.text(`${summary?.totalStudents || 0}`, 35, 80);
+        doc.setTextColor(...emerald);
+        doc.text(`INR ${summary?.totalCollected?.toLocaleString() || 0}`, pageWidth / 2, 80, { align: 'center' });
+        doc.setTextColor(...amber);
+        doc.text(`INR ${summary?.totalPending?.toLocaleString() || 0}`, pageWidth - 35, 80, { align: 'right' });
+
+        // Table
+        const tableData = (penaltyStudents || []).flatMap(student => 
+            (student?.penalties || []).map((p, idx) => [
+                idx === 0 ? student.rollNumber || '-' : '',
+                idx === 0 ? student.name : '',
+                p.reason || 'N/A',
+                p.penaltyType || 'N/A',
+                `INR ${p.amount?.toLocaleString() || 0}`,
+                p.status === 'PAID' ? `INR ${(p.paidAmount || p.amount).toLocaleString()}` : '—',
+                p.status,
+                p.occurrenceDate ? new Date(p.occurrenceDate).toLocaleDateString() : '-'
+            ])
+        );
+
+        if (tableData.length > 0) {
+            autoTable(doc, {
+                startY: 100,
+                head: [['Roll No', 'Student', 'Reason', 'Type', 'Amount', 'Collected', 'Status', 'Date']],
+                body: tableData,
+                theme: 'grid',
+                headStyles: { fillColor: [...navy], textColor: [255, 255, 255], fontStyle: 'bold' },
+                styles: { fontSize: 8.5, cellPadding: 4 },
+                columnStyles: { 5: { fontStyle: 'bold' } },
+                alternateRowStyles: { fillColor: [249, 250, 251] }
+            });
+        } else {
+            doc.text('No penalty records found for the selected period.', 20, 105);
+        }
+
+        doc.save(`Penalty_Report_${classInfo?.standard || 'Class'}_${classInfo?.section || ''}_${year || ''}.pdf`);
+    } catch (error) {
+        console.error('Failed to generate Penalty PDF Report:', error);
+    }
+};
+
+/**
+ * Generates a PDF receipt for a teacher's salary payment
  */
 export const generateSalaryReceipt = (salary, teacher) => {
-  try {
-    const doc = new jsPDF();
-    const monthLabel = MONTH_LABELS[salary?.month] ?? '';
+    console.log('Generating Salary Receipt...', { salary, teacher });
+    
+    try {
+        const doc = new jsPDF();
+        const pageWidth = doc.internal.pageSize.width;
+        const navy = [30, 41, 59]; // slate-800
+        const emerald = [5, 150, 105]; // emerald-600
 
-    drawReceiptHeader(doc, 'SALARY RECEIPT');
+        // Decorative Header Bar
+        doc.setFillColor(...navy);
+        doc.rect(0, 0, pageWidth, 40, 'F');
+        
+        doc.setFontSize(22);
+        doc.setTextColor(255, 255, 255);
+        doc.setFont(undefined, 'bold');
+        doc.text('SALARY RECEIPT', 20, 27);
+        
+        doc.setFontSize(10);
+        doc.setFont(undefined, 'normal');
+        doc.text('NAVRACHNA INTERNATIONAL SCHOOL', pageWidth - 20, 20, { align: 'right' });
+        doc.text(`RECEIPT: SAL-${salary?._id?.substring(salary._id.length - 6).toUpperCase()}`, pageWidth - 20, 27, { align: 'right' });
 
-    drawDetailsSection(
-      doc,
-      'TEACHER DETAILS',
-      [
-        { label: 'Name',       value: formatValue(teacher?.name) },
-        { label: 'Email',      value: formatValue(teacher?.email) },
-        { label: 'Contact',    value: formatValue(teacher?.contactNo) },
-      ],
-      'PAYMENT DETAILS',
-      [
-        { label: 'Receipt No',    value: `PAY-${formatValue(salary?._id?.slice(-6).toUpperCase(), 'N/A')}` },
-        { label: 'Month / Year',  value: `${monthLabel} ${formatValue(salary?.year, '')}` },
-        { label: 'Payment Date',  value: salary?.paidDate ? new Date(salary.paidDate).toLocaleDateString('en-IN') : 'N/A' },
-      ]
-    );
+        // Content
+        let y = 60;
+        const drawSection = (title, items, x) => {
+            doc.setFontSize(11);
+            doc.setTextColor(...navy);
+            doc.setFont(undefined, 'bold');
+            doc.text(title, x, y);
+            doc.setDrawColor(...navy);
+            doc.line(x, y + 2, x + 40, y + 2);
+            
+            doc.setFont(undefined, 'normal');
+            doc.setFontSize(10);
+            doc.setTextColor(70, 70, 70);
+            items.forEach((item, i) => {
+                doc.text(item, x, y + 12 + (i * 8));
+            });
+        };
 
-    autoTable(doc, receiptTableConfig(90, [
-      ['Monthly Net Salary', salary?.status ?? '', inr(salary?.amount)],
-      ['Total Disbursed',    'PAID',                inr(salary?.amount)],
-    ]));
+        drawSection('TEACHER DETAILS', [
+            `Name: ${formatValue(teacher?.name)}`,
+            `Email: ${formatValue(teacher?.email)}`,
+            `Contact: ${formatValue(teacher?.contactNo)}`
+        ], 20);
 
-    const boxY = (doc.lastAutoTable?.finalY ?? 120) + 14;
-    drawTotalBox(doc, 'TOTAL PAID', inr(salary?.amount), boxY);
-    drawFooter(doc, 'This is a computer generated receipt and does not require a physical signature.');
+        drawSection('PAYMENT DETAILS', [
+            `Period: ${formatValue(MONTH_LABELS[salary?.month])} ${formatValue(salary?.year)}`,
+            `Status: ${salary?.status || 'PAID'}`,
+            `Date: ${salary?.paidDate ? new Date(salary.paidDate).toLocaleDateString() : 'N/A'}`
+        ], pageWidth / 2 + 10);
 
-    const name = (teacher?.name ?? 'teacher').replace(/\s+/g, '_');
-    doc.save(`Salary_Receipt_${monthLabel}_${salary?.year ?? ''}_${name}.pdf`);
-  } catch (error) {
-    console.error('Failed to generate Salary Receipt:', error);
-    alert('Could not generate the receipt. Please check the console for details.');
-  }
+        // Table
+        autoTable(doc, {
+            startY: 105,
+            head: [['Description', 'Status', 'Amount']],
+            body: [
+                ['Monthly Net Salary', salary?.status || 'PAID', `INR ${salary?.amount?.toLocaleString() || 0}`],
+                ['Total Disbursed', 'SUCCESS', `INR ${salary?.amount?.toLocaleString() || 0}`]
+            ],
+            theme: 'grid',
+            headStyles: { fillColor: [...navy], textColor: [255, 255, 255], fontStyle: 'bold' },
+            styles: { cellPadding: 6, lineColor: [229, 231, 235] },
+            columnStyles: { 2: { halign: 'center', fontStyle: 'bold' } }
+        });
+
+        // Total Box
+        const finalY = (doc.lastAutoTable?.finalY || 135) + 15;
+        doc.setFillColor(249, 250, 251);
+        doc.setDrawColor(...navy);
+        doc.roundedRect(pageWidth - 94, finalY, 80, 24, 2, 2, 'FD');
+        doc.setFont(undefined, 'bold');
+        doc.setTextColor(...navy);
+        doc.text('TOTAL PAID', pageWidth - 54, finalY + 9, { align: 'center' });
+        doc.setTextColor(...emerald);
+        doc.text(`INR ${salary?.amount?.toLocaleString() || 0}`, pageWidth - 54, finalY + 18, { align: 'center' });
+
+        doc.save(`Salary_Receipt_${(teacher?.name || 'teacher').replace(/\s+/g, '_')}.pdf`);
+    } catch (error) {
+        console.error('Failed to generate Salary Receipt PDF:', error);
+    }
 };
 
 /**
  * Generates a fee payment receipt for a student.
  */
 export const generateFeeReceipt = (fee, student) => {
-  try {
-    const doc = new jsPDF();
-    const monthLabel = MONTH_LABELS[fee?.month] ?? '';
-    const latestPayment = fee.payments?.[0] ?? {};
-    const feeLabel = fee.name ?? fee.feeType ?? '';
+    console.log('Generating Fee Receipt...', { fee, student });
+    
+    try {
+        const doc = new jsPDF();
+        const pageWidth = doc.internal.pageSize.width;
+        const latestPayment = fee.payments?.[0] || {};
+        const navy = [30, 41, 59]; // slate-800
+        const emerald = [5, 150, 105]; // emerald-600
 
-    drawReceiptHeader(doc, 'FEE PAYMENT RECEIPT');
+        // Decorative Header Bar
+        doc.setFillColor(...navy);
+        doc.rect(0, 0, pageWidth, 40, 'F');
+        
+        doc.setFontSize(22);
+        doc.setTextColor(255, 255, 255);
+        doc.setFont(undefined, 'bold');
+        doc.text('FEE RECEIPT', 20, 27);
+        
+        doc.setFontSize(10);
+        doc.setFont(undefined, 'normal');
+        doc.text('NAVRACHNA INTERNATIONAL SCHOOL', pageWidth - 20, 20, { align: 'right' });
+        doc.text(`RECEIPT: FEE-${latestPayment.receiptNumber || 'N/A'}`, pageWidth - 20, 27, { align: 'right' });
 
-    drawDetailsSection(
-      doc,
-      'STUDENT DETAILS',
-      [
-        { label: 'Name',  value: student?.name },
-        { label: 'Email', value: student?.email },
-        { label: 'Class', value: `${fee.standard ?? '-'}-${fee.section ?? '-'}` },
-      ],
-      'PAYMENT DETAILS',
-      [
-        { label: 'Receipt No',    value: latestPayment.receiptNumber ?? 'N/A' },
-        { label: 'Fee Type',      value: feeLabel },
-        { label: 'Payment Date',  value: latestPayment.paymentDate ? new Date(latestPayment.paymentDate).toLocaleDateString('en-IN') : 'N/A' },
-        { label: 'Payment Mode',  value: latestPayment.paymentMode },
-      ]
-    );
+        // Content
+        let y = 60;
+        const drawSection = (title, items, x) => {
+            doc.setFontSize(11);
+            doc.setTextColor(...navy);
+            doc.setFont(undefined, 'bold');
+            doc.text(title, x, y);
+            doc.setDrawColor(...navy);
+            doc.line(x, y + 2, x + 40, y + 2);
+            
+            doc.setFont(undefined, 'normal');
+            doc.setFontSize(10);
+            doc.setTextColor(70, 70, 70);
+            items.forEach((item, i) => {
+                doc.text(item, x, y + 12 + (i * 8));
+            });
+        };
 
-    const feeDesc = `${feeLabel} Fee${monthLabel ? ` (${monthLabel})` : ''}`;
+        drawSection('STUDENT DETAILS', [
+            `Name: ${student?.name || '-'}`,
+            `Email: ${student?.email || '-'}`,
+            `Class: ${fee.standard || '-'}-${fee.section || '-'}`
+        ], 20);
 
-    autoTable(doc, receiptTableConfig(100, [
-      [feeDesc,      fee.status ?? 'PAID', inr(fee.amount)],
-      ['Total Paid', 'SUCCESS',             inr(fee.paid)],
-    ]));
+        drawSection('PAYMENT DETAILS', [
+            `Type: ${fee.name || fee.feeType || '-'}`,
+            `Month: ${MONTH_LABELS[fee.month] || '-'} ${fee.year || ''}`,
+            `Mode: ${latestPayment.paymentMode || 'Online'}`
+        ], pageWidth / 2 + 10);
 
-    const boxY = (doc.lastAutoTable?.finalY ?? 130) + 14;
-    drawTotalBox(doc, 'TOTAL PAID', inr(fee.paid), boxY, COLORS.success);
-    drawFooter(doc, 'This is a computer generated receipt and does not require a physical signature.');
+        // Table
+        autoTable(doc, {
+            startY: 105,
+            head: [['Description', 'Status', 'Amount']],
+            body: [
+                [`${fee.name || fee.feeType} Fee (${MONTH_LABELS[fee.month] || ''})`, fee.status || 'PAID', `INR ${fee.amount?.toLocaleString() || 0}`],
+                ['Total Collected', 'SUCCESS', `INR ${fee.paid?.toLocaleString() || 0}`]
+            ],
+            theme: 'grid',
+            headStyles: { fillColor: [...navy], textColor: [255, 255, 255], fontStyle: 'bold' },
+            styles: { cellPadding: 6, lineColor: [229, 231, 235] },
+            columnStyles: { 2: { halign: 'center', fontStyle: 'bold' } }
+        });
 
-    const name = (student?.name ?? 'student').replace(/\s+/g, '_');
-    doc.save(`Fee_Receipt_${monthLabel ? `${monthLabel}_` : ''}${name}.pdf`);
-  } catch (error) {
-    console.error('Failed to generate Fee Receipt:', error);
-    alert('Could not generate the receipt. Please check the console for details.');
-  }
+        // Total Box
+        const finalY = (doc.lastAutoTable?.finalY || 135) + 15;
+        doc.setFillColor(249, 250, 251);
+        doc.setDrawColor(...navy);
+        doc.roundedRect(pageWidth - 94, finalY, 80, 24, 2, 2, 'FD');
+        doc.setFont(undefined, 'bold');
+        doc.setTextColor(...navy);
+        doc.text('TOTAL PAID', pageWidth - 54, finalY + 9, { align: 'center' });
+        doc.setTextColor(...emerald);
+        doc.text(`INR ${fee.paid?.toLocaleString() || 0}`, pageWidth - 54, finalY + 18, { align: 'center' });
+
+        doc.save(`Fee_Receipt_${(student?.name || 'student').replace(/\s+/g, '_')}.pdf`);
+    } catch (error) {
+        console.error('Failed to generate Fee Receipt PDF:', error);
+    }
 };
 
 /**
  * Generates an official fee waiver note for a student.
  */
 export const generateWaiverNote = (fee, student) => {
-  try {
-    const doc = new jsPDF();
-    const pw = pageWidth(doc);
-    const monthLabel = MONTH_LABELS[fee?.month] ?? '';
-    const feeLabel = fee.name ?? fee.feeType ?? '';
+    console.log('Generating Waiver Note...', { fee, student });
+    
+    try {
+        const doc = new jsPDF();
+        const pageWidth = doc.internal.pageSize.width;
+        const navy = [30, 41, 59]; // slate-800
+        const emerald = [5, 150, 105]; // emerald-600
 
-    drawReceiptHeader(doc, 'FEE WAIVER NOTE', COLORS.warning);
+        // Decorative Header Bar
+        doc.setFillColor(...navy);
+        doc.rect(0, 0, pageWidth, 40, 'F');
+        
+        doc.setFontSize(22);
+        doc.setTextColor(255, 255, 255);
+        doc.setFont(undefined, 'bold');
+        doc.text('WAIVER NOTE', 20, 27);
+        
+        doc.setFontSize(10);
+        doc.setFont(undefined, 'normal');
+        doc.text('NAVRACHNA INTERNATIONAL SCHOOL', pageWidth - 20, 20, { align: 'right' });
+        doc.text(`REF: WAV-${Date.now().toString(36).toUpperCase()}`, pageWidth - 20, 27, { align: 'right' });
 
-    drawDetailsSection(
-      doc,
-      'STUDENT DETAILS',
-      [
-        { label: 'Name',  value: student?.name },
-        { label: 'Email', value: student?.email },
-        { label: 'Class', value: `${fee.standard ?? '-'}-${fee.section ?? '-'}` },
-      ],
-      'WAIVER DETAILS',
-      [
-        { label: 'Ref No',      value: `WAV-${Math.random().toString(36).substring(2, 8).toUpperCase()}` },
-        { label: 'Fee Type',    value: feeLabel },
-        { label: 'Waiver Date', value: new Date().toLocaleDateString('en-IN') },
-      ]
-    );
+        // Content
+        let y = 60;
+        const drawSection = (title, items, x) => {
+            doc.setFontSize(11);
+            doc.setTextColor(...navy);
+            doc.setFont(undefined, 'bold');
+            doc.text(title, x, y);
+            doc.setDrawColor(...navy);
+            doc.line(x, y + 2, x + 40, y + 2);
+            
+            doc.setFont(undefined, 'normal');
+            doc.setFontSize(10);
+            doc.setTextColor(70, 70, 70);
+            items.forEach((item, i) => {
+                doc.text(item, x, y + 12 + (i * 8));
+            });
+        };
 
-    // Official statement box
-    doc.setDrawColor(...COLORS.warning);
-    doc.setFillColor(...COLORS.warningBg);
-    doc.setLineWidth(0.4);
-    doc.roundedRect(14, 94, pw - 28, fee.remarks ? 44 : 36, 3, 3, 'FD');
+        drawSection('STUDENT DETAILS', [
+            `Name: ${student?.name || '-'}`,
+            `Email: ${student?.email || '-'}`,
+            `Class: ${fee.standard || '-'}-${fee.section || '-'}`
+        ], 20);
 
-    doc.setFontSize(9);
-    doc.setFont(undefined, 'bold');
-    doc.setTextColor(...COLORS.warningText);
-    doc.text('OFFICIAL MANAGEMENT STATEMENT', 20, 104);
+        drawSection('FEE DETAILS', [
+            `Type: ${fee.name || fee.feeType || '-'}`,
+            `Month: ${MONTH_LABELS[fee.month] || '-'} ${fee.year || ''}`,
+            `Status: OFFICIALLY WAIVED`
+        ], pageWidth / 2 + 10);
 
-    doc.setFont(undefined, 'normal');
-    doc.setFontSize(9);
-    doc.text('This certifies that the aforementioned fee has been officially waived by the', 20, 112);
-    doc.text('school management. No further payment is required for this fee assignment.', 20, 119);
+        // Official Box
+        doc.setFillColor(240, 253, 244); // emerald-50
+        doc.setDrawColor(...emerald);
+        doc.roundedRect(20, 110, pageWidth - 40, 35, 2, 2, 'FD');
+        
+        doc.setTextColor(...emerald);
+        doc.setFont(undefined, 'bold');
+        doc.setFontSize(12);
+        doc.text('MANAGEMENT STATEMENT', pageWidth / 2, 122, { align: 'center' });
+        
+        doc.setFont(undefined, 'italic');
+        doc.setFontSize(10);
+        doc.text('This fee has been officially waived by the school management and no further payment is required.', pageWidth / 2, 132, { align: 'center' });
 
-    if (fee.remarks) {
-      doc.setFont(undefined, 'italic');
-      doc.setTextColor(...COLORS.muted);
-      doc.text(`Remarks: "${fee.remarks}"`, 20, 129);
+        // Signature Area
+        doc.setTextColor(...navy);
+        doc.setFont(undefined, 'normal');
+        doc.text('AUTHORIZED SIGNATORY', pageWidth - 70, 180);
+        doc.setDrawColor(200, 200, 200);
+        doc.line(pageWidth - 70, 175, pageWidth - 20, 175);
+
+        // Footer
+        doc.setFontSize(8);
+        doc.setTextColor(150, 150, 150);
+        doc.text('This is an official document providing proof of fee exemption for the academic record.', PAGE_CENTER(doc, 'This is an official document providing proof of fee exemption for the academic record.'), 285);
+
+        doc.save(`Waiver_Note_${student?.name || 'student'}.pdf`);
+    } catch (error) {
+        console.error('Failed to generate Waiver Note PDF:', error);
     }
+};
 
-    const tableStartY = fee.remarks ? 145 : 137;
-    const feeDesc = `${feeLabel} Fee${monthLabel ? ` (${monthLabel})` : ''}`;
+/**
+ * Generates a PDF receipt for a student's penalty payment
+ */
+export const generatePenaltyReceipt = (p, student) => {
+    console.log('Generating Penalty Receipt...', { p, student });
+    
+    try {
+        const doc = new jsPDF();
+        const pageWidth = doc.internal.pageSize.width;
+        const navy = [30, 41, 59]; // slate-800
+        const emerald = [5, 150, 105]; // emerald-600
 
-    autoTable(doc, {
-      ...receiptTableConfig(tableStartY, [
-        [feeDesc,        'WAIVED', inr(fee.amount)],
-        ['Net Payable',  'N/A',    'INR 0'],
-      ]),
-      head: [['Description', 'Status', 'Original Amount']],
-    });
+        // Decorative Header Bar (Navy)
+        doc.setFillColor(...navy);
+        doc.rect(0, 0, pageWidth, 40, 'F');
+        
+        doc.setFontSize(22);
+        doc.setTextColor(255, 255, 255);
+        doc.setFont(undefined, 'bold');
+        doc.text('PENALTY RECEIPT', 20, 27);
+        
+        doc.setFontSize(10);
+        doc.setFont(undefined, 'normal');
+        doc.text('NAVRACHNA INTERNATIONAL SCHOOL', pageWidth - 20, 20, { align: 'right' });
+        doc.text(`RECEIPT: PN-${p?.penaltyId?.substring(p.penaltyId.length - 6).toUpperCase() || 'N/A'}`, pageWidth - 20, 27, { align: 'right' });
 
-    drawFooter(doc, 'This is a computer generated waiver note and does not require a physical signature.');
+        // Content
+        let y = 60;
+        const drawSection = (title, items, x) => {
+            doc.setFontSize(11);
+            doc.setTextColor(...navy);
+            doc.setFont(undefined, 'bold');
+            doc.text(title, x, y);
+            doc.setDrawColor(...navy);
+            doc.line(x, y + 2, x + 40, y + 2);
+            
+            doc.setFont(undefined, 'normal');
+            doc.setFontSize(10);
+            doc.setTextColor(70, 70, 70);
+            items.forEach((item, i) => {
+                doc.text(item, x, y + 12 + (i * 8));
+            });
+        };
 
-    const name = (student?.name ?? 'student').replace(/\s+/g, '_');
-    doc.save(`Fee_Waiver_${monthLabel}_${name}.pdf`);
-  } catch (error) {
-    console.error('Failed to generate Waiver Note:', error);
-    alert('Could not generate the waiver note. Please check the console for details.');
-  }
+        drawSection('STUDENT DETAILS', [
+            `Name: ${student?.name || '-'}`,
+            `Email: ${student?.email || '-'}`,
+            `Class: ${p.standard || '-'}-${p.section || '-'}`
+        ], 20);
+
+        drawSection('PENALTY DETAILS', [
+            `Type: ${p.penaltyType || '-'}`,
+            `Reason: ${p.reason || '-'}`,
+            `Date: ${p.occurrenceDate ? new Date(p.occurrenceDate).toLocaleDateString() : 'N/A'}`
+        ], pageWidth / 2 + 10);
+
+        // Table
+        autoTable(doc, {
+            startY: 105,
+            head: [['Description', 'Status', 'Amount']],
+            body: [
+                [`Penalty for: ${p.reason}`, 'PAID', `INR ${p.amount?.toLocaleString() || 0}`],
+                ['Total Collected', 'SUCCESS', `INR ${(p.paidAmount || p.amount).toLocaleString() || 0}`]
+            ],
+            theme: 'grid',
+            headStyles: { fillColor: [...navy], textColor: [255, 255, 255], fontStyle: 'bold' },
+            styles: { cellPadding: 6, lineColor: [229, 231, 235] },
+            columnStyles: { 2: { halign: 'center', fontStyle: 'bold' } }
+        });
+
+        // Total Box
+        const finalY = (doc.lastAutoTable?.finalY || 135) + 15;
+        doc.setFillColor(249, 250, 251);
+        doc.setDrawColor(...navy);
+        doc.roundedRect(pageWidth - 94, finalY, 80, 24, 2, 2, 'FD');
+        doc.setFont(undefined, 'bold');
+        doc.setTextColor(...navy);
+        doc.text('TOTAL PAID', pageWidth - 54, finalY + 9, { align: 'center' });
+        doc.setTextColor(...emerald);
+        doc.text(`INR ${(p.paidAmount || p.amount).toLocaleString() || 0}`, pageWidth - 54, finalY + 18, { align: 'center' });
+
+        doc.save(`Penalty_Receipt_${student?.name || 'student'}.pdf`);
+    } catch (error) {
+        console.error('Failed to generate Penalty Receipt PDF:', error);
+    }
+};
+
+/**
+ * Generates a PDF waiver note for an excused penalty
+ */
+export const generatePenaltyWaiver = (p, student) => {
+    console.log('Generating Penalty Waiver...', { p, student });
+    
+    try {
+        const doc = new jsPDF();
+        const pageWidth = doc.internal.pageSize.width;
+        const navy = [30, 41, 59]; // slate-800
+        const emerald = [5, 150, 105]; // emerald-600
+
+        // Decorative Header Bar
+        doc.setFillColor(...navy);
+        doc.rect(0, 0, pageWidth, 40, 'F');
+        
+        doc.setFontSize(22);
+        doc.setTextColor(255, 255, 255);
+        doc.setFont(undefined, 'bold');
+        doc.text('PENALTY WAIVER', 20, 27);
+        
+        doc.setFontSize(10);
+        doc.setFont(undefined, 'normal');
+        doc.text('NAVRACHNA INTERNATIONAL SCHOOL', pageWidth - 20, 20, { align: 'right' });
+        doc.text(`REF: PWN-${Date.now().toString(36).toUpperCase()}`, pageWidth - 20, 27, { align: 'right' });
+
+        // Content
+        let y = 60;
+        const drawSection = (title, items, x) => {
+            doc.setFontSize(11);
+            doc.setTextColor(...navy);
+            doc.setFont(undefined, 'bold');
+            doc.text(title, x, y);
+            doc.setDrawColor(...navy);
+            doc.line(x, y + 2, x + 45, y + 2);
+            
+            doc.setFont(undefined, 'normal');
+            doc.setFontSize(10);
+            doc.setTextColor(70, 70, 70);
+            items.forEach((item, i) => {
+                doc.text(item, x, y + 12 + (i * 8));
+            });
+        };
+
+        drawSection('STUDENT DETAILS', [
+            `Name: ${student?.name || '-'}`,
+            `Email: ${student?.email || '-'}`,
+            `Class: ${p.standard || '-'}-${p.section || '-'}`
+        ], 20);
+
+        drawSection('PENALTY DETAILS', [
+            `Type: ${p.penaltyType || '-'}`,
+            `Original Reason: ${p.reason || '-'}`,
+            `Original Amount: INR ${p.amount || 0}`
+        ], pageWidth / 2 + 10);
+
+        // Official Box
+        doc.setFillColor(240, 253, 244); // emerald-50
+        doc.setDrawColor(...emerald);
+        doc.roundedRect(20, 110, pageWidth - 40, 35, 2, 2, 'FD');
+        
+        doc.setTextColor(...emerald);
+        doc.setFont(undefined, 'bold');
+        doc.setFontSize(12);
+        doc.text('ADMINISTRATIVE WAIVER', pageWidth / 2, 122, { align: 'center' });
+        
+        doc.setFont(undefined, 'italic');
+        doc.setFontSize(10);
+        doc.text('This penalty has been reviewed and officially waived by the management.', pageWidth / 2, 132, { align: 'center' });
+
+        // Signature Area
+        doc.setTextColor(...navy);
+        doc.setFont(undefined, 'normal');
+        doc.text('AUTHORIZED SIGNATORY', pageWidth - 70, 180);
+        doc.setDrawColor(200, 200, 200);
+        doc.line(pageWidth - 70, 175, pageWidth - 20, 175);
+
+        // Footer
+        doc.setFontSize(8);
+        doc.setTextColor(150, 150, 150);
+        doc.text('This document confirms that the student is no longer liable for the aforementioned penalty.', PAGE_CENTER(doc, 'This document confirms that the student is no longer liable for the aforementioned penalty.'), 285);
+
+        doc.save(`Penalty_Waiver_${student?.name || 'student'}.pdf`);
+    } catch (error) {
+        console.error('Failed to generate Penalty Waiver PDF:', error);
+    }
 };
 
 // ─── Timetable Generator ──────────────────────────────────────────────────────
@@ -590,150 +787,154 @@ export const generateTimetable = async ({
     const slotId = String(slot._id ?? slot.slotNumber ?? '');
     const timeLabel = `${formatTime(slot.startTime)}\n${formatTime(slot.endTime)}`;
 
-    if (slot.slotType === 'BREAK') {
-      return [
-        {
-          content: timeLabel,
-          rawExt: { isTimeBreak: true },
-          styles: { fontStyle: 'normal', fontSize: BODY_FONT + 0.5, textColor: COLORS.muted },
-        },
-        {
-          content: slot.label ?? 'Break',
-          colSpan: DAYS.length,
-          rawExt: { isBreak: true },
-          styles: { halign: 'center', valign: 'middle', fontStyle: 'italic', fontSize: BODY_FONT + 2, textColor: COLORS.subtle },
-        },
-      ];
-    }
+        if (slot.slotType === 'BREAK') {
+            // Break row: time column + one merged cell spanning all 6 days
+            body.push([
+                {
+                    content: timeLabel,
+                    styles: {
+                        fontStyle: 'normal',
+                        fontSize: 7.5,
+                        textColor: [130, 130, 130],
+                        fillColor: [250, 250, 250],
+                    },
+                },
+                {
+                    content: slot.label || 'Break',
+                    colSpan: DAYS.length,
+                    styles: {
+                        halign: 'center',
+                        fontStyle: 'italic',
+                        textColor: [150, 150, 150],
+                        fillColor: [250, 250, 250],
+                    },
+                },
+            ]);
+            return;
+        }
 
-    const dayColumns = DAYS.map((day) => {
-      const entry = entryMap.get(`${day}__${slotId}`);
-      if (!entry) return { content: '', rawExt: { isEmpty: true } };
+        // Regular period row
+        const row = [
+            {
+                content: timeLabel,
+                styles: {
+                    fontStyle: 'bold',
+                    fontSize: 8,
+                    textColor: [60, 60, 60],
+                },
+            },
+        ];
 
-      const subject = entry.subject ?? 'No Subject';
-      const secondary = isPersonalSchedule
-        ? (entry.timetableId ? `${entry.timetableId.standard ?? ''}-${entry.timetableId.section ?? ''}` : '')
-        : resolveTeacherName(entry.teacherId);
+        DAYS.forEach((day) => {
+            const entry = entryMap.get(`${day}__${slotId}`);
+            if (entry) {
+                const teacher = getTeacherName(entry.teacherId);
+                const classLabel = entry.timetableId ? `${entry.timetableId.standard || ''}-${entry.timetableId.section || ''}` : '';
+                const isPersonalSchedule = standard === 'My Schedule';
+                // Always prioritize raw standard if provided directly, otherwise Fallback to teacher.
+                const secondaryText = isPersonalSchedule ? classLabel : teacher;
+                const subject = entry.subject || 'No Subject';
 
-      return {
-        content: secondary ? `${subject}\n${secondary}` : subject,
-        rawExt: { subject, secondary, isEntry: true },
-        styles: { textColor: COLORS.primary },
-      };
+                row.push({
+                    content: secondaryText ? `${subject}\n${secondaryText}` : subject,
+                    rawExt: { subject, secondaryText },
+                    styles: {
+                        textColor: [31, 41, 55],       // text-gray-800
+                        fillColor: [255, 255, 255],    // bg-white
+                        lineColor: [229, 231, 235],    // border-gray-200
+                        lineWidth: 0.1,                // Thin underlying cell grid
+                    },
+                });
+            } else {
+                row.push({
+                    content: '',
+                    styles: { 
+                        fillColor: [250, 250, 250],    // bg-gray-50
+                    },
+                });
+            }
+        });
+
+        body.push(row);
     });
 
-    return [
-      {
-        content: timeLabel,
-        rawExt: { isTimePeriod: true },
-        styles: { fontStyle: 'bold', fontSize: BODY_FONT + 0.5, textColor: COLORS.secondary },
-      },
-      ...dayColumns,
-    ];
-  });
+    autoTable(doc, {
+        startY: TABLE_START_Y,
+        head,
+        body,
+        theme: 'plain', // Use plain to support cell-hook overriding efficiently
+        headStyles: {
+            fillColor: [31, 41, 55],    // dark gray block for header (gray-800)
+            textColor: [255, 255, 255], // white text
+            fontStyle: 'bold',
+            fontSize: 8.5,
+            halign: 'center',
+            cellPadding: { top: 5, bottom: 5, left: cellPadH, right: cellPadH }, // Slightly taller
+            lineColor: [31, 41, 55],    // Matching border color for header
+            lineWidth: { bottom: 0 },
+        },
+        styles: {
+            fontSize: BODY_FONT,
+            cellPadding: { top: cellPadV, bottom: cellPadV, left: cellPadH, right: cellPadH },
+            valign: 'top',
+            lineColor: [243, 244, 246], // border-gray-100 inner grid lines
+            lineWidth: 0.2,
+            overflow: 'linebreak',
+        },
+        columnStyles: {
+            0: { halign: 'center', cellWidth: 26, fillColor: [249, 250, 251], valign: 'middle' },
+        },
+        margin: { left: 14, right: 14 },
+        pageBreak: 'avoid',
+        willDrawCell: (hookData) => {
+            // Null out text if this is a mapped entry so autoTable doesn't draw plain bold text
+            if (hookData.section === 'body' && hookData.column.index > 0 && hookData.cell.raw && hookData.cell.raw.rawExt) {
+                hookData.cell.text = [];
+            }
+        },
+        didDrawCell: (hookData) => {
+            const doc = hookData.doc;
+            const cell = hookData.cell;
 
-  // ── autoTable ───────────────────────────────────────────────────────────────
-  autoTable(doc, {
-    startY: TABLE_START_Y,
-    head: [['TIME', ...DAYS]],
-    body,
-    theme: 'plain',
-    headStyles: {
-      textColor: COLORS.white,
-      fontStyle: 'bold',
-      fontSize: BODY_FONT + 1.5,
-      halign: 'center',
-      cellPadding: { top: 4, bottom: 4, left: cellPadH, right: cellPadH },
-      lineWidth: 0,
-    },
-    styles: {
-      fontSize: BODY_FONT,
-      cellPadding: { top: cellPadV, bottom: cellPadV, left: cellPadH, right: cellPadH },
-      valign: 'middle',
-      lineWidth: 0,
-      overflow: 'linebreak',
-      minCellHeight: targetRowH,
-    },
-    columnStyles: {
-      0: { halign: 'center', cellWidth: 26, valign: 'middle' },
-    },
-    margin: { left: 18, right: 18, bottom: 10 },
-    pageBreak: 'avoid',
-    rowPageBreak: 'avoid',
+            if (hookData.section === 'body' && hookData.column.index > 0 && cell.raw && cell.raw.rawExt) {
+                const { subject, secondaryText } = cell.raw.rawExt;
+                
+                // Draw Web-style vertical left border on the entry card
+                // Using Tailwind slate shadow/border equivalent
+                doc.setDrawColor(31, 41, 55); // border-gray-800
+                doc.setLineWidth(1.2);
+                doc.line(cell.x + 0.6, cell.y + 0.5, cell.x + 0.6, cell.y + cell.height - 0.5);
 
-    willDrawCell: ({ doc, cell, section }) => {
-      if (section === 'head') {
-        doc.setFillColor(...COLORS.primary);
-        doc.roundedRect(cell.x + PADDING, cell.y + PADDING, cell.width - PADDING * 2, cell.height - PADDING * 2, 2, 2, 'F');
-        cell.styles.fillColor = false;
-        return;
-      }
+                const textX = cell.x + cellPadH + 2;
+                const textY = cell.y + cellPadV + 3; // Top-align baseline
 
-      const ext = cell.raw?.rawExt ?? {};
-      cell.styles.fillColor = false;
+                // Subject Name in bold
+                doc.setFont(undefined, 'bold');
+                doc.setFontSize(8);
+                doc.setTextColor(17, 24, 39); // text-gray-900
+                doc.text(subject, textX, textY, { maxWidth: cell.width - cellPadH * 2 - 2 });
 
-      if (ext.isTimePeriod) {
-        doc.setFillColor(...COLORS.bg);
-      } else if (ext.isTimeBreak || ext.isBreak) {
-        doc.setFillColor(241, 245, 249);
-      } else if (ext.isEntry) {
-        doc.setFillColor(...COLORS.white);
-        doc.roundedRect(cell.x + PADDING, cell.y + PADDING, cell.width - PADDING * 2, cell.height - PADDING * 2, 3, 3, 'F');
-        doc.setDrawColor(...COLORS.secondary);
-        doc.setLineWidth(1.5);
-        doc.line(cell.x + PADDING + 3, cell.y + PADDING + 4, cell.x + PADDING + 3, cell.y + cell.height - PADDING - 4);
-        cell.text = []; // drawn manually in didDrawCell
-        return;
-      } else {
-        doc.setFillColor(...COLORS.bg);
-      }
+                // Subtitle (Teacher / Class) in normal text
+                if (secondaryText) {
+                    doc.setFont(undefined, 'normal');
+                    doc.setFontSize(7.5);
+                    doc.setTextColor(75, 85, 99); // text-gray-600
+                    doc.text(secondaryText, textX, textY + 4, { maxWidth: cell.width - cellPadH * 2 - 2 });
+                }
+            }
+        }
+    });
 
-      doc.roundedRect(cell.x + PADDING, cell.y + PADDING, cell.width - PADDING * 2, cell.height - PADDING * 2, 2, 2, 'F');
-    },
-
-    didDrawCell: ({ doc, cell, section }) => {
-      if (section !== 'body' || !cell.raw?.rawExt?.isEntry) return;
-
-      const { subject, secondary } = cell.raw.rawExt;
-      const textX = cell.x + cellPadH + 5;
-      const maxW = cell.width - cellPadH * 2 - 5;
-
-      const subjectSize = BODY_FONT + 0.5;
-      const secondarySize = BODY_FONT - 0.5;
-
-      doc.setFont(undefined, 'bold');
-      doc.setFontSize(subjectSize);
-      const subjectLines = doc.splitTextToSize(subject, maxW);
-      const subjectH = subjectLines.length * (subjectSize * 0.353 * 1.1);
-
-      doc.setFont(undefined, 'normal');
-      doc.setFontSize(secondarySize);
-      const secondaryLines = secondary ? doc.splitTextToSize(secondary, maxW) : [];
-      const secondaryH = secondaryLines.length * (secondarySize * 0.353 * 1.1);
-
-      const totalContentH = subjectH + (secondaryLines.length ? secondaryH + 0.8 : 0);
-      let y = cell.y + (cell.height - totalContentH) / 2 + (subjectSize * 0.353);
-
-      doc.setFont(undefined, 'bold');
-      doc.setFontSize(subjectSize);
-      doc.setTextColor(...COLORS.primary);
-      doc.text(subjectLines, textX, y);
-
-      if (secondaryLines.length) {
-        y += subjectH + 0.5;
-        doc.setFont(undefined, 'normal');
-        doc.setFontSize(secondarySize);
-        doc.setTextColor(...COLORS.muted);
-        doc.text(secondaryLines, textX, y);
-      }
-    },
-  });
-
-  // ── Footer ──────────────────────────────────────────────────────────────────
-  const footerY = (doc.lastAutoTable?.finalY ?? 150) + 8;
-  doc.setFontSize(7.5);
-  doc.setTextColor(...COLORS.subtle);
-  doc.text(`${schoolName} — Computer generated timetable`, pw / 2, footerY, { align: 'center' });
+    // ── Footer ───────────────────────────────────────────────────────────────
+    const finalY = (doc.lastAutoTable?.finalY || 150) + 6;
+    doc.setFontSize(7);
+    doc.setTextColor(180, 180, 180);
+    doc.text(
+        `${schoolName} — Computer generated timetable`,
+        pageWidth / 2,
+        finalY,
+        { align: 'center' }
+    );
 
   const filename = section
     ? `timetable-${standard}-${section}.pdf`

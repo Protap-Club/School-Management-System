@@ -3,6 +3,7 @@ import { loadSeedJson } from "./loadJson.js";
 const usersData = loadSeedJson("users.json");
 const schoolData = loadSeedJson("schools.json");
 const academicSeed = loadSeedJson("academicSeed.json");
+const profilesData = loadSeedJson("profiles.json");
 
 const schoolMap = new Map((schoolData.schools || []).map((school) => [school.code, school]));
 const teacherPool = academicSeed.teacherNamePool || [];
@@ -164,15 +165,8 @@ export const buildTeacherSeedData = (code) => {
       };
     }
 
-    const qualification = jsonProfile?.qualification || qualifications[i % qualifications.length];
-    const joiningDate = jsonProfile?.joiningDate || `2025-${String((i % 9) + 1).padStart(2, "0")}-${String((i % 20) + 1).padStart(2, "0")}`;
-    
-    let expectedSalary = jsonProfile?.expectedSalary;
-    if (!expectedSalary) {
-      const joiningYear = parseInt(joiningDate.split("-")[0]) || 2020;
-      const yearsExp = new Date().getFullYear() - joiningYear;
-      expectedSalary = (BASE_SALARY[qualification] || 35000) + (yearsExp * 1000);
-    }
+    const schoolProfiles = profilesData[code]?.teacherProfiles || [];
+    const jsonProfile = schoolProfiles.find(p => p.email === teacherBase.email);
 
     teachers.push({
       ...teacherBase,
@@ -184,10 +178,7 @@ export const buildTeacherSeedData = (code) => {
       specialization: teacherSpecializations[i],
       subjects: [teacherSpecializations[i]],
       assignedClasses: [],
-      classTeacherOf: classSections[i] ? {
-        standard: String(classSections[i].standard),
-        section: String(classSections[i].section),
-      } : null,
+      expectedSalary: jsonProfile?.expectedSalary,
     });
   }
 
