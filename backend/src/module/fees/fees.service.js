@@ -495,16 +495,17 @@ export const getClassFeeOverview = async (schoolId, academicYear, month, standar
             },
         },
         { $unwind: "$user" },
-        // Look up all payments for this assignment
+        // Look up roll number from StudentProfile
         {
             $lookup: {
-                from: "feepayments",
-                localField: "_id",
-                foreignField: "feeAssignmentId",
-                as: "payments",
-                pipeline: [{ $project: { receiptNumber: 1, paymentDate: 1, paymentMode: 1 } }, { $sort: { paymentDate: -1 } }],
+                from: "studentprofiles",
+                localField: "studentId",
+                foreignField: "userId",
+                as: "profile",
+                pipeline: [{ $project: { rollNumber: 1 } }],
             },
         },
+        { $unwind: "$profile" },
         // Project final shape per student
         {
             $project: {
@@ -512,6 +513,7 @@ export const getClassFeeOverview = async (schoolId, academicYear, month, standar
                 studentId: 1,
                 name: "$user.name",
                 email: "$user.email",
+                rollNumber: "$profile.rollNumber",
                 fee: {
                     assignmentId: "$_id",
                     feeType: "$structure.feeType",
@@ -525,21 +527,40 @@ export const getClassFeeOverview = async (schoolId, academicYear, month, standar
                 },
             },
         },
+        // Sort by roll number numerically before group
+        {
+            $addFields: {
+                rollNumberSort: { 
+                    $convert: { 
+                        input: "$rollNumber", 
+                        to: "int", 
+                        onError: 999999, 
+                        onNull: 999999 
+                    } 
+                }
+            }
+        },
+        { $sort: { rollNumberSort: 1 } },
         // Group by student to aggregate multiple fees (if any)
         {
             $group: {
                 _id: "$studentId",
                 name: { $first: "$name" },
                 email: { $first: "$email" },
+                rollNumber: { $first: "$rollNumber" },
                 fees: { $push: "$fee" },
+                rollNumberSort: { $first: "$rollNumberSort" },
             },
         },
+        // Re-sort after grouping (group loses order)
+        { $sort: { rollNumberSort: 1 } },
         {
             $project: {
                 _id: 0,
                 studentId: "$_id",
                 name: 1,
                 email: 1,
+                rollNumber: 1,
                 fees: 1,
             },
         },
@@ -987,14 +1008,23 @@ export const getStudentsByClass = async (schoolId, standard, section) => {
         standard: String(standard).trim(),
         section: String(section).trim().toUpperCase(),
     })
-        .select("userId")
+        .select("userId rollNumber")
         .populate({ path: "userId", select: "name email", match: { isActive: true, isArchived: false } })
         .lean();
 
     return students
         .filter(s => s.userId)
-        .map(s => ({ _id: s.userId._id, name: s.userId.name }))
-        .sort((a, b) => a.name.localeCompare(b.name));
+        .map(s => ({ 
+            _id: s.userId._id, 
+            name: s.userId.name, 
+            rollNumber: s.rollNumber 
+        }))
+        .sort((a, b) => {
+            const rollA = parseInt(a.rollNumber, 10);
+            const rollB = parseInt(b.rollNumber, 10);
+            if (!isNaN(rollA) && !isNaN(rollB)) return rollA - rollB;
+            return String(a.rollNumber).localeCompare(String(b.rollNumber), undefined, { numeric: true });
+        });
 };
 
 export const getPenaltyStudentsByClass = async (schoolId, filters = {}) => {
@@ -1226,6 +1256,17 @@ export const getClassPenaltyOverview = async (schoolId, academicYear, standard, 
             },
         },
         { $unwind: "$user" },
+        // Look up roll number from StudentProfile
+        {
+            $lookup: {
+                from: "studentprofiles",
+                localField: "studentId",
+                foreignField: "userId",
+                as: "profile",
+                pipeline: [{ $project: { rollNumber: 1 } }],
+            },
+        },
+        { $unwind: "$profile" },
         // Project penalty shape
         {
             $project: {
@@ -1233,6 +1274,7 @@ export const getClassPenaltyOverview = async (schoolId, academicYear, standard, 
                 studentId: 1,
                 name: "$user.name",
                 email: "$user.email",
+                rollNumber: "$profile.rollNumber",
                 penalty: {
                     penaltyId: "$_id",
                     penaltyType: "$penaltyType",
@@ -1244,21 +1286,39 @@ export const getClassPenaltyOverview = async (schoolId, academicYear, standard, 
                 },
             },
         },
+        // Sort by roll number numerically
+        {
+            $addFields: {
+                rollNumberSort: { 
+                    $convert: { 
+                        input: "$rollNumber", 
+                        to: "int", 
+                        onError: 999999, 
+                        onNull: 999999 
+                    } 
+                }
+            }
+        },
+        { $sort: { rollNumberSort: 1 } },
         // Group by student
         {
             $group: {
                 _id: "$studentId",
                 name: { $first: "$name" },
                 email: { $first: "$email" },
+                rollNumber: { $first: "$rollNumber" },
                 penalties: { $push: "$penalty" },
+                rollNumberSort: { $first: "$rollNumberSort" },
             },
         },
+        { $sort: { rollNumberSort: 1 } },
         {
             $project: {
                 _id: 0,
                 studentId: "$_id",
                 name: 1,
                 email: 1,
+                rollNumber: 1,
                 penalties: 1,
             },
         },

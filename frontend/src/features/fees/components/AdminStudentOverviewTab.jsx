@@ -263,11 +263,11 @@ export const StudentOverviewPanel = ({
                             <thead>
                                 <tr className="border-b border-gray-100 uppercase tracking-widest text-[10px] font-black text-gray-400">
                                     {overviewMode === 'fee' ? (
-                                        ['Student', 'Fee Type', 'Amount', 'Paid', 'Status', 'Due Date', 'Actions'].map(h => (
+                                        ['Roll No', 'Student', 'Fee Type', 'Amount', 'Paid', 'Status', 'Due Date', 'Actions'].map(h => (
                                             <th key={h} className="px-4 py-3 text-left">{h}</th>
                                         ))
                                     ) : (
-                                        ['Student', 'Reason', 'Type', 'Amount', 'Collected', 'Status', 'Date', 'Actions'].map(h => (
+                                        ['Roll No', 'Student', 'Reason', 'Type', 'Amount', 'Collected', 'Status', 'Date', 'Actions'].map(h => (
                                             <th key={h} className="px-4 py-3 text-left">{h}</th>
                                         ))
                                     )}
@@ -275,9 +275,9 @@ export const StudentOverviewPanel = ({
                             </thead>
                             <tbody className="divide-y divide-gray-50">
                                 {(overviewMode === 'fee' ? classLoading : classPenaltyLoading) ? (
-                                    <SkeletonRows rows={5} columns={8} />
+                                    <SkeletonRows rows={5} columns={9} />
                                 ) : (overviewMode === 'fee' ? filteredClassStudents : classPenaltyStudents).length === 0 ? (
-                                    <tr><td colSpan={8}><EmptyState icon={FaEye} title="No records" subtitle="No assignments found for this class" /></td></tr>
+                                    <tr><td colSpan={9}><EmptyState icon={FaEye} title="No records" subtitle="No assignments found for this class" /></td></tr>
                                 ) : (
                                     overviewMode === 'fee' ? (
                                         filteredClassStudents
@@ -285,6 +285,9 @@ export const StudentOverviewPanel = ({
                                             .flatMap(student =>
                                                 student.fees.map((fee, idx) => (
                                                     <tr key={`${student.studentId}-${fee.assignmentId}`} className="hover:bg-gray-50/50 transition-colors">
+                                                        <td className="px-4 py-3 font-bold text-gray-400">
+                                                            {idx === 0 ? student.rollNumber : null}
+                                                        </td>
                                                         <td className="px-4 py-3">
                                                             {idx === 0 ? (
                                                                 <button onClick={() => setSelectedStudent(student)} className="font-medium text-gray-900 hover:text-primary transition-colors">{student.name}</button>
@@ -326,6 +329,9 @@ export const StudentOverviewPanel = ({
                                             .flatMap(student =>
                                                 student.penalties.map((p, idx) => (
                                                     <tr key={p.penaltyId} className="hover:bg-gray-50/50 transition-colors">
+                                                        <td className="px-4 py-3 font-bold text-gray-400">
+                                                            {idx === 0 ? student.rollNumber : null}
+                                                        </td>
                                                         <td className="px-4 py-3">
                                                             {idx === 0 ? (
                                                                 <button onClick={() => setSelectedStudent(student)} className="font-medium text-gray-900 hover:text-primary transition-colors">{student.name}</button>
