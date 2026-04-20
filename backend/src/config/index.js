@@ -21,6 +21,8 @@ export const conf = {
     JSON_BODY_LIMIT: process.env.JSON_BODY_LIMIT || "1mb",
     TEXT_BODY_LIMIT: process.env.TEXT_BODY_LIMIT || "100kb",
     CORS_ORIGINS: parseCsv(process.env.CORS_ORIGINS || process.env.CORS_ORIGIN || ""),
+    FRONTEND_URL: process.env.FRONTEND_URL,
+    MOBILE_RESET_URL: process.env.MOBILE_RESET_URL,
 
     // SMTP Configuration for Email
     SMTP_HOST: process.env.SMTP_HOST || 'smtp.gmail.com',

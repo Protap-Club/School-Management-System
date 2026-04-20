@@ -8,6 +8,12 @@ import { NotFoundError, UnauthorizedError, ForbiddenError } from "../utils/custo
 import { USER_ROLES } from "../constants/userRoles.js";
 
 const ACCESS_TOKEN_SECRET = conf.JWT_ACCESS_SECRET || conf.JWT_SECRET;
+const MUST_CHANGE_PASSWORD_ALLOWED_PATHS = new Set([
+    "/api/v1/auth/update-password",
+    "/api/v1/auth/logout",
+    "/api/v1/auth/me",
+    "/api/v1/auth/refresh",
+]);
 
 const checkAuth = async (req, res, next) => {
     try {
@@ -25,7 +31,7 @@ const checkAuth = async (req, res, next) => {
 
         // Optimization: .lean() returns a plain JS object instead of a heavy Mongoose document
         const findUser = await User.findById(decoded.id)
-            .select("_id name email role schoolId isActive avatarUrl avatarPublicId updatedAt contactNo")
+            .select("_id name email role schoolId isActive avatarUrl avatarPublicId updatedAt contactNo mustChangePassword")
             .lean();
 
         if (!findUser) {
@@ -50,6 +56,14 @@ const checkAuth = async (req, res, next) => {
         // Attach platform from header (default to web)
         req.platform = req.headers["x-platform"] === "mobile" ? "mobile" : "web";
         req.schoolId = findUser.schoolId; // Attach schoolId directly for easier access
+
+        const requestPath = (req.originalUrl || req.url || "").split("?")[0];
+        // if (findUser.mustChangePassword && !MUST_CHANGE_PASSWORD_ALLOWED_PATHS.has(requestPath)) {
+        //     throw new ForbiddenError(
+        //         "Password update is required before accessing this resource",
+        //         "PASSWORD_CHANGE_REQUIRED"
+        //     );
+        // }
 
         // Mobile Rule Guard
         const MOBILE_ALLOWED_ROLES = [USER_ROLES.TEACHER, USER_ROLES.STUDENT];
