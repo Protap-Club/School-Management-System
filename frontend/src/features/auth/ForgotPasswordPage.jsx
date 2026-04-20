@@ -1,8 +1,8 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { FaArrowLeft, FaCheckCircle, FaLock, FaEnvelope, FaTimes, FaCheck } from 'react-icons/fa';
-import { authApi } from '../features/auth';
-import { useToastMessage } from '../hooks/useToastMessage';
+import { authApi } from './api/api';
+import { useToastMessage } from '../../hooks/useToastMessage';
 
 // ─── Toast ──────────────────────────────────────────────────────────
 const Toast = ({ message }) => {

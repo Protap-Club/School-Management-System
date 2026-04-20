@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { FaArrowLeft, FaCheck, FaTimes, FaEye, FaEyeSlash, FaCheckCircle } from 'react-icons/fa';
-import { authApi } from '../features/auth';
-import { useToastMessage } from '../hooks/useToastMessage';
+import { authApi } from '../auth/api/api.js';
+import { useToastMessage } from '../../hooks/useToastMessage.js';
 
 const OTP_EXPIRY_SECONDS = 5 * 60;
 const RESEND_COOLDOWN_SECONDS = 30;

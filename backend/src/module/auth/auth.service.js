@@ -19,7 +19,6 @@ import {
 } from "../../utils/token.util.js";
 import RefreshToken from "./RefreshToken.model.js";
 import PasswordResetToken from "./PasswordResetToken.model.js";
-import { sendPasswordResetEmail } from "../../utils/email.util.js";
 import { createAuditLog } from '../audit/audit.service.js';
 import { AUDIT_ACTIONS } from '../../constants/auditActions.js';
 import { sendPasswordChangedEmail, sendPasswordResetEmail } from "../../utils/email.util.js";
