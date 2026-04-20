@@ -7,6 +7,7 @@ import {
     FaFilter,
     FaCheck,
     FaTimes,
+    FaEdit,
 } from "react-icons/fa";
 import { formatDate } from "../../../utils";
 import {
@@ -22,6 +23,7 @@ import {
     SelectValue
 } from "../../../components/ui/select";
 import ProxyAssignModal from "./ProxyAssignModal";
+import EditProxyModal from "./EditProxyModal";
 
 const STATUS_COLORS = {
     pending: "bg-amber-100 text-amber-800 border-amber-200",
@@ -58,6 +60,7 @@ const ProxyManagementPage = () => {
     const [selectedRequest, setSelectedRequest] = useState(null);
     const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
     const [isFreePeriodModalOpen, setIsFreePeriodOpen] = useState(false);
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
     const queryFilters = useMemo(() => {
         const payload = {
@@ -123,6 +126,11 @@ const ProxyManagementPage = () => {
     const handleMarkFreePeriod = (request) => {
         setSelectedRequest(request);
         setIsFreePeriodOpen(true);
+    };
+
+    const handleEditProxy = (request) => {
+        setSelectedRequest(request);
+        setIsEditModalOpen(true);
     };
 
     const confirmFreePeriod = async () => {
@@ -372,18 +380,27 @@ const ProxyManagementPage = () => {
                                                     </div>
                                                 )}
                                                 {request.status === "resolved" && (
-                                                    <div className="text-xs text-gray-500">
-                                                        {request.proxyAssignmentId?.type === "proxy" ? (
-                                                            <span className="flex items-center gap-1 text-green-600">
-                                                                <FaCheck size={12} />
-                                                                Proxy: {request.proxyAssignmentId?.proxyTeacherId?.name || "Assigned"}
-                                                            </span>
-                                                        ) : (
-                                                            <span className="flex items-center gap-1 text-gray-600">
-                                                                <FaTimes size={12} />
-                                                                Free Period
-                                                            </span>
-                                                        )}
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="text-xs text-gray-500">
+                                                            {request.proxyAssignmentId?.type === "proxy" ? (
+                                                                <span className="flex items-center gap-1 text-green-600">
+                                                                    <FaCheck size={12} />
+                                                                    Proxy: {request.proxyAssignmentId?.proxyTeacherId?.name || "Assigned"}
+                                                                </span>
+                                                            ) : (
+                                                                <span className="flex items-center gap-1 text-gray-600">
+                                                                    <FaTimes size={12} />
+                                                                    Free Period
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                        <button
+                                                            onClick={() => handleEditProxy(request)}
+                                                            className="p-1.5 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 rounded-lg transition-colors"
+                                                            title="Edit Assignment"
+                                                        >
+                                                            <FaEdit size={14} />
+                                                        </button>
                                                     </div>
                                                 )}
                                             </td>
@@ -422,6 +439,15 @@ const ProxyManagementPage = () => {
                 isOpen={isAssignModalOpen}
                 onClose={() => {
                     setIsAssignModalOpen(false);
+                    setSelectedRequest(null);
+                }}
+                request={selectedRequest}
+            />
+
+            <EditProxyModal
+                isOpen={isEditModalOpen}
+                onClose={() => {
+                    setIsEditModalOpen(false);
                     setSelectedRequest(null);
                 }}
                 request={selectedRequest}

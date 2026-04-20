@@ -809,11 +809,160 @@ export const cancelProxyRequest = async (user, schoolId, requestId, metadata) =>
 };
 
 /**
+ * Update an existing proxy assignment (admin action)
+ * Allows changing from free period to proxy teacher or vice versa,
+ * or changing to a different proxy teacher
+ */
+export const updateProxyAssignment = async (user, schoolId, assignmentId, data, metadata) => {
+    const adminId = user._id;
+    const { type, proxyTeacherId, notes } = data;
+
+    // Get the existing assignment
+    const existingAssignment = await ProxyAssignment.findOne({
+        _id: assignmentId,
+        schoolId,
+        isActive: true
+    }).lean();
+
+    if (!existingAssignment) {
+        throw new NotFoundError("Proxy assignment not found");
+    }
+
+    // Validate the proxy teacher is available (if assigning a proxy)
+    if (type === "proxy" && proxyTeacherId) {
+        // If changing to a different teacher, check availability
+        if (String(proxyTeacherId) !== String(existingAssignment.proxyTeacherId)) {
+            const availability = await checkTeacherAvailability(
+                schoolId,
+                proxyTeacherId,
+                existingAssignment.date,
+                existingAssignment.dayOfWeek,
+                existingAssignment.timeSlotId
+            );
+
+            if (!availability.available) {
+                throw new ConflictError(`Selected teacher is not available: ${availability.reason}`);
+            }
+        }
+    }
+
+    // Deactivate the old assignment
+    await ProxyAssignment.findByIdAndUpdate(assignmentId, { isActive: false });
+
+    // Create new assignment with updated details
+    const newAssignment = await ProxyAssignment.create({
+        schoolId,
+        proxyRequestId: existingAssignment.proxyRequestId,
+        originalTeacherId: existingAssignment.originalTeacherId,
+        proxyTeacherId: type === "proxy" ? proxyTeacherId : null,
+        type,
+        standard: existingAssignment.standard,
+        section: existingAssignment.section,
+        subject: existingAssignment.subject,
+        date: existingAssignment.date,
+        dayOfWeek: existingAssignment.dayOfWeek,
+        timeSlotId: existingAssignment.timeSlotId,
+        slotNumber: existingAssignment.slotNumber,
+        assignedBy: adminId,
+        notes: notes !== undefined ? notes : existingAssignment.notes
+    });
+
+    // Update the proxy request to reference the new assignment
+    if (existingAssignment.proxyRequestId) {
+        await ProxyRequest.findByIdAndUpdate(existingAssignment.proxyRequestId, {
+            proxyAssignmentId: newAssignment._id
+        });
+    }
+
+    // Send notifications
+    try {
+        const dateStr = existingAssignment.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        const originalTeacherId = existingAssignment.originalTeacherId.toString();
+
+        if (type === "proxy" && proxyTeacherId) {
+            const proxyTeacher = await User.findById(proxyTeacherId).select("name").lean();
+
+            // Notify original teacher
+            await noticeService.createNotice(schoolId, adminId, {
+                title: "Proxy Assignment Updated",
+                message: `Your proxy assignment for ${existingAssignment.standard}-${existingAssignment.section} (${existingAssignment.subject || 'No subject'}) on ${dateStr} (${existingAssignment.dayOfWeek}) Period #${existingAssignment.slotNumber} has been updated. ${proxyTeacher?.name || 'A teacher'} is now assigned as your proxy.`,
+                recipientType: "users",
+                recipients: [originalTeacherId]
+            });
+
+            // Notify new proxy teacher
+            await noticeService.createNotice(schoolId, adminId, {
+                title: "New Proxy Assignment",
+                message: `You have been assigned as a proxy teacher for ${existingAssignment.standard}-${existingAssignment.section} (${existingAssignment.subject || 'No subject'}) on ${dateStr} (${existingAssignment.dayOfWeek}) Period #${existingAssignment.slotNumber}. Please check your schedule.`,
+                recipientType: "users",
+                recipients: [proxyTeacherId.toString()]
+            });
+
+            // If there was a previous proxy teacher, notify them of removal
+            if (existingAssignment.type === "proxy" && existingAssignment.proxyTeacherId &&
+                String(existingAssignment.proxyTeacherId) !== String(proxyTeacherId)) {
+                await noticeService.createNotice(schoolId, adminId, {
+                    title: "Proxy Assignment Removed",
+                    message: `Your proxy assignment for ${existingAssignment.standard}-${existingAssignment.section} on ${dateStr} (${existingAssignment.dayOfWeek}) Period #${existingAssignment.slotNumber} has been reassigned to another teacher.`,
+                    recipientType: "users",
+                    recipients: [existingAssignment.proxyTeacherId.toString()]
+                });
+            }
+        } else if (type === "free_period") {
+            // Notify original teacher about free period
+            await noticeService.createNotice(schoolId, adminId, {
+                title: "Proxy Assignment Updated - Free Period",
+                message: `Your proxy assignment for ${existingAssignment.standard}-${existingAssignment.section} (${existingAssignment.subject || 'No subject'}) on ${dateStr} (${existingAssignment.dayOfWeek}) Period #${existingAssignment.slotNumber} has been updated. The class is now marked as a free period.`,
+                recipientType: "users",
+                recipients: [originalTeacherId]
+            });
+
+            // If there was a proxy teacher, notify them of removal
+            if (existingAssignment.type === "proxy" && existingAssignment.proxyTeacherId) {
+                await noticeService.createNotice(schoolId, adminId, {
+                    title: "Proxy Assignment Removed",
+                    message: `Your proxy assignment for ${existingAssignment.standard}-${existingAssignment.section} on ${dateStr} (${existingAssignment.dayOfWeek}) Period #${existingAssignment.slotNumber} has been changed to a free period.`,
+                    recipientType: "users",
+                    recipients: [existingAssignment.proxyTeacherId.toString()]
+                });
+            }
+        }
+    } catch (notifyError) {
+        logger.warn(`Failed to send update notifications: ${notifyError.message}`);
+    }
+
+    logger.info(`Proxy assignment updated: ${newAssignment._id} (replaced ${assignmentId})`);
+
+    createAuditLog({
+        schoolId,
+        actor: user._id,
+        actorModel: user.role === USER_ROLES.SUPER_ADMIN ? "SuperAdmin" : "User",
+        action: AUDIT_ACTIONS.PROXY.ASSIGNMENT_UPDATED,
+        entityId: newAssignment._id,
+        entityModel: "ProxyAssignment",
+        status: "success",
+        details: {
+            previousAssignmentId: assignmentId,
+            type,
+            proxyTeacherId: type === "proxy" ? proxyTeacherId : null,
+            originalTeacherId: existingAssignment.originalTeacherId
+        },
+        ipAddress: metadata?.ip,
+        userAgent: metadata?.userAgent,
+        sessionToken: null
+    }).catch(err => logger.error(`Failed to create audit log: ${err.message}`));
+
+    return newAssignment;
+};
+
+/**
  * Get teacher's schedule for a date (with proxy information)
  */
 export const getTeacherScheduleWithProxies = async (schoolId, teacherId, date) => {
     const targetDate = new Date(date);
     const dayOfWeek = getDayOfWeek(targetDate);
+    const startOfDay = normalizeStartOfDay(targetDate);
+    const endOfDay = normalizeEndOfDay(targetDate);
 
     // Get regular timetable entries for this teacher
     const regularEntries = await TimetableEntry.find({
@@ -826,10 +975,11 @@ export const getTeacherScheduleWithProxies = async (schoolId, teacherId, date) =
         .lean();
 
     // Get proxy assignments where this teacher is the proxy
+    // Use date range to match normalized dates stored in DB
     const proxyAssignments = await ProxyAssignment.find({
         schoolId,
         proxyTeacherId: teacherId,
-        date: targetDate,
+        date: { $gte: startOfDay, $lte: endOfDay },
         isActive: true
     })
         .populate("originalTeacherId", "name email")
@@ -840,7 +990,7 @@ export const getTeacherScheduleWithProxies = async (schoolId, teacherId, date) =
     const proxyRequests = await ProxyRequest.find({
         schoolId,
         teacherId,
-        date: targetDate
+        date: { $gte: startOfDay, $lte: endOfDay }
     }).lean();
 
     // Combine and format the schedule

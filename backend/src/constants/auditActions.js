@@ -48,6 +48,7 @@ export const AUDIT_ACTIONS = Object.freeze({
         FREE_PERIOD_MARKED: 'proxy.free_period_marked',
         DIRECT_ASSIGNMENT_CREATED: 'proxy.direct_assignment_created',
         REQUEST_CANCELLED: 'proxy.request_cancelled',
+        ASSIGNMENT_UPDATED: 'proxy.assignment_updated',
     }),
 });
 
@@ -88,6 +89,7 @@ export const ACTION_TYPE_MAP = Object.freeze({
     'proxy.free_period_marked':          ACTION_TYPES.UPDATE,
     'proxy.direct_assignment_created':   ACTION_TYPES.CREATE,
     'proxy.request_cancelled':           ACTION_TYPES.DELETE,
+    'proxy.assignment_updated':          ACTION_TYPES.UPDATE,
     'assignment.created':                ACTION_TYPES.CREATE,
     'assignment.updated':                ACTION_TYPES.UPDATE,
     'assignment.deleted':                ACTION_TYPES.DELETE,
