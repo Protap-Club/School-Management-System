@@ -179,27 +179,25 @@ export const StudentOverviewPanel = ({
                                 <h2 className="text-xl font-bold text-gray-900">Class {selectedClass.standard}-{selectedClass.section}</h2>
                                 <p className="text-sm text-gray-500">{MONTH_LABELS[overviewMonth]} {overviewYear} - {overviewYear + 1}</p>
                             </div>
-                            <div className="flex items-center gap-2 bg-gray-50 p-1.5 rounded-xl border border-gray-100">
-                                <FaFilter className="text-gray-400 ml-2" size={12} />
-                                {overviewMode === 'fee' ? (
-                                    <>
-                                        <select value={overviewType} onChange={(e) => setOverviewType(e.target.value)}
-                                            className="bg-transparent border-none text-sm font-bold text-gray-700 focus:ring-0 min-w-[100px]">
-                                            <option value="">Filter</option>
-                                            {feeTypesList.map(t => (
-                                                <option key={t.name} value={t.name}>{t.label}</option>
-                                            ))}
-                                        </select>
-                                        <div className="w-[1px] h-4 bg-gray-200 mx-1"></div>
-                                        <select value={overviewStatus} onChange={(e) => setOverviewStatus(e.target.value)}
-                                            className="bg-transparent border-none text-sm font-bold text-gray-700 focus:ring-0">
-                                            <option value="all">All Status</option>
-                                            <option value="paid">Paid</option>
-                                            <option value="pending">Pending</option>
-                                        </select>
-                                    </>
-                                ) : null}
-                            </div>
+                            {overviewMode === 'fee' && (
+                                <div className="flex items-center gap-2 bg-gray-50 p-1.5 rounded-xl border border-gray-100">
+                                    <FaFilter className="text-gray-400 ml-2" size={12} />
+                                    <select value={overviewType} onChange={(e) => setOverviewType(e.target.value)}
+                                        className="bg-transparent border-none text-sm font-bold text-gray-700 focus:ring-0 min-w-[100px]">
+                                        <option value="">Filter</option>
+                                        {feeTypesList.map(t => (
+                                            <option key={t.name} value={t.name}>{t.label}</option>
+                                        ))}
+                                    </select>
+                                    <div className="w-[1px] h-4 bg-gray-200 mx-1"></div>
+                                    <select value={overviewStatus} onChange={(e) => setOverviewStatus(e.target.value)}
+                                        className="bg-transparent border-none text-sm font-bold text-gray-700 focus:ring-0">
+                                        <option value="all">All Status</option>
+                                        <option value="paid">Paid</option>
+                                        <option value="pending">Pending</option>
+                                    </select>
+                                </div>
+                            )}
                         </div>
                         <div className="flex gap-1 bg-gray-100 p-1 rounded-xl">
                             <button onClick={() => setOverviewMode('fee')}
