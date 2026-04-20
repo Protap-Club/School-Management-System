@@ -45,7 +45,13 @@ export const getExamById = asyncHandler(async (req, res) => {
 // ═══════════════════════════════════════════════════════════════
 
 export const updateExam = asyncHandler(async (req, res) => {
-    const result = await examinationService.updateExam(req.schoolId, req.params.id, req.body, req.user);
+    const result = await examinationService.updateExam(
+        req.schoolId,
+        req.params.id,
+        req.body,
+        req.user,
+        { ip: req.ip, userAgent: req.headers["user-agent"] }
+    );
     res.status(200).json({
         success: true,
         message: "Exam updated successfully",

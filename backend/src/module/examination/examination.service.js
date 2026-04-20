@@ -428,6 +428,26 @@ export const createExam = async (schoolId, data, user) => {
             createdExams.map((exam) => createExamCreatedNoticeForAdmins(activeSchoolId, exam, user))
         );
 
+        // Audit log — one entry per exam created
+        createdExams.forEach((exam) => {
+            createAuditLog({
+                schoolId: activeSchoolId,
+                actorId: user._id,
+                actorRole: user.role,
+                action: AUDIT_ACTIONS.EXAM_CREATED,
+                targetModel: "Exam",
+                targetId: exam._id,
+                description: `Created exam: "${exam.name}" for Class ${exam.standard}-${exam.section} (status: ${exam.status})`,
+                metadata: {
+                    examType: exam.examType,
+                    standard: exam.standard,
+                    section: exam.section,
+                    academicYear: exam.academicYear,
+                    status: exam.status,
+                },
+            }).catch(() => {});
+        });
+
         return exams[0]; // Return the first one for the frontend to handle completion
     } catch (error) {
         if (session) {
@@ -537,7 +557,7 @@ export const getExamById = async (schoolId, examId, user) => {
 // UPDATE EXAM — Admin for term exams, teacher for own class tests
 // ═══════════════════════════════════════════════════════════════
 
-export const updateExam = async (schoolId, examId, data, user) => {
+export const updateExam = async (schoolId, examId, data, user, metadata = {}) => {
     // Capture state BEFORE update for diff
     const before = await Exam.findOne({ _id: examId, schoolId, isActive: true }).lean();
     if (!before) throw new NotFoundError("Exam not found");
@@ -631,8 +651,8 @@ export const updateExam = async (schoolId, examId, data, user) => {
         targetId: examId,
         description: `Updated exam: "${exam.name}" (${exam.standard}-${exam.section})`,
         metadata: { changes },
-        ip: user?.metadata?.ip,
-        userAgentString: user?.metadata?.userAgent,
+        ip: metadata?.ip,
+        userAgentString: metadata?.userAgent,
     }).catch(() => {});
 
     return exam;
@@ -931,22 +951,22 @@ export const updateStatus = async (schoolId, examId, newStatus, user, metadata) 
     }
 
     logger.info(`Exam status changed: ${examId} → ${newStatus}`);
+
+    // Build diff
+    const changes = [{ field: 'status', before: previousStatus, after: newStatus }];
+
     // Fire-and-forget audit log
     createAuditLog({
         schoolId,
-        action: AUDIT_ACTIONS.EXAM_STATUS_CHANGED,
         actorId: user._id,
         actorRole: user.role,
-        targetEntity: "Exam",
+        action: AUDIT_ACTIONS.EXAM_STATUS_CHANGED,
+        targetModel: "Exam",
         targetId: exam._id,
-        details: {
-            oldStatus: previousStatus,
-            newStatus,
-            title: exam.name,
-            type: exam.examType,
-        },
-        ipAddress: metadata?.ip,
-        userAgent: metadata?.userAgent,
+        description: `Changed exam status: "${exam.name}" ${previousStatus} → ${newStatus}`,
+        metadata: { changes },
+        ip: metadata?.ip,
+        userAgentString: metadata?.userAgent,
     }).catch(() => {});
 
     return exam;

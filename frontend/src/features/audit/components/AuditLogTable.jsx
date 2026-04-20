@@ -243,6 +243,7 @@ const EmptyState = () => (
 
 const AuditLogRow = ({ log }) => {
     const [expanded, setExpanded] = useState(false);
+    const [summaryExpanded, setSummaryExpanded] = useState(false);
     const { dateLabel, timeLabel } = formatTimestamp(log.createdAt);
 
     // Resolve action_type: use stored field first, fall back to client-side map
@@ -255,10 +256,9 @@ const AuditLogRow = ({ log }) => {
     const ip = log.ip === '::1' || log.ip === '127.0.0.1' ? 'localhost' : (log.ip ?? '—');
     const client = log.userAgent ?? 'Unknown';
 
-    // Truncate description for summary column
-    const summary = log.description?.length > 60
-        ? log.description.slice(0, 58) + '…'
-        : log.description;
+    // Truncation threshold for description summary
+    const SUMMARY_LIMIT = 72;
+    const needsTruncation = (log.description?.length ?? 0) > SUMMARY_LIMIT;
 
     const hasExpandable = log.session_id || log.targetId || log.metadata?.changes;
 
@@ -293,9 +293,21 @@ const AuditLogRow = ({ log }) => {
                     <ActionTypeBadge type={resolvedType} />
                 </td>
 
-                {/* Summary (shortened description) */}
+                {/* Summary (shortened description) with Read more toggle */}
                 <td className="px-3 py-3 max-w-[260px]">
-                    <span className="text-sm text-slate-700 leading-snug whitespace-normal">{summary}</span>
+                    <span className="text-sm text-slate-700 leading-snug whitespace-normal">
+                        {needsTruncation && !summaryExpanded
+                            ? log.description.slice(0, SUMMARY_LIMIT) + '…'
+                            : log.description}
+                    </span>
+                    {needsTruncation && (
+                        <button
+                            onClick={(e) => { e.stopPropagation(); setSummaryExpanded(v => !v); }}
+                            className="ml-1 text-[11px] font-semibold text-blue-500 hover:text-blue-700 hover:underline focus:outline-none whitespace-nowrap"
+                        >
+                            {summaryExpanded ? 'Read less' : 'Read more'}
+                        </button>
+                    )}
                 </td>
 
                 {/* Severity + Outcome */}
