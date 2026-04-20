@@ -147,12 +147,16 @@ const ChangesDiffTable = ({ changes }) => {
                 <tbody className="divide-y divide-slate-50">
                     {changes.map((c, i) => (
                         <tr key={i}>
-                            <td className="py-1.5 pr-4 font-mono text-slate-600 font-medium">{c.field}</td>
-                            <td className="py-1.5 pr-4 font-mono text-red-600 bg-red-50/60 rounded px-1.5 max-w-[200px] truncate">
-                                {c.before !== undefined ? String(c.before) : '—'}
+                            <td className="py-1.5 pr-4 font-mono text-slate-500 font-normal">{c.field}</td>
+                            <td className="py-1.5 pr-2">
+                                <span className="font-mono text-red-600 bg-red-50 px-1.5 py-0.5 rounded">
+                                    {c.before !== undefined ? String(c.before) : '—'}
+                                </span>
                             </td>
-                            <td className="py-1.5 font-mono text-emerald-700 bg-emerald-50/60 rounded px-1.5 max-w-[200px] truncate">
-                                {c.after !== undefined ? String(c.after) : '—'}
+                            <td className="py-1.5">
+                                <span className="font-mono text-green-600 bg-green-50 px-1.5 py-0.5 rounded">
+                                    {c.after !== undefined ? String(c.after) : '—'}
+                                </span>
                             </td>
                         </tr>
                     ))}
@@ -167,7 +171,12 @@ const ChangesDiffTable = ({ changes }) => {
 const ExpandedPanel = ({ log }) => {
     const sessionId = log.session_id;
     const changes = log.metadata?.changes;
-    const hasChanges = Array.isArray(changes) && changes.length > 0;
+    // Gate diff on resolved action type — handles both DB field and legacy client-side fallback
+    const resolvedType = resolveActionType(log);
+    const hasChanges =
+        resolvedType === 'UPDATE' &&
+        Array.isArray(changes) &&
+        changes.length > 0;
     // Show the full target ID (Module column only shows last-6 chars)
     const fullTargetId = log.targetId ? String(log.targetId) : null;
 
@@ -175,7 +184,7 @@ const ExpandedPanel = ({ log }) => {
         <tr>
             <td colSpan={8} className="px-0 py-0">
                 <div className="mx-0 bg-slate-50/70 border-t border-b border-slate-100 px-6 py-4 grid grid-cols-1 md:grid-cols-3 gap-6 text-sm animate-fadeIn">
-                    {/* Full Resource ID — expanded view of the truncated Module #shortId chip */}
+                    {/* Full Resource ID — expanded view of the truncated Module shortId chip */}
                     {fullTargetId && (
                         <div>
                             <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5 pb-1 border-b border-slate-100">
@@ -203,7 +212,7 @@ const ExpandedPanel = ({ log }) => {
                         </div>
                     )}
 
-                    {/* Diff table for UPDATE actions — spans full width */}
+                    {/* Changes diff — only for UPDATE actions with a non-empty changes array */}
                     {hasChanges && (
                         <div className="md:col-span-3 border-t border-slate-100 pt-4">
                             <ChangesDiffTable changes={changes} />

@@ -169,20 +169,22 @@ export const AuditFilters = ({ filters, setFilters }) => {
 
                 <Divider />
 
-                {/* Date range — styled to match dropdowns */}
-                <DateInput
-                    aria-label="Start date"
-                    value={filters.startDate}
-                    onChange={(v) => set('startDate', v)}
-                    placeholder="Start date"
-                />
-                <span className="text-slate-400 text-xs font-medium flex-shrink-0">to</span>
-                <DateInput
-                    aria-label="End date"
-                    value={filters.endDate}
-                    onChange={(v) => set('endDate', v)}
-                    placeholder="End date"
-                />
+                {/* Date range — always wraps as a pair, never splits */}
+                <div className="flex items-center gap-1.5 flex-shrink-0">
+                    <DateInput
+                        aria-label="Start date"
+                        value={filters.startDate}
+                        onChange={(v) => set('startDate', v)}
+                        placeholder="Start date"
+                    />
+                    <span className="text-slate-400 text-xs font-medium">to</span>
+                    <DateInput
+                        aria-label="End date"
+                        value={filters.endDate}
+                        onChange={(v) => set('endDate', v)}
+                        placeholder="End date"
+                    />
+                </div>
 
                 {/* Clear — only shown when any filter is active */}
                 {hasActiveFilters && (
