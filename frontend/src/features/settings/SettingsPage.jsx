@@ -19,23 +19,7 @@ import {
     makeClassKey,
     normalizeClassSection,
 } from '@/utils/classSection';
-import {
-    FaPalette,
-    FaImage,
-    FaCheck,
-    FaUpload,
-    FaToggleOn,
-    FaBuilding,
-    FaGraduationCap,
-    FaPlus,
-    FaTrash,
-    FaCog,
-    FaTimes,
-    FaLayerGroup,
-    FaUserGraduate,
-    FaChalkboardTeacher,
-    FaArrowRight
-} from 'react-icons/fa';
+import {FaPalette,FaImage,FaCheck,FaUpload,FaToggleOn,FaBuilding,FaGraduationCap,FaPlus,FaTrash,FaCog,FaTimes,FaLayerGroup,FaUserGraduate,FaChalkboardTeacher,FaArrowRight} from 'react-icons/fa';
 
 const THEME_COLORS = [
     { name: 'Royal Blue', value: '#2563eb' },
@@ -823,8 +807,8 @@ const Settings = () => {
                                     Auto Save
                                 </span>
                             </div>
-                            <div className="p-6">
-                                <div className="flex flex-wrap gap-4">
+                            <div className="px-6 pt-6 pb-12">
+                                <div className="flex flex-wrap gap-4 mt-2 mb-2">
                                     {THEME_COLORS.map((color) => (
                                         <button
                                             key={color.value}
@@ -839,7 +823,7 @@ const Settings = () => {
                                                     <FaCheck className="text-white text-lg drop-shadow-md" />
                                                 </span>
                                             )}
-                                            <span className="absolute -bottom-8 left-1/2 -translate-x-1/2 text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap bg-slate-900 text-white px-3 py-1.5 rounded-lg pointer-events-none shadow-lg">
+                                            <span className="absolute -bottom-10 left-1/2 -translate-x-1/2 z-10 text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap bg-slate-900 text-white px-3 py-1.5 rounded-lg pointer-events-none shadow-lg">
                                                 {color.name}
                                             </span>
                                         </button>

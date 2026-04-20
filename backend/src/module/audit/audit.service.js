@@ -4,6 +4,7 @@ import {
     SEVERITY_MAP,
     OUTCOME_VALUES,
 } from '../../constants/auditActions.js';
+import logger from '../../config/logger.js';
 
 /**
  * Creates an audit log entry in the database.
@@ -86,9 +87,21 @@ export const createAuditLog = async ({
             ip,
             userAgent
         });
+
+        // ── Terminal Logging for System Admin (All Schools) ──
+        logger.info({
+            audit: true,
+            schoolId: schoolId || 'SUPER_ADMIN',
+            actorId,
+            actorRole,
+            action,
+            action_type: resolvedActionType,
+            severity: resolvedSeverity,
+            outcome
+        }, `[SYSTEM AUDIT] ${description}`);
     } catch (error) {
         // Fire and forget; do not throw to caller
-        console.error('Audit Log Creation Failed:', error);
+        logger.error({ err: error }, 'Audit Log Creation Failed');
     }
 };
 
