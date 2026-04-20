@@ -1,5 +1,6 @@
 // Attendance Page — Teacher/Admin view for daily attendance with manual toggle.
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useSearchParams, useParams, useNavigate } from 'react-router-dom';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import { useAuth } from '../../features/auth';
@@ -12,6 +13,7 @@ import {
     useTodayAttendance,
     useMarkManualAttendance,
     useReplaceClassTeacher,
+    attendanceKeys,
 } from './index';
 import { formatValue } from '../../utils';
 
@@ -327,12 +329,19 @@ const AttendancePage = () => {
         }
     }, [classId, classParam, groupedClasses]);
 
+    const queryClient = useQueryClient();
+
     useEffect(() => {
         const socket = connectSocket(currentUser?.schoolId);
         socket.on('connect', () => setSocketConnected(true));
         socket.on('disconnect', () => setSocketConnected(false));
+        // Invalidate today's attendance cache whenever any NFC tap or manual mark
+        // is broadcast from the server — keeps the table in sync in real-time.
+        socket.on('attendance-marked', () => {
+            queryClient.invalidateQueries({ queryKey: attendanceKeys.today() });
+        });
         return () => disconnectSocket();
-    }, [currentUser?.schoolId]);
+    }, [currentUser?.schoolId, queryClient]);
 
     // ─── Access Guards ──────────────────────────────────
     if (!featuresLoading && !hasFeature('attendance')) return (

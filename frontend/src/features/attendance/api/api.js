@@ -71,14 +71,23 @@ export const attendanceApi = {
     },
 
     /** Link an NFC tag to a student. */
-    linkNfcTag: async ({ userId, tagId }) => {
-        const response = await api.post('/attendance/nfc/link', { userId, tagId });
+    linkNfcTag: async ({ studentId, nfcUid }) => {
+        const response = await api.post('/attendance/nfc/link', { studentId, nfcUid });
         return response.data;
     },
 
-    /** Mark attendance via NFC scan. */
-    markNfcAttendance: async ({ tagId }) => {
-        const response = await api.post('/attendance/nfc', { tagId });
+    /** Mark attendance via NFC scan (called from browser/admin UI, not hardware reader). */
+    markNfcAttendance: async ({ nfcUid }) => {
+        const response = await api.post('/attendance/nfc', { nfcUid });
+        return response.data;
+    },
+
+    /**
+     * Fetch a specific student's full attendance history.
+     * Returns: { today, calendar[], stats: { totalDays, totalPresent, totalAbsent, percentage } }
+     */
+    getStudentHistory: async (studentId) => {
+        const response = await api.get(`/attendance/${studentId}`);
         return response.data;
     },
 

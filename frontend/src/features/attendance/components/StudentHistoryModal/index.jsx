@@ -1,48 +1,39 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { FaUserGraduate, FaIdCard, FaBuilding, FaLayerGroup } from 'react-icons/fa';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
 import AttendanceCalendar from './AttendanceCalendar';
 import HistorySidebar from './HistorySidebar';
 import { formatValue } from '../../../../utils';
+import { useStudentHistory } from '../../index';
 
 const StudentHistoryModal = ({ student, onClose }) => {
     const [currentDate, setCurrentDate] = useState(new Date());
-    const [history, setHistory] = useState([]);
-    const [stats, setStats] = useState({ present: 0, absent: 0, total: 0 });
     const [selectedDay, setSelectedDay] = useState(null);
     const todayObj = new Date();
 
-    useEffect(() => {
-        if (student) generateMockHistory();
-    }, [student]);
+    const { data: historyData, isLoading, isError } = useStudentHistory(student?._id);
 
-    const generateMockHistory = () => {
-        const mockData = [];
-        let present = 0, absent = 0;
+    // Map backend shape → shapes expected by AttendanceCalendar and HistorySidebar
+    const { history, stats } = useMemo(() => {
+        const calendar = historyData?.data?.calendar ?? [];
+        const apiStats = historyData?.data?.stats;
 
-        for (let i = 0; i < 90; i++) {
-            const date = new Date(todayObj);
-            date.setDate(todayObj.getDate() - i);
-            if (date.getDay() === 0 || date.getDay() === 6 || date > todayObj) continue;
+        const history = calendar.map(r => ({
+            date: typeof r.date === 'string' ? r.date.split('T')[0] : new Date(r.date).toISOString().split('T')[0],
+            // Normalise capitalised backend values to lowercase for calendar colouring
+            status: r.status?.toLowerCase() ?? 'absent',
+            checkIn: r.checkInTime
+                ? new Date(r.checkInTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+                : '-',
+        }));
 
-            const r = Math.random();
-            // No more 'late' status in mock generation
-            const status = r > 0.85 ? 'absent' : 'present';
-            if (status === 'present') present++;
-            if (status === 'absent') absent++;
+        const stats = apiStats
+            ? { present: apiStats.totalPresent, absent: apiStats.totalAbsent, total: apiStats.totalDays }
+            : { present: 0, absent: 0, total: 0 };
 
-            let checkIn = '-';
-            if (status === 'present') {
-                checkIn = `8:${(Math.floor(Math.random() * 20) + 20).toString().padStart(2, '0')} AM`;
-            }
-
-            mockData.push({ date: date.toISOString().split('T')[0], status, checkIn });
-        }
-        setHistory(mockData);
-        setStats({ present, absent, total: present + absent });
-        setSelectedDay(null);
-    };
+        return { history, stats };
+    }, [historyData]);
 
     const attendancePercentage = stats.total > 0 ? Math.round((stats.present / stats.total) * 100) : 0;
 
@@ -112,23 +103,47 @@ const StudentHistoryModal = ({ student, onClose }) => {
                         ${attendancePercentage >= 90 ? 'bg-emerald-50 text-emerald-600 border-emerald-100 shadow-emerald-100/20' : attendancePercentage >= 75 ? 'bg-amber-50 text-amber-600 border-amber-100 shadow-amber-100/20' : 'bg-rose-50 text-rose-600 border-rose-100 shadow-rose-100/20'}`}>
                         <div className={`w-1.5 h-1.5 rounded-full ${attendancePercentage >= 90 ? 'bg-emerald-500' : attendancePercentage >= 75 ? 'bg-amber-500' : 'bg-rose-500'}`} />
                         <FaUserGraduate className="w-3.5 h-3.5" />
-                        {attendancePercentage}% Rate
+                        {isLoading ? '—' : `${attendancePercentage}%`} Rate
                     </div>
                 </div>
 
                 {/* Main Content Layout */}
                 <div className="flex flex-col lg:flex-row flex-1 overflow-hidden">
-                    <div className="flex-1 overflow-y-auto">
-                        <AttendanceCalendar
-                            history={history}
-                            currentDate={currentDate} setCurrentDate={setCurrentDate}
-                            setSelectedDay={setSelectedDay} todayObj={todayObj}
-                        />
-                    </div>
-                    <HistorySidebar
-                        stats={stats}
-                        selectedDay={selectedDay}
-                    />
+                    {isLoading ? (
+                        <div className="flex-1 flex items-center justify-center">
+                            <div className="flex flex-col items-center gap-3 text-slate-400">
+                                <svg className="animate-spin w-8 h-8 text-primary/60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                                </svg>
+                                <p className="text-sm font-semibold">Loading attendance history…</p>
+                            </div>
+                        </div>
+                    ) : isError ? (
+                        <div className="flex-1 flex items-center justify-center">
+                            <div className="flex flex-col items-center gap-2 text-rose-400 p-8 text-center">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="w-10 h-10 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+                                </svg>
+                                <p className="text-sm font-bold">Failed to load history</p>
+                                <p className="text-xs text-slate-400">Please close and try again.</p>
+                            </div>
+                        </div>
+                    ) : (
+                        <>
+                            <div className="flex-1 overflow-y-auto">
+                                <AttendanceCalendar
+                                    history={history}
+                                    currentDate={currentDate} setCurrentDate={setCurrentDate}
+                                    setSelectedDay={setSelectedDay} todayObj={todayObj}
+                                />
+                            </div>
+                            <HistorySidebar
+                                stats={stats}
+                                selectedDay={selectedDay}
+                            />
+                        </>
+                    )}
                 </div>
             </DialogContent>
         </Dialog>
@@ -136,3 +151,4 @@ const StudentHistoryModal = ({ student, onClose }) => {
 };
 
 export default StudentHistoryModal;
+
