@@ -1,27 +1,17 @@
-// Fees Feature - Public API
-
-// Query Hooks
 export {
     feeKeys,
-    useFeeStructures,
-    useCreateFeeStructure,
-    useUpdateFeeStructure,
-    useDeleteFeeStructure,
-    useGenerateAssignments,
-    useUpdateAssignment,
-    useRecordPayment,
-    useAllClassesOverview,
-    useClassOverview,
-    useYearlySummary,
+    useFeeStructures, useCreateFeeStructure, useUpdateFeeStructure, useDeleteFeeStructure,
+    useGenerateAssignments, useUpdateAssignment, useRecordPayment,
+    useAllClassesOverview, useClassOverview, useYearlySummary,
     useStudentFeeHistory,
-    useCreateSalary,
-    useSalaries,
-    useUpdateSalaryStatus,
-    useMySalary,
+    useCreateSalary, useSalaries, useUpdateSalaryStatus, useMySalary,
     useUpdateTeacherProfile,
     useMyFees,
-    useFeeTypes,
-    useCreateFeeType,
+    useFeeTypes, useCreateFeeType,
+    usePenaltyTypes, useCreatePenaltyType,
+    useStudentsByClass, usePenaltyStudentsByClass, useStudentPenalties, useCreateStudentPenalty,
+    useUpdatePenaltyStatus, useDeleteStudentPenalty, useAllClassesPenaltyOverview, useClassPenaltyOverview,
+    useYearlyPenaltySummary, useMyPenalties,
 } from './api/queries';
 
 // Constants
@@ -70,3 +60,19 @@ export const MONTH_LABELS = [
     '', 'January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December',
 ];
+
+export const SALARY_LABELS = {
+    EXPECTED: 'Expected Salary',
+    UPDATE_EXPECTED: 'Update Expected Salary',
+};
+
+export const PENALTY_TYPES = ['DAMAGE', 'LATE_FEE', 'MISCONDUCT', 'LIBRARY_FINE', 'UNIFORM_VIOLATION'];
+
+export const PENALTY_TYPE_LABELS = {
+    DAMAGE: 'Damage',
+    LATE_FEE: 'Late Fee',
+    MISCONDUCT: 'Misconduct',
+    LIBRARY_FINE: 'Library Fine',
+    UNIFORM_VIOLATION: 'Uniform Violation',
+};
+

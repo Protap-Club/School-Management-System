@@ -25,6 +25,11 @@ export const usersApi = {
         return response.data;
     },
 
+    updateTeacherProfile: async (id, payload) => {
+        const response = await api.patch(`/users/${id}/teacher-profile`, payload);
+        return response.data;
+    },
+
     toggleArchive: async ({ userIds, isArchived, replacementTeacherId, skipReplacement } = {}) => {
         const response = await api.patch("/users/archive", {
             userIds,

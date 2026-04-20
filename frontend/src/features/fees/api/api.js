@@ -102,4 +102,77 @@ export const feesApi = {
         const response = await api.post('/fees/types', data);
         return response.data;
     },
+
+    getPenaltyTypes: async () => {
+        const response = await api.get('/fees/penalty-types');
+        return response.data;
+    },
+
+    createPenaltyType: async (data) => {
+        const response = await api.post('/fees/penalty-types', data);
+        return response.data;
+    },
+
+    // ── Student Penalty ───────────────────────────────────────────
+
+    getStudentsByClass: async ({ standard, section }) => {
+        const response = await api.get(`/fees/students-by-class?standard=${encodeURIComponent(standard)}&section=${encodeURIComponent(section)}`);
+        return response.data;
+    },
+
+    getPenaltyStudentsByClass: async ({ academicYear, standard, section }) => {
+        const params = new URLSearchParams();
+        if (academicYear) params.append('academicYear', academicYear);
+        if (standard) params.append('standard', standard);
+        if (section) params.append('section', section);
+        const response = await api.get(`/fees/penalties/students?${params.toString()}`);
+        return response.data;
+    },
+
+    getStudentPenalties: async ({ academicYear, standard, section, studentId }) => {
+        const params = new URLSearchParams();
+        if (academicYear) params.append('academicYear', academicYear);
+        if (standard) params.append('standard', standard);
+        if (section) params.append('section', section);
+        if (studentId) params.append('studentId', studentId);
+        const response = await api.get(`/fees/penalties?${params.toString()}`);
+        return response.data;
+    },
+
+    createStudentPenalty: async (data) => {
+        const response = await api.post('/fees/penalties', data);
+        return response.data;
+    },
+
+    updatePenaltyStatus: async ({ penaltyId, status }) => {
+        const response = await api.patch(`/fees/penalties/${penaltyId}`, { status });
+        return response.data;
+    },
+
+    getAllClassesPenaltyOverview: async ({ academicYear }) => {
+        const response = await api.get(`/fees/penalties/overview/all-classes?academicYear=${academicYear}`);
+        return response.data;
+    },
+
+    getClassPenaltyOverview: async ({ standard, section, academicYear }) => {
+        const response = await api.get(`/fees/penalties/overview/${standard}/${section}?academicYear=${academicYear}`);
+        return response.data;
+    },
+
+    getYearlyPenaltySummary: async ({ academicYear }) => {
+        const response = await api.get(`/fees/penalties/summary/yearly?academicYear=${academicYear}`);
+        return response.data;
+    },
+
+    getMyPenalties: async (filters = {}) => {
+        const params = new URLSearchParams();
+        if (filters.academicYear) params.append('academicYear', filters.academicYear);
+        const response = await api.get(`/fees/my-penalties?${params.toString()}`);
+        return response.data;
+    },
+
+    deleteStudentPenalty: async (penaltyId) => {
+        const response = await api.delete(`/fees/penalties/${penaltyId}`);
+        return response.data;
+    },
 };
