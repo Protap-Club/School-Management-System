@@ -700,7 +700,7 @@ export const getMyProfile = async (userId) => {
     // 1. FETCH USER WITH PROFILES
     const user = await User.findById(userId)
         .select("-password -__v")
-        .populate("schoolId", "name code")
+        .populate("schoolId", "name code theme")
         .populate("studentProfile")
         .populate("teacherProfile")
         .populate("adminProfile")
