@@ -107,7 +107,6 @@ const CalendarPage = () => {
 
   const normalizedStandard = adminClassInput.standard.trim();
   const normalizedSection = adminClassInput.section.trim().toUpperCase();
-  const adminClassKey = normalizedStandard && normalizedSection ? `${normalizedStandard}-${normalizedSection}` : '';
 
   const adminStandardOptions = useMemo(() => {
     const fromPairs = Array.from(
@@ -148,18 +147,8 @@ const CalendarPage = () => {
     return fallback.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
   }, [availableClasses.classSections, availableClasses.sections, normalizedStandard]);
 
-  const classSectionKeys = useMemo(
-    () => new Set((availableClasses.classSections || []).map(c => `${c.standard}-${c.section}`)),
-    [availableClasses.classSections]
-  );
-  const isAdminClassValid = isAdmin && formData.targetAudience === 'classes'
-    && normalizedStandard
-    && normalizedSection
-    && (classSectionKeys.size
-      ? classSectionKeys.has(adminClassKey)
-      : (availableClasses.standards.includes(normalizedStandard) && availableClasses.sections.includes(normalizedSection)));
-  const isClassSelectionInvalid = formData.targetAudience === 'classes'
-    && (isAdmin ? !isAdminClassValid : formData.targetClasses.length === 0);
+  const isAdminClassValid = isAdmin && formData.targetAudience === 'classes' && formData.targetClasses.length > 0;
+  const isClassSelectionInvalid = formData.targetAudience === 'classes' && formData.targetClasses.length === 0;
 
   const { message, showMessage } = useToastMessage();
   const updateFormField = (field, value) => setFormData(prev => ({ ...prev, [field]: value }));
@@ -247,11 +236,7 @@ const CalendarPage = () => {
   const openEditEventModal = (event) => {
     setFormData(loadFormFromEvent(event));
     if (isAdmin) {
-      const classKey = event?.targetClasses?.[0] || '';
-      const splitIndex = classKey.lastIndexOf('-');
-      const standard = splitIndex > 0 ? classKey.slice(0, splitIndex) : '';
-      const section = splitIndex > 0 ? classKey.slice(splitIndex + 1) : '';
-      setAdminClassInput({ standard, section });
+      setAdminClassInput({ standard: '', section: '' });
     }
     setShowEditModal(true);
   };
@@ -283,8 +268,8 @@ const CalendarPage = () => {
     try {
       setSaving(true);
 
-      if (isAdmin && formData.targetAudience === 'classes' && !isAdminClassValid) {
-        showMessage('Please enter a valid class and section.', 'error');
+      if (isAdmin && formData.targetAudience === 'classes' && formData.targetClasses.length === 0) {
+        showMessage('Please select at least one class.', 'error');
         setSaving(false);
         return;
       }
@@ -300,9 +285,7 @@ const CalendarPage = () => {
         endD = new Date(`${formData.endDate}T${formData.endTime}:00`);
       }
       
-      const resolvedTargetClasses = isAdmin && formData.targetAudience === 'classes'
-        ? (adminClassKey ? [adminClassKey] : [])
-        : formData.targetClasses;
+      const resolvedTargetClasses = formData.targetClasses;
 
       const payload = { 
         title: formData.title.trim(), 
@@ -320,7 +303,7 @@ const CalendarPage = () => {
       setShowEditModal(false); fetchEvents();
     } catch (error) { showMessage('error', error.response?.data?.message || 'Failed to save event'); }
     finally { setSaving(false); }
-  }, [formData, fetchEvents, isAdmin, isAdminClassValid, adminClassKey, showMessage]);
+  }, [formData, fetchEvents, isAdmin, showMessage]);
 
   const handleDeleteEvent = useCallback(async (idToUse = formData._id) => {
     if (!idToUse) return;
@@ -710,33 +693,76 @@ const renderFormField = (label, children) => (
                   {formData.targetAudience === 'classes' && (
                     isAdmin ? (
                       <div className="mt-4 bg-white border border-gray-200 rounded-2xl p-4">
-                        <div className="grid grid-cols-2 gap-3">
-                          <select
-                            value={adminClassInput.standard}
-                            onChange={(e) => setAdminClassInput({ standard: e.target.value, section: '' })}
-                            className={`${INPUT_CLASS} appearance-none`}
+                        <div className="flex gap-3 items-end">
+                          <div className="flex-1 space-y-2">
+                            <select
+                              value={adminClassInput.standard}
+                              onChange={(e) => setAdminClassInput({ standard: e.target.value, section: '' })}
+                              className={`${INPUT_CLASS} appearance-none py-2`}
+                            >
+                              <option value="">Select Class</option>
+                              {adminStandardOptions.map((standard) => (
+                                <option key={standard} value={standard}>{standard}</option>
+                              ))}
+                            </select>
+                          </div>
+                          <div className="flex-1 space-y-2">
+                            <select
+                              value={adminClassInput.section}
+                              onChange={(e) => setAdminClassInput(prev => ({ ...prev, section: e.target.value }))}
+                              disabled={!normalizedStandard || adminSectionOptions.length === 0}
+                              className={`${INPUT_CLASS} appearance-none disabled:bg-gray-50 disabled:text-gray-400 disabled:cursor-not-allowed py-2`}
+                            >
+                              <option value="">
+                                {!normalizedStandard ? 'Select Class First' : 'Select Section'}
+                              </option>
+                              {normalizedStandard && adminSectionOptions.length > 0 && <option value="ALL">All Sections</option>}
+                              {adminSectionOptions.map((section) => (
+                                <option key={section} value={section}>{section}</option>
+                              ))}
+                            </select>
+                          </div>
+                          <button
+                            type="button"
+                            disabled={!adminClassInput.standard || !adminClassInput.section}
+                            onClick={() => {
+                              let newClasses = [];
+                              if (adminClassInput.section === 'ALL') {
+                                newClasses = adminSectionOptions.map(sec => `${adminClassInput.standard}-${sec}`);
+                              } else {
+                                newClasses = [`${adminClassInput.standard}-${adminClassInput.section}`];
+                              }
+                              setFormData(prev => {
+                                const classesSet = new Set(prev.targetClasses || []);
+                                newClasses.forEach(c => classesSet.add(c));
+                                return { ...prev, targetClasses: Array.from(classesSet) };
+                              });
+                              setAdminClassInput({ standard: '', section: '' });
+                            }}
+                            className="p-3 mb-2 bg-indigo-50 border border-indigo-200 text-indigo-600 rounded-xl hover:bg-indigo-100 disabled:opacity-50 transition-colors"
+                            title="Add Class"
                           >
-                            <option value="">Select Class</option>
-                            {adminStandardOptions.map((standard) => (
-                              <option key={standard} value={standard}>{standard}</option>
-                            ))}
-                          </select>
-                          <select
-                            value={adminClassInput.section}
-                            onChange={(e) => setAdminClassInput(prev => ({ ...prev, section: e.target.value }))}
-                            disabled={!normalizedStandard || adminSectionOptions.length === 0}
-                            className={`${INPUT_CLASS} appearance-none disabled:bg-gray-50 disabled:text-gray-400 disabled:cursor-not-allowed`}
-                          >
-                            <option value="">
-                              {!normalizedStandard ? 'Select Class First' : 'Select Section'}
-                            </option>
-                            {adminSectionOptions.map((section) => (
-                              <option key={section} value={section}>{section}</option>
-                            ))}
-                          </select>
+                            <FaPlus />
+                          </button>
                         </div>
-                        <p className={`mt-3 text-xs font-semibold ${isAdminClassValid ? 'text-emerald-600' : 'text-gray-500'}`}>
-                          {isAdminClassValid ? 'Class and section verified.' : 'Select a valid class and section to continue.'}
+                        {formData.targetClasses?.length > 0 && (
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {formData.targetClasses.map(c => (
+                              <div key={c} className="flex items-center gap-1.5 bg-indigo-50 border border-indigo-100 text-indigo-700 text-xs font-bold px-2.5 py-1.5 rounded-lg shadow-sm">
+                                <span>{c}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => setFormData(prev => ({ ...prev, targetClasses: prev.targetClasses.filter(x => x !== c) }))}
+                                  className="text-indigo-400 hover:text-indigo-600 focus:outline-none p-0.5 rounded-full hover:bg-indigo-200/50 transition-colors"
+                                >
+                                  <FaTimes size={10} />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        <p className={`mt-3 text-xs font-semibold ${formData.targetClasses?.length > 0 ? 'text-emerald-600' : 'text-gray-500'}`}>
+                          {formData.targetClasses?.length > 0 ? `${formData.targetClasses.length} class(es) selected.` : 'Add at least one class to continue.'}
                         </p>
                       </div>
                     ) : (
