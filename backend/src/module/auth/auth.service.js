@@ -19,11 +19,23 @@ import {
 } from "../../utils/token.util.js";
 import RefreshToken from "./RefreshToken.model.js";
 import PasswordResetToken from "./PasswordResetToken.model.js";
-import { sendPasswordResetEmail } from "../../utils/email.util.js";
 import { createAuditLog } from '../audit/audit.service.js';
 import { AUDIT_ACTIONS } from '../../constants/auditActions.js';
+import { sendPasswordChangedEmail, sendPasswordResetEmail } from "../../utils/email.util.js";
 
-const PASSWORD_RESET_EXPIRY_MINUTES = 15;
+const PASSWORD_RESET_EXPIRY_MINUTES = 5;
+const RESET_OTP_LENGTH = 6;
+const MAX_RESET_OTP_ATTEMPTS = 5;
+const RESET_OTP_LOCK_MINUTES = 15;
+const INVALID_RESET_CREDENTIALS_MESSAGE = "Invalid or expired reset credentials";
+
+const generateNumericOtp = (length = RESET_OTP_LENGTH) => {
+    let otp = "";
+    for (let i = 0; i < length; i += 1) {
+        otp += crypto.randomInt(0, 10).toString();
+    }
+    return otp;
+};
 
 // Public service functions 
 
@@ -126,6 +138,7 @@ export const login = async (email, password, platform, metadata = {}) => {
         schoolName: user.schoolId?.name,
         email: user.email,
         role: user.role,
+        mustChangePassword: Boolean(user.mustChangePassword),
         avatarUrl: user.avatarUrl,
         avatarPublicId: user.avatarPublicId,
         updatedAt: user.updatedAt,
@@ -241,7 +254,9 @@ export const updatePassword = async (userId, currentPassword, newPassword) => {
         throw new BadRequestError("New password must be at least 8 characters long");
     }
 
-    const user = await User.findById(userId).select("+password");
+    const user = await User.findById(userId)
+        .select("+password")
+        .populate("schoolId", "name");
     if (!user) {
         throw new NotFoundError("User not found");
     }
@@ -263,13 +278,27 @@ export const updatePassword = async (userId, currentPassword, newPassword) => {
     user.mustChangePassword = false;
     await user.save();
 
+    try {
+        await sendPasswordChangedEmail({
+            to: user.email,
+            name: user.name,
+            schoolName: user.schoolId?.name || "School Management System",
+            reason: "password change from profile/security",
+        });
+    } catch (notifyError) {
+        logger.warn("Failed to send password change notification after profile update", {
+            userId,
+            error: notifyError.message,
+        });
+    }
+
     logger.info("Password updated successfully", { userId });
     return { message: "Password updated successfully" };
 };
 
 // FORGOT PASSWORD - Request password reset email
-export const forgotPassword = async (email, metadata = {}) => {
-    logger.info("Forgot password request", { email });
+export const forgotPassword = async (email, metadata = {}, method = null) => {
+    logger.info("Forgot password request", { email, method });
 
     if (!email) {
         throw new BadRequestError("Email is required");
@@ -297,28 +326,43 @@ export const forgotPassword = async (email, metadata = {}) => {
         { $set: { isUsed: true } }
     );
 
-    // Generate new reset token
-    const resetToken = crypto.randomBytes(32).toString("hex");
-    const tokenHash = hashToken(resetToken);
     const expiresAt = new Date(Date.now() + PASSWORD_RESET_EXPIRY_MINUTES * 60 * 1000);
+    let resetToken = null;
+    let tokenHash = null;
+    let resetOtp = null;
+    let otpHash = null;
 
-    // Save token hash to database
+    // Generate token or OTP based on selected method (or both if no method specified for backward compatibility)
+    if (!method || method === 'link') {
+        resetToken = crypto.randomBytes(32).toString("hex");
+        tokenHash = hashToken(resetToken);
+    }
+    if (!method || method === 'otp') {
+        resetOtp = generateNumericOtp();
+        otpHash = hashToken(resetOtp);
+    }
+
+    // Save token/OTP hashes to database
     await PasswordResetToken.create({
         userId: user._id,
         tokenHash,
+        otpHash,
         expiresAt,
         metadata,
     });
 
-    // Send email with the plain token (not the hash)
+    // Send email with selected method only
     await sendPasswordResetEmail({
         to: user.email,
         name: user.name,
         resetToken,
+        resetOtp,
+        method,
+        expiresInMinutes: PASSWORD_RESET_EXPIRY_MINUTES,
         schoolName: user.schoolId?.name || "School Management System",
     });
 
-    logger.info("Password reset email sent", { email, userId: user._id });
+    logger.info("Password reset email sent", { email, userId: user._id, method });
 
     return { message: "If an account exists, password reset instructions have been sent." };
 };
@@ -335,30 +379,27 @@ export const resetPassword = async (token, newPassword, metadata = {}) => {
         throw new BadRequestError("New password must be at least 8 characters long");
     }
 
-    // Hash the provided token to lookup in database
+    // Hash token for DB lookup (DB only stores hashes)
     const tokenHash = hashToken(token);
 
-    // Find the reset token (don't populate, we'll fetch user separately to get password)
+    // Lookup reset request (non-atomic read for validation context)
     const resetTokenDoc = await PasswordResetToken.findOne({
         tokenHash,
         isUsed: false,
     });
 
-    if (!resetTokenDoc) {
-        throw new UnauthorizedError("Invalid or expired reset token");
-    }
-
-    // Check if token has expired
-    if (resetTokenDoc.expiresAt <= new Date()) {
-        throw new UnauthorizedError("Reset token has expired. Please request a new password reset.");
+    if (!resetTokenDoc || resetTokenDoc.expiresAt <= new Date()) {
+        throw new UnauthorizedError(INVALID_RESET_CREDENTIALS_MESSAGE);
     }
 
     // Fetch user with password explicitly selected
-    const user = await User.findById(resetTokenDoc.userId).select("+password").populate("schoolId", "name");
+    const user = await User.findById(resetTokenDoc.userId)
+        .select("+password")
+        .populate("schoolId", "name");
 
     // Check user status
     if (!user || !user.isActive || user.isArchived) {
-        throw new UnauthorizedError("User account is no longer active");
+        throw new UnauthorizedError(INVALID_RESET_CREDENTIALS_MESSAGE);
     }
 
     // Check if new password is same as old
@@ -367,17 +408,47 @@ export const resetPassword = async (token, newPassword, metadata = {}) => {
         throw new BadRequestError("New password cannot be the same as your current password");
     }
 
+    // Atomically claim token to prevent race/reuse
+    const claimedResetToken = await PasswordResetToken.findOneAndUpdate(
+        {
+            _id: resetTokenDoc._id,
+            isUsed: false,
+            expiresAt: { $gt: new Date() },
+        },
+        {
+            $set: {
+                isUsed: true,
+                consumedAt: new Date(),
+            },
+        },
+        { new: true }
+    );
+
+    if (!claimedResetToken) {
+        throw new UnauthorizedError(INVALID_RESET_CREDENTIALS_MESSAGE);
+    }
+
     // Update user password
     user.password = newPassword;
     user.mustChangePassword = false;
     await user.save();
 
-    // Mark token as used
-    resetTokenDoc.isUsed = true;
-    await resetTokenDoc.save();
-
     // Delete all existing refresh tokens for this user (force re-login)
     await RefreshToken.deleteMany({ userId: user._id });
+
+    try {
+        await sendPasswordChangedEmail({
+            to: user.email,
+            name: user.name,
+            schoolName: user.schoolId?.name || "School Management System",
+            reason: "password reset via email link",
+        });
+    } catch (notifyError) {
+        logger.warn("Failed to send password change notification after reset via link", {
+            userId: user._id,
+            error: notifyError.message,
+        });
+    }
 
     logger.info("Password reset successful", { userId: user._id });
 
@@ -391,5 +462,114 @@ export const resetPassword = async (token, newPassword, metadata = {}) => {
         userAgentString: metadata.userAgent
     }).catch(() => {});
 
+    return { message: "Password has been reset successfully. Please login with your new password." };
+};
+
+// RESET PASSWORD (OTP) - Set new password using email + OTP
+export const resetPasswordWithOtp = async (email, otp, newPassword) => {
+    logger.info("Password reset via OTP attempt", { email });
+
+    if (!email || !otp || !newPassword) {
+        throw new BadRequestError("Email, OTP, and new password are required");
+    }
+
+    if (newPassword.length < 8) {
+        throw new BadRequestError("New password must be at least 8 characters long");
+    }
+
+    const user = await User.findOne({ email })
+        .select("+password")
+        .populate("schoolId", "name");
+
+    if (!user || !user.isActive || user.isArchived) {
+        throw new UnauthorizedError(INVALID_RESET_CREDENTIALS_MESSAGE);
+    }
+
+    const activeResetToken = await PasswordResetToken.findOne({
+        userId: user._id,
+        isUsed: false,
+        expiresAt: { $gt: new Date() },
+    }).sort({ createdAt: -1 });
+
+    if (!activeResetToken) {
+        throw new UnauthorizedError(INVALID_RESET_CREDENTIALS_MESSAGE);
+    }
+
+    if (activeResetToken.otpLockedUntil && activeResetToken.otpLockedUntil > new Date()) {
+        throw new UnauthorizedError("Too many invalid OTP attempts. Please request a new reset.");
+    }
+
+    const submittedOtpHash = hashToken(otp);
+    if (submittedOtpHash !== activeResetToken.otpHash) {
+        const nextAttempts = (activeResetToken.otpAttempts || 0) + 1;
+        const otpLockedUntil =
+            nextAttempts >= MAX_RESET_OTP_ATTEMPTS
+                ? new Date(Date.now() + RESET_OTP_LOCK_MINUTES * 60 * 1000)
+                : null;
+
+        await PasswordResetToken.findOneAndUpdate(
+            { _id: activeResetToken._id, isUsed: false },
+            {
+                $set: { otpLockedUntil },
+                $inc: { otpAttempts: 1 },
+            }
+        );
+
+        if (otpLockedUntil) {
+            throw new UnauthorizedError("Too many invalid OTP attempts. Please request a new reset.");
+        }
+
+        throw new UnauthorizedError(INVALID_RESET_CREDENTIALS_MESSAGE);
+    }
+
+    const isSamePassword = await bcrypt.compare(newPassword, user.password);
+    if (isSamePassword) {
+        throw new BadRequestError("New password cannot be the same as your current password");
+    }
+
+    const claimedResetToken = await PasswordResetToken.findOneAndUpdate(
+        {
+            _id: activeResetToken._id,
+            isUsed: false,
+            expiresAt: { $gt: new Date() },
+            otpHash: submittedOtpHash,
+            $or: [{ otpLockedUntil: null }, { otpLockedUntil: { $lte: new Date() } }],
+        },
+        {
+            $set: {
+                isUsed: true,
+                consumedAt: new Date(),
+                otpLockedUntil: null,
+            },
+            $inc: { otpAttempts: 1 },
+        },
+        { new: true }
+    );
+
+    if (!claimedResetToken) {
+        throw new UnauthorizedError(INVALID_RESET_CREDENTIALS_MESSAGE);
+    }
+
+    user.password = newPassword;
+    user.mustChangePassword = false;
+    await user.save();
+
+    await RefreshToken.deleteMany({ userId: user._id });
+
+    try {
+        await sendPasswordChangedEmail({
+            to: user.email,
+            name: user.name,
+            schoolName: user.schoolId?.name || "School Management System",
+            reason: "password reset via OTP",
+        });
+    } catch (notifyError) {
+        logger.warn("Failed to send password change notification after reset via OTP", {
+            userId: user._id,
+            error: notifyError.message,
+        });
+    }
+
+    logger.info("Password reset via OTP successful", { userId: user._id });
     return { message: "Password has been reset successfully. Please login with your new password." };
 };

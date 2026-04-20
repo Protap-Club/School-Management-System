@@ -9,9 +9,22 @@ const passwordResetTokenSchema = new mongoose.Schema({
     },
     tokenHash: {
         type: String,
-        required: true,
-        unique: true,
+        required: false,
+        sparse: true,
         index: true
+    },
+    otpHash: {
+        type: String,
+        required: false,
+        index: true
+    },
+    otpAttempts: {
+        type: Number,
+        default: 0
+    },
+    otpLockedUntil: {
+        type: Date,
+        default: null
     },
     expiresAt: {
         type: Date,
@@ -20,6 +33,10 @@ const passwordResetTokenSchema = new mongoose.Schema({
     isUsed: {
         type: Boolean,
         default: false
+    },
+    consumedAt: {
+        type: Date,
+        default: null
     },
     metadata: {
         userAgent: String,
@@ -31,5 +48,6 @@ const passwordResetTokenSchema = new mongoose.Schema({
 
 // Automatically remove expired tokens
 passwordResetTokenSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+passwordResetTokenSchema.index({ userId: 1, isUsed: 1, expiresAt: 1 });
 
 export default mongoose.model("PasswordResetToken", passwordResetTokenSchema);
