@@ -538,6 +538,10 @@ export const getExamById = async (schoolId, examId, user) => {
 // ═══════════════════════════════════════════════════════════════
 
 export const updateExam = async (schoolId, examId, data, user) => {
+    // Capture state BEFORE update for diff
+    const before = await Exam.findOne({ _id: examId, schoolId, isActive: true }).lean();
+    if (!before) throw new NotFoundError("Exam not found");
+
     const exam = await Exam.findOne({ _id: examId, schoolId, isActive: true });
     if (!exam) throw new NotFoundError("Exam not found");
 
@@ -595,6 +599,42 @@ export const updateExam = async (schoolId, examId, data, user) => {
     }
 
     logger.info(`Exam updated: ${examId}`);
+
+    // Capture state AFTER update for diff
+    const after = await Exam.findById(examId).lean();
+
+    // Build field-level changes diff (exclude schedule blob — too large; track only top-level scalar fields)
+    const IGNORED_FIELDS = ['_id', '__v', 'createdAt', 'updatedAt', 'createdBy', 'schoolId', 'schedule'];
+    const changes = [];
+    if (before && after) {
+        const allKeys = new Set([...Object.keys(before), ...Object.keys(after)]);
+        for (const key of allKeys) {
+            if (IGNORED_FIELDS.includes(key)) continue;
+            const prev = JSON.stringify(before[key]);
+            const next = JSON.stringify(after[key]);
+            if (prev !== next) {
+                changes.push({ field: key, before: before[key], after: after[key] });
+            }
+        }
+        // Summarise schedule changes as a flag to avoid logging large blobs
+        if (data.schedule !== undefined) {
+            changes.push({ field: 'schedule', before: '(previous schedule)', after: '(updated schedule)' });
+        }
+    }
+
+    createAuditLog({
+        schoolId,
+        actorId: user._id,
+        actorRole: user.role,
+        action: AUDIT_ACTIONS.EXAM_UPDATED,
+        targetModel: "Exam",
+        targetId: examId,
+        description: `Updated exam: "${exam.name}" (${exam.standard}-${exam.section})`,
+        metadata: { changes },
+        ip: user?.metadata?.ip,
+        userAgentString: user?.metadata?.userAgent,
+    }).catch(() => {});
+
     return exam;
 };
 

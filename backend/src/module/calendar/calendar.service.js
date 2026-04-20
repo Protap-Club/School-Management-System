@@ -433,19 +433,19 @@ export const getCalendarEventById = async (id, schoolId) => {
 // Update a calendar event
 export const updateCalendarEvent = async (id, updateData, user, metadata) => {
     // Check if event exists
-    const event = await CalendarEvent.findById(id);
+    const before = await CalendarEvent.findById(id).lean();
 
-    if (!event) {
+    if (!before) {
         logger.warn(`Calendar event not found for update: ${id}`);
         throw new NotFoundError("Event not found");
     }
-    if (event.sourceType === "exam") {
+    if (before.sourceType === "exam") {
         throw new ForbiddenError("Exam events can only be edited from the Examination module");
     }
 
     if (user.role === USER_ROLES.TEACHER) {
         // Original event must not be school-wide
-        if (event.targetAudience === 'all') {
+        if (before.targetAudience === 'all') {
             throw new ForbiddenError("Teachers cannot edit school-wide events");
         }
         
@@ -454,11 +454,11 @@ export const updateCalendarEvent = async (id, updateData, user, metadata) => {
             throw new ForbiddenError("Teachers cannot make events school-wide");
         }
     }
-    const nextAudience = updateData.targetAudience ?? event.targetAudience;
-    const nextClasses = updateData.targetClasses ?? event.targetClasses ?? [];
+    const nextAudience = updateData.targetAudience ?? before.targetAudience;
+    const nextClasses = updateData.targetClasses ?? before.targetClasses ?? [];
     let normalizedNextClasses = [];
     if (nextAudience === 'classes') {
-        normalizedNextClasses = await validateTargetClasses(event.schoolId, nextClasses, { requireNonEmpty: true });
+        normalizedNextClasses = await validateTargetClasses(before.schoolId, nextClasses, { requireNonEmpty: true });
         if (user.role === USER_ROLES.TEACHER) {
             await enforceTeacherScope(user, normalizedNextClasses);
         }
@@ -466,13 +466,13 @@ export const updateCalendarEvent = async (id, updateData, user, metadata) => {
     } else if (updateData.targetAudience === 'all') {
         updateData.targetClasses = [];
     }
-    if (user.role === USER_ROLES.TEACHER && event.targetAudience === 'classes' && !updateData.targetClasses) {
-        await enforceTeacherScope(user, event.targetClasses);
+    if (user.role === USER_ROLES.TEACHER && before.targetAudience === 'classes' && !updateData.targetClasses) {
+        await enforceTeacherScope(user, before.targetClasses);
     }
 
     // Merge new dates with existing ones to validate range correctly
-    const newStart = updateData.start ? new Date(updateData.start) : event.start;
-    const newEnd = updateData.end ? new Date(updateData.end) : event.end;
+    const newStart = updateData.start ? new Date(updateData.start) : before.start;
+    const newEnd = updateData.end ? new Date(updateData.end) : before.end;
 
     // Validate that Start <= End
     if (newStart > newEnd) {
@@ -490,17 +490,35 @@ export const updateCalendarEvent = async (id, updateData, user, metadata) => {
         { new: true, runValidators: true }
     ).populate('createdBy', 'name email');
 
+    // Fetch after state for diff
+    const after = await CalendarEvent.findById(id).lean();
+
     logger.info(`Calendar event updated: ${id}`);
 
+    // Build field-level changes diff
+    const IGNORED_FIELDS = ['_id', '__v', 'createdAt', 'updatedAt', 'createdBy', 'schoolId'];
+    const changes = [];
+    if (before && after) {
+        const allKeys = new Set([...Object.keys(before), ...Object.keys(after)]);
+        for (const key of allKeys) {
+            if (IGNORED_FIELDS.includes(key)) continue;
+            const prev = JSON.stringify(before[key]);
+            const next = JSON.stringify(after[key]);
+            if (prev !== next) {
+                changes.push({ field: key, before: before[key], after: after[key] });
+            }
+        }
+    }
+
     createAuditLog({
-        schoolId: event.schoolId,
+        schoolId: before.schoolId,
         actorId: user._id,
         actorRole: user.role,
         action: AUDIT_ACTIONS.CALENDAR.EVENT_UPDATED,
         targetModel: "CalendarEvent",
         targetId: updatedEvent._id,
         description: `Updated calendar event: "${updatedEvent.title}"`,
-        metadata: { fields: Object.keys(updateData) },
+        metadata: { changes },
         ip: metadata?.ip,
         userAgentString: metadata?.userAgent
     });

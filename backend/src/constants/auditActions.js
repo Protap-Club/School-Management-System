@@ -14,6 +14,8 @@ export const AUDIT_ACTIONS = Object.freeze({
     SALARY_UPDATED: 'fees.salary_updated',
     // Exam
     EXAM_STATUS_CHANGED: 'exam.status_changed',
+    EXAM_UPDATED: 'exam.updated',
+    EXAM_CREATED: 'exam.created',
     // School
     FEATURE_FLAG_TOGGLED: 'school.feature_flag_toggled',
     PROFILE_UPDATED: 'school.profile_updated',
@@ -81,6 +83,8 @@ export const ACTION_TYPE_MAP = Object.freeze({
     'fees.payment_recorded':             ACTION_TYPES.CREATE,
     'fees.salary_updated':               ACTION_TYPES.UPDATE,
     'exam.status_changed':               ACTION_TYPES.UPDATE,
+    'exam.updated':                      ACTION_TYPES.UPDATE,
+    'exam.created':                      ACTION_TYPES.CREATE,
     'school.feature_flag_toggled':       ACTION_TYPES.UPDATE,
     'school.profile_updated':            ACTION_TYPES.UPDATE,
     'notice.broadcast':                  ACTION_TYPES.BROADCAST,

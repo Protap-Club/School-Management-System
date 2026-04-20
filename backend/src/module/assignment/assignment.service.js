@@ -690,6 +690,10 @@ export const updateAssignment = async (schoolId, assignmentId, user, role, body,
 
     assertCanManageAssignment(role);
 
+    // Capture state BEFORE update for diff
+    const before = await Assignment.findOne({ _id: assignmentId, schoolId }).lean();
+    if (!before) throw new NotFoundError("Assignment not found");
+
     const assignment = await Assignment.findOne({ _id: assignmentId, schoolId });
     if (!assignment) throw new NotFoundError("Assignment not found");
 
@@ -718,6 +722,24 @@ export const updateAssignment = async (schoolId, assignmentId, user, role, body,
     await assignment.save();
     logger.info(`Assignment updated: ${assignmentId}`);
 
+    // Capture state AFTER update for diff
+    const after = await Assignment.findById(assignmentId).lean();
+
+    // Build field-level changes diff
+    const IGNORED_FIELDS = ['_id', '__v', 'createdAt', 'updatedAt', 'createdBy', 'schoolId'];
+    const changes = [];
+    if (before && after) {
+        const allKeys = new Set([...Object.keys(before), ...Object.keys(after)]);
+        for (const key of allKeys) {
+            if (IGNORED_FIELDS.includes(key)) continue;
+            const prev = JSON.stringify(before[key]);
+            const next = JSON.stringify(after[key]);
+            if (prev !== next) {
+                changes.push({ field: key, before: before[key], after: after[key] });
+            }
+        }
+    }
+
     createAuditLog({
         schoolId,
         actorId: user._id,
@@ -726,7 +748,7 @@ export const updateAssignment = async (schoolId, assignmentId, user, role, body,
         targetModel: "Assignment",
         targetId: assignment._id,
         description: `Updated assignment: ${assignment.title}`,
-        metadata: { fields: Object.keys(body) },
+        metadata: { changes },
         ip: metadata?.ip,
         userAgentString: metadata?.userAgent
     }).catch(err => logger.error(`Failed to create audit log: ${err.message}`));
