@@ -3,10 +3,10 @@ import { FaTimes, FaCheck, FaPlus, FaSave, FaArrowLeft, FaSearch } from 'react-i
 import {
     FEE_TYPES, FEE_TYPE_LABELS, FREQUENCY_OPTIONS, FREQUENCY_LABELS,
     PENALTY_TYPES, PENALTY_TYPE_LABELS,
-} from '../../features/fees';
-import { useFeeTypes, usePenaltyTypes, useFeeStructures, useStudentsByClass } from '../../features/fees/api/queries';
+} from '..';
+import { useFeeTypes, usePenaltyTypes, useFeeStructures, useStudentsByClass } from '../api/queries';
 import FeeTypeSideCard from './FeeTypeSideCard';
-import { useSchoolClasses } from '../../hooks/useSchoolClasses';
+import { useSchoolClasses } from '../../../hooks/useSchoolClasses';
 
 const INITIAL_ACADEMIC_YEAR_START_MONTH = 6; // June
 
