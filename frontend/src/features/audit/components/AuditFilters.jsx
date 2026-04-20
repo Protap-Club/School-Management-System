@@ -1,24 +1,71 @@
 import React from 'react';
-import { FaFilter, FaSearch, FaCalendarAlt } from 'react-icons/fa';
+import { Search, ChevronDown, Calendar, X } from 'lucide-react';
 
-// ─── Shared select wrapper ────────────────────────────────────────────────────
+// ─── Shared styles ────────────────────────────────────────────────────────────
 
-const FilterSelect = ({ label, value, onChange, children }) => (
-    <div>
-        <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">
-            {label}
-        </label>
+/**
+ * Common class string applied to every filter control (select + date input).
+ * Matches Google Cloud Console filter bar: uniform height, subtle border,
+ * soft shadow, clean focus ring, no vendor arrow on selects.
+ */
+const CONTROL_CLS =
+    'h-9 w-full px-3 text-sm text-slate-700 bg-white ' +
+    'border border-slate-200 rounded-lg shadow-sm ' +
+    'focus:outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary/60 ' +
+    'hover:border-slate-300 transition-all duration-150 ' +
+    'appearance-none cursor-pointer';
+
+// ─── Styled Select ────────────────────────────────────────────────────────────
+
+const FilterSelect = ({ value, onChange, children, 'aria-label': ariaLabel }) => (
+    <div className="relative flex-1 min-w-[130px]">
         <select
             value={value || ''}
             onChange={(e) => onChange(e.target.value)}
-            className="w-full h-[42px] px-3 text-sm text-slate-800 bg-slate-50/50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary focus:bg-white transition-all appearance-none cursor-pointer shadow-sm"
+            aria-label={ariaLabel}
+            className={CONTROL_CLS}
         >
             {children}
         </select>
+        {/* Custom dropdown arrow — replaces browser default */}
+        <ChevronDown
+            size={13}
+            className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400"
+        />
     </div>
 );
 
-// ─── Main component ───────────────────────────────────────────────────────────
+// ─── Styled Date Input ────────────────────────────────────────────────────────
+
+const DateInput = ({ value, onChange, placeholder, 'aria-label': ariaLabel }) => (
+    <div className="relative flex-1 min-w-[130px]">
+        {/* Calendar icon overlay — decorative */}
+        <Calendar
+            size={13}
+            className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400"
+        />
+        <input
+            type="date"
+            value={value || ''}
+            onChange={(e) => onChange(e.target.value)}
+            aria-label={ariaLabel}
+            placeholder={placeholder}
+            className={`${CONTROL_CLS} pl-8 cursor-text`}
+            style={{
+                /* Normalize browser date-picker chrome to look like a text input */
+                colorScheme: 'light',
+            }}
+        />
+    </div>
+);
+
+// ─── Vertical Divider ─────────────────────────────────────────────────────────
+
+const Divider = () => (
+    <div className="h-5 w-px bg-slate-200 flex-shrink-0 self-center" />
+);
+
+// ─── Main Component ───────────────────────────────────────────────────────────
 
 export const AuditFilters = ({ filters, setFilters }) => {
     const set = (key, value) => setFilters(prev => ({ ...prev, [key]: value, page: 0 }));
@@ -29,130 +76,128 @@ export const AuditFilters = ({ filters, setFilters }) => {
         filters.action_type || filters.severity || filters.outcome;
 
     return (
-        <div className="flex flex-col w-full p-5 bg-white ring-1 ring-slate-900/5 rounded-2xl shadow-sm mb-2">
+        <div className="w-full px-4 py-3 bg-white ring-1 ring-slate-900/5 rounded-xl shadow-sm mb-2">
+            {/* ── Single unified filter bar ─────────────────────────────── */}
+            <div className="flex items-center gap-2 flex-wrap">
 
-            {/* Row 1: Search + Module + Role + Action Type */}
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
-
-                {/* Search — widest */}
-                <div className="md:col-span-4">
-                    <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">
-                        Search Logs
-                    </label>
-                    <div className="relative">
-                        <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-400 pointer-events-none">
-                            <FaSearch size={13} />
-                        </span>
-                        <input
-                            type="text"
-                            placeholder="Search by action details or name…"
-                            value={filters.search || ''}
-                            onChange={(e) => set('search', e.target.value)}
-                            className="w-full h-[42px] pl-10 pr-4 text-sm text-slate-800 bg-slate-50/50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary focus:bg-white transition-all shadow-sm"
-                        />
-                    </div>
+                {/* Search — widest control */}
+                <div className="relative flex-[2] min-w-[200px]">
+                    <Search
+                        size={13}
+                        className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400"
+                    />
+                    <input
+                        type="text"
+                        placeholder="Search by action, name…"
+                        value={filters.search || ''}
+                        onChange={(e) => set('search', e.target.value)}
+                        aria-label="Search audit logs"
+                        className={`${CONTROL_CLS} pl-8 cursor-text`}
+                    />
                 </div>
 
-                {/* Module / Entity */}
-                <div className="md:col-span-2">
-                    <FilterSelect label="Module" value={filters.targetModel} onChange={(v) => set('targetModel', v)}>
-                        <option value="">All Modules</option>
-                        <option value="Assignment">Assignments</option>
-                        <option value="Auth">Authentication</option>
-                        <option value="CalendarEvent">Calendar</option>
-                        <option value="Examination">Examinations</option>
-                        <option value="Fee">Fees</option>
-                        <option value="Notice">Notices</option>
-                        <option value="ProxyRequest">Proxy Requests</option>
-                        <option value="School">School Settings</option>
-                        <option value="User">Users</option>
-                    </FilterSelect>
-                </div>
+                <Divider />
+
+                {/* Module */}
+                <FilterSelect
+                    aria-label="Filter by module"
+                    value={filters.targetModel}
+                    onChange={(v) => set('targetModel', v)}
+                >
+                    <option value="">All Modules</option>
+                    <option value="Assignment">Assignments</option>
+                    <option value="Auth">Authentication</option>
+                    <option value="CalendarEvent">Calendar</option>
+                    <option value="Examination">Examinations</option>
+                    <option value="Fee">Fees</option>
+                    <option value="Notice">Notices</option>
+                    <option value="ProxyRequest">Proxy</option>
+                    <option value="School">School</option>
+                    <option value="User">Users</option>
+                </FilterSelect>
 
                 {/* Actor Role */}
-                <div className="md:col-span-2">
-                    <FilterSelect label="Actor Role" value={filters.actorRole} onChange={(v) => set('actorRole', v)}>
-                        <option value="">All Roles</option>
-                        <option value="super_admin">Super Admin</option>
-                        <option value="admin">Admin</option>
-                        <option value="teacher">Teacher</option>
-                        <option value="student">Student</option>
-                    </FilterSelect>
-                </div>
+                <FilterSelect
+                    aria-label="Filter by actor role"
+                    value={filters.actorRole}
+                    onChange={(v) => set('actorRole', v)}
+                >
+                    <option value="">All Roles</option>
+                    <option value="super_admin">Super Admin</option>
+                    <option value="admin">Admin</option>
+                    <option value="teacher">Teacher</option>
+                    <option value="student">Student</option>
+                </FilterSelect>
 
-                {/* Action Type — new */}
-                <div className="md:col-span-2">
-                    <FilterSelect label="Action Type" value={filters.action_type} onChange={(v) => set('action_type', v)}>
-                        <option value="">All Types</option>
-                        <option value="LOGIN">Login</option>
-                        <option value="LOGOUT">Logout</option>
-                        <option value="CREATE">Create</option>
-                        <option value="UPDATE">Update</option>
-                        <option value="DELETE">Delete</option>
-                        <option value="BROADCAST">Broadcast</option>
-                    </FilterSelect>
-                </div>
+                {/* Action Type */}
+                <FilterSelect
+                    aria-label="Filter by action type"
+                    value={filters.action_type}
+                    onChange={(v) => set('action_type', v)}
+                >
+                    <option value="">All Types</option>
+                    <option value="LOGIN">Login</option>
+                    <option value="LOGOUT">Logout</option>
+                    <option value="CREATE">Create</option>
+                    <option value="UPDATE">Update</option>
+                    <option value="DELETE">Delete</option>
+                    <option value="BROADCAST">Broadcast</option>
+                </FilterSelect>
 
-                {/* Clear button */}
-                <div className="md:col-span-2 flex items-end">
-                    {hasActiveFilters && (
+                {/* Severity */}
+                <FilterSelect
+                    aria-label="Filter by severity"
+                    value={filters.severity}
+                    onChange={(v) => set('severity', v)}
+                >
+                    <option value="">All Severities</option>
+                    <option value="LOW">Low</option>
+                    <option value="MEDIUM">Medium</option>
+                    <option value="HIGH">High</option>
+                </FilterSelect>
+
+                {/* Outcome */}
+                <FilterSelect
+                    aria-label="Filter by outcome"
+                    value={filters.outcome}
+                    onChange={(v) => set('outcome', v)}
+                >
+                    <option value="">All Outcomes</option>
+                    <option value="SUCCESS">Success</option>
+                    <option value="FAILED">Failed</option>
+                </FilterSelect>
+
+                <Divider />
+
+                {/* Date range — styled to match dropdowns */}
+                <DateInput
+                    aria-label="Start date"
+                    value={filters.startDate}
+                    onChange={(v) => set('startDate', v)}
+                    placeholder="Start date"
+                />
+                <span className="text-slate-400 text-xs font-medium flex-shrink-0">to</span>
+                <DateInput
+                    aria-label="End date"
+                    value={filters.endDate}
+                    onChange={(v) => set('endDate', v)}
+                    placeholder="End date"
+                />
+
+                {/* Clear — only shown when any filter is active */}
+                {hasActiveFilters && (
+                    <>
+                        <Divider />
                         <button
                             onClick={() => setFilters({ page: 0, limit: filters.limit ?? 25 })}
-                            className="w-full h-[42px] text-xs font-semibold text-slate-500 hover:text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-xl transition-colors flex items-center justify-center gap-2"
+                            aria-label="Clear all filters"
+                            className="flex-shrink-0 flex items-center gap-1.5 h-9 px-3 text-xs font-semibold text-slate-500 hover:text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg transition-all duration-150 whitespace-nowrap"
                         >
-                            Clear Filters
+                            <X size={12} />
+                            Clear
                         </button>
-                    )}
-                </div>
-            </div>
-
-            {/* Row 2: Severity + Outcome + Date range */}
-            <div className="mt-4 pt-4 border-t border-slate-100 flex flex-col sm:flex-row gap-4 items-start sm:items-end flex-wrap">
-
-                {/* Severity — new */}
-                <div className="w-36">
-                    <FilterSelect label="Severity" value={filters.severity} onChange={(v) => set('severity', v)}>
-                        <option value="">All Severities</option>
-                        <option value="LOW">Low</option>
-                        <option value="MEDIUM">Medium</option>
-                        <option value="HIGH">High</option>
-                    </FilterSelect>
-                </div>
-
-                {/* Outcome — new */}
-                <div className="w-36">
-                    <FilterSelect label="Outcome" value={filters.outcome} onChange={(v) => set('outcome', v)}>
-                        <option value="">All Outcomes</option>
-                        <option value="SUCCESS">Success</option>
-                        <option value="FAILED">Failed</option>
-                    </FilterSelect>
-                </div>
-
-                {/* Divider */}
-                <div className="hidden sm:block h-[42px] w-px bg-slate-200 self-end" />
-
-                {/* Date range */}
-                <div className="flex items-end gap-3">
-                    <div className="flex gap-2 items-center self-end pb-1.5 text-slate-400">
-                        <FaCalendarAlt size={12} />
-                        <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">Date Range</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <input
-                            type="date"
-                            value={filters.startDate || ''}
-                            onChange={(e) => set('startDate', e.target.value)}
-                            className="h-[42px] px-3 text-sm text-slate-700 bg-slate-50/50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary focus:bg-white transition-all shadow-sm"
-                        />
-                        <span className="text-slate-400 text-sm font-medium">to</span>
-                        <input
-                            type="date"
-                            value={filters.endDate || ''}
-                            onChange={(e) => set('endDate', e.target.value)}
-                            className="h-[42px] px-3 text-sm text-slate-700 bg-slate-50/50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary focus:bg-white transition-all shadow-sm"
-                        />
-                    </div>
-                </div>
+                    </>
+                )}
             </div>
         </div>
     );

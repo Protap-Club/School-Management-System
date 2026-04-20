@@ -1,3 +1,4 @@
+import { randomBytes } from 'crypto';
 import { AuditLog } from './AuditLog.model.js';
 import {
     ACTION_TYPE_MAP,
@@ -89,15 +90,24 @@ export const createAuditLog = async ({
         });
 
         // ── Terminal Logging for System Admin (All Schools) ──
+        // requestId: prefer one injected by the caller via metadata, fall back to a
+        // short random hex token so every log line is uniquely traceable.
+        const requestId = metadata?.requestId ?? randomBytes(4).toString('hex');
+
         logger.info({
-            audit: true,
-            schoolId: schoolId || 'SUPER_ADMIN',
+            audit:        true,
+            schoolId:     schoolId || 'SUPER_ADMIN',
             actorId,
-            actorRole,
+            actorRole:    actorRole ? String(actorRole).toUpperCase() : undefined,
             action,
-            action_type: resolvedActionType,
-            severity: resolvedSeverity,
-            outcome
+            action_type:  resolvedActionType,
+            severity:     resolvedSeverity,
+            outcome,
+            resourceType: targetModel  ?? undefined,
+            resourceId:   targetId     ? String(targetId) : undefined,
+            ip:           ip           ?? undefined,
+            sessionId:    session_id   ?? undefined,
+            requestId,
         }, `[SYSTEM AUDIT] ${description}`);
     } catch (error) {
         // Fire and forget; do not throw to caller

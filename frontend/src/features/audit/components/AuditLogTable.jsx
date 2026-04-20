@@ -135,13 +135,13 @@ const ChangesDiffTable = ({ changes }) => {
     if (!Array.isArray(changes) || changes.length === 0) return null;
     return (
         <div className="mt-3">
-            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-2">Fields Changed</p>
+            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-2 pb-1.5 border-b border-slate-100">Fields Changed</p>
             <table className="w-full text-xs border-collapse">
                 <thead>
                     <tr className="border-b border-slate-100">
-                        <th className="text-left py-1.5 pr-4 font-semibold text-slate-500 w-1/4">Field</th>
-                        <th className="text-left py-1.5 pr-4 font-semibold text-slate-500 w-[37.5%]">Before</th>
-                        <th className="text-left py-1.5 font-semibold text-slate-500 w-[37.5%]">After</th>
+                        <th className="text-left py-1.5 pr-4 text-[10px] font-bold uppercase tracking-wider text-slate-400 w-1/4">Field</th>
+                        <th className="text-left py-1.5 pr-4 text-[10px] font-bold uppercase tracking-wider text-slate-400 w-[37.5%]">Before</th>
+                        <th className="text-left py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400 w-[37.5%]">After</th>
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
@@ -178,8 +178,8 @@ const ExpandedPanel = ({ log }) => {
                     {/* Full Resource ID — expanded view of the truncated Module #shortId chip */}
                     {fullTargetId && (
                         <div>
-                            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">
-                                Full Resource ID
+                            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5 pb-1 border-b border-slate-100">
+                                Resource
                             </p>
                             <div className="flex items-center gap-1.5 flex-wrap">
                                 {log.targetModel && (
@@ -196,7 +196,7 @@ const ExpandedPanel = ({ log }) => {
                     {/* Session ID */}
                     {sessionId && (
                         <div>
-                            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Session ID</p>
+                            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5 pb-1 border-b border-slate-100">Session</p>
                             <span className="font-mono text-[11px] text-slate-600 bg-slate-100 px-2 py-1 rounded select-all">
                                 {sessionId}
                             </span>
@@ -310,9 +310,11 @@ const AuditLogRow = ({ log }) => {
                     <div className="flex flex-col gap-0.5">
                         <span className="text-sm text-slate-700 font-medium">{moduleName}</span>
                         {moduleId && (
-                            <span className="font-mono text-[11px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded w-max"
-                                title={log.targetId}>
-                                #{moduleId}
+                            <span
+                                className="font-mono text-[10px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded w-max select-all"
+                                title={log.targetId}
+                            >
+                                {moduleId}
                             </span>
                         )}
                     </div>
