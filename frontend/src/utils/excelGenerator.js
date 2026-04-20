@@ -13,6 +13,7 @@ export const generateFeeExcel = async (classStudents, summary, classInfo, month,
     try {
         const rows = classStudents.flatMap(student =>
             (student.fees || []).map(fee => ({
+                rollNumber: student.rollNumber || '-',
                 name: student.name,
                 feeType: fee.name || fee.feeType,
                 amount: fee.amount || 0,
@@ -32,12 +33,13 @@ export const generateFeeExcel = async (classStudents, summary, classInfo, month,
 
         // Define columns with headers and widths
         sheet.columns = [
-            { header: 'Student Name',      key: 'name',    width: 25 },
-            { header: 'Fee Type',           key: 'feeType', width: 20 },
-            { header: 'Total Amount (INR)', key: 'amount',  width: 18, style: { alignment: { horizontal: 'left' } } },
-            { header: 'Paid (INR)',         key: 'paid',    width: 15, style: { alignment: { horizontal: 'left' } } },
-            { header: 'Status',             key: 'status',  width: 12 },
-            { header: 'Due Date',           key: 'dueDate', width: 12 },
+            { header: 'Roll No',           key: 'rollNumber', width: 10 },
+            { header: 'Student Name',      key: 'name',       width: 25 },
+            { header: 'Fee Type',           key: 'feeType',    width: 20 },
+            { header: 'Total Amount (INR)', key: 'amount',     width: 18, style: { alignment: { horizontal: 'left' } } },
+            { header: 'Paid (INR)',         key: 'paid',       width: 15, style: { alignment: { horizontal: 'left' } } },
+            { header: 'Status',             key: 'status',     width: 12 },
+            { header: 'Due Date',           key: 'dueDate',    width: 12 },
         ];
 
         // Style the header row
@@ -77,6 +79,7 @@ export const generatePenaltyExcel = async (penaltyStudents, summary, classInfo, 
     try {
         const rows = penaltyStudents.flatMap(student =>
             (student.penalties || []).map(p => ({
+                rollNumber: student.rollNumber || '-',
                 name: student.name,
                 reason: p.reason || 'N/A',
                 penaltyType: p.penaltyType || 'N/A',
@@ -97,6 +100,7 @@ export const generatePenaltyExcel = async (penaltyStudents, summary, classInfo, 
 
         // Define columns
         sheet.columns = [
+            { header: 'Roll No',           key: 'rollNumber',  width: 10 },
             { header: 'Student Name',      key: 'name',        width: 25 },
             { header: 'Reason',             key: 'reason',      width: 30 },
             { header: 'Type',               key: 'penaltyType', width: 20 },

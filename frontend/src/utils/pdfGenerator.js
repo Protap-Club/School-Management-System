@@ -24,7 +24,7 @@ export const generateFeeReport = (classStudents, summary, classInfo, month, year
         doc.setFillColor(...navy);
         doc.rect(0, 0, pageWidth, 40, 'F');
         
-        doc.setFontSize(22);
+        doc.setFontSize(18);
         doc.setTextColor(255, 255, 255);
         doc.setFont(undefined, 'bold');
         doc.text('STUDENT FEE REPORT', 20, 27);
@@ -32,7 +32,8 @@ export const generateFeeReport = (classStudents, summary, classInfo, month, year
         doc.setFontSize(10);
         doc.setFont(undefined, 'normal');
         doc.text('NAVRACHNA INTERNATIONAL SCHOOL', pageWidth - 20, 20, { align: 'right' });
-        doc.text(`DATE: ${MONTH_LABELS[month] || ''} ${year || ''}`, pageWidth - 20, 27, { align: 'right' });
+        const periodText = month ? `${MONTH_LABELS[month]} ${year} - ${year + 1}` : `${year} - ${year + 1}`;
+        doc.text(`REPORT PERIOD: ${periodText}`, pageWidth - 20, 27, { align: 'right' });
 
         // Metadata
         doc.setFontSize(10);
@@ -66,6 +67,7 @@ export const generateFeeReport = (classStudents, summary, classInfo, month, year
         // Table
         const tableData = (classStudents || []).flatMap(student => 
             (student?.fees || []).map((fee, idx) => [
+                idx === 0 ? student.rollNumber || '-' : '',
                 idx === 0 ? student.name : '',
                 fee.name || fee.feeType,
                 `INR ${fee.amount?.toLocaleString() || 0}`,
@@ -78,7 +80,7 @@ export const generateFeeReport = (classStudents, summary, classInfo, month, year
         if (tableData.length > 0) {
             autoTable(doc, {
                 startY: 95,
-                head: [['Student', 'Fee Type', 'Amount', 'Paid', 'Status', 'Due Date']],
+                head: [['Roll No', 'Student', 'Fee Type', 'Amount', 'Paid', 'Status', 'Due Date']],
                 body: tableData,
                 theme: 'striped',
                 headStyles: { fillColor: [79, 70, 229], textColor: [255, 255, 255], fontStyle: 'bold' },
@@ -117,7 +119,7 @@ export const generatePenaltyReport = (penaltyStudents, summary, classInfo, month
         doc.setFillColor(...navy);
         doc.rect(0, 0, pageWidth, 40, 'F');
         
-        doc.setFontSize(22);
+        doc.setFontSize(18);
         doc.setTextColor(255, 255, 255);
         doc.setFont(undefined, 'bold');
         doc.text('CLASS PENALTY REPORT', 20, 27);
@@ -125,7 +127,9 @@ export const generatePenaltyReport = (penaltyStudents, summary, classInfo, month
         doc.setFontSize(10);
         doc.setFont(undefined, 'normal');
         doc.text('NAVRACHNA INTERNATIONAL SCHOOL', pageWidth - 20, 20, { align: 'right' });
-        doc.text(`DATE: ${MONTH_LABELS[month] || ''} ${year || ''}`, pageWidth - 20, 27, { align: 'right' });
+        // Handle case where month might be swapped with year or missing
+        const displayYear = year || month; 
+        doc.text(`REPORT PERIOD: ${displayYear} - ${displayYear + 1}`, pageWidth - 20, 27, { align: 'right' });
 
         // Metadata
         doc.setFontSize(10);
@@ -159,6 +163,7 @@ export const generatePenaltyReport = (penaltyStudents, summary, classInfo, month
         // Table
         const tableData = (penaltyStudents || []).flatMap(student => 
             (student?.penalties || []).map((p, idx) => [
+                idx === 0 ? student.rollNumber || '-' : '',
                 idx === 0 ? student.name : '',
                 p.reason || 'N/A',
                 p.penaltyType || 'N/A',
@@ -172,7 +177,7 @@ export const generatePenaltyReport = (penaltyStudents, summary, classInfo, month
         if (tableData.length > 0) {
             autoTable(doc, {
                 startY: 100,
-                head: [['Student', 'Reason', 'Type', 'Amount', 'Collected', 'Status', 'Date']],
+                head: [['Roll No', 'Student', 'Reason', 'Type', 'Amount', 'Collected', 'Status', 'Date']],
                 body: tableData,
                 theme: 'grid',
                 headStyles: { fillColor: [...navy], textColor: [255, 255, 255], fontStyle: 'bold' },

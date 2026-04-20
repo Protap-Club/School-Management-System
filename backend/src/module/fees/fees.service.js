@@ -506,6 +506,16 @@ export const getClassFeeOverview = async (schoolId, academicYear, month, standar
             },
         },
         { $unwind: "$profile" },
+        // Look up all payments for this assignment
+        {
+            $lookup: {
+                from: "feepayments",
+                localField: "_id",
+                foreignField: "feeAssignmentId",
+                as: "payments",
+                pipeline: [{ $project: { receiptNumber: 1, paymentDate: 1, paymentMode: 1 } }, { $sort: { paymentDate: -1 } }],
+            },
+        },
         // Project final shape per student
         {
             $project: {
@@ -522,6 +532,8 @@ export const getClassFeeOverview = async (schoolId, academicYear, month, standar
                     paid: "$paidAmount",
                     status: "$status",
                     dueDate: "$dueDate",
+                    month: "$month",
+                    year: "$academicYear",
                     remarks: "$remarks",
                     payments: "$payments",
                 },
