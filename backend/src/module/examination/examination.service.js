@@ -566,6 +566,55 @@ export const updateExam = async (schoolId, examId, data, user) => {
     await exam.save();
     await syncExamCalendarEvents(exam, schoolId);
 
+    // ═══════════════════════════════════════════════════════════════
+    // EXPANSION LOGIC — Create exams for newly added classes/sections
+    // ═══════════════════════════════════════════════════════════════
+    const targetStandards = data.standard ? (Array.isArray(data.standard) ? data.standard : [data.standard]) : null;
+    const targetSections = data.section ? (Array.isArray(data.section) ? data.section : [data.section]) : null;
+
+    if (targetStandards && targetSections) {
+        for (const std of targetStandards) {
+            for (const sec of targetSections) {
+                // If it matches the current exam's class structure, skip (already updated)
+                if (std === exam.standard && sec === exam.section) continue;
+
+                // Check if an exam already exists for this name/year/type combination in this class
+                const existingExam = await Exam.findOne({
+                    schoolId,
+                    name: exam.name,
+                    academicYear: exam.academicYear,
+                    examType: exam.examType,
+                    standard: std,
+                    section: sec,
+                    isActive: true
+                });
+
+                if (!existingExam) {
+                    const newExam = new Exam({
+                        schoolId,
+                        name: exam.name,
+                        examType: exam.examType,
+                        category: exam.category,
+                        categoryDescription: exam.categoryDescription,
+                        academicYear: exam.academicYear,
+                        standard: std,
+                        section: sec,
+                        description: exam.description,
+                        schedule: JSON.parse(JSON.stringify(exam.schedule)), // Deep copy schedule to avoid shared refs
+                        status: exam.status,
+                        createdBy: user._id,
+                        createdByRole: user.role,
+                        creatorSnapshot: buildCreatorSnapshot(user, std, sec),
+                    });
+                    
+                    await newExam.save();
+                    await syncExamCalendarEvents(newExam, schoolId);
+                    logger.info(`Exam expanded to class ${std}-${sec} during update of ${examId}`);
+                }
+            }
+        }
+    }
+
     if (data.schedule !== undefined) {
         const nextScheduleAttachmentUrls = new Set(getScheduleAttachmentUrls(exam.schedule));
         const removedAttachmentUrls = previousScheduleAttachmentUrls.filter(
