@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { IoClose, IoAddCircleOutline } from 'react-icons/io5';
-import { useCreateFeeType, useCreatePenaltyType } from '../../features/fees/api/queries';
+import { useCreateFeeType, useCreatePenaltyType } from '../api/queries';
 
 const CARD_CONFIG = {
     fee: {
