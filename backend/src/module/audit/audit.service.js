@@ -1,9 +1,11 @@
+import { randomBytes } from 'crypto';
 import { AuditLog } from './AuditLog.model.js';
 import {
     ACTION_TYPE_MAP,
     SEVERITY_MAP,
     OUTCOME_VALUES,
 } from '../../constants/auditActions.js';
+import logger from '../../config/logger.js';
 
 /**
  * Creates an audit log entry in the database.
@@ -86,9 +88,30 @@ export const createAuditLog = async ({
             ip,
             userAgent
         });
+
+        // ── Terminal Logging for System Admin (All Schools) ──
+        // requestId: prefer one injected by the caller via metadata, fall back to a
+        // short random hex token so every log line is uniquely traceable.
+        const requestId = metadata?.requestId ?? randomBytes(4).toString('hex');
+
+        logger.info({
+            audit:        true,
+            schoolId:     schoolId || 'SUPER_ADMIN',
+            actorId,
+            actorRole:    actorRole ? String(actorRole).toUpperCase() : undefined,
+            action,
+            action_type:  resolvedActionType,
+            severity:     resolvedSeverity,
+            outcome,
+            resourceType: targetModel  ?? undefined,
+            resourceId:   targetId     ? String(targetId) : undefined,
+            ip:           ip           ?? undefined,
+            sessionId:    session_id   ?? undefined,
+            requestId,
+        }, `[SYSTEM AUDIT] ${description}`);
     } catch (error) {
         // Fire and forget; do not throw to caller
-        console.error('Audit Log Creation Failed:', error);
+        logger.error({ err: error }, 'Audit Log Creation Failed');
     }
 };
 

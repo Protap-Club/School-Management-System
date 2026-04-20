@@ -428,6 +428,26 @@ export const createExam = async (schoolId, data, user) => {
             createdExams.map((exam) => createExamCreatedNoticeForAdmins(activeSchoolId, exam, user))
         );
 
+        // Audit log — one entry per exam created
+        createdExams.forEach((exam) => {
+            createAuditLog({
+                schoolId: activeSchoolId,
+                actorId: user._id,
+                actorRole: user.role,
+                action: AUDIT_ACTIONS.EXAM_CREATED,
+                targetModel: "Exam",
+                targetId: exam._id,
+                description: `Created exam: "${exam.name}" for Class ${exam.standard}-${exam.section} (status: ${exam.status})`,
+                metadata: {
+                    examType: exam.examType,
+                    standard: exam.standard,
+                    section: exam.section,
+                    academicYear: exam.academicYear,
+                    status: exam.status,
+                },
+            }).catch(() => {});
+        });
+
         return exams[0]; // Return the first one for the frontend to handle completion
     } catch (error) {
         if (session) {
@@ -537,7 +557,11 @@ export const getExamById = async (schoolId, examId, user) => {
 // UPDATE EXAM — Admin for term exams, teacher for own class tests
 // ═══════════════════════════════════════════════════════════════
 
-export const updateExam = async (schoolId, examId, data, user) => {
+export const updateExam = async (schoolId, examId, data, user, metadata = {}) => {
+    // Capture state BEFORE update for diff
+    const before = await Exam.findOne({ _id: examId, schoolId, isActive: true }).lean();
+    if (!before) throw new NotFoundError("Exam not found");
+
     const exam = await Exam.findOne({ _id: examId, schoolId, isActive: true });
     if (!exam) throw new NotFoundError("Exam not found");
 
@@ -565,6 +589,55 @@ export const updateExam = async (schoolId, examId, data, user) => {
 
     await exam.save();
     await syncExamCalendarEvents(exam, schoolId);
+
+    // ═══════════════════════════════════════════════════════════════
+    // EXPANSION LOGIC — Create exams for newly added classes/sections
+    // ═══════════════════════════════════════════════════════════════
+    const targetStandards = data.standard ? (Array.isArray(data.standard) ? data.standard : [data.standard]) : null;
+    const targetSections = data.section ? (Array.isArray(data.section) ? data.section : [data.section]) : null;
+
+    if (targetStandards && targetSections) {
+        for (const std of targetStandards) {
+            for (const sec of targetSections) {
+                // If it matches the current exam's class structure, skip (already updated)
+                if (std === exam.standard && sec === exam.section) continue;
+
+                // Check if an exam already exists for this name/year/type combination in this class
+                const existingExam = await Exam.findOne({
+                    schoolId,
+                    name: exam.name,
+                    academicYear: exam.academicYear,
+                    examType: exam.examType,
+                    standard: std,
+                    section: sec,
+                    isActive: true
+                });
+
+                if (!existingExam) {
+                    const newExam = new Exam({
+                        schoolId,
+                        name: exam.name,
+                        examType: exam.examType,
+                        category: exam.category,
+                        categoryDescription: exam.categoryDescription,
+                        academicYear: exam.academicYear,
+                        standard: std,
+                        section: sec,
+                        description: exam.description,
+                        schedule: JSON.parse(JSON.stringify(exam.schedule)), // Deep copy schedule to avoid shared refs
+                        status: exam.status,
+                        createdBy: user._id,
+                        createdByRole: user.role,
+                        creatorSnapshot: buildCreatorSnapshot(user, std, sec),
+                    });
+                    
+                    await newExam.save();
+                    await syncExamCalendarEvents(newExam, schoolId);
+                    logger.info(`Exam expanded to class ${std}-${sec} during update of ${examId}`);
+                }
+            }
+        }
+    }
 
     if (data.schedule !== undefined) {
         const nextScheduleAttachmentUrls = new Set(getScheduleAttachmentUrls(exam.schedule));
@@ -595,6 +668,42 @@ export const updateExam = async (schoolId, examId, data, user) => {
     }
 
     logger.info(`Exam updated: ${examId}`);
+
+    // Capture state AFTER update for diff
+    const after = await Exam.findById(examId).lean();
+
+    // Build field-level changes diff (exclude schedule blob — too large; track only top-level scalar fields)
+    const IGNORED_FIELDS = ['_id', '__v', 'createdAt', 'updatedAt', 'createdBy', 'schoolId', 'schedule'];
+    const changes = [];
+    if (before && after) {
+        const allKeys = new Set([...Object.keys(before), ...Object.keys(after)]);
+        for (const key of allKeys) {
+            if (IGNORED_FIELDS.includes(key)) continue;
+            const prev = JSON.stringify(before[key]);
+            const next = JSON.stringify(after[key]);
+            if (prev !== next) {
+                changes.push({ field: key, before: before[key], after: after[key] });
+            }
+        }
+        // Summarise schedule changes as a flag to avoid logging large blobs
+        if (data.schedule !== undefined) {
+            changes.push({ field: 'schedule', before: '(previous schedule)', after: '(updated schedule)' });
+        }
+    }
+
+    createAuditLog({
+        schoolId,
+        actorId: user._id,
+        actorRole: user.role,
+        action: AUDIT_ACTIONS.EXAM_UPDATED,
+        targetModel: "Exam",
+        targetId: examId,
+        description: `Updated exam: "${exam.name}" (${exam.standard}-${exam.section})`,
+        metadata: { changes },
+        ip: metadata?.ip,
+        userAgentString: metadata?.userAgent,
+    }).catch(() => {});
+
     return exam;
 };
 
@@ -891,22 +1000,22 @@ export const updateStatus = async (schoolId, examId, newStatus, user, metadata) 
     }
 
     logger.info(`Exam status changed: ${examId} → ${newStatus}`);
+
+    // Build diff
+    const changes = [{ field: 'status', before: previousStatus, after: newStatus }];
+
     // Fire-and-forget audit log
     createAuditLog({
         schoolId,
-        action: AUDIT_ACTIONS.EXAM_STATUS_CHANGED,
         actorId: user._id,
         actorRole: user.role,
-        targetEntity: "Exam",
+        action: AUDIT_ACTIONS.EXAM_STATUS_CHANGED,
+        targetModel: "Exam",
         targetId: exam._id,
-        details: {
-            oldStatus: previousStatus,
-            newStatus,
-            title: exam.name,
-            type: exam.examType,
-        },
-        ipAddress: metadata?.ip,
-        userAgent: metadata?.userAgent,
+        description: `Changed exam status: "${exam.name}" ${previousStatus} → ${newStatus}`,
+        metadata: { changes },
+        ip: metadata?.ip,
+        userAgentString: metadata?.userAgent,
     }).catch(() => {});
 
     return exam;

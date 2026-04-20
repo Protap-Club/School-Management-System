@@ -1,5 +1,5 @@
 import React from 'react';
-import { FaWallet, FaDownload } from 'react-icons/fa';
+import { FaWallet, FaDownload, FaChevronLeft, FaChevronRight } from 'react-icons/fa';
 import { SkeletonRows } from '../../../components/ui/SkeletonRows';
 import { EmptyState } from '../../../components/ui/EmptyState';
 import { MONTH_LABELS } from '../index';
@@ -9,6 +9,7 @@ const TeacherSalaryTab = ({
     mySalaryData,
     mySalaryLoading,
     overviewYear,
+    setOverviewYear,
     user,
 }) => (
     <div className="space-y-6 animate-fadeIn">
@@ -32,7 +33,15 @@ const TeacherSalaryTab = ({
         <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm">
             <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
                 <h2 className="text-lg font-bold text-gray-900 font-display">Salary Payout History</h2>
-                <p className="text-xs font-medium text-gray-500">{overviewYear}</p>
+                <div className="flex items-center gap-2">
+                    <button onClick={() => setOverviewYear(y => y - 1)} className="p-1.5 hover:bg-gray-100 rounded-lg transition-all text-gray-500 hover:text-gray-800">
+                        <FaChevronLeft size={12} />
+                    </button>
+                    <span className="text-xs font-black text-gray-700 tracking-wide min-w-[90px] text-center">{overviewYear} - {overviewYear + 1}</span>
+                    <button onClick={() => setOverviewYear(y => y + 1)} className="p-1.5 hover:bg-gray-100 rounded-lg transition-all text-gray-500 hover:text-gray-800">
+                        <FaChevronRight size={12} />
+                    </button>
+                </div>
             </div>
             <div className="overflow-x-auto">
                 <table className="w-full text-sm text-left">

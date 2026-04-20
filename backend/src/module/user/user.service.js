@@ -16,21 +16,6 @@ import { BadRequestError, NotFoundError, ConflictError, ForbiddenError } from ".
 import { deleteFromCloudinary } from "../../middlewares/upload.middleware.js";
 import logger from "../../config/logger.js";
 import { generatePassword } from "../../utils/password.util.js";
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// Load profiles once for dynamic overrides
-const profilesPath = path.resolve(__dirname, '../../seed/data/profiles.json');
-let profilesData = {};
-try {
-    profilesData = JSON.parse(fs.readFileSync(profilesPath, 'utf8'));
-} catch (err) {
-    logger.warn("Failed to load profiles.json for salary overrides");
-}
 import {
     assertClassSectionExists,
     assertClassSectionListExists,
@@ -1186,6 +1171,9 @@ export const updateTeacherProfile = async (creator, userId, data, metadata = {})
     // Remove forceOverride from data before saving to DB
     const { forceOverride, ...profileData } = data;
 
+    // Capture BEFORE state for diff
+    const before = await TeacherProfile.findOne({ userId, schoolId: creator.schoolId }).lean();
+
     const updatedProfile = await TeacherProfile.findOneAndUpdate(
         { userId, schoolId: creator.schoolId },
         { $set: profileData },
@@ -1196,13 +1184,30 @@ export const updateTeacherProfile = async (creator, userId, data, metadata = {})
 
     logger.info(`Teacher profile updated for user ${userId} by ${creator._id}`);
 
+    // Capture AFTER state and build diff
+    const after = await TeacherProfile.findOne({ userId, schoolId: creator.schoolId }).lean();
+    const IGNORED_FIELDS_TP = ['_id', '__v', 'createdAt', 'updatedAt', 'userId', 'schoolId'];
+    const changes = [];
+    if (before && after) {
+        const allKeys = new Set([...Object.keys(before), ...Object.keys(after)]);
+        for (const key of allKeys) {
+            if (IGNORED_FIELDS_TP.includes(key)) continue;
+            const prev = JSON.stringify(before[key]);
+            const next = JSON.stringify(after[key]);
+            if (prev !== next) {
+                changes.push({ field: key, before: before[key], after: after[key] });
+            }
+        }
+    }
+
     createAuditLog({
         schoolId: creator.schoolId,
         actorId: creator._id,
         actorRole: creator.role,
         action: AUDIT_ACTIONS.USER_UPDATED,
         description: `Updated teacher profile for user ${user.email}`,
-        ...metadata
+        metadata: { changes },
+        ...Object.fromEntries(Object.entries(metadata).filter(([k]) => k !== 'changes'))
     }).catch(() => {});
     return updatedProfile;
 };
@@ -1350,13 +1355,29 @@ export const updateUser = async (creator, userId, payload = {}, metadata = {}) =
         .populate("adminProfile")
         .lean();
 
+    // Build field-level changes diff on User-level scalar fields only
+    const IGNORED_FIELDS_U = ['_id', '__v', 'createdAt', 'updatedAt', 'password', 'schoolId',
+        'refreshToken', 'passwordResetToken', 'passwordResetExpires', 'avatarPublicId'];
+    const userBefore = { name: user.name, email: user.email, contactNo: user.contactNo };
+    const userAfter  = { name: refreshed?.name, email: refreshed?.email, contactNo: refreshed?.contactNo };
+    const changes = [];
+    for (const key of Object.keys(userBefore)) {
+        if (IGNORED_FIELDS_U.includes(key)) continue;
+        const prev = JSON.stringify(userBefore[key]);
+        const next = JSON.stringify(userAfter[key]);
+        if (prev !== next) {
+            changes.push({ field: key, before: userBefore[key], after: userAfter[key] });
+        }
+    }
+
     createAuditLog({
         schoolId: creator.schoolId,
         actorId: creator._id,
         actorRole: creator.role,
         action: AUDIT_ACTIONS.USER_UPDATED,
         description: `Updated user ${user.email} (${user.role})`,
-        ...metadata
+        metadata: { changes },
+        ...Object.fromEntries(Object.entries(metadata).filter(([k]) => !['changes'].includes(k)))
     }).catch(() => {});
 
     return formatUserResponse(refreshed);
@@ -1423,16 +1444,6 @@ const formatUserResponse = (user) => {
     if (profile) {
         const { permissions, ...rest } = profile;
         sanitizedProfile = rest;
-
-        // Dynamic Salary Override from profiles.json
-        if (user.role === 'teacher' && user.schoolId?.code) {
-            const schoolCode = user.schoolId.code;
-            const schoolProfiles = profilesData[schoolCode]?.teacherProfiles || [];
-            const jsonProfile = schoolProfiles.find(p => p.email === user.email);
-            if (jsonProfile && jsonProfile.expectedSalary) {
-                sanitizedProfile.expectedSalary = jsonProfile.expectedSalary;
-            }
-        }
     }
 
     return {

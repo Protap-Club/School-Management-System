@@ -135,24 +135,28 @@ const ChangesDiffTable = ({ changes }) => {
     if (!Array.isArray(changes) || changes.length === 0) return null;
     return (
         <div className="mt-3">
-            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-2">Fields Changed</p>
+            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-2 pb-1.5 border-b border-slate-100">Fields Changed</p>
             <table className="w-full text-xs border-collapse">
                 <thead>
                     <tr className="border-b border-slate-100">
-                        <th className="text-left py-1.5 pr-4 font-semibold text-slate-500 w-1/4">Field</th>
-                        <th className="text-left py-1.5 pr-4 font-semibold text-slate-500 w-[37.5%]">Before</th>
-                        <th className="text-left py-1.5 font-semibold text-slate-500 w-[37.5%]">After</th>
+                        <th className="text-left py-1.5 pr-4 text-[10px] font-bold uppercase tracking-wider text-slate-400 w-1/4">Field</th>
+                        <th className="text-left py-1.5 pr-4 text-[10px] font-bold uppercase tracking-wider text-slate-400 w-[37.5%]">Before</th>
+                        <th className="text-left py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400 w-[37.5%]">After</th>
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
                     {changes.map((c, i) => (
                         <tr key={i}>
-                            <td className="py-1.5 pr-4 font-mono text-slate-600 font-medium">{c.field}</td>
-                            <td className="py-1.5 pr-4 font-mono text-red-600 bg-red-50/60 rounded px-1.5 max-w-[200px] truncate">
-                                {c.before !== undefined ? String(c.before) : '—'}
+                            <td className="py-1.5 pr-4 font-mono text-slate-500 font-normal">{c.field}</td>
+                            <td className="py-1.5 pr-2">
+                                <span className="font-mono text-red-600 bg-red-50 px-1.5 py-0.5 rounded">
+                                    {c.before !== undefined ? String(c.before) : '—'}
+                                </span>
                             </td>
-                            <td className="py-1.5 font-mono text-emerald-700 bg-emerald-50/60 rounded px-1.5 max-w-[200px] truncate">
-                                {c.after !== undefined ? String(c.after) : '—'}
+                            <td className="py-1.5">
+                                <span className="font-mono text-green-600 bg-green-50 px-1.5 py-0.5 rounded">
+                                    {c.after !== undefined ? String(c.after) : '—'}
+                                </span>
                             </td>
                         </tr>
                     ))}
@@ -167,7 +171,12 @@ const ChangesDiffTable = ({ changes }) => {
 const ExpandedPanel = ({ log }) => {
     const sessionId = log.session_id;
     const changes = log.metadata?.changes;
-    const hasChanges = Array.isArray(changes) && changes.length > 0;
+    // Gate diff on resolved action type — handles both DB field and legacy client-side fallback
+    const resolvedType = resolveActionType(log);
+    const hasChanges =
+        resolvedType === 'UPDATE' &&
+        Array.isArray(changes) &&
+        changes.length > 0;
     // Show the full target ID (Module column only shows last-6 chars)
     const fullTargetId = log.targetId ? String(log.targetId) : null;
 
@@ -175,11 +184,11 @@ const ExpandedPanel = ({ log }) => {
         <tr>
             <td colSpan={8} className="px-0 py-0">
                 <div className="mx-0 bg-slate-50/70 border-t border-b border-slate-100 px-6 py-4 grid grid-cols-1 md:grid-cols-3 gap-6 text-sm animate-fadeIn">
-                    {/* Full Resource ID — expanded view of the truncated Module #shortId chip */}
+                    {/* Full Resource ID — expanded view of the truncated Module shortId chip */}
                     {fullTargetId && (
                         <div>
-                            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">
-                                Full Resource ID
+                            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5 pb-1 border-b border-slate-100">
+                                Resource
                             </p>
                             <div className="flex items-center gap-1.5 flex-wrap">
                                 {log.targetModel && (
@@ -196,14 +205,14 @@ const ExpandedPanel = ({ log }) => {
                     {/* Session ID */}
                     {sessionId && (
                         <div>
-                            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Session ID</p>
+                            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5 pb-1 border-b border-slate-100">Session</p>
                             <span className="font-mono text-[11px] text-slate-600 bg-slate-100 px-2 py-1 rounded select-all">
                                 {sessionId}
                             </span>
                         </div>
                     )}
 
-                    {/* Diff table for UPDATE actions — spans full width */}
+                    {/* Changes diff — only for UPDATE actions with a non-empty changes array */}
                     {hasChanges && (
                         <div className="md:col-span-3 border-t border-slate-100 pt-4">
                             <ChangesDiffTable changes={changes} />
@@ -234,6 +243,7 @@ const EmptyState = () => (
 
 const AuditLogRow = ({ log }) => {
     const [expanded, setExpanded] = useState(false);
+    const [summaryExpanded, setSummaryExpanded] = useState(false);
     const { dateLabel, timeLabel } = formatTimestamp(log.createdAt);
 
     // Resolve action_type: use stored field first, fall back to client-side map
@@ -246,10 +256,9 @@ const AuditLogRow = ({ log }) => {
     const ip = log.ip === '::1' || log.ip === '127.0.0.1' ? 'localhost' : (log.ip ?? '—');
     const client = log.userAgent ?? 'Unknown';
 
-    // Truncate description for summary column
-    const summary = log.description?.length > 60
-        ? log.description.slice(0, 58) + '…'
-        : log.description;
+    // Truncation threshold for description summary
+    const SUMMARY_LIMIT = 72;
+    const needsTruncation = (log.description?.length ?? 0) > SUMMARY_LIMIT;
 
     const hasExpandable = log.session_id || log.targetId || log.metadata?.changes;
 
@@ -284,9 +293,21 @@ const AuditLogRow = ({ log }) => {
                     <ActionTypeBadge type={resolvedType} />
                 </td>
 
-                {/* Summary (shortened description) */}
+                {/* Summary (shortened description) with Read more toggle */}
                 <td className="px-3 py-3 max-w-[260px]">
-                    <span className="text-sm text-slate-700 leading-snug whitespace-normal">{summary}</span>
+                    <span className="text-sm text-slate-700 leading-snug whitespace-normal">
+                        {needsTruncation && !summaryExpanded
+                            ? log.description.slice(0, SUMMARY_LIMIT) + '…'
+                            : log.description}
+                    </span>
+                    {needsTruncation && (
+                        <button
+                            onClick={(e) => { e.stopPropagation(); setSummaryExpanded(v => !v); }}
+                            className="ml-1 text-[11px] font-semibold text-blue-500 hover:text-blue-700 hover:underline focus:outline-none whitespace-nowrap"
+                        >
+                            {summaryExpanded ? 'Read less' : 'Read more'}
+                        </button>
+                    )}
                 </td>
 
                 {/* Severity + Outcome */}
@@ -310,9 +331,11 @@ const AuditLogRow = ({ log }) => {
                     <div className="flex flex-col gap-0.5">
                         <span className="text-sm text-slate-700 font-medium">{moduleName}</span>
                         {moduleId && (
-                            <span className="font-mono text-[11px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded w-max"
-                                title={log.targetId}>
-                                #{moduleId}
+                            <span
+                                className="font-mono text-[10px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded w-max select-all"
+                                title={log.targetId}
+                            >
+                                {moduleId}
                             </span>
                         )}
                     </div>

@@ -90,6 +90,9 @@ export const updateSalaryStatus = async (schoolId, id, data, user, metadata) => 
     const salary = await Salary.findOne({ _id: id, schoolId });
     if (!salary) throw new NotFoundError("Salary record not found");
 
+    // Capture BEFORE state for diff
+    const before = salary.toObject();
+
     // If status is being changed to PAID
     if (data.status === "PAID") {
         if (salary.status === "PAID") {
@@ -114,23 +117,32 @@ export const updateSalaryStatus = async (schoolId, id, data, user, metadata) => 
     await salary.save();
     logger.info(`Salary ${id} updated (status: ${salary.status}, amount: ${salary.amount})`);
 
+    // Capture AFTER state and build diff
+    const after = salary.toObject();
+    const IGNORED_FIELDS = ['_id', '__v', 'createdAt', 'updatedAt', 'createdBy', 'schoolId', 'teacherId'];
+    const changes = [];
+    const allKeys = new Set([...Object.keys(before), ...Object.keys(after)]);
+    for (const key of allKeys) {
+        if (IGNORED_FIELDS.includes(key)) continue;
+        const prev = JSON.stringify(before[key]);
+        const next = JSON.stringify(after[key]);
+        if (prev !== next) {
+            changes.push({ field: key, before: before[key], after: after[key] });
+        }
+    }
+
     // Fire-and-forget audit log
     createAuditLog({
         schoolId,
         action: AUDIT_ACTIONS.SALARY_UPDATED,
         actorId: user._id,
         actorRole: user.role,
-        targetEntity: "Salary",
+        targetModel: "Salary",
         targetId: salary._id,
-        details: {
-            teacherId: salary.teacherId,
-            month: salary.month,
-            year: salary.year,
-            amount: salary.amount,
-            status: salary.status,
-        },
-        ipAddress: metadata?.ip,
-        userAgent: metadata?.userAgent,
+        description: `Updated salary record for teacher (month: ${salary.month}/${salary.year}, status: ${salary.status})`,
+        metadata: { changes },
+        ip: metadata?.ip,
+        userAgentString: metadata?.userAgent,
     }).catch(() => {});
 
     return salary;

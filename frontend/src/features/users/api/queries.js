@@ -3,6 +3,7 @@ import { useSelector } from "react-redux";
 import { usersApi } from "./api";
 import { attendanceKeys } from "../../attendance/api/queries";
 import { selectAccessToken } from "../../auth/authSlice";
+import { patchTeacherExpectedSalaryInUsersCache } from "./cache";
 
 export const userKeys = {
     all: ["users"],
@@ -107,6 +108,20 @@ export const useUpdateUser = () => {
                 };
             });
             queryClient.invalidateQueries({ queryKey: attendanceKeys.all });
+        },
+    });
+};
+
+export const useUpdateTeacherExpectedSalary = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: ({ id, payload }) => usersApi.updateTeacherProfile(id, payload),
+        onSuccess: (_response, variables) => {
+            patchTeacherExpectedSalaryInUsersCache(
+                queryClient,
+                variables.id,
+                variables.payload.expectedSalary
+            );
         },
     });
 };
