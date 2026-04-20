@@ -135,16 +135,19 @@ export const sendPasswordResetEmail = async ({
         if (method === 'link' && resetUrl) {
             methodLabel = 'link';
             contentBlock = `
-                <p>Click the button below to reset your password.</p>
-                <a class="btn" href="${resetUrl}">Reset password</a>
+                <p style="font-size: 15px; color: #555; line-height: 1.6; margin-bottom: 24px;">Click the button below to reset your password.</p>
+                <a class="action-btn" href="${resetUrl}" style="display: block; width: 100%; background: #000; color: #fff; text-decoration: none; padding: 16px 24px; border-radius: 12px; text-align: center; font-weight: 600; font-size: 15px; margin-bottom: 8px;">Reset Password</a>
             `;
         } else if (resetOtp) {
             methodLabel = 'code';
+            const otpDigits = resetOtp.split('').map(digit => `<span class="otp-digit">${digit}</span>`).join('');
             contentBlock = `
-                <p>Enter the code below in the app to continue.</p>
-                <div class="otp-box">
-                    <div class="otp-label">One-time password</div>
-                    <p class="otp-value">${resetOtp}</p>
+                <p style="font-size: 15px; color: #555; line-height: 1.6; margin-bottom: 24px; text-align: center;">Enter the code below in the app to continue.</p>
+                <div class="otp-section" style="text-align: center; margin: 32px 0;">
+                    <div class="otp-label" style="font-size: 12px; font-weight: 500; color: #888; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 20px;">OTP</div>
+                    <div class="otp-code" style="display: flex; justify-content: center; gap: 8px; font-family: 'SF Mono', Monaco, 'Courier New', monospace;">
+                        ${otpDigits}
+                    </div>
                 </div>
             `;
         }
