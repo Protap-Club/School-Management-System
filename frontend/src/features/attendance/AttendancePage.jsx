@@ -196,10 +196,16 @@ const AttendancePage = () => {
         const classTeacherOf = currentUser?.profile?.classTeacherOf;
         if (!classTeacherOf?.standard || !classTeacherOf?.section) return [];
         
-        return rawStudents.filter(s => 
-            s.profile?.standard === classTeacherOf.standard && 
-            s.profile?.section === classTeacherOf.section
-        );
+        return rawStudents
+            .filter(s => 
+                s.profile?.standard === classTeacherOf.standard && 
+                s.profile?.section === classTeacherOf.section
+            )
+            .sort((a, b) => {
+                const rollA = a.profile?.rollNumber || '';
+                const rollB = b.profile?.rollNumber || '';
+                return rollA.localeCompare(rollB, undefined, { numeric: true, sensitivity: 'base' });
+            });
     }, [isAdmin, rawStudents, currentUser]);
 
     const filteredStudents = useMemo(() => {
