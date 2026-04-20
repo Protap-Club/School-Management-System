@@ -12,6 +12,8 @@ import {NotFoundError,ConflictError,BadRequestError,ForbiddenError,
 import logger from "../../config/logger.js";
 import { assertClassSectionExists, buildClassSectionKey } from "../../utils/classSection.util.js";
 import { ensureActiveTeacher } from "../../utils/teacher.util.js";
+import { createAuditLog } from "../audit/audit.service.js";
+import { AUDIT_ACTIONS } from "../../constants/auditActions.js";
 
 let transactionSupportCache = null;
 
@@ -849,7 +851,7 @@ const deleteExamCalendarEvents = async (exam) => {
     }
 };
 
-export const updateStatus = async (schoolId, examId, newStatus, user) => {
+export const updateStatus = async (schoolId, examId, newStatus, user, metadata) => {
     const exam = await Exam.findOne({ _id: examId, schoolId, isActive: true });
     if (!exam) throw new NotFoundError("Exam not found");
 
@@ -889,6 +891,24 @@ export const updateStatus = async (schoolId, examId, newStatus, user) => {
     }
 
     logger.info(`Exam status changed: ${examId} → ${newStatus}`);
+    // Fire-and-forget audit log
+    createAuditLog({
+        schoolId,
+        action: AUDIT_ACTIONS.EXAM_STATUS_CHANGED,
+        actorId: user._id,
+        actorRole: user.role,
+        targetEntity: "Exam",
+        targetId: exam._id,
+        details: {
+            oldStatus: previousStatus,
+            newStatus,
+            title: exam.name,
+            type: exam.examType,
+        },
+        ipAddress: metadata?.ip,
+        userAgent: metadata?.userAgent,
+    }).catch(() => {});
+
     return exam;
 };
 

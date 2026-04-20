@@ -3,9 +3,14 @@ import asyncHandler from "../../utils/asyncHandler.js";
 import logger from "../../config/logger.js";
 import { BadRequestError } from "../../utils/customError.js";
 
+const getMetadata = (req) => ({
+    ip: req.ip,
+    userAgent: req.headers["user-agent"]
+});
+
 // Create a new user with associated profile
 export const createUser = asyncHandler(async (req, res) => {
-    const result = await userService.createUser(req.user, req.body);
+    const result = await userService.createUser(req.user, req.body, getMetadata(req));
 
     // Service detected a class-teacher conflict — ask the frontend to confirm
     if (result.conflict) {
@@ -27,7 +32,7 @@ export const createUser = asyncHandler(async (req, res) => {
 });
 
 export const createTeacherStudent = asyncHandler(async (req, res) => {
-    const result = await userService.createTeacherStudent(req.user, req.body);
+    const result = await userService.createTeacherStudent(req.user, req.body, getMetadata(req));
 
     logger.info(`Teacher-created student: ${result.user.email}`);
     res.status(201).json({
@@ -57,7 +62,7 @@ export const getUserById = asyncHandler(async (req, res) => {
 
 // Update a user (admin/super admin)
 export const updateUser = asyncHandler(async (req, res) => {
-    const result = await userService.updateUser(req.user, req.params.id, req.body);
+    const result = await userService.updateUser(req.user, req.params.id, req.body, getMetadata(req));
 
     // Service detected a class-teacher conflict — ask the frontend to confirm
     if (result?.conflict) {
@@ -91,6 +96,7 @@ export const toggleArchive = asyncHandler(async (req, res) => {
     const result = await userService.toggleArchive(req.user, userIds, isArchived, {
         replacementTeacherId,
         skipReplacement,
+        metadata: getMetadata(req)
     });
     logger.info(`User archive toggled: ${userIds.length} users, archived=${isArchived}`);
     res.status(200).json({
@@ -107,7 +113,7 @@ export const uploadAvatar = asyncHandler(async (req, res) => {
     const avatarUrl = req.file.path || req.file.secure_url || req.file.url;
     const avatarPublicId = req.file.filename || req.file.public_id;
 
-    const result = await userService.updateAvatar(req.user._id, avatarUrl, avatarPublicId);
+    const result = await userService.updateAvatar(req.user._id, avatarUrl, avatarPublicId, getMetadata(req));
     logger.info(`Avatar uploaded for user: ${req.user._id}`);
     res.status(200).json({
         success: true,
@@ -117,7 +123,7 @@ export const uploadAvatar = asyncHandler(async (req, res) => {
 });
 
 export const updateTeacherProfile = asyncHandler(async (req, res) => {
-    const result = await userService.updateTeacherProfile(req.user, req.params.id, req.body);
+    const result = await userService.updateTeacherProfile(req.user, req.params.id, req.body, getMetadata(req));
 
     // Service detected a class-teacher conflict — ask the frontend to confirm
     if (result?.conflict) {
@@ -138,7 +144,7 @@ export const updateTeacherProfile = asyncHandler(async (req, res) => {
 });
 
 export const replaceClassTeacher = asyncHandler(async (req, res) => {
-    const result = await userService.replaceClassTeacher(req.user, req.body);
+    const result = await userService.replaceClassTeacher(req.user, req.body, getMetadata(req));
     res.status(200).json({
         success: true,
         message: "Class teacher replaced successfully",

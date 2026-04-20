@@ -7,9 +7,10 @@ import logger from "../../config/logger.js";
  */
 export const createProxyRequest = asyncHandler(async (req, res) => {
     const result = await proxyService.createProxyRequest(
-        req.user._id,
+        req.user,
         req.user.schoolId,
-        req.body
+        req.body,
+        { ip: req.ip, userAgent: req.headers["user-agent"] }
     );
 
     logger.info(`Proxy request created by teacher ${req.user._id}`);
@@ -92,10 +93,11 @@ export const assignProxyTeacher = asyncHandler(async (req, res) => {
     const { proxyTeacherId, notes } = req.body;
     
     const result = await proxyService.assignProxyTeacher(
-        req.user._id,
+        req.user,
         req.user.schoolId,
         requestId,
-        { proxyTeacherId, notes }
+        { proxyTeacherId, notes },
+        { ip: req.ip, userAgent: req.headers["user-agent"] }
     );
 
     logger.info(`Proxy teacher assigned by admin ${req.user._id} for request ${requestId}`);
@@ -115,10 +117,11 @@ export const markAsFreePeriod = asyncHandler(async (req, res) => {
     const { notes } = req.body;
     
     const result = await proxyService.markAsFreePeriod(
-        req.user._id,
+        req.user,
         req.user.schoolId,
         requestId,
-        notes
+        notes,
+        { ip: req.ip, userAgent: req.headers["user-agent"] }
     );
 
     logger.info(`Free period marked by admin ${req.user._id} for request ${requestId}`);
@@ -135,9 +138,10 @@ export const markAsFreePeriod = asyncHandler(async (req, res) => {
  */
 export const createDirectAssignment = asyncHandler(async (req, res) => {
     const result = await proxyService.createDirectProxyAssignment(
-        req.user._id,
+        req.user,
         req.user.schoolId,
-        req.body
+        req.body,
+        { ip: req.ip, userAgent: req.headers["user-agent"] }
     );
 
     logger.info(`Direct proxy assignment created by admin ${req.user._id}`);
@@ -192,9 +196,10 @@ export const cancelProxyRequest = asyncHandler(async (req, res) => {
     const { requestId } = req.params;
     
     const result = await proxyService.cancelProxyRequest(
-        req.user._id,
+        req.user,
         req.user.schoolId,
-        requestId
+        requestId,
+        { ip: req.ip, userAgent: req.headers["user-agent"] }
     );
 
     logger.info(`Proxy request ${requestId} cancelled by teacher ${req.user._id}`);

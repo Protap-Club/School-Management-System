@@ -12,6 +12,8 @@ import {
     getConfiguredClassSections,
     sortClassSections,
 } from "../../utils/classSection.util.js";
+import { createAuditLog } from "../audit/audit.service.js";
+import { AUDIT_ACTIONS } from "../../constants/auditActions.js";
 
 // ═══════════════════════════════════════════════════════════════
 // ADMIN — Fee Structure CRUD
@@ -311,7 +313,7 @@ const generateReceiptNumber = (schoolId) => {
     return `RCP - ${shortId} -${timestamp} `;
 };
 
-export const recordPayment = async (schoolId, assignmentId, paymentData, recordedBy) => {
+export const recordPayment = async (schoolId, assignmentId, paymentData, recordedBy, user, metadata) => {
     const assignment = await FeeAssignment.findOne({ _id: assignmentId, schoolId });
     if (!assignment) throw new NotFoundError("Fee assignment not found");
 
@@ -347,6 +349,25 @@ export const recordPayment = async (schoolId, assignmentId, paymentData, recorde
 
         await session.commitTransaction();
         logger.info(`Payment recorded: ${payment.receiptNumber} — ₹${payment.amount} for assignment ${assignmentId}`);
+
+        // Fire-and-forget audit log
+        createAuditLog({
+            schoolId,
+            action: AUDIT_ACTIONS.PAYMENT_RECORDED,
+            actorId: recordedBy,
+            actorRole: user?.role || "ADMIN",
+            targetEntity: "FeePayment",
+            targetId: payment._id,
+            details: {
+                receiptNumber: payment.receiptNumber,
+                amount: payment.amount,
+                studentId: assignment.studentId,
+                assignmentId: assignment._id,
+            },
+            ipAddress: metadata?.ip,
+            userAgent: metadata?.userAgent,
+        }).catch(() => {});
+
         return { payment, updatedAssignment: assignment };
     } catch (error) {
         await session.abortTransaction();

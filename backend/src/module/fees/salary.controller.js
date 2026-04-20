@@ -45,7 +45,9 @@ export const updateSalaryStatus = asyncHandler(async (req, res) => {
     const result = await salaryService.updateSalaryStatus(
         req.schoolId,
         req.params.id,
-        req.body
+        req.body,
+        req.user,
+        { ip: req.ip, userAgent: req.headers["user-agent"] }
     );
     res.status(200).json({
         success: true,

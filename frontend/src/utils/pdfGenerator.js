@@ -742,5 +742,5 @@ export const generateTimetable = async ({
   doc.save(filename);
 };
 
-// Backward-compatible alias used by timetable page imports.
+// Backward-compatible alias used by timetable feature imports.
 export const generateTimetablePDF = generateTimetable;

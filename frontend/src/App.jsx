@@ -11,7 +11,7 @@ import ResetPassword from '@/features/auth/ResetPasswordPage';
 
 function App() {
     // Destructure lazy-loaded page components
-    const { Login, Dashboard, UsersPage, Settings, Attendance, Notice, TimetablePage, Calendar, Notifications, Profile, Fees, Examination, Assignments, Result } = pages;
+    const { Login, Dashboard, UsersPage, Settings, Attendance, Notice, TimetablePage, Calendar, Notifications, Profile, Fees, Examination, Assignments, Result, AuditLog } = pages;
 
     const rolePathMap = {
         super_admin: 'superadmin',
@@ -45,6 +45,7 @@ function App() {
         { suffix: 'examination', roles: ['super_admin', 'admin', 'teacher'], component: <Examination />, feature: 'examination' },
         { suffix: 'result', roles: ['super_admin', 'admin', 'teacher'], component: <Result />, feature: 'examination' },
         { suffix: 'assignments', roles: ['super_admin', 'admin', 'teacher'], component: <Assignments />, feature: 'assignment' },
+        { suffix: 'audit', roles: ['super_admin', 'admin'], component: <AuditLog /> },
     ];
 
     return (

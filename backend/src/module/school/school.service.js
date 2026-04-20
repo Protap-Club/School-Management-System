@@ -14,6 +14,8 @@ import {
     sortClassSections,
 } from "../../utils/classSection.util.js";
 import { findTeacherClassConflicts } from "../../utils/teacher.util.js";
+import { createAuditLog } from "../audit/audit.service.js";
+import { AUDIT_ACTIONS } from "../../constants/auditActions.js";
 
 const escapeRegex = (value = "") => String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const REMOVED_CLASS_MARKER_REGEX = /\(removed\b/i;
@@ -153,7 +155,7 @@ export const createSchool = async (creatorId, schoolData) => {
 
 
 // Updates School Settings (Address, Contact info, etc.)
-export const updateSchool = async (schoolId, updateData) => {
+export const updateSchool = async (schoolId, updateData, user, metadata) => {
     // Only allow updating safe fields. Code and Features are protected.
     const allowedUpdates = {};
     if (updateData.name) allowedUpdates.name = updateData.name;
@@ -171,6 +173,21 @@ export const updateSchool = async (schoolId, updateData) => {
         code: updated.code,
         schoolId: updated._id,
         _id: updated._id,
+    };
+
+    // Fire-and-forget audit log
+    if (user) {
+        createAuditLog({
+            schoolId,
+            action: AUDIT_ACTIONS.PROFILE_UPDATED,
+            actorId: user._id,
+            actorRole: user.role,
+            targetEntity: "School",
+            targetId: schoolId,
+            details: { updatedFields: Object.keys(allowedUpdates) },
+            ipAddress: metadata?.ip,
+            userAgent: metadata?.userAgent,
+        }).catch(() => {});
     }
 
     return { school: data };
@@ -233,7 +250,7 @@ const featureCache = new Map();
 const FEATURE_CACHE_TTL_MS = 60_000;
 
 // The Super Admin calls this to turn on/off features for THEIR school.
-export const updateSchoolFeatures = async (schoolId, featureUpdates) => {
+export const updateSchoolFeatures = async (schoolId, featureUpdates, user, metadata) => {
     const school = await School.findById(schoolId);
     if (!school) throw new NotFoundError("School not found");
 
@@ -251,6 +268,21 @@ export const updateSchoolFeatures = async (schoolId, featureUpdates) => {
         if (cacheKey.startsWith(`${schoolId}:`)) {
             featureCache.delete(cacheKey);
         }
+    }
+
+    // Fire-and-forget audit log
+    if (user) {
+        createAuditLog({
+            schoolId,
+            action: AUDIT_ACTIONS.FEATURE_FLAG_TOGGLED,
+            actorId: user._id,
+            actorRole: user.role,
+            targetEntity: "School",
+            targetId: schoolId,
+            details: { featureUpdates },
+            ipAddress: metadata?.ip,
+            userAgent: metadata?.userAgent,
+        }).catch(() => {});
     }
 
     return { features: school.features };

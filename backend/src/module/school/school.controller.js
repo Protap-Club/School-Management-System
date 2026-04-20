@@ -17,7 +17,12 @@ export const createSchool = asyncHandler(async (req, res) => {
 // Update an existing school
 export const updateSchool = asyncHandler(async (req, res) => {
     const schoolId = req.schoolId || req.params.id || req.user.schoolId;
-    const result = await schoolService.updateSchool(schoolId, req.body);
+    const result = await schoolService.updateSchool(
+        schoolId,
+        req.body,
+        req.user,
+        { ip: req.ip, userAgent: req.headers["user-agent"] }
+    );
     res.status(200).json({
         success: true,
         message: "School updated",
@@ -77,7 +82,12 @@ export const updateFeatures = asyncHandler(async (req, res) => {
     if (!features) {
         throw new BadRequestError("Features data is required");
     }
-    const result = await schoolService.updateSchoolFeatures(req.schoolId, features);
+    const result = await schoolService.updateSchoolFeatures(
+        req.schoolId,
+        features,
+        req.user,
+        { ip: req.ip, userAgent: req.headers["user-agent"] }
+    );
     res.status(200).json({
         success: true,
         message: "Features updated successfully",
