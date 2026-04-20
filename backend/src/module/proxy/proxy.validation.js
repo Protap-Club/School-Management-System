@@ -72,6 +72,29 @@ export const markAsFreePeriodSchema = z.object({
 });
 
 /**
+ * Schema for updating an existing proxy assignment (admin action)
+ */
+export const updateProxyAssignmentSchema = z.object({
+    params: z.object({
+        assignmentId: objectIdSchema
+    }),
+    body: z.object({
+        type: z.enum(["proxy", "free_period"], { required_error: "Type is required (proxy or free_period)" }),
+        proxyTeacherId: objectIdSchema.optional(),
+        notes: z.string().max(500).optional()
+    }).refine(data => {
+        // If type is proxy, proxyTeacherId must be provided
+        if (data.type === "proxy" && !data.proxyTeacherId) {
+            return false;
+        }
+        return true;
+    }, {
+        message: "proxyTeacherId is required when type is 'proxy'",
+        path: ["proxyTeacherId"]
+    })
+});
+
+/**
  * Schema for direct proxy assignment (admin creates without teacher request)
  */
 export const createDirectAssignmentSchema = z.object({

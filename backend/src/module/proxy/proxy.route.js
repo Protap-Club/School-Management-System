@@ -88,6 +88,14 @@ router.post(
     controller.createDirectAssignment
 );
 
+// Update an existing proxy assignment
+router.patch(
+    "/assignments/:assignmentId",
+    checkRole([USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN]),
+    validate(validation.updateProxyAssignmentSchema),
+    controller.updateProxyAssignment
+);
+
 // Get proxy assignments for a date
 router.get(
     "/assignments",

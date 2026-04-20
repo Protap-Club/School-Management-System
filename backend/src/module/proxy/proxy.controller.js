@@ -190,6 +190,30 @@ export const getTimetableWithProxies = asyncHandler(async (req, res) => {
 });
 
 /**
+ * Update an existing proxy assignment (admin action)
+ */
+export const updateProxyAssignment = asyncHandler(async (req, res) => {
+    const { assignmentId } = req.params;
+    const { type, proxyTeacherId, notes } = req.body;
+
+    const result = await proxyService.updateProxyAssignment(
+        req.user,
+        req.user.schoolId,
+        assignmentId,
+        { type, proxyTeacherId, notes },
+        { ip: req.ip, userAgent: req.headers["user-agent"] }
+    );
+
+    logger.info(`Proxy assignment ${assignmentId} updated by admin ${req.user._id}`);
+
+    res.status(200).json({
+        success: true,
+        message: "Proxy assignment updated successfully",
+        data: result
+    });
+});
+
+/**
  * Cancel a proxy request (teacher action)
  */
 export const cancelProxyRequest = asyncHandler(async (req, res) => {

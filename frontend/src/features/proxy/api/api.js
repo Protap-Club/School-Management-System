@@ -31,6 +31,9 @@ export const proxyApi = {
     // Admin: Create direct proxy assignment
     createDirectAssignment: (data) => api.post("/proxies/assignments/direct", data),
 
+    // Admin: Update existing proxy assignment
+    updateProxyAssignment: (assignmentId, data) => api.patch(`/proxies/assignments/${assignmentId}`, data),
+
     // Get proxy assignments for a date
     getProxyAssignments: (date) => api.get("/proxies/assignments", { params: { date } }),
 

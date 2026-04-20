@@ -468,6 +468,102 @@ export const getUserTimetable = async (schoolId, userId, role, platform, date = 
             }
         }
 
+        // Merge proxy assignments into personal entries before grouping
+        if (date) {
+            const { weekStart, weekEnd, weekDateKeys } = getWeekWindow(date);
+            const widenedStart = new Date(weekStart);
+            widenedStart.setDate(widenedStart.getDate() - 1);
+            const widenedEnd = new Date(weekEnd);
+            widenedEnd.setDate(widenedEnd.getDate() + 1);
+            widenedEnd.setHours(23, 59, 59, 999);
+
+            // Proxy duties assigned to this teacher for the selected week.
+            const proxyAssignmentsRaw = await ProxyAssignment.find({
+                schoolId,
+                proxyTeacherId: userId,
+                type: "proxy",
+                isActive: true,
+                date: { $gte: widenedStart, $lte: widenedEnd }
+            })
+            .populate("originalTeacherId", "name")
+            .populate("timeSlotId", "slotNumber startTime endTime slotType")
+            .lean();
+            const proxyAssignments = proxyAssignmentsRaw.filter((assignment) => weekDateKeys.has(toLocalDateKey(assignment.date)));
+
+            // Transform proxy duties into timetable-compatible entries.
+            const proxyEntries = proxyAssignments.map(proxy => ({
+                _id: `proxy-${proxy._id}`,
+                isProxy: true,
+                proxyAssignmentId: proxy._id,
+                originalTeacherId: proxy.originalTeacherId,
+                subject: proxy.subject,
+                roomNumber: `Class ${proxy.standard}-${proxy.section}`,
+                dayOfWeek: proxy.dayOfWeek,
+                timeSlotId: proxy.timeSlotId,
+                standard: proxy.standard,
+                section: proxy.section,
+                proxyDate: proxy.date,
+                timetableId: {
+                    standard: proxy.standard,
+                    section: proxy.section
+                }
+            }));
+
+            // Requested slots by this teacher in the same selected week.
+            const weeklyProxyRequestsRaw = await ProxyRequest.find({
+                schoolId,
+                teacherId: userId,
+                status: { $in: ["pending", "resolved"] },
+                date: { $gte: widenedStart, $lte: widenedEnd }
+            })
+            .populate({
+                path: "proxyAssignmentId",
+                select: "type proxyTeacherId",
+                populate: {
+                    path: "proxyTeacherId",
+                    select: "name email"
+                }
+            })
+            .lean();
+            const weeklyProxyRequests = weeklyProxyRequestsRaw.filter((request) => weekDateKeys.has(toLocalDateKey(request.date)));
+
+            const regularEntryMap = new Map();
+            personalEntries.forEach((entry) => {
+                const timeSlotId = entry.timeSlotId?._id || entry.timeSlotId;
+                if (!entry.dayOfWeek || !timeSlotId) return;
+                regularEntryMap.set(buildDaySlotKey(entry.dayOfWeek, timeSlotId), entry);
+            });
+
+            weeklyProxyRequests.forEach((request) => {
+                const key = buildDaySlotKey(request.dayOfWeek, request.timeSlotId);
+                const regularEntry = regularEntryMap.get(key);
+                if (!regularEntry) return;
+
+                const assignmentType = request.proxyAssignmentId?.type;
+                if (request.status === "pending") {
+                    regularEntry.proxyRequestStatus = "pending";
+                    regularEntry.proxyRequestId = request._id;
+                    return;
+                }
+
+                if (request.status === "resolved" && assignmentType === "proxy") {
+                    regularEntry.proxyRequestStatus = "proxy_assigned";
+                    regularEntry.proxyAssignmentId = request.proxyAssignmentId?._id || null;
+                    regularEntry.assignedProxyTeacher = request.proxyAssignmentId?.proxyTeacherId || null;
+                    return;
+                }
+
+                if (request.status === "resolved" && assignmentType === "free_period") {
+                    regularEntry.proxyRequestStatus = "free_period";
+                    regularEntry.isFreePeriod = true;
+                    regularEntry.proxyType = "free_period";
+                }
+            });
+
+            // Add proxy entries to personal entries
+            personalEntries.push(...proxyEntries);
+        }
+
         const personalSchedule = groupEntriesByDay(personalEntries);
 
         if (platform === "mobile") {
@@ -481,7 +577,13 @@ export const getUserTimetable = async (schoolId, userId, role, platform, date = 
                         startTime: entry.timeSlotId?.startTime,
                         endTime: entry.timeSlotId?.endTime,
                         slotNumber: entry.timeSlotId?.slotNumber,
-                        slotType: entry.timeSlotId?.slotType
+                        slotType: entry.timeSlotId?.slotType,
+                        isProxy: entry.isProxy || false,
+                        proxyRequestStatus: entry.proxyRequestStatus || null,
+                        originalTeacher: entry.originalTeacherId?.name,
+                        assignedProxyTeacher: entry.assignedProxyTeacher?.name || null,
+                        standard: entry.standard,
+                        section: entry.section
                     }));
                 });
                 return formatted;
@@ -542,134 +644,6 @@ export const getUserTimetable = async (schoolId, userId, role, platform, date = 
     } else {
         throw new ForbiddenError("Only teachers and students can access their schedule");
     }
-
-    let result = await TimetableEntry.find(query)
-        .populate("teacherId", "name isArchived")
-        .populate("timetableId", "standard section academicYear")
-        .populate("timeSlotId", "slotNumber startTime endTime slotType")
-        .lean();
-
-    // For teachers, merge proxy duty entries and original-request status overlays for the selected week.
-    if (role === "teacher") {
-        const { weekStart, weekEnd, weekDateKeys } = getWeekWindow(date);
-        const widenedStart = new Date(weekStart);
-        widenedStart.setDate(widenedStart.getDate() - 1);
-        const widenedEnd = new Date(weekEnd);
-        widenedEnd.setDate(widenedEnd.getDate() + 1);
-        widenedEnd.setHours(23, 59, 59, 999);
-
-        // Proxy duties assigned to this teacher for the selected week.
-        const proxyAssignmentsRaw = await ProxyAssignment.find({
-            schoolId,
-            proxyTeacherId: userId,
-            type: "proxy",
-            isActive: true,
-            date: { $gte: widenedStart, $lte: widenedEnd }
-        })
-        .populate("originalTeacherId", "name")
-        .populate("timeSlotId", "slotNumber startTime endTime slotType")
-        .lean();
-        const proxyAssignments = proxyAssignmentsRaw.filter((assignment) => weekDateKeys.has(toLocalDateKey(assignment.date)));
-
-        // Transform proxy duties into timetable-compatible entries.
-        const proxyEntries = proxyAssignments.map(proxy => ({
-            _id: `proxy-${proxy._id}`,
-            isProxy: true,
-            proxyAssignmentId: proxy._id,
-            originalTeacherId: proxy.originalTeacherId,
-            subject: proxy.subject,
-            roomNumber: `Class ${proxy.standard}-${proxy.section}`,
-            dayOfWeek: proxy.dayOfWeek,
-            timeSlotId: proxy.timeSlotId,
-            standard: proxy.standard,
-            section: proxy.section,
-            proxyDate: proxy.date,
-            timetableId: {
-                standard: proxy.standard,
-                section: proxy.section
-            }
-        }));
-
-        // Requested slots by this teacher in the same selected week.
-        const weeklyProxyRequestsRaw = await ProxyRequest.find({
-            schoolId,
-            teacherId: userId,
-            status: { $in: ["pending", "resolved"] },
-            date: { $gte: widenedStart, $lte: widenedEnd }
-        })
-        .populate({
-            path: "proxyAssignmentId",
-            select: "type proxyTeacherId",
-            populate: {
-                path: "proxyTeacherId",
-                select: "name email"
-            }
-        })
-        .lean();
-        const weeklyProxyRequests = weeklyProxyRequestsRaw.filter((request) => weekDateKeys.has(toLocalDateKey(request.date)));
-
-        const regularEntryMap = new Map();
-        result.forEach((entry) => {
-            const timeSlotId = entry.timeSlotId?._id || entry.timeSlotId;
-            if (!entry.dayOfWeek || !timeSlotId) return;
-            regularEntryMap.set(buildDaySlotKey(entry.dayOfWeek, timeSlotId), entry);
-        });
-
-        weeklyProxyRequests.forEach((request) => {
-            const key = buildDaySlotKey(request.dayOfWeek, request.timeSlotId);
-            const regularEntry = regularEntryMap.get(key);
-            if (!regularEntry) return;
-
-            const assignmentType = request.proxyAssignmentId?.type;
-            if (request.status === "pending") {
-                regularEntry.proxyRequestStatus = "pending";
-                regularEntry.proxyRequestId = request._id;
-                return;
-            }
-
-            if (request.status === "resolved" && assignmentType === "proxy") {
-                regularEntry.proxyRequestStatus = "proxy_assigned";
-                regularEntry.proxyAssignmentId = request.proxyAssignmentId?._id || null;
-                regularEntry.assignedProxyTeacher = request.proxyAssignmentId?.proxyTeacherId || null;
-                return;
-            }
-
-            if (request.status === "resolved" && assignmentType === "free_period") {
-                regularEntry.proxyRequestStatus = "free_period";
-                regularEntry.isFreePeriod = true;
-                regularEntry.proxyType = "free_period";
-            }
-        });
-
-        result = [...result, ...proxyEntries];
-    }
-
-    const grouped = groupEntriesByDay(result);
-
-    // mobile app gets a flat structure without mongo IDs for cleaner display
-    if (platform === "mobile") {
-        const formatted = {};
-        Object.keys(grouped).forEach(day => {
-            formatted[day] = grouped[day].map(entry => ({
-                subject: entry.subject,
-                teacher: entry.teacherId?.name,
-                room: entry.roomNumber,
-                startTime: entry.timeSlotId?.startTime,
-                endTime: entry.timeSlotId?.endTime,
-                slotNumber: entry.timeSlotId?.slotNumber,
-                slotType: entry.timeSlotId?.slotType,
-                isProxy: entry.isProxy || false,
-                proxyRequestStatus: entry.proxyRequestStatus || null,
-                originalTeacher: entry.originalTeacherId?.name,
-                assignedProxyTeacher: entry.assignedProxyTeacher?.name || null,
-                standard: entry.standard,
-                section: entry.section
-            }));
-        });
-        return formatted;
-    }
-
-    return grouped;
 };
 
 // returns the class timetable for a teacher's assigned class

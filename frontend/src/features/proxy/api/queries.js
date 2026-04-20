@@ -118,6 +118,22 @@ export const useMarkAsFreePeriod = () => {
 };
 
 /**
+ * Update existing proxy assignment (admin)
+ */
+export const useUpdateProxyAssignment = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: ({ assignmentId, data }) => proxyApi.updateProxyAssignment(assignmentId, data),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: proxyKeys.requests() });
+            queryClient.invalidateQueries({ queryKey: proxyKeys.assignments() });
+            queryClient.invalidateQueries({ queryKey: proxyKeys.myRequests() });
+            invalidateTimetableScheduleCaches(queryClient);
+        },
+    });
+};
+
+/**
  * Create direct proxy assignment (admin)
  */
 export const useCreateDirectAssignment = () => {
