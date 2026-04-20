@@ -53,6 +53,30 @@ const getCurrentAcademicYear = () => {
     return month >= INITIAL_ACADEMIC_YEAR_START_MONTH ? year : year - 1;
 };
 
+/**
+ * Given the academic-year start (e.g. 2025 for "2025-2026") and a calendar
+ * month (1-12), return the actual calendar year the month falls in.
+ * Months >= INITIAL_ACADEMIC_YEAR_START_MONTH belong to the start year,
+ * months < INITIAL_ACADEMIC_YEAR_START_MONTH belong to start year + 1.
+ */
+const getCalendarYearForMonth = (academicYearStart, month) => {
+    return month >= INITIAL_ACADEMIC_YEAR_START_MONTH
+        ? Number(academicYearStart)
+        : Number(academicYearStart) + 1;
+};
+
+/**
+ * Check if a salary record (with year & month) belongs to a given academic year.
+ * Academic year 2025-2026 = Jun 2025 – May 2026.
+ */
+const salaryBelongsToAcademicYear = (salaryYear, salaryMonth, academicYearStart) => {
+    const y = Number(salaryYear);
+    const m = Number(salaryMonth);
+    const s = Number(academicYearStart);
+    if (m >= INITIAL_ACADEMIC_YEAR_START_MONTH) return y === s;
+    return y === s + 1;
+};
+
 const getAcademicYearOptions = () => {
     const year = new Date().getFullYear();
     const options = [];
@@ -93,7 +117,7 @@ const FeesPage = () => {
     const [deleteConfirm, setDeleteConfirm] = useState(null);
 
     // Overview state
-    const [overviewYear, setOverviewYear] = useState(currentYear);
+    const [overviewYear, setOverviewYear] = useState(getCurrentAcademicYear());
     const [overviewMonth, setOverviewMonth] = useState(currentMonth);
     const [overviewMode, setOverviewMode] = useState('fee'); // 'fee' | 'penalty'
     const [selectedClass, setSelectedClass] = useState(null);
@@ -107,7 +131,7 @@ const FeesPage = () => {
     const [updateModal, setUpdateModal] = useState({ open: false, assignment: null });
 
     // Yearly state
-    const [summaryYear, setSummaryYear] = useState(currentYear);
+    const [summaryYear, setSummaryYear] = useState(getCurrentAcademicYear());
 
     // Staff Salary state
     const [staffSearch, setStaffSearch] = useState('');
@@ -122,7 +146,7 @@ const FeesPage = () => {
     const [editingAmount, setEditingAmount] = useState('');
     // Pay Salary inline form state (inside View Ledger)
     const [showPayForm, setShowPayForm] = useState(false);
-    const [payForm, setPayForm] = useState({ month: currentMonth, year: currentYear, amount: '' });
+    const [payForm, setPayForm] = useState({ month: currentMonth, year: getCurrentAcademicYear(), amount: '' });
     const [payFormErrors, setPayFormErrors] = useState({});
 
     const [penaltyDeleteConfirm, setPenaltyDeleteConfirm] = useState(null);
@@ -210,8 +234,35 @@ const FeesPage = () => {
     // Salary Queries
     const { data: feeTypesResp } = useFeeTypes({ enabled: isAdmin });
     const { data: penaltyTypesResp } = usePenaltyTypes({ enabled: isAdmin });
-    const { data: salaryData, isLoading: salariesLoading } = useSalaries({ year: overviewYear }, isAdmin);
-    const { data: mySalaryData, isLoading: mySalaryLoading } = useMySalary({ year: overviewYear }, isTeacher);
+    // Fetch salaries for BOTH calendar years that make up the academic year
+    // (e.g. academic year 2025-2026 needs year=2025 AND year=2026)
+    const { data: salaryDataYear1, isLoading: salariesLoadingY1 } = useSalaries({ year: overviewYear }, isAdmin);
+    const { data: salaryDataYear2, isLoading: salariesLoadingY2 } = useSalaries({ year: overviewYear + 1 }, isAdmin);
+    const salaryData = useMemo(() => {
+        const y1 = salaryDataYear1?.data || [];
+        const y2 = salaryDataYear2?.data || [];
+        const all = [...y1, ...y2].filter(s => salaryBelongsToAcademicYear(s.year, s.month, overviewYear));
+        return { data: all };
+    }, [salaryDataYear1, salaryDataYear2, overviewYear]);
+    const salariesLoading = salariesLoadingY1 || salariesLoadingY2;
+    // Teacher salary: fetch both calendar years of the academic year
+    const { data: mySalaryYear1, isLoading: mySalaryLoadingY1 } = useMySalary({ year: overviewYear }, isTeacher);
+    const { data: mySalaryYear2, isLoading: mySalaryLoadingY2 } = useMySalary({ year: overviewYear + 1 }, isTeacher);
+    const mySalaryData = useMemo(() => {
+        if (!mySalaryYear1 && !mySalaryYear2) return undefined;
+        const s1 = mySalaryYear1?.data?.salaries || [];
+        const s2 = mySalaryYear2?.data?.salaries || [];
+        const allSalaries = [...s1, ...s2].filter(s => salaryBelongsToAcademicYear(s.year, s.month, overviewYear));
+        const summary = {
+            totalRecords: allSalaries.length,
+            totalAmount: allSalaries.reduce((s, r) => s + r.amount, 0),
+            totalPaid: allSalaries.filter(r => r.status === 'PAID').reduce((s, r) => s + r.amount, 0),
+            totalPending: allSalaries.filter(r => r.status === 'PENDING').reduce((s, r) => s + r.amount, 0),
+            expectedMonthlySalary: mySalaryYear1?.data?.summary?.expectedMonthlySalary || mySalaryYear2?.data?.summary?.expectedMonthlySalary || 0,
+        };
+        return { data: { summary, salaries: allSalaries } };
+    }, [mySalaryYear1, mySalaryYear2, overviewYear]);
+    const mySalaryLoading = mySalaryLoadingY1 || mySalaryLoadingY2;
 
     // Student Queries
     const { data: myFeesData, isLoading: myFeesLoading } = useMyFees({ academicYear: summaryYear }, isStudent);
@@ -989,7 +1040,8 @@ const FeesPage = () => {
                                 {selectedStaff ? (() => {
                                     // Compute staff salaries for duplicate check
                                     const staffSalariesForLedger = (salaryData?.data || []).filter(s => String(s.teacherId?._id || s.teacherId) === String(selectedStaff._id));
-                                    const payFormDuplicate = staffSalariesForLedger.find(s => Number(s.month) === Number(payForm.month) && Number(s.year) === Number(payForm.year));
+                                    const payFormCalendarYear = getCalendarYearForMonth(payForm.year, Number(payForm.month));
+                                    const payFormDuplicate = staffSalariesForLedger.find(s => Number(s.month) === Number(payForm.month) && Number(s.year) === payFormCalendarYear);
                                     const payFormIsPaid = payFormDuplicate?.status === 'PAID';
                                     const payFormIsDuplicate = !!payFormDuplicate;
 
@@ -1007,12 +1059,12 @@ const FeesPage = () => {
                                                 teacherId: selectedStaff._id,
                                                 amount: Number(payForm.amount),
                                                 month: Number(payForm.month),
-                                                year: Number(payForm.year),
+                                                year: payFormCalendarYear,
                                             });
                                             
                                             showToast('success', `Salary record created for ${MONTH_LABELS[payForm.month]} ${payForm.year}`);
                                             setShowPayForm(false);
-                                            setPayForm({ month: currentMonth, year: currentYear, amount: selectedStaff.profile?.expectedSalary || '' });
+                                            setPayForm({ month: currentMonth, year: getCurrentAcademicYear(), amount: selectedStaff.profile?.expectedSalary || '' });
                                             setPayFormErrors({});
                                         } catch (err) {
                                             showToast('error', err?.response?.data?.message || 'Failed to create salary entry');
@@ -1043,7 +1095,7 @@ const FeesPage = () => {
                                                     <button
                                                         onClick={() => {
                                                             setShowPayForm(true);
-                                                            setPayForm({ month: currentMonth, year: currentYear, amount: selectedStaff.profile?.expectedSalary || '' });
+                                                            setPayForm({ month: currentMonth, year: getCurrentAcademicYear(), amount: selectedStaff.profile?.expectedSalary || '' });
                                                         }}
                                                         className="flex items-center gap-2 bg-primary hover:bg-primary-hover text-white font-bold py-2.5 px-6 rounded-xl transition-all shadow-lg shadow-primary/20 text-sm"
                                                     >
@@ -1076,7 +1128,8 @@ const FeesPage = () => {
                                                                     {MONTH_LABELS.slice(1).map((label, idx) => {
                                                                         const monthNum = idx + 1;
                                                                         const isSelected = Number(payForm.month) === monthNum;
-                                                                        const existsForMonth = staffSalariesForLedger.find(s => Number(s.month) === monthNum && Number(s.year) === Number(payForm.year));
+                                                                        const calYearForMonth = getCalendarYearForMonth(payForm.year, monthNum);
+                                                                        const existsForMonth = staffSalariesForLedger.find(s => Number(s.month) === monthNum && Number(s.year) === calYearForMonth);
                                                                         const isPaidMonth = existsForMonth?.status === 'PAID';
                                                                         return (
                                                                             <button
@@ -1106,7 +1159,7 @@ const FeesPage = () => {
                                                                         <span className="flex items-center gap-1 text-[9px] text-emerald-600 font-bold"><span className="w-2 h-2 bg-emerald-500 rounded-full inline-block"></span>Paid</span>
                                                                         <span className="flex items-center gap-1 text-[9px] text-amber-600 font-bold"><span className="w-2 h-2 bg-amber-500 rounded-full inline-block"></span>Pending</span>
                                                                     </div>
-                                                                    <button type="button" onClick={() => { setPayForm(p => ({ ...p, month: currentMonth, year: currentYear })); }}
+                                                                    <button type="button" onClick={() => { setPayForm(p => ({ ...p, month: currentMonth, year: getCurrentAcademicYear() })); }}
                                                                         className="text-[10px] font-black text-primary hover:text-primary-hover uppercase tracking-widest transition-colors">Today</button>
                                                                 </div>
                                                                 {(payFormErrors.month || payFormErrors.year) && <p className="text-[10px] text-red-500 px-4 pb-2 font-bold">{payFormErrors.month || payFormErrors.year}</p>}
@@ -1433,6 +1486,7 @@ const FeesPage = () => {
                         mySalaryData={mySalaryData}
                         mySalaryLoading={mySalaryLoading}
                         overviewYear={overviewYear}
+                        setOverviewYear={setOverviewYear}
                         user={user}
                     />
                 )}
