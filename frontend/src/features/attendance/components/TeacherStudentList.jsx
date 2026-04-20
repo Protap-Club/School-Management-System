@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { FaUserGraduate } from 'react-icons/fa';
 import { PaginationControls } from '../../../components/ui/PaginationControls';
+import { formatValue } from '../../../utils';
 
 const TeacherStudentList = ({
     filteredStudents,
@@ -31,6 +32,7 @@ const TeacherStudentList = ({
             <Table>
                 <TableHeader>
                     <TableRow className="hover:bg-transparent">
+                        <TableHead className="font-bold text-slate-500 uppercase tracking-widest text-xs h-12">Roll No</TableHead>
                         <TableHead className="font-bold text-slate-500 uppercase tracking-widest text-xs h-12">Student</TableHead>
                         <TableHead className="font-bold text-slate-500 uppercase tracking-widest text-xs h-12 hidden sm:table-cell">Email</TableHead>
                         <TableHead className="font-bold text-slate-500 uppercase tracking-widest text-xs h-12">Status</TableHead>
@@ -45,6 +47,9 @@ const TeacherStudentList = ({
 
                         return (
                             <TableRow key={student._id} className="cursor-pointer group hover:bg-slate-50 transition-colors" onClick={() => setSelectedStudent(student)}>
+                                <TableCell className="py-4 font-bold text-slate-700">
+                                    {formatValue(student.profile?.rollNumber)}
+                                </TableCell>
                                 <TableCell className="py-4">
                                     <div className="flex items-center gap-4">
                                         <div className={`w-10 h-10 rounded-full font-bold flex items-center justify-center text-sm shadow-sm transition-colors ${isPresent ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-600 group-hover:bg-slate-200'}`}>
