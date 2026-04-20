@@ -65,6 +65,25 @@ const getCalendarYearForMonth = (academicYearStart, month) => {
         : Number(academicYearStart) + 1;
 };
 
+const getAcademicYearLabel = (salaryYear, salaryMonth) => {
+    const year = Number(salaryYear);
+    const month = Number(salaryMonth);
+    const academicYearStart = month >= INITIAL_ACADEMIC_YEAR_START_MONTH ? year : year - 1;
+    return `${academicYearStart} - ${academicYearStart + 1}`;
+};
+
+const getAcademicYearMonths = (academicYearStart) => {
+    const start = Number(academicYearStart);
+    return Array.from({ length: 12 }, (_, index) => {
+        const month = ((INITIAL_ACADEMIC_YEAR_START_MONTH - 1 + index) % 12) + 1;
+        return {
+            month,
+            calendarYear: getCalendarYearForMonth(start, month),
+            shortLabel: MONTH_LABELS[month].slice(0, 3),
+        };
+    });
+};
+
 /**
  * Check if a salary record (with year & month) belongs to a given academic year.
  * Academic year 2025-2026 = Jun 2025 – May 2026.
@@ -245,6 +264,11 @@ const FeesPage = () => {
         return { data: all };
     }, [salaryDataYear1, salaryDataYear2, overviewYear]);
     const salariesLoading = salariesLoadingY1 || salariesLoadingY2;
+    const selectedStaffId = selectedStaff?._id;
+    const { data: selectedStaffSalaryResp, isLoading: selectedStaffSalariesLoading } = useSalaries(
+        { teacherId: selectedStaffId },
+        isAdmin && !!selectedStaffId
+    );
     // Teacher salary: fetch both calendar years of the academic year
     const { data: mySalaryYear1, isLoading: mySalaryLoadingY1 } = useMySalary({ year: overviewYear }, isTeacher);
     const { data: mySalaryYear2, isLoading: mySalaryLoadingY2 } = useMySalary({ year: overviewYear + 1 }, isTeacher);
@@ -1039,11 +1063,28 @@ const FeesPage = () => {
                             <>
                                 {selectedStaff ? (() => {
                                     // Compute staff salaries for duplicate check
-                                    const staffSalariesForLedger = (salaryData?.data || []).filter(s => String(s.teacherId?._id || s.teacherId) === String(selectedStaff._id));
-                                    const payFormCalendarYear = getCalendarYearForMonth(payForm.year, Number(payForm.month));
+                                    const staffSalariesForLedger = selectedStaffSalaryResp?.data || [];
+                                    const selectedAcademicYear = Number(payForm.year || overviewYear);
+                                    const payFormCalendarYear = getCalendarYearForMonth(selectedAcademicYear, Number(payForm.month));
                                     const payFormDuplicate = staffSalariesForLedger.find(s => Number(s.month) === Number(payForm.month) && Number(s.year) === payFormCalendarYear);
                                     const payFormIsPaid = payFormDuplicate?.status === 'PAID';
                                     const payFormIsDuplicate = !!payFormDuplicate;
+                                    const payFormMonths = getAcademicYearMonths(selectedAcademicYear);
+                                    const openPayForm = () => {
+                                        setShowPayForm(true);
+                                        setPayForm({
+                                            month: currentMonth,
+                                            year: Number(overviewYear),
+                                            amount: selectedStaff.profile?.expectedSalary || '',
+                                        });
+                                        setPayFormErrors({});
+                                    };
+                                    const setPayFormAcademicYear = (nextAcademicYear) => {
+                                        const normalizedAcademicYear = Number(nextAcademicYear);
+                                        setOverviewYear(normalizedAcademicYear);
+                                        setPayForm((current) => ({ ...current, year: normalizedAcademicYear }));
+                                        setPayFormErrors((current) => ({ ...current, year: '' }));
+                                    };
 
                                     const handlePayFormSubmit = async (e) => {
                                         e.preventDefault();
@@ -1062,9 +1103,13 @@ const FeesPage = () => {
                                                 year: payFormCalendarYear,
                                             });
                                             
-                                            showToast('success', `Salary record created for ${MONTH_LABELS[payForm.month]} ${payForm.year}`);
+                                            showToast('success', `Salary record created for ${MONTH_LABELS[payForm.month]} ${payFormCalendarYear}`);
                                             setShowPayForm(false);
-                                            setPayForm({ month: currentMonth, year: getCurrentAcademicYear(), amount: selectedStaff.profile?.expectedSalary || '' });
+                                            setPayForm({
+                                                month: currentMonth,
+                                                year: selectedAcademicYear,
+                                                amount: selectedStaff.profile?.expectedSalary || '',
+                                            });
                                             setPayFormErrors({});
                                         } catch (err) {
                                             showToast('error', err?.response?.data?.message || 'Failed to create salary entry');
@@ -1093,10 +1138,7 @@ const FeesPage = () => {
                                                 </div>
                                                 {!showPayForm && (
                                                     <button
-                                                        onClick={() => {
-                                                            setShowPayForm(true);
-                                                            setPayForm({ month: currentMonth, year: getCurrentAcademicYear(), amount: selectedStaff.profile?.expectedSalary || '' });
-                                                        }}
+                                                        onClick={openPayForm}
                                                         className="flex items-center gap-2 bg-primary hover:bg-primary-hover text-white font-bold py-2.5 px-6 rounded-xl transition-all shadow-lg shadow-primary/20 text-sm"
                                                     >
                                                         <FaPlus size={12} /> Pay Salary
@@ -1117,19 +1159,17 @@ const FeesPage = () => {
                                                             <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden" style={{ minWidth: 260, maxWidth: 280 }}>
                                                                 {/* Year Header with Nav */}
                                                                 <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100 bg-gray-50/50">
-                                                                    <button type="button" onClick={() => { setPayForm(p => ({ ...p, year: Number(p.year) - 1 })); setPayFormErrors(p => ({ ...p, year: '' })); }}
+                                                                    <button type="button" onClick={() => setPayFormAcademicYear(selectedAcademicYear - 1)}
                                                                         className="p-1.5 hover:bg-gray-200 rounded-lg transition-all text-gray-500 hover:text-gray-800"><FaChevronLeft size={12} /></button>
-                                                                                                                                         <span className="text-sm font-black text-gray-900 tracking-wide">{payForm.year} - {Number(payForm.year) + 1}</span>
-                                                                    <button type="button" onClick={() => { setPayForm(p => ({ ...p, year: Number(p.year) + 1 })); setPayFormErrors(p => ({ ...p, year: '' })); }}
+                                                                                                                                         <span className="text-sm font-black text-gray-900 tracking-wide">{selectedAcademicYear} - {selectedAcademicYear + 1}</span>
+                                                                    <button type="button" onClick={() => setPayFormAcademicYear(selectedAcademicYear + 1)}
                                                                         className="p-1.5 hover:bg-gray-200 rounded-lg transition-all text-gray-500 hover:text-gray-800"><FaChevronRight size={12} /></button>
                                                                 </div>
                                                                 {/* Months Grid */}
                                                                 <div className="grid grid-cols-4 gap-1 p-3">
-                                                                    {MONTH_LABELS.slice(1).map((label, idx) => {
-                                                                        const monthNum = idx + 1;
+                                                                    {payFormMonths.map(({ month: monthNum, calendarYear, shortLabel }) => {
                                                                         const isSelected = Number(payForm.month) === monthNum;
-                                                                        const calYearForMonth = getCalendarYearForMonth(payForm.year, monthNum);
-                                                                        const existsForMonth = staffSalariesForLedger.find(s => Number(s.month) === monthNum && Number(s.year) === calYearForMonth);
+                                                                        const existsForMonth = staffSalariesForLedger.find(s => Number(s.month) === monthNum && Number(s.year) === calendarYear);
                                                                         const isPaidMonth = existsForMonth?.status === 'PAID';
                                                                         return (
                                                                             <button
@@ -1146,7 +1186,8 @@ const FeesPage = () => {
                                                                                                 : 'text-gray-700 hover:bg-gray-100'
                                                                                 }`}
                                                                             >
-                                                                                {label.slice(0, 3)}
+                                                                                <span className="block leading-none">{shortLabel}</span>
+                                                                                <span className={`block mt-1 text-[9px] leading-none ${isSelected ? 'text-white/85' : 'opacity-70'}`}>{calendarYear}</span>
                                                                                 {isPaidMonth && !isSelected && <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-emerald-500 rounded-full"></span>}
                                                                                 {existsForMonth && !isPaidMonth && !isSelected && <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-amber-500 rounded-full"></span>}
                                                                             </button>
@@ -1159,7 +1200,11 @@ const FeesPage = () => {
                                                                         <span className="flex items-center gap-1 text-[9px] text-emerald-600 font-bold"><span className="w-2 h-2 bg-emerald-500 rounded-full inline-block"></span>Paid</span>
                                                                         <span className="flex items-center gap-1 text-[9px] text-amber-600 font-bold"><span className="w-2 h-2 bg-amber-500 rounded-full inline-block"></span>Pending</span>
                                                                     </div>
-                                                                    <button type="button" onClick={() => { setPayForm(p => ({ ...p, month: currentMonth, year: getCurrentAcademicYear() })); }}
+                                                                    <button type="button" onClick={() => {
+                                                                        const todayAcademicYear = getCurrentAcademicYear();
+                                                                        setOverviewYear(todayAcademicYear);
+                                                                        setPayForm(p => ({ ...p, month: currentMonth, year: todayAcademicYear }));
+                                                                    }}
                                                                         className="text-[10px] font-black text-primary hover:text-primary-hover uppercase tracking-widest transition-colors">Today</button>
                                                                 </div>
                                                                 {(payFormErrors.month || payFormErrors.year) && <p className="text-[10px] text-red-500 px-4 pb-2 font-bold">{payFormErrors.month || payFormErrors.year}</p>}
@@ -1177,7 +1222,7 @@ const FeesPage = () => {
                                                                     min={0}
                                                                 />
                                                                 {payFormErrors.amount && <p className="text-[10px] text-red-500 mt-1.5 ml-1 font-bold">{payFormErrors.amount}</p>}
-                                                                <p className="text-[10px] text-gray-400 mt-2 ml-1 font-medium">Selected: <span className="font-black text-gray-700">{MONTH_LABELS[payForm.month]} {payForm.year} - {Number(payForm.year) + 1}</span></p>
+                                                                <p className="text-[10px] text-gray-400 mt-2 ml-1 font-medium">Selected: <span className="font-black text-gray-700">{MONTH_LABELS[payForm.month]} {payFormCalendarYear} (AY {selectedAcademicYear} - {selectedAcademicYear + 1})</span></p>
                                                             </div>
                                                         </div>
 
@@ -1246,7 +1291,7 @@ const FeesPage = () => {
                                                         </tr>
                                                     </thead>
                                                     <tbody className="divide-y divide-gray-50">
-                                                        {salariesLoading ? (
+                                                        {selectedStaffSalariesLoading ? (
                                                             <SkeletonRows rows={3} columns={5} />
                                                         ) : staffSalariesForLedger.length === 0 ? (
                                                             <tr><td colSpan={6}><EmptyState icon={FaHistory} title="No salary records" subtitle="Use 'Pay Salary' above to create the first entry" /></td></tr>
@@ -1257,7 +1302,10 @@ const FeesPage = () => {
 
                                                                 return (
                                                                     <tr key={salary._id} className="hover:bg-gray-50/50 transition-colors">
-                                                                        <td className="px-6 py-4 font-bold text-gray-900">{MONTH_LABELS[salary.month]} {salary.year}</td>
+                                                                        <td className="px-6 py-4">
+                                                                            <div className="font-bold text-gray-900">{MONTH_LABELS[salary.month]} {salary.year}</div>
+                                                                            <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">AY {getAcademicYearLabel(salary.year, salary.month)}</div>
+                                                                        </td>
                                                                         <td className="px-6 py-4 font-black text-gray-900">
                                                                             {editingSalaryId === salary._id ? (
                                                                                 <div className="flex items-center gap-2">
