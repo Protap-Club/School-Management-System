@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useSelector } from "react-redux";
 import { usersApi } from "./api";
 import { attendanceKeys } from "../../attendance/api/queries";
+import { selectAccessToken } from "../../auth/authSlice";
 import { patchTeacherExpectedSalaryInUsersCache } from "./cache";
 import { selectAccessToken } from "../../auth/authSlice";
 
