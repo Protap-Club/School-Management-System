@@ -241,7 +241,39 @@ const ExamModal = ({ isOpen, onClose, onSubmit, editData, isLoading, userRole, u
             }));
     }, [isTeacher, teachersData, user]);
 
-    const availableStandards = useMemo(() => schoolAvailableStandards, [schoolAvailableStandards]);
+    const availableStandards = useMemo(() => {
+        if (isTeacher) {
+            const assigned = user?.profile?.assignedClasses || [];
+            const classTeacherOf = user?.profile?.classTeacherOf;
+            const standards = new Set();
+            assigned.forEach(c => { if (c.standard) standards.add(String(c.standard)); });
+            if (classTeacherOf?.standard) standards.add(String(classTeacherOf.standard));
+            return Array.from(standards).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+        }
+        return schoolAvailableStandards;
+    }, [isTeacher, schoolAvailableStandards, user]);
+
+    const availableSections = useMemo(() => {
+        if (isTeacher) {
+            const assigned = user?.profile?.assignedClasses || [];
+            const classTeacherOf = user?.profile?.classTeacherOf;
+            const sections = new Set();
+            const selectedStandards = form.standard || [];
+            
+            assigned.forEach(c => {
+                if (selectedStandards.length === 0 || selectedStandards.includes(String(c.standard))) {
+                    if (c.section) sections.add(String(c.section).toUpperCase());
+                }
+            });
+            
+            if (classTeacherOf?.standard && (selectedStandards.length === 0 || selectedStandards.includes(String(classTeacherOf.standard)))) {
+                if (classTeacherOf.section) sections.add(String(classTeacherOf.section).toUpperCase());
+            }
+            
+            return Array.from(sections).sort();
+        }
+        return allUniqueSections;
+    }, [isTeacher, allUniqueSections, user, form.standard]);
 
     // Initialize form with edit data or reset to initial
     useEffect(() => {
@@ -733,7 +765,7 @@ const ExamModal = ({ isOpen, onClose, onSubmit, editData, isLoading, userRole, u
                                                 <MultiSelectDropdown
                                                     label="Sections"
                                                     placeholder="Select Sections"
-                                                    options={(allUniqueSections || []).map((s) => ({ label: `Section ${s}`, value: s }))}
+                                                    options={(availableSections || []).map((s) => ({ label: `Section ${s}`, value: s }))}
                                                     selected={form.section}
                                                     onChange={(vals) => handleChange('section', vals)}
                                                     className={errors.section ? 'border-red-400' : ''}

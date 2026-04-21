@@ -276,17 +276,44 @@ const ExaminationPage = () => {
 
 
   // Filtered dropdown options
-  const availableStandards = useMemo(() => schoolAvailableStandards, [schoolAvailableStandards]);
+  const availableStandards = useMemo(() => {
+    if (isTeacher) {
+      const assigned = user?.profile?.assignedClasses || [];
+      const classTeacherOf = user?.profile?.classTeacherOf;
+      const standards = new Set();
+      assigned.forEach(c => { if (c.standard) standards.add(String(c.standard)); });
+      if (classTeacherOf?.standard) standards.add(String(classTeacherOf.standard));
+      return Array.from(standards).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+    }
+    return schoolAvailableStandards;
+  }, [isTeacher, schoolAvailableStandards, user]);
 
   const getSectionsForSelectedStandard = useCallback((standardValue) => {
     if (!standardValue) return allUniqueSections;
     return getSectionsForStandard(standardValue);
   }, [allUniqueSections, getSectionsForStandard]);
 
-  const availableSections = useMemo(
-    () => getSectionsForSelectedStandard(filters.standard),
-    [filters.standard, getSectionsForSelectedStandard]
-  );
+  const availableSections = useMemo(() => {
+    if (isTeacher) {
+      const assigned = user?.profile?.assignedClasses || [];
+      const classTeacherOf = user?.profile?.classTeacherOf;
+      const sections = new Set();
+      const selectedStandard = filters.standard;
+
+      assigned.forEach(c => {
+        if (!selectedStandard || String(c.standard) === String(selectedStandard)) {
+          if (c.section) sections.add(String(c.section).toUpperCase());
+        }
+      });
+
+      if (classTeacherOf?.standard && (!selectedStandard || String(classTeacherOf.standard) === String(selectedStandard))) {
+        if (classTeacherOf.section) sections.add(String(classTeacherOf.section).toUpperCase());
+      }
+
+      return Array.from(sections).sort();
+    }
+    return getSectionsForSelectedStandard(filters.standard);
+  }, [filters.standard, getSectionsForSelectedStandard, isTeacher, user]);
 
   const handleStandardFilterChange = useCallback((standardValue) => {
     setFilters((current) => {
