@@ -4,7 +4,6 @@ import { usersApi } from "./api";
 import { attendanceKeys } from "../../attendance/api/queries";
 import { selectAccessToken } from "../../auth/authSlice";
 import { patchTeacherExpectedSalaryInUsersCache } from "./cache";
-import { selectAccessToken } from "../../auth/authSlice";
 
 export const userKeys = {
     all: ["users"],
