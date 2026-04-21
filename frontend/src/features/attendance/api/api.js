@@ -5,7 +5,7 @@ import api from '../../../lib/axios';
 // Fires page 0 first to get totalCount, then fans out all remaining pages
 // simultaneously with Promise.all — no serial waterfall.
 const paginateUsers = async (role, extra = '') => {
-    const PAGE_SIZE = 100;
+    const PAGE_SIZE = 2000;
     const firstRes = await api.get(`/users?role=${role}&pageSize=${PAGE_SIZE}&page=0${extra}`);
     const firstData = firstRes.data?.data;
     if (!firstData) return [];
@@ -23,10 +23,23 @@ const paginateUsers = async (role, extra = '') => {
         )
     );
 
-    return [
+    const allUsers = [
         ...firstBatch,
         ...restResponses.flatMap(r => r.data?.data?.users || []),
     ];
+
+    // Ensure uniqueness by _id to prevent duplicate key errors in React lists 
+    // when records shift between parallel page requests.
+    const uniqueUsers = [];
+    const seenIds = new Set();
+    for (const user of allUsers) {
+        if (user?._id && !seenIds.has(user._id)) {
+            seenIds.add(user._id);
+            uniqueUsers.push(user);
+        }
+    }
+
+    return uniqueUsers;
 };
 
 export const attendanceApi = {

@@ -542,7 +542,7 @@ export const getUsers = async (creator, filters = {}) => {
 
     // 1. INPUT VALIDATION & SANITIZATION
     const page = Math.max(0, filters.page || 0);
-    const maxPageSize = 100;
+    const maxPageSize = 2000;
     const pageSize = Math.min(maxPageSize, Math.max(1, filters.pageSize || 25));
     const { page: _, pageSize: __, ...queryFilters } = filters;
 
