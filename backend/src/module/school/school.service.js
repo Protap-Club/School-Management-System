@@ -217,6 +217,11 @@ export const getSchoolProfile = async (schoolId) => {
     return { school: data };
 };
 
+// Gets all schools for system-wide filters
+export const getAllSchools = async () => {
+    return await School.find({}).select('name _id').sort({ name: 1 }).lean();
+};
+
 // BRANDING (Logo)
 export const getSchoolBranding = async (schoolId) => {
     // If no context , return default

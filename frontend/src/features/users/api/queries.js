@@ -3,6 +3,7 @@ import { useSelector } from "react-redux";
 import { usersApi } from "./api";
 import { attendanceKeys } from "../../attendance/api/queries";
 import { patchTeacherExpectedSalaryInUsersCache } from "./cache";
+import { selectAccessToken } from "../../auth/authSlice";
 
 export const userKeys = {
     all: ["users"],

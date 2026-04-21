@@ -14,6 +14,15 @@ export const createSchool = asyncHandler(async (req, res) => {
     logger.info(`School created: ${result.school.name}`);
 });
 
+// Get all schools for super admin
+export const getAllSchools = asyncHandler(async (req, res) => {
+    const schools = await schoolService.getAllSchools();
+    res.status(200).json({
+        success: true,
+        data: schools
+    });
+});
+
 // Update an existing school
 export const updateSchool = asyncHandler(async (req, res) => {
     const schoolId = req.schoolId || req.params.id || req.user.schoolId;

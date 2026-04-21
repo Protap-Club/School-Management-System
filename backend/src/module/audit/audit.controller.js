@@ -15,7 +15,7 @@ export const getAuditLogs = asyncHandler(async (req, res) => {
     } = req.query;
 
     const result = await auditService.getAuditLogs({
-        schoolId: req.schoolId,
+        schoolId: req.query.schoolId, // Let the service handle optional school fallback if needed
         page,
         limit,
         filters: {

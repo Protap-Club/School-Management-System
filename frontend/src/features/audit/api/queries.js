@@ -1,5 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
-import { getAuditLogs } from "./api";
+import { getAuditLogs, getAllSchools } from "./api";
+
+export const useAllSchools = () => {
+    return useQuery({
+        queryKey: ["allSchools"],
+        queryFn: getAllSchools,
+        staleTime: 1000 * 60 * 60, // 1 hour
+    });
+};
 
 export const auditKeys = {
     all: ["auditLogs"],

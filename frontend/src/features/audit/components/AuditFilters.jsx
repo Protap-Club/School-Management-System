@@ -67,18 +67,32 @@ const Divider = () => (
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-export const AuditFilters = ({ filters, setFilters }) => {
+export const AuditFilters = ({ filters, setFilters, schools = [] }) => {
     const set = (key, value) => setFilters(prev => ({ ...prev, [key]: value, page: 0 }));
 
     const hasActiveFilters =
         filters.search || filters.targetModel || filters.actorRole ||
-        filters.startDate || filters.endDate ||
+        filters.startDate || filters.endDate || filters.schoolId ||
         filters.action_type || filters.severity || filters.outcome;
 
     return (
         <div className="w-full px-4 py-3 bg-white ring-1 ring-slate-900/5 rounded-xl shadow-sm mb-2">
             {/* ── Single unified filter bar ─────────────────────────────── */}
             <div className="flex items-center gap-2 flex-wrap">
+
+                {/* School */}
+                <FilterSelect
+                    aria-label="Filter by school"
+                    value={filters.schoolId}
+                    onChange={(v) => set('schoolId', v)}
+                >
+                    <option value="">All Schools</option>
+                    {schools?.map(school => (
+                        <option key={school._id} value={school._id}>{school.name}</option>
+                    ))}
+                </FilterSelect>
+
+                <Divider />
 
                 {/* Search — widest control */}
                 <div className="relative flex-[2] min-w-[200px]">

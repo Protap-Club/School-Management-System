@@ -135,7 +135,10 @@ export const createAuditLog = async ({
  * @param {string}  [params.filters.endDate]
  */
 export const getAuditLogs = async ({ schoolId, page = 1, limit = 20, filters = {} }) => {
-    const query = { schoolId };
+    const query = {};
+    if (schoolId) {
+        query.schoolId = schoolId;
+    }
 
     // ── Existing filters ──
     if (filters.action) {
@@ -181,7 +184,8 @@ export const getAuditLogs = async ({ schoolId, page = 1, limit = 20, filters = {
             .sort({ createdAt: -1 })
             .skip(skip)
             .limit(limit)
-            .populate('actorId', 'name email avatarUrl role'),
+            .populate('actorId', 'name email avatarUrl role')
+            .populate('schoolId', 'name'),
         AuditLog.countDocuments(query)
     ]);
 
