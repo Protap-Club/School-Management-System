@@ -4,6 +4,7 @@ import { conf } from './config/index.js';
 import logger from './config/logger.js';
 
 let io;
+const ACCESS_TOKEN_SECRET = conf.JWT_ACCESS_SECRET || conf.JWT_SECRET;
 
 export const initSocket = (server, corsOptions) => {
     io = new Server(server, { 
@@ -33,7 +34,7 @@ export const initSocket = (server, corsOptions) => {
             return next(new Error('Authentication required'));
         }
         try {
-            const decoded = jwt.verify(token, conf.JWT_SECRET || conf.JWT_ACCESS_SECRET);
+            const decoded = jwt.verify(token, ACCESS_TOKEN_SECRET);
             socket.userId = decoded.id;
             socket.schoolId = decoded.schoolId;
             next();

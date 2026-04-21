@@ -25,7 +25,9 @@ export const useSchoolFeatures = (options = {}) => {
 
 // Helper hook to check if a feature is enabled
 export const useHasFeature = (featureKey) => {
-    const { data } = useSchoolFeatures();
+    const { data, isLoading } = useSchoolFeatures();
+    // While loading, optimistically return true — only block when we have confirmed data
+    if (isLoading) return true;
     const features = data?.data?.school?.features || data?.data?.features || {};
     return features[featureKey] === true;
 };

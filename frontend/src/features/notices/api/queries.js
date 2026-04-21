@@ -53,6 +53,26 @@ export const useReceivedNotices = () => {
     });
 };
 
+export const useDeleteReceivedNotice = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: noticesApi.deleteReceivedNotice,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: noticeKeys.received() });
+        },
+    });
+};
+
+export const useBulkDeleteReceivedNotices = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: noticesApi.bulkDeleteReceivedNotices,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: noticeKeys.received() });
+        },
+    });
+};
+
 // Create notice mutation
 export const useCreateNotice = () => {
     const queryClient = useQueryClient();

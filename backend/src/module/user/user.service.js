@@ -1,4 +1,6 @@
 import User from "./model/User.model.js";
+import { createAuditLog } from "../audit/audit.service.js";
+import { AUDIT_ACTIONS } from "../../constants/auditActions.js";
 import StudentProfile from "./model/StudentProfile.model.js";
 import TeacherProfile from "./model/TeacherProfile.model.js";
 import School from "../school/School.model.js";
@@ -17,6 +19,7 @@ import { generatePassword } from "../../utils/password.util.js";
 import {
     assertClassSectionExists,
     assertClassSectionListExists,
+    normalizeClassSection,
 } from "../../utils/classSection.util.js";
 import {
     assertTeacherClassAssignmentsAvailable,
@@ -43,8 +46,69 @@ const getTeacherAssignmentsFromPayload = (userData = {}) => {
     return [];
 };
 
+const assertPositiveRollNumber = (rollNumber) => {
+    const numericRollNumber = Number(String(rollNumber || "").trim());
+
+    if (!Number.isFinite(numericRollNumber) || numericRollNumber <= 0 || !/^\d+$/.test(String(rollNumber || "").trim())) {
+        throw new BadRequestError("Roll number must be a positive number");
+    }
+
+    return String(Math.trunc(numericRollNumber));
+};
+
+const assertParentOrGuardianName = (userData = {}) => {
+    const hasParentOrGuardianName = [
+        userData.fatherName,
+        userData.motherName,
+        userData.guardianName,
+    ].some((value) => String(value || "").trim().length > 0);
+
+    if (!hasParentOrGuardianName) {
+        throw new BadRequestError("At least one of fatherName, motherName, or guardianName is required");
+    }
+};
+
+/**
+ * Removes disputed class assignments from displaced teachers.
+ * Called only on forceOverride — never automatically.
+ * Only removes the specific conflicting class; leaves all other data intact.
+ */
+const clearDisplacedTeacherClasses = async (schoolId, conflicts = []) => {
+    if (!conflicts.length) return;
+
+    for (const conflict of conflicts) {
+        await TeacherProfile.updateOne(
+            { userId: conflict.teacherId, schoolId },
+            {
+                $pull: {
+                    assignedClasses: {
+                        standard: conflict.standard,
+                        section: conflict.section,
+                    },
+                },
+            }
+        );
+        logger.info(
+            { teacherId: conflict.teacherId, class: conflict.classLabel },
+            "Displaced teacher class cleared on forceOverride"
+        );
+    }
+};
+
+/**
+ * Normalizes class assignments for a user based on role.
+ * For teachers: validates the class exists and checks for conflicts.
+ *
+ * @param {string} schoolId
+ * @param {string} role
+ * @param {object} userData - mutated in-place with normalized values
+ * @param {object} options
+ * @param {string|null} options.excludeUserId - exclude this teacher from conflict checks (for updates)
+ * @param {boolean} options.forceOverride - when true, skip conflict assert and return conflicts for caller to handle
+ * @returns {{ conflicts: Array }} - conflicts array (empty when none or when assert throws normally)
+ */
 const normalizeUserClassAssignments = async (schoolId, role, userData, options = {}) => {
-    const { excludeUserId = null } = options;
+    const { excludeUserId = null, forceOverride = false } = options;
 
     if (role === USER_ROLES.STUDENT && (userData.standard || userData.section)) {
         const normalizedStudentClass = await assertClassSectionExists(
@@ -59,7 +123,7 @@ const normalizeUserClassAssignments = async (schoolId, role, userData, options =
     }
 
     if (role !== USER_ROLES.TEACHER) {
-        return;
+        return { conflicts: [] };
     }
 
     const requestedAssignedClasses = Array.isArray(userData.assignedClasses)
@@ -102,11 +166,22 @@ const normalizeUserClassAssignments = async (schoolId, role, userData, options =
     }
 
     const teacherAssignments = getTeacherAssignmentsFromPayload(userData);
-    if (teacherAssignments.length > 0) {
-        await assertTeacherClassAssignmentsAvailable(schoolId, teacherAssignments, {
-            excludeUserIds: excludeUserId ? [excludeUserId] : [],
-        });
+    if (teacherAssignments.length === 0) {
+        return { conflicts: [] };
     }
+
+    // Detect conflicts first so we can either block or surface them
+    const conflicts = await findTeacherClassConflicts(schoolId, teacherAssignments, {
+        excludeUserIds: excludeUserId ? [excludeUserId] : [],
+    });
+
+    if (conflicts.length > 0 && !forceOverride) {
+        // Return conflicts to the caller — do NOT throw here; let service decide HTTP response
+        return { conflicts };
+    }
+
+    // No conflicts, or admin explicitly confirmed override — proceed
+    return { conflicts };
 };
 
 const buildTeacherArchiveSummary = async (schoolId, teacherIds = []) => {
@@ -272,18 +347,138 @@ const transferTeacherResponsibilities = async (
 
 // CREATE USER
 
-export const createUser = async (creator, userData) => {
-    const { name, email, role, skipEmail } = userData;
+export const createTeacherStudent = async (creator, payload = {}, metadata = {}) => {
+    if (creator.role !== USER_ROLES.TEACHER) {
+        throw new ForbiddenError("Only teachers can create students from mobile");
+    }
+
+    const assignedClasses = normalizeTeacherAssignedClasses(await getTeacherAssignedClasses(creator._id));
+    if (!assignedClasses.length) {
+        throw new ForbiddenError("You have no assigned classes and cannot create students");
+    }
+
+    const normalizedClass = normalizeClassSection({
+        standard: payload.standard,
+        section: payload.section,
+    });
+
+    if (!normalizedClass.standard || !normalizedClass.section) {
+        throw new BadRequestError("Standard and section are required");
+    }
+
+    const isAssignedClass = assignedClasses.some(
+        (item) =>
+            item.standard === normalizedClass.standard &&
+            item.section === normalizedClass.section
+    );
+
+    if (!isAssignedClass) {
+        const assignedClassLabels = assignedClasses.map((item) => formatClassSectionLabel(item)).join(", ");
+        throw new ForbiddenError(
+            `You can only create students for your assigned classes: ${assignedClassLabels}`
+        );
+    }
+
+    const normalizedRollNumber = assertPositiveRollNumber(payload.rollNumber);
+    assertParentOrGuardianName(payload);
+
+    const existingRollNumber = await StudentProfile.exists({
+        schoolId: creator.schoolId,
+        standard: normalizedClass.standard,
+        section: normalizedClass.section,
+        rollNumber: normalizedRollNumber,
+    });
+
+    if (existingRollNumber) {
+        throw new ConflictError(
+            `Roll number ${normalizedRollNumber} already exists in class ${formatClassSectionLabel(normalizedClass)}`
+        );
+    }
+
+    return createUser(creator, {
+        ...payload,
+        role: USER_ROLES.STUDENT,
+        schoolId: creator.schoolId,
+        standard: normalizedClass.standard,
+        section: normalizedClass.section,
+        rollNumber: normalizedRollNumber,
+        contactNo: payload.contactNo?.trim() || undefined,
+        fatherName: payload.fatherName?.trim() || undefined,
+        fatherContact: payload.fatherContact?.trim() || undefined,
+        motherName: payload.motherName?.trim() || undefined,
+        motherContact: payload.motherContact?.trim() || undefined,
+        guardianName: payload.guardianName?.trim() || undefined,
+        guardianContact: payload.guardianContact?.trim() || undefined,
+        address: payload.address?.trim() || undefined,
+    }, metadata);
+};
+
+export const createUser = async (creator, userData, metadata = {}) => {
+    const { name, email, role, skipEmail, forceOverride = false } = userData;
 
     // Hierarchy check: creator can only create roles below their own
     if (!canManageRole(creator.role, role)) {
         throw new ForbiddenError(`You cannot create a user with role '${role}'. You can only create roles below your own.`);
     }
 
+    // Teacher-specific validation: teachers can only create students for their assigned classes
+    if (creator.role === USER_ROLES.TEACHER && role === USER_ROLES.STUDENT) {
+        const assignedClasses = await getTeacherAssignedClasses(creator._id);
+        
+        if (!assignedClasses.length) {
+            throw new ForbiddenError("You have no assigned classes and cannot create students");
+        }
+
+        // Check if the requested student class is within teacher's assigned classes
+        if (userData.standard || userData.section) {
+            const requestedClass = {
+                standard: userData.standard,
+                section: userData.section
+            };
+            
+            const isAssigned = assignedClasses.some(cls =>
+                cls.standard === requestedClass.standard &&
+                cls.section === requestedClass.section
+            );
+            
+            if (!isAssigned) {
+                const assignedClassLabels = assignedClasses.map(cls => 
+                    formatClassSectionLabel(cls)
+                ).join(', ');
+                throw new ForbiddenError(
+                    `You can only create students for your assigned classes: ${assignedClassLabels}`
+                );
+            }
+        }
+    }
+
     // School context — always scoped to creator's school
     const targetSchoolId = userData.schoolId || creator.schoolId;
 
-    await normalizeUserClassAssignments(targetSchoolId, role, userData);
+    const { conflicts } = await normalizeUserClassAssignments(targetSchoolId, role, userData, { forceOverride });
+
+    // Surface conflicts to the controller — do not proceed until user confirms
+    if (conflicts.length > 0 && !forceOverride) {
+        return { conflict: true, conflicts };
+    }
+
+    // forceOverride: clear displaced teachers' class assignments before creating
+    if (forceOverride && conflicts.length > 0) {
+        await clearDisplacedTeacherClasses(targetSchoolId, conflicts);
+    }
+
+    if (creator.role === USER_ROLES.TEACHER && role === USER_ROLES.STUDENT) {
+        const teacherProfile = await TeacherProfile.findOne({ userId: creator._id, schoolId: targetSchoolId }).lean();
+        const assignedClasses = teacherProfile?.assignedClasses || [];
+        
+        const isAssigned = assignedClasses.some(cls => 
+            cls.standard === userData.standard && cls.section === userData.section
+        );
+        
+        if (!isAssigned) {
+            throw new ForbiddenError("You can only add students to classes currently assigned to you.");
+        }
+    }
 
     // Check for duplicate email
     const existing = await User.findOne({ email });
@@ -329,6 +524,16 @@ export const createUser = async (creator, userData) => {
     }
 
     const { _id, name: n, email: e, role: r, schoolId: s, createdBy: cb } = newUser;
+
+    createAuditLog({
+        schoolId: targetSchoolId,
+        actorId: creator._id,
+        actorRole: creator.role,
+        action: AUDIT_ACTIONS.USER_CREATED,
+        description: `Created new ${r} user: ${e}`,
+        ...metadata
+    }).catch(() => {});
+
     return { user: { _id, name: n, email: e, role: r, schoolId: s, createdBy: cb } };
 };
 
@@ -337,7 +542,7 @@ export const getUsers = async (creator, filters = {}) => {
 
     // 1. INPUT VALIDATION & SANITIZATION
     const page = Math.max(0, filters.page || 0);
-    const maxPageSize = 100;
+    const maxPageSize = 2000;
     const pageSize = Math.min(maxPageSize, Math.max(1, filters.pageSize || 25));
     const { page: _, pageSize: __, ...queryFilters } = filters;
 
@@ -346,19 +551,19 @@ export const getUsers = async (creator, filters = {}) => {
 
     // 3. TEACHER-SPECIFIC CLASS FILTERING
     if (creator.role === USER_ROLES.TEACHER) {
-        const assignedClasses = await getTeacherAssignedClasses(creator._id);
+        const classTeacherScope = await getTeacherClassTeacherScope(creator._id);
 
-        if (!assignedClasses.length) {
+        if (!classTeacherScope.length) {
             return { totalCount: 0, users: [], pagination: { page, pageSize, totalPages: 0 } };
         }
 
-        // Optimized Teacher Join: If a teacher is querying students, we use an aggregation pipeline to filter 
-        // by assigned classes directly in the database instead of doing two separate queries and merging in JS memory.
+        // Optimized Teacher Join: If a teacher is querying students, filter by only their
+        // class-teacher homeroom class directly in the database.
         if (!query.role || query.role === USER_ROLES.STUDENT ||
             (typeof query.role === 'object' && query.role.$in && query.role.$in.includes(USER_ROLES.STUDENT))) {
 
             const classMatch = {
-                $or: assignedClasses.map(cls => ({
+                $or: classTeacherScope.map(cls => ({
                     standard: cls.standard,
                     section: cls.section
                 }))
@@ -397,7 +602,7 @@ export const getUsers = async (creator, filters = {}) => {
 
     let userQuery = User.find(query)
         .select("-password -__v")
-        .populate("schoolId", "name code")
+        .populate("schoolId", "name code theme")
         .sort({ createdAt: -1 })
         .skip(page * pageSize)
         .limit(pageSize)
@@ -460,10 +665,10 @@ export const getUserById = async (creator, userId) => {
 
     // 4. TEACHER-SPECIFIC CLASS VALIDATION
     if (creator.role === USER_ROLES.TEACHER && user.role === USER_ROLES.STUDENT) {
-        const assignedClasses = await getTeacherAssignedClasses(creator._id);
+        const classTeacherScope = await getTeacherClassTeacherScope(creator._id);
 
-        if (!assignedClasses.length) {
-            throw new ForbiddenError("You have no assigned classes and cannot view this student");
+        if (!classTeacherScope.length) {
+            throw new ForbiddenError("You are not assigned as class teacher to any class");
         }
 
         // Get student's class information
@@ -472,14 +677,14 @@ export const getUserById = async (creator, userId) => {
             throw new NotFoundError("Student profile not found");
         }
 
-        // Check if student belongs to any of teacher's assigned classes
-        const isAssigned = assignedClasses.some(cls =>
+        // Check if student belongs to teacher's class-teacher class
+        const isAssigned = classTeacherScope.some(cls =>
             cls.standard === studentProfile.standard &&
             cls.section === studentProfile.section
         );
 
         if (!isAssigned) {
-            throw new ForbiddenError("This student is not in your assigned classes");
+            throw new ForbiddenError("This student is not in your class-teacher class");
         }
     }
 
@@ -492,7 +697,7 @@ export const getMyProfile = async (userId) => {
     // 1. FETCH USER WITH PROFILES
     const user = await User.findById(userId)
         .select("-password -__v")
-        .populate("schoolId", "name code")
+        .populate("schoolId", "name code theme")
         .populate("studentProfile")
         .populate("teacherProfile")
         .populate("adminProfile")
@@ -518,6 +723,7 @@ export const getMyProfile = async (userId) => {
 export const toggleArchive = async (creator, userIds, isArchived, options = {}) => {
     const ids = Array.isArray(userIds) ? userIds : [userIds];
     const replacementTeacherId = options.replacementTeacherId || null;
+    const skipReplacement = options.skipReplacement || false;
 
     // 2. BUILD QUERY WITH ACCESS CONTROL
     const query = buildAccessQuery(creator, {
@@ -579,7 +785,7 @@ export const toggleArchive = async (creator, userIds, isArchived, options = {}) 
             (item) => !conflictingPrimaryClassKeys.has(`${item.standard}::${item.section}`)
         );
 
-        if (archiveSummary.requiresReplacement && !replacementTeacherId) {
+        if (archiveSummary.requiresReplacement && !replacementTeacherId && !skipReplacement) {
             throw new BadRequestError(
                 "This teacher still has active classes or academic work. Please assign a temporary replacement teacher before archiving.",
                 "TEACHER_REPLACEMENT_REQUIRED",
@@ -645,12 +851,12 @@ export const toggleArchive = async (creator, userIds, isArchived, options = {}) 
                 return;
             }
 
-                const classKey = `${assignedClass.standard}::${assignedClass.section}`;
-                if (!duplicateAssignments.has(classKey)) {
-                    duplicateAssignments.set(classKey, []);
-                }
+            const classKey = `${assignedClass.standard}::${assignedClass.section}`;
+            if (!duplicateAssignments.has(classKey)) {
+                duplicateAssignments.set(classKey, []);
+            }
 
-                duplicateAssignments.get(classKey).push(String(profile.userId));
+            duplicateAssignments.get(classKey).push(String(profile.userId));
         });
 
         const duplicateRestoreClass = [...duplicateAssignments.entries()].find(
@@ -719,6 +925,15 @@ export const toggleArchive = async (creator, userIds, isArchived, options = {}) 
         targetIds: verifiedIds
     }, `Users ${isArchived ? 'archived' : 'restored'}`);
 
+    createAuditLog({
+        schoolId: creator.schoolId,
+        actorId: creator._id,
+        actorRole: creator.role,
+        action: AUDIT_ACTIONS.USER_BULK_ACTION,
+        description: `${isArchived ? 'Archived' : 'Restored'} ${result.modifiedCount} user(s)`,
+        ...options.metadata
+    }).catch(() => {});
+
     return {
         modifiedCount: result.modifiedCount,
         requestedCount: ids.length,
@@ -755,7 +970,32 @@ export const getSubjectTeacher = async (creator, standard, section, subject) => 
     return user;
 };
 
-export const replaceClassTeacher = async (creator, data = {}) => {
+export const getNextRollNumber = async (creator, standard, section) => {
+    // Find all student profiles for this class/section in this school
+    const students = await StudentProfile.find({
+        schoolId: creator.schoolId,
+        standard,
+        section
+    }).select("rollNumber").lean();
+
+    if (students.length === 0) {
+        return { nextRollNumber: 1 };
+    }
+
+    // Convert roll numbers to integers and find max
+    const rollNumbers = students
+        .map(s => parseInt(s.rollNumber, 10))
+        .filter(n => !isNaN(n));
+
+    if (rollNumbers.length === 0) {
+        return { nextRollNumber: 1 };
+    }
+
+    const maxRoll = Math.max(...rollNumbers);
+    return { nextRollNumber: maxRoll + 1 };
+};
+
+export const replaceClassTeacher = async (creator, data = {}, metadata = {}) => {
     if (![USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN].includes(creator.role)) {
         throw new ForbiddenError("Only admins can replace class teachers");
     }
@@ -791,15 +1031,18 @@ export const replaceClassTeacher = async (creator, data = {}) => {
         schoolId: creator.schoolId,
         userId: { $in: activeTeacherIds },
     })
-        .select("userId assignedClasses")
+        .select("userId assignedClasses classTeacherOf")
         .lean();
 
     const primaryClassByTeacher = new Map();
     teacherProfiles.forEach((profile) => {
-        primaryClassByTeacher.set(
-            String(profile.userId),
-            getPrimaryTeacherAssignedClass(profile.assignedClasses || [])
-        );
+        // Prefer classTeacherOf (explicit class teacher assignment),
+        // fall back to assignedClasses[0] for compatibility
+        const classTeacherOf = profile.classTeacherOf;
+        const primaryClass = (classTeacherOf?.standard && classTeacherOf?.section)
+            ? classTeacherOf
+            : getPrimaryTeacherAssignedClass(profile.assignedClasses || []);
+        primaryClassByTeacher.set(String(profile.userId), primaryClass || null);
     });
 
     const currentOwner = teacherProfiles.find((profile) => {
@@ -870,14 +1113,30 @@ export const replaceClassTeacher = async (creator, data = {}) => {
                 schoolId: creator.schoolId,
                 userId: teacherId,
                 assignedClasses: [],
+                classTeacherOf: null,
             });
         }
 
         profile.assignedClasses = classAssignment
             ? [{ standard: classAssignment.standard, section: classAssignment.section, subjects: [] }]
             : [];
+
+        // Also update classTeacherOf to keep both fields in sync
+        profile.classTeacherOf = classAssignment
+            ? { standard: classAssignment.standard, section: classAssignment.section }
+            : null;
+
         await profile.save();
     }
+
+    createAuditLog({
+        schoolId: creator.schoolId,
+        actorId: creator._id,
+        actorRole: creator.role,
+        action: AUDIT_ACTIONS.USER_UPDATED,
+        description: `Replaced class teacher for ${normalizedClass.standard}-${normalizedClass.section} (mode: ${mode})`,
+        ...metadata
+    }).catch(() => {});
 
     return {
         standard: normalizedClass.standard,
@@ -889,8 +1148,8 @@ export const replaceClassTeacher = async (creator, data = {}) => {
     };
 };
 
-// UPDATE TEACHER PROFILE (e.g. expectedSalary)
-export const updateTeacherProfile = async (creator, userId, data) => {
+// UPDATE TEACHER PROFILE (e.g. expectedSalary) - Fixed conflict checking
+export const updateTeacherProfile = async (creator, userId, data, metadata = {}) => {
     // Only admins can update profiles in this way
     if (![USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN].includes(creator.role)) {
         throw new ForbiddenError("Only admins can update teacher profiles");
@@ -900,20 +1159,71 @@ export const updateTeacherProfile = async (creator, userId, data) => {
     if (!user) throw new NotFoundError("User not found");
     if (user.role !== USER_ROLES.TEACHER) throw new BadRequestError("User is not a teacher");
 
+    // Check for class-teacher conflicts if assignedClasses is being updated
+    if (data.assignedClasses !== undefined) {
+        const classPayload = { assignedClasses: data.assignedClasses };
+        const { conflicts } = await normalizeUserClassAssignments(creator.schoolId, USER_ROLES.TEACHER, classPayload, {
+            excludeUserId: user._id,
+            forceOverride: Boolean(data.forceOverride),
+        });
+
+        // Return conflicts to the caller — caller must confirm before we proceed
+        if (conflicts.length > 0 && !data.forceOverride) {
+            return { conflict: true, conflicts };
+        }
+
+        // Confirmed override: clear displaced teachers first
+        if (data.forceOverride && conflicts.length > 0) {
+            await clearDisplacedTeacherClasses(creator.schoolId, conflicts);
+        }
+    }
+
+    // Remove forceOverride from data before saving to DB
+    const { forceOverride, ...profileData } = data;
+
+    // Capture BEFORE state for diff
+    const before = await TeacherProfile.findOne({ userId, schoolId: creator.schoolId }).lean();
+
     const updatedProfile = await TeacherProfile.findOneAndUpdate(
         { userId, schoolId: creator.schoolId },
-        { $set: data },
+        { $set: profileData },
         { new: true, runValidators: true, upsert: true }
     );
 
     if (!updatedProfile) throw new NotFoundError("Teacher profile not found");
 
     logger.info(`Teacher profile updated for user ${userId} by ${creator._id}`);
+
+    // Capture AFTER state and build diff
+    const after = await TeacherProfile.findOne({ userId, schoolId: creator.schoolId }).lean();
+    const IGNORED_FIELDS_TP = ['_id', '__v', 'createdAt', 'updatedAt', 'userId', 'schoolId'];
+    const changes = [];
+    if (before && after) {
+        const allKeys = new Set([...Object.keys(before), ...Object.keys(after)]);
+        for (const key of allKeys) {
+            if (IGNORED_FIELDS_TP.includes(key)) continue;
+            const prev = JSON.stringify(before[key]);
+            const next = JSON.stringify(after[key]);
+            if (prev !== next) {
+                changes.push({ field: key, before: before[key], after: after[key] });
+            }
+        }
+    }
+
+    createAuditLog({
+        schoolId: creator.schoolId,
+        actorId: creator._id,
+        actorRole: creator.role,
+        action: AUDIT_ACTIONS.USER_UPDATED,
+        description: `Updated teacher profile for user ${user.email}`,
+        metadata: { changes },
+        ...Object.fromEntries(Object.entries(metadata).filter(([k]) => k !== 'changes'))
+    }).catch(() => {});
     return updatedProfile;
 };
 
 // UPDATE USER (admin/super admin)
-export const updateUser = async (creator, userId, payload = {}) => {
+export const updateUser = async (creator, userId, payload = {}, metadata = {}) => {
     const user = await User.findOne({ _id: userId, schoolId: creator.schoolId });
     if (!user) throw new NotFoundError("User not found");
 
@@ -922,14 +1232,14 @@ export const updateUser = async (creator, userId, payload = {}) => {
         if (creator.role === USER_ROLES.TEACHER && user.role === USER_ROLES.STUDENT) {
             const assignedClasses = await getTeacherAssignedClasses(creator._id);
             const studentProfile = await StudentProfile.findOne({ userId: user._id, schoolId: creator.schoolId });
-            
+
             if (!studentProfile) throw new NotFoundError("Student profile not found");
 
             const isAssigned = assignedClasses.some(cls =>
                 cls.standard === studentProfile.standard &&
                 cls.section === studentProfile.section
             );
-            
+
             if (!isAssigned) {
                 throw new ForbiddenError("This student is not in your assigned classes");
             }
@@ -972,10 +1282,22 @@ export const updateUser = async (creator, userId, payload = {}) => {
             classPayload.assignedClasses = profileInput.assignedClasses;
         }
 
+        
         if (Object.keys(classPayload).length > 0) {
-            await normalizeUserClassAssignments(creator.schoolId, user.role, classPayload, {
+            const { conflicts } = await normalizeUserClassAssignments(creator.schoolId, user.role, classPayload, {
                 excludeUserId: user._id,
+                forceOverride: Boolean(payload.forceOverride),
             });
+
+            // Surface conflicts to the controller — caller must confirm before we proceed
+            if (conflicts.length > 0 && !payload.forceOverride) {
+                return { conflict: true, conflicts };
+            }
+
+            // Confirmed override: clear displaced teachers first
+            if (payload.forceOverride && conflicts.length > 0) {
+                await clearDisplacedTeacherClasses(creator.schoolId, conflicts);
+            }
         }
 
         const profileUpdates = {};
@@ -984,6 +1306,27 @@ export const updateUser = async (creator, userId, payload = {}) => {
         };
 
         if (user.role === USER_ROLES.STUDENT) {
+            // Check for roll number conflict before update
+            const targetRollNumber = profileInput.rollNumber || user.studentProfile?.rollNumber;
+            const targetStandard = classPayload.standard || user.studentProfile?.standard;
+            const targetSection = classPayload.section || user.studentProfile?.section;
+
+            if (targetRollNumber && targetStandard) {
+                const existingStudent = await StudentProfile.findOne({
+                    schoolId: creator.schoolId,
+                    standard: targetStandard,
+                    section: targetSection,
+                    rollNumber: targetRollNumber,
+                    userId: { $ne: user._id } // Exclude the user being updated
+                }).lean();
+
+                if (existingStudent) {
+                    throw new ConflictError(
+                        `Roll number ${targetRollNumber} already exists in class ${targetStandard}-${targetSection}`
+                    );
+                }
+            }
+
             applyUpdate("rollNumber", profileInput.rollNumber);
             applyUpdate("year", profileInput.year);
             applyUpdate("admissionDate", profileInput.admissionDate);
@@ -1043,19 +1386,44 @@ export const updateUser = async (creator, userId, payload = {}) => {
         .populate("adminProfile")
         .lean();
 
+    // Build field-level changes diff on User-level scalar fields only
+    const IGNORED_FIELDS_U = ['_id', '__v', 'createdAt', 'updatedAt', 'password', 'schoolId',
+        'refreshToken', 'passwordResetToken', 'passwordResetExpires', 'avatarPublicId'];
+    const userBefore = { name: user.name, email: user.email, contactNo: user.contactNo };
+    const userAfter  = { name: refreshed?.name, email: refreshed?.email, contactNo: refreshed?.contactNo };
+    const changes = [];
+    for (const key of Object.keys(userBefore)) {
+        if (IGNORED_FIELDS_U.includes(key)) continue;
+        const prev = JSON.stringify(userBefore[key]);
+        const next = JSON.stringify(userAfter[key]);
+        if (prev !== next) {
+            changes.push({ field: key, before: userBefore[key], after: userAfter[key] });
+        }
+    }
+
+    createAuditLog({
+        schoolId: creator.schoolId,
+        actorId: creator._id,
+        actorRole: creator.role,
+        action: AUDIT_ACTIONS.USER_UPDATED,
+        description: `Updated user ${user.email} (${user.role})`,
+        metadata: { changes },
+        ...Object.fromEntries(Object.entries(metadata).filter(([k]) => !['changes'].includes(k)))
+    }).catch(() => {});
+
     return formatUserResponse(refreshed);
 };
 
 // UPDATE AVATAR
-export const updateAvatar = async (userId, avatarUrl, avatarPublicId) => {
+export const updateAvatar = async (userId, avatarUrl, avatarPublicId, metadata = {}) => {
     // 1. FETCH USER
-    const user = await User.findById(userId).select("avatarUrl avatarPublicId");
+    const user = await User.findById(userId).select("avatarUrl avatarPublicId role schoolId");
 
     if (!user) {
         throw new NotFoundError("User not found");
     }
 
-    // 3. STORE OLD AVATAR INFO
+    // Store old avatar info for cleanup
     const oldAvatarPublicId = user.avatarPublicId;
 
     // 4. UPDATE USER
@@ -1078,6 +1446,15 @@ export const updateAvatar = async (userId, avatarUrl, avatarPublicId) => {
         userId,
         newAvatarPublicId: avatarPublicId
     }, "Avatar updated successfully");
+
+    createAuditLog({
+        schoolId: user.schoolId || null,
+        actorId: userId,
+        actorRole: user.role, 
+        action: AUDIT_ACTIONS.USER_UPDATED,
+        description: `User updated avatar`,
+        ...metadata
+    }).catch(() => {});
 
     return {
         avatarUrl: user.avatarUrl,
@@ -1116,7 +1493,33 @@ const formatUserResponse = (user) => {
     };
 };
 
+
 const getTeacherAssignedClasses = async (teacherId) => {
     const profile = await TeacherProfile.findOne({ userId: teacherId }).select("assignedClasses").lean();
     return profile?.assignedClasses || [];
+};
+
+const getTeacherClassTeacherScope = async (teacherId) => {
+    const profile = await TeacherProfile.findOne({ userId: teacherId })
+        .select("classTeacherOf assignedClasses")
+        .lean();
+
+    if (!profile) {
+        return [];
+    }
+
+    const homeroomClass = normalizeClassSection(profile.classTeacherOf || {});
+    if (homeroomClass.standard && homeroomClass.section) {
+        return [homeroomClass];
+    }
+
+    const primaryAssignedClass = getPrimaryTeacherAssignedClass(profile.assignedClasses || []);
+    if (!primaryAssignedClass) {
+        return [];
+    }
+
+    const normalizedPrimaryClass = normalizeClassSection(primaryAssignedClass);
+    return normalizedPrimaryClass.standard && normalizedPrimaryClass.section
+        ? [normalizedPrimaryClass]
+        : [];
 };

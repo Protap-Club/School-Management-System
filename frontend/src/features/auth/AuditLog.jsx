@@ -1,0 +1,1 @@
+export { default, AuditLogPage } from '@/features/audit/AuditLogPage';

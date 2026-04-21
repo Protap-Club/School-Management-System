@@ -7,6 +7,7 @@ import {
   FaTimes,
 } from 'react-icons/fa';
 import { ButtonSpinner } from '../../../components/ui/Spinner';
+import { formatValue } from '../../../utils';
 
 const toNumber = (value) => {
   if (value === '' || value === null || value === undefined) return '';
@@ -124,7 +125,7 @@ const ResultEntryModal = ({
                 {currentResult ? 'Edit Result' : 'Add Result'}
               </h2>
               <p className="text-sm text-slate-500 mt-1">
-                {student.name} · Roll {student.rollNumber || '-'} · {exam.name}
+                {student.name} · Roll {formatValue(student.rollNumber)} · {exam.name}
               </p>
             </div>
           </div>
@@ -147,7 +148,7 @@ const ResultEntryModal = ({
                     </div>
                     <h3 className="text-2xl font-bold mt-3">{student.name}</h3>
                     <p className="text-sm text-white/75 mt-1">
-                      Roll {student.rollNumber || '-'} • Class {exam.standard} - {exam.section}
+                      Roll {formatValue(student.rollNumber)} • Class {exam.standard} - {exam.section}
                     </p>
 
                     <div className="mt-6 grid grid-cols-2 gap-3">

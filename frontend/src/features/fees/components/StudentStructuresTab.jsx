@@ -2,7 +2,7 @@ import React from 'react';
 import { FaArrowLeft, FaEdit, FaTrashAlt, FaListAlt } from 'react-icons/fa';
 import { SkeletonRows } from '../../../components/ui/SkeletonRows';
 import { EmptyState } from '../../../components/ui/EmptyState';
-import FeeStructureForm from '../../../components/fees/FeeStructureForm';
+import FeeStructureForm from './FeeStructureForm';
 import { FEE_TYPE_LABELS, FREQUENCY_LABELS } from '../index';
 
 const StudentStructuresTab = ({

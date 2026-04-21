@@ -11,6 +11,42 @@
       "descriptionTemplate": "Revise the key ideas covered this week for Class {classLabel}. Students should finish the worksheet neatly and be ready for discussion in the next period.",
       "dueInDays": 12,
       "requiresSubmission": false
+    },
+    {
+      "titleTemplate": "{subject} Monthly Project Work",
+      "descriptionTemplate": "As part of the continuous evaluation for {classLabel}, students are required to prepare a research project on the current {subject} chapter. Please structure your report with an introduction, methodology, and conclusion.",
+      "dueInDays": 14,
+      "requiresSubmission": true
+    },
+    {
+      "titleTemplate": "Holiday Homework - {subject}",
+      "descriptionTemplate": "To keep in touch with {subject} over the holidays, please complete the assigned exercises. Ensure your handwriting is legible and submit it on the first day back.",
+      "dueInDays": 20,
+      "requiresSubmission": true
+    },
+    {
+      "titleTemplate": "{subject} Active Reading Task",
+      "descriptionTemplate": "Read the upcoming chapter ahead of the next {subject} class for {classLabel}. Highlight key vocabulary and prepare two questions to ask the teacher.",
+      "dueInDays": 2,
+      "requiresSubmission": false
+    },
+    {
+      "titleTemplate": "{subject} Practical Lab Report",
+      "descriptionTemplate": "Based on our recent practical session, compile the observations, draw the necessary diagrams, and write the conclusion in your {subject} lab manual.",
+      "dueInDays": 5,
+      "requiresSubmission": true
+    },
+    {
+      "titleTemplate": "Weekly Quiz Preparation for {subject}",
+      "descriptionTemplate": "There will be a short oral and written quiz in the upcoming {subject} period for {classLabel}. Prepare topics taught from Monday to Wednesday.",
+      "dueInDays": 3,
+      "requiresSubmission": false
+    },
+    {
+      "titleTemplate": "{subject} Chapter End Exercises",
+      "descriptionTemplate": "Complete all the long-answer and short-answer questions given at the end of the current {subject} chapter in your fair notebook.",
+      "dueInDays": 8,
+      "requiresSubmission": true
     }
   ]
 }

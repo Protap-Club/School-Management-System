@@ -62,7 +62,7 @@ export const makeSchoolClassesQueryData = (payload = {}) => ({
 export const useSchoolClasses = (options = {}) => {
     const { enabled = true } = options;
     const queryClient = useQueryClient();
-    const { user } = useAuth();
+    const { user, accessToken } = useAuth();
     const schoolId = user?.schoolId?._id || user?.schoolId;
     const queryKey = useMemo(() => getSchoolClassesQueryKey(schoolId), [schoolId]);
 
@@ -74,7 +74,7 @@ export const useSchoolClasses = (options = {}) => {
         queryKey,
         queryFn: getSchoolClasses,
         staleTime: 5 * 60 * 1000,
-        enabled: enabled && Boolean(schoolId),
+        enabled: enabled && Boolean(schoolId) && !!accessToken,
     });
 
     const payload = useMemo(

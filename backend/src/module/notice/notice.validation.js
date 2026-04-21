@@ -86,3 +86,15 @@ export const getAcknowledgmentsSchema = z.object({
         id: objectIdSchema,
     })
 });
+
+export const deleteReceivedNoticeSchema = z.object({
+    params: z.object({
+        id: objectIdSchema,
+    }),
+});
+
+export const bulkDeleteReceivedNoticesSchema = z.object({
+    body: z.object({
+        ids: z.array(objectIdSchema).min(1, 'Select at least one notice'),
+    }),
+});

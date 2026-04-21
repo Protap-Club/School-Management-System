@@ -3,6 +3,7 @@ import TeacherProfile from "../module/user/model/TeacherProfile.model.js";
 import { USER_ROLES } from "../constants/userRoles.js";
 import { buildClassSectionKey, normalizeClassSection } from "./classSection.util.js";
 import { BadRequestError, ConflictError, NotFoundError } from "./customError.js";
+import logger from "../config/logger.js";
 
 export const formatClassSectionLabel = ({ standard, section } = {}) =>
     `${String(standard || "").trim()}-${String(section || "").trim().toUpperCase()}`;
@@ -81,7 +82,8 @@ export const findTeacherClassConflicts = async (
     options = {}
 ) => {
     const { excludeUserIds = [], primaryOnly = true } = options;
-    const normalizedClasses = primaryOnly
+    
+        const normalizedClasses = primaryOnly
         ? (getPrimaryTeacherAssignedClass(classSections) ? [getPrimaryTeacherAssignedClass(classSections)] : [])
         : normalizeTeacherAssignedClasses(classSections);
 

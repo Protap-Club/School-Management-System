@@ -3,13 +3,24 @@
     "adminProfiles": [
       {
         "email": "kartik@jnv.com",
-        "permissions": ["manage_users", "manage_fees", "manage_attendance", "manage_notices", "manage_calendar"],
+        "permissions": [
+          "manage_users",
+          "manage_fees",
+          "manage_attendance",
+          "manage_notices",
+          "manage_calendar"
+        ],
         "department": "Administration",
         "employeeId": "JNV-ADM-001"
       },
       {
         "email": "jay@jnv.com",
-        "permissions": ["manage_users", "manage_timetable", "manage_exams", "manage_results"],
+        "permissions": [
+          "manage_users",
+          "manage_timetable",
+          "manage_exams",
+          "manage_results"
+        ],
         "department": "Academics",
         "employeeId": "JNV-ADM-002"
       }
@@ -22,9 +33,27 @@
         "joiningDate": "2020-06-15",
         "expectedSalary": 45000,
         "assignedClasses": [
-          { "standard": "10", "section": "A", "subjects": ["Mathematics"] },
-          { "standard": "10", "section": "B", "subjects": ["Mathematics"] },
-          { "standard": "9", "section": "A", "subjects": ["Mathematics"] }
+          {
+            "standard": "10",
+            "section": "A",
+            "subjects": [
+              "Mathematics"
+            ]
+          },
+          {
+            "standard": "10",
+            "section": "B",
+            "subjects": [
+              "Mathematics"
+            ]
+          },
+          {
+            "standard": "9",
+            "section": "A",
+            "subjects": [
+              "Mathematics"
+            ]
+          }
         ]
       },
       {
@@ -34,9 +63,27 @@
         "joiningDate": "2019-07-01",
         "expectedSalary": 48000,
         "assignedClasses": [
-          { "standard": "11", "section": "A", "subjects": ["Physics"] },
-          { "standard": "12", "section": "A", "subjects": ["Physics"] },
-          { "standard": "10", "section": "C", "subjects": ["Physics"] }
+          {
+            "standard": "11",
+            "section": "A",
+            "subjects": [
+              "Physics"
+            ]
+          },
+          {
+            "standard": "12",
+            "section": "A",
+            "subjects": [
+              "Physics"
+            ]
+          },
+          {
+            "standard": "10",
+            "section": "C",
+            "subjects": [
+              "Physics"
+            ]
+          }
         ]
       },
       {
@@ -46,9 +93,27 @@
         "joiningDate": "2021-04-10",
         "expectedSalary": 42000,
         "assignedClasses": [
-          { "standard": "10", "section": "A", "subjects": ["English"] },
-          { "standard": "10", "section": "B", "subjects": ["English"] },
-          { "standard": "9", "section": "B", "subjects": ["English"] }
+          {
+            "standard": "10",
+            "section": "A",
+            "subjects": [
+              "English"
+            ]
+          },
+          {
+            "standard": "10",
+            "section": "B",
+            "subjects": [
+              "English"
+            ]
+          },
+          {
+            "standard": "9",
+            "section": "B",
+            "subjects": [
+              "English"
+            ]
+          }
         ]
       },
       {
@@ -58,9 +123,27 @@
         "joiningDate": "2018-06-20",
         "expectedSalary": 50000,
         "assignedClasses": [
-          { "standard": "10", "section": "A", "subjects": ["Hindi"] },
-          { "standard": "9", "section": "A", "subjects": ["Hindi"] },
-          { "standard": "8", "section": "A", "subjects": ["Hindi"] }
+          {
+            "standard": "10",
+            "section": "A",
+            "subjects": [
+              "Hindi"
+            ]
+          },
+          {
+            "standard": "9",
+            "section": "A",
+            "subjects": [
+              "Hindi"
+            ]
+          },
+          {
+            "standard": "8",
+            "section": "A",
+            "subjects": [
+              "Hindi"
+            ]
+          }
         ]
       },
       {
@@ -70,9 +153,27 @@
         "joiningDate": "2020-08-01",
         "expectedSalary": 44000,
         "assignedClasses": [
-          { "standard": "11", "section": "B", "subjects": ["Chemistry"] },
-          { "standard": "12", "section": "B", "subjects": ["Chemistry"] },
-          { "standard": "10", "section": "D", "subjects": ["Chemistry"] }
+          {
+            "standard": "11",
+            "section": "B",
+            "subjects": [
+              "Chemistry"
+            ]
+          },
+          {
+            "standard": "12",
+            "section": "B",
+            "subjects": [
+              "Chemistry"
+            ]
+          },
+          {
+            "standard": "10",
+            "section": "D",
+            "subjects": [
+              "Chemistry"
+            ]
+          }
         ]
       },
       {
@@ -82,9 +183,27 @@
         "joiningDate": "2019-04-15",
         "expectedSalary": 46000,
         "assignedClasses": [
-          { "standard": "11", "section": "A", "subjects": ["Biology"] },
-          { "standard": "12", "section": "A", "subjects": ["Biology"] },
-          { "standard": "9", "section": "C", "subjects": ["Biology"] }
+          {
+            "standard": "11",
+            "section": "A",
+            "subjects": [
+              "Biology"
+            ]
+          },
+          {
+            "standard": "12",
+            "section": "A",
+            "subjects": [
+              "Biology"
+            ]
+          },
+          {
+            "standard": "9",
+            "section": "C",
+            "subjects": [
+              "Biology"
+            ]
+          }
         ]
       },
       {
@@ -94,9 +213,27 @@
         "joiningDate": "2021-07-01",
         "expectedSalary": 40000,
         "assignedClasses": [
-          { "standard": "10", "section": "A", "subjects": ["Social Science"] },
-          { "standard": "10", "section": "B", "subjects": ["Social Science"] },
-          { "standard": "8", "section": "B", "subjects": ["Social Science"] }
+          {
+            "standard": "10",
+            "section": "A",
+            "subjects": [
+              "Social Science"
+            ]
+          },
+          {
+            "standard": "10",
+            "section": "B",
+            "subjects": [
+              "Social Science"
+            ]
+          },
+          {
+            "standard": "8",
+            "section": "B",
+            "subjects": [
+              "Social Science"
+            ]
+          }
         ]
       },
       {
@@ -106,9 +243,27 @@
         "joiningDate": "2022-01-10",
         "expectedSalary": 52000,
         "assignedClasses": [
-          { "standard": "11", "section": "A", "subjects": ["Computer Science"] },
-          { "standard": "12", "section": "A", "subjects": ["Computer Science"] },
-          { "standard": "10", "section": "A", "subjects": ["Computer Science"] }
+          {
+            "standard": "11",
+            "section": "A",
+            "subjects": [
+              "Computer Science"
+            ]
+          },
+          {
+            "standard": "12",
+            "section": "A",
+            "subjects": [
+              "Computer Science"
+            ]
+          },
+          {
+            "standard": "10",
+            "section": "A",
+            "subjects": [
+              "Computer Science"
+            ]
+          }
         ]
       },
       {
@@ -118,9 +273,27 @@
         "joiningDate": "2017-06-01",
         "expectedSalary": 55000,
         "assignedClasses": [
-          { "standard": "6", "section": "A", "subjects": ["Sanskrit"] },
-          { "standard": "7", "section": "A", "subjects": ["Sanskrit"] },
-          { "standard": "8", "section": "A", "subjects": ["Sanskrit"] }
+          {
+            "standard": "6",
+            "section": "A",
+            "subjects": [
+              "Sanskrit"
+            ]
+          },
+          {
+            "standard": "7",
+            "section": "A",
+            "subjects": [
+              "Sanskrit"
+            ]
+          },
+          {
+            "standard": "8",
+            "section": "A",
+            "subjects": [
+              "Sanskrit"
+            ]
+          }
         ]
       },
       {
@@ -130,9 +303,27 @@
         "joiningDate": "2020-06-15",
         "expectedSalary": 43000,
         "assignedClasses": [
-          { "standard": "9", "section": "B", "subjects": ["Mathematics"] },
-          { "standard": "9", "section": "C", "subjects": ["Mathematics"] },
-          { "standard": "8", "section": "C", "subjects": ["Mathematics"] }
+          {
+            "standard": "9",
+            "section": "B",
+            "subjects": [
+              "Mathematics"
+            ]
+          },
+          {
+            "standard": "9",
+            "section": "C",
+            "subjects": [
+              "Mathematics"
+            ]
+          },
+          {
+            "standard": "8",
+            "section": "C",
+            "subjects": [
+              "Mathematics"
+            ]
+          }
         ]
       },
       {
@@ -142,9 +333,27 @@
         "joiningDate": "2018-04-01",
         "expectedSalary": 47000,
         "assignedClasses": [
-          { "standard": "11", "section": "A", "subjects": ["English"] },
-          { "standard": "12", "section": "A", "subjects": ["English"] },
-          { "standard": "12", "section": "B", "subjects": ["English"] }
+          {
+            "standard": "11",
+            "section": "A",
+            "subjects": [
+              "English"
+            ]
+          },
+          {
+            "standard": "12",
+            "section": "A",
+            "subjects": [
+              "English"
+            ]
+          },
+          {
+            "standard": "12",
+            "section": "B",
+            "subjects": [
+              "English"
+            ]
+          }
         ]
       },
       {
@@ -154,9 +363,27 @@
         "joiningDate": "2019-07-15",
         "expectedSalary": 38000,
         "assignedClasses": [
-          { "standard": "6", "section": "A", "subjects": ["Physical Education"] },
-          { "standard": "7", "section": "A", "subjects": ["Physical Education"] },
-          { "standard": "8", "section": "A", "subjects": ["Physical Education"] }
+          {
+            "standard": "6",
+            "section": "A",
+            "subjects": [
+              "Physical Education"
+            ]
+          },
+          {
+            "standard": "7",
+            "section": "A",
+            "subjects": [
+              "Physical Education"
+            ]
+          },
+          {
+            "standard": "8",
+            "section": "A",
+            "subjects": [
+              "Physical Education"
+            ]
+          }
         ]
       },
       {
@@ -166,9 +393,27 @@
         "joiningDate": "2021-06-01",
         "expectedSalary": 41000,
         "assignedClasses": [
-          { "standard": "6", "section": "A", "subjects": ["Mathematics"] },
-          { "standard": "6", "section": "B", "subjects": ["Mathematics"] },
-          { "standard": "7", "section": "A", "subjects": ["Mathematics"] }
+          {
+            "standard": "6",
+            "section": "A",
+            "subjects": [
+              "Mathematics"
+            ]
+          },
+          {
+            "standard": "6",
+            "section": "B",
+            "subjects": [
+              "Mathematics"
+            ]
+          },
+          {
+            "standard": "7",
+            "section": "A",
+            "subjects": [
+              "Mathematics"
+            ]
+          }
         ]
       },
       {
@@ -178,9 +423,27 @@
         "joiningDate": "2020-04-10",
         "expectedSalary": 39000,
         "assignedClasses": [
-          { "standard": "6", "section": "A", "subjects": ["Gujarati"] },
-          { "standard": "7", "section": "A", "subjects": ["Gujarati"] },
-          { "standard": "8", "section": "B", "subjects": ["Gujarati"] }
+          {
+            "standard": "6",
+            "section": "A",
+            "subjects": [
+              "Gujarati"
+            ]
+          },
+          {
+            "standard": "7",
+            "section": "A",
+            "subjects": [
+              "Gujarati"
+            ]
+          },
+          {
+            "standard": "8",
+            "section": "B",
+            "subjects": [
+              "Gujarati"
+            ]
+          }
         ]
       },
       {
@@ -190,9 +453,27 @@
         "joiningDate": "2022-06-15",
         "expectedSalary": 40000,
         "assignedClasses": [
-          { "standard": "6", "section": "A", "subjects": ["Science"] },
-          { "standard": "6", "section": "B", "subjects": ["Science"] },
-          { "standard": "7", "section": "B", "subjects": ["Science"] }
+          {
+            "standard": "6",
+            "section": "A",
+            "subjects": [
+              "Science"
+            ]
+          },
+          {
+            "standard": "6",
+            "section": "B",
+            "subjects": [
+              "Science"
+            ]
+          },
+          {
+            "standard": "7",
+            "section": "B",
+            "subjects": [
+              "Science"
+            ]
+          }
         ]
       },
       {
@@ -202,9 +483,27 @@
         "joiningDate": "2019-08-01",
         "expectedSalary": 42000,
         "assignedClasses": [
-          { "standard": "9", "section": "D", "subjects": ["Social Science"] },
-          { "standard": "10", "section": "C", "subjects": ["Social Science"] },
-          { "standard": "10", "section": "D", "subjects": ["Social Science"] }
+          {
+            "standard": "9",
+            "section": "D",
+            "subjects": [
+              "Social Science"
+            ]
+          },
+          {
+            "standard": "10",
+            "section": "C",
+            "subjects": [
+              "Social Science"
+            ]
+          },
+          {
+            "standard": "10",
+            "section": "D",
+            "subjects": [
+              "Social Science"
+            ]
+          }
         ]
       },
       {
@@ -214,9 +513,27 @@
         "joiningDate": "2021-08-10",
         "expectedSalary": 36000,
         "assignedClasses": [
-          { "standard": "1", "section": "A", "subjects": ["Art"] },
-          { "standard": "2", "section": "A", "subjects": ["Art"] },
-          { "standard": "3", "section": "A", "subjects": ["Art"] }
+          {
+            "standard": "1",
+            "section": "A",
+            "subjects": [
+              "Art"
+            ]
+          },
+          {
+            "standard": "2",
+            "section": "A",
+            "subjects": [
+              "Art"
+            ]
+          },
+          {
+            "standard": "3",
+            "section": "A",
+            "subjects": [
+              "Art"
+            ]
+          }
         ]
       },
       {
@@ -226,9 +543,27 @@
         "joiningDate": "2020-09-01",
         "expectedSalary": 35000,
         "assignedClasses": [
-          { "standard": "1", "section": "A", "subjects": ["Music"] },
-          { "standard": "2", "section": "A", "subjects": ["Music"] },
-          { "standard": "3", "section": "A", "subjects": ["Music"] }
+          {
+            "standard": "1",
+            "section": "A",
+            "subjects": [
+              "Music"
+            ]
+          },
+          {
+            "standard": "2",
+            "section": "A",
+            "subjects": [
+              "Music"
+            ]
+          },
+          {
+            "standard": "3",
+            "section": "A",
+            "subjects": [
+              "Music"
+            ]
+          }
         ]
       }
     ]
@@ -237,13 +572,24 @@
     "adminProfiles": [
       {
         "email": "vrajesh@nv.com",
-        "permissions": ["manage_users", "manage_fees", "manage_attendance", "manage_notices", "manage_calendar"],
+        "permissions": [
+          "manage_users",
+          "manage_fees",
+          "manage_attendance",
+          "manage_notices",
+          "manage_calendar"
+        ],
         "department": "Administration",
         "employeeId": "NV-ADM-001"
       },
       {
         "email": "priyansh@nv.com",
-        "permissions": ["manage_users", "manage_timetable", "manage_exams", "manage_results"],
+        "permissions": [
+          "manage_users",
+          "manage_timetable",
+          "manage_exams",
+          "manage_results"
+        ],
         "department": "Academics",
         "employeeId": "NV-ADM-002"
       }
@@ -256,9 +602,27 @@
         "joiningDate": "2019-06-01",
         "expectedSalary": 48000,
         "assignedClasses": [
-          { "standard": "10", "section": "A", "subjects": ["Mathematics"] },
-          { "standard": "10", "section": "B", "subjects": ["Mathematics"] },
-          { "standard": "9", "section": "A", "subjects": ["Mathematics"] }
+          {
+            "standard": "10",
+            "section": "A",
+            "subjects": [
+              "Mathematics"
+            ]
+          },
+          {
+            "standard": "10",
+            "section": "B",
+            "subjects": [
+              "Mathematics"
+            ]
+          },
+          {
+            "standard": "9",
+            "section": "A",
+            "subjects": [
+              "Mathematics"
+            ]
+          }
         ]
       },
       {
@@ -268,9 +632,27 @@
         "joiningDate": "2018-07-15",
         "expectedSalary": 52000,
         "assignedClasses": [
-          { "standard": "11", "section": "A", "subjects": ["Physics"] },
-          { "standard": "12", "section": "A", "subjects": ["Physics"] },
-          { "standard": "10", "section": "C", "subjects": ["Physics"] }
+          {
+            "standard": "11",
+            "section": "A",
+            "subjects": [
+              "Physics"
+            ]
+          },
+          {
+            "standard": "12",
+            "section": "A",
+            "subjects": [
+              "Physics"
+            ]
+          },
+          {
+            "standard": "10",
+            "section": "C",
+            "subjects": [
+              "Physics"
+            ]
+          }
         ]
       },
       {
@@ -280,9 +662,27 @@
         "joiningDate": "2020-04-01",
         "expectedSalary": 45000,
         "assignedClasses": [
-          { "standard": "10", "section": "A", "subjects": ["English"] },
-          { "standard": "10", "section": "B", "subjects": ["English"] },
-          { "standard": "9", "section": "B", "subjects": ["English"] }
+          {
+            "standard": "10",
+            "section": "A",
+            "subjects": [
+              "English"
+            ]
+          },
+          {
+            "standard": "10",
+            "section": "B",
+            "subjects": [
+              "English"
+            ]
+          },
+          {
+            "standard": "9",
+            "section": "B",
+            "subjects": [
+              "English"
+            ]
+          }
         ]
       },
       {
@@ -292,9 +692,27 @@
         "joiningDate": "2017-06-20",
         "expectedSalary": 54000,
         "assignedClasses": [
-          { "standard": "10", "section": "A", "subjects": ["Hindi"] },
-          { "standard": "9", "section": "A", "subjects": ["Hindi"] },
-          { "standard": "8", "section": "A", "subjects": ["Hindi"] }
+          {
+            "standard": "10",
+            "section": "A",
+            "subjects": [
+              "Hindi"
+            ]
+          },
+          {
+            "standard": "9",
+            "section": "A",
+            "subjects": [
+              "Hindi"
+            ]
+          },
+          {
+            "standard": "8",
+            "section": "A",
+            "subjects": [
+              "Hindi"
+            ]
+          }
         ]
       },
       {
@@ -304,9 +722,27 @@
         "joiningDate": "2019-08-01",
         "expectedSalary": 47000,
         "assignedClasses": [
-          { "standard": "11", "section": "B", "subjects": ["Chemistry"] },
-          { "standard": "12", "section": "B", "subjects": ["Chemistry"] },
-          { "standard": "10", "section": "D", "subjects": ["Chemistry"] }
+          {
+            "standard": "11",
+            "section": "B",
+            "subjects": [
+              "Chemistry"
+            ]
+          },
+          {
+            "standard": "12",
+            "section": "B",
+            "subjects": [
+              "Chemistry"
+            ]
+          },
+          {
+            "standard": "10",
+            "section": "D",
+            "subjects": [
+              "Chemistry"
+            ]
+          }
         ]
       },
       {
@@ -316,9 +752,27 @@
         "joiningDate": "2020-06-15",
         "expectedSalary": 46000,
         "assignedClasses": [
-          { "standard": "11", "section": "A", "subjects": ["Biology"] },
-          { "standard": "12", "section": "A", "subjects": ["Biology"] },
-          { "standard": "9", "section": "C", "subjects": ["Biology"] }
+          {
+            "standard": "11",
+            "section": "A",
+            "subjects": [
+              "Biology"
+            ]
+          },
+          {
+            "standard": "12",
+            "section": "A",
+            "subjects": [
+              "Biology"
+            ]
+          },
+          {
+            "standard": "9",
+            "section": "C",
+            "subjects": [
+              "Biology"
+            ]
+          }
         ]
       },
       {
@@ -328,9 +782,27 @@
         "joiningDate": "2021-04-10",
         "expectedSalary": 43000,
         "assignedClasses": [
-          { "standard": "10", "section": "A", "subjects": ["Social Science"] },
-          { "standard": "10", "section": "B", "subjects": ["Social Science"] },
-          { "standard": "8", "section": "B", "subjects": ["Social Science"] }
+          {
+            "standard": "10",
+            "section": "A",
+            "subjects": [
+              "Social Science"
+            ]
+          },
+          {
+            "standard": "10",
+            "section": "B",
+            "subjects": [
+              "Social Science"
+            ]
+          },
+          {
+            "standard": "8",
+            "section": "B",
+            "subjects": [
+              "Social Science"
+            ]
+          }
         ]
       },
       {
@@ -340,9 +812,27 @@
         "joiningDate": "2021-01-05",
         "expectedSalary": 55000,
         "assignedClasses": [
-          { "standard": "11", "section": "A", "subjects": ["Computer Science"] },
-          { "standard": "12", "section": "A", "subjects": ["Computer Science"] },
-          { "standard": "10", "section": "A", "subjects": ["Computer Science"] }
+          {
+            "standard": "11",
+            "section": "A",
+            "subjects": [
+              "Computer Science"
+            ]
+          },
+          {
+            "standard": "12",
+            "section": "A",
+            "subjects": [
+              "Computer Science"
+            ]
+          },
+          {
+            "standard": "10",
+            "section": "A",
+            "subjects": [
+              "Computer Science"
+            ]
+          }
         ]
       },
       {
@@ -352,9 +842,27 @@
         "joiningDate": "2016-06-01",
         "expectedSalary": 58000,
         "assignedClasses": [
-          { "standard": "6", "section": "A", "subjects": ["Sanskrit"] },
-          { "standard": "7", "section": "A", "subjects": ["Sanskrit"] },
-          { "standard": "8", "section": "A", "subjects": ["Sanskrit"] }
+          {
+            "standard": "6",
+            "section": "A",
+            "subjects": [
+              "Sanskrit"
+            ]
+          },
+          {
+            "standard": "7",
+            "section": "A",
+            "subjects": [
+              "Sanskrit"
+            ]
+          },
+          {
+            "standard": "8",
+            "section": "A",
+            "subjects": [
+              "Sanskrit"
+            ]
+          }
         ]
       },
       {
@@ -364,9 +872,27 @@
         "joiningDate": "2021-06-15",
         "expectedSalary": 42000,
         "assignedClasses": [
-          { "standard": "9", "section": "B", "subjects": ["Mathematics"] },
-          { "standard": "9", "section": "C", "subjects": ["Mathematics"] },
-          { "standard": "8", "section": "C", "subjects": ["Mathematics"] }
+          {
+            "standard": "9",
+            "section": "B",
+            "subjects": [
+              "Mathematics"
+            ]
+          },
+          {
+            "standard": "9",
+            "section": "C",
+            "subjects": [
+              "Mathematics"
+            ]
+          },
+          {
+            "standard": "8",
+            "section": "C",
+            "subjects": [
+              "Mathematics"
+            ]
+          }
         ]
       },
       {
@@ -376,9 +902,27 @@
         "joiningDate": "2018-04-01",
         "expectedSalary": 49000,
         "assignedClasses": [
-          { "standard": "11", "section": "A", "subjects": ["English"] },
-          { "standard": "12", "section": "A", "subjects": ["English"] },
-          { "standard": "12", "section": "B", "subjects": ["English"] }
+          {
+            "standard": "11",
+            "section": "A",
+            "subjects": [
+              "English"
+            ]
+          },
+          {
+            "standard": "12",
+            "section": "A",
+            "subjects": [
+              "English"
+            ]
+          },
+          {
+            "standard": "12",
+            "section": "B",
+            "subjects": [
+              "English"
+            ]
+          }
         ]
       },
       {
@@ -388,9 +932,27 @@
         "joiningDate": "2019-07-15",
         "expectedSalary": 40000,
         "assignedClasses": [
-          { "standard": "6", "section": "A", "subjects": ["Physical Education"] },
-          { "standard": "7", "section": "A", "subjects": ["Physical Education"] },
-          { "standard": "8", "section": "A", "subjects": ["Physical Education"] }
+          {
+            "standard": "6",
+            "section": "A",
+            "subjects": [
+              "Physical Education"
+            ]
+          },
+          {
+            "standard": "7",
+            "section": "A",
+            "subjects": [
+              "Physical Education"
+            ]
+          },
+          {
+            "standard": "8",
+            "section": "A",
+            "subjects": [
+              "Physical Education"
+            ]
+          }
         ]
       },
       {
@@ -400,9 +962,27 @@
         "joiningDate": "2022-06-01",
         "expectedSalary": 41000,
         "assignedClasses": [
-          { "standard": "6", "section": "A", "subjects": ["Mathematics"] },
-          { "standard": "6", "section": "B", "subjects": ["Mathematics"] },
-          { "standard": "7", "section": "A", "subjects": ["Mathematics"] }
+          {
+            "standard": "6",
+            "section": "A",
+            "subjects": [
+              "Mathematics"
+            ]
+          },
+          {
+            "standard": "6",
+            "section": "B",
+            "subjects": [
+              "Mathematics"
+            ]
+          },
+          {
+            "standard": "7",
+            "section": "A",
+            "subjects": [
+              "Mathematics"
+            ]
+          }
         ]
       },
       {
@@ -412,9 +992,27 @@
         "joiningDate": "2020-04-10",
         "expectedSalary": 39000,
         "assignedClasses": [
-          { "standard": "6", "section": "A", "subjects": ["Gujarati"] },
-          { "standard": "7", "section": "A", "subjects": ["Gujarati"] },
-          { "standard": "8", "section": "B", "subjects": ["Gujarati"] }
+          {
+            "standard": "6",
+            "section": "A",
+            "subjects": [
+              "Gujarati"
+            ]
+          },
+          {
+            "standard": "7",
+            "section": "A",
+            "subjects": [
+              "Gujarati"
+            ]
+          },
+          {
+            "standard": "8",
+            "section": "B",
+            "subjects": [
+              "Gujarati"
+            ]
+          }
         ]
       },
       {
@@ -424,9 +1022,27 @@
         "joiningDate": "2021-06-15",
         "expectedSalary": 43000,
         "assignedClasses": [
-          { "standard": "6", "section": "A", "subjects": ["Science"] },
-          { "standard": "6", "section": "B", "subjects": ["Science"] },
-          { "standard": "7", "section": "B", "subjects": ["Science"] }
+          {
+            "standard": "6",
+            "section": "A",
+            "subjects": [
+              "Science"
+            ]
+          },
+          {
+            "standard": "6",
+            "section": "B",
+            "subjects": [
+              "Science"
+            ]
+          },
+          {
+            "standard": "7",
+            "section": "B",
+            "subjects": [
+              "Science"
+            ]
+          }
         ]
       },
       {
@@ -436,9 +1052,27 @@
         "joiningDate": "2019-08-01",
         "expectedSalary": 42000,
         "assignedClasses": [
-          { "standard": "9", "section": "D", "subjects": ["Social Science"] },
-          { "standard": "10", "section": "C", "subjects": ["Social Science"] },
-          { "standard": "10", "section": "D", "subjects": ["Social Science"] }
+          {
+            "standard": "9",
+            "section": "D",
+            "subjects": [
+              "Social Science"
+            ]
+          },
+          {
+            "standard": "10",
+            "section": "C",
+            "subjects": [
+              "Social Science"
+            ]
+          },
+          {
+            "standard": "10",
+            "section": "D",
+            "subjects": [
+              "Social Science"
+            ]
+          }
         ]
       },
       {
@@ -448,9 +1082,27 @@
         "joiningDate": "2022-08-10",
         "expectedSalary": 37000,
         "assignedClasses": [
-          { "standard": "1", "section": "A", "subjects": ["Art"] },
-          { "standard": "2", "section": "A", "subjects": ["Art"] },
-          { "standard": "3", "section": "A", "subjects": ["Art"] }
+          {
+            "standard": "1",
+            "section": "A",
+            "subjects": [
+              "Art"
+            ]
+          },
+          {
+            "standard": "2",
+            "section": "A",
+            "subjects": [
+              "Art"
+            ]
+          },
+          {
+            "standard": "3",
+            "section": "A",
+            "subjects": [
+              "Art"
+            ]
+          }
         ]
       },
       {
@@ -460,245 +1112,57 @@
         "joiningDate": "2020-09-01",
         "expectedSalary": 36000,
         "assignedClasses": [
-          { "standard": "1", "section": "A", "subjects": ["Music"] },
-          { "standard": "2", "section": "A", "subjects": ["Music"] },
-          { "standard": "3", "section": "A", "subjects": ["Music"] }
+          {
+            "standard": "1",
+            "section": "A",
+            "subjects": [
+              "Music"
+            ]
+          },
+          {
+            "standard": "2",
+            "section": "A",
+            "subjects": [
+              "Music"
+            ]
+          },
+          {
+            "standard": "3",
+            "section": "A",
+            "subjects": [
+              "Music"
+            ]
+          }
         ]
       }
     ]
   },
-  "AV": {
+  "NVV": {
     "adminProfiles": [
       {
-        "email": "shivam@av.com",
-        "permissions": ["manage_users", "manage_fees", "manage_attendance", "manage_notices", "manage_calendar"],
+        "email": "shivam@nvv.edu.in",
+        "permissions": [
+          "manage_users",
+          "manage_fees",
+          "manage_attendance",
+          "manage_notices",
+          "manage_calendar"
+        ],
         "department": "Administration",
         "employeeId": "AV-ADM-001"
       },
       {
-        "email": "ashish@av.com",
-        "permissions": ["manage_users", "manage_timetable", "manage_exams", "manage_results"],
+        "email": "ashish@nvv.edu.in",
+        "permissions": [
+          "manage_users",
+          "manage_timetable",
+          "manage_exams",
+          "manage_results"
+        ],
         "department": "Academics",
         "employeeId": "AV-ADM-002"
       }
     ],
-    "teacherProfiles": [
-      {
-        "email": "vaishali@av.com",
-        "employeeId": "AV-TCH-001",
-        "qualification": "M.Sc. Mathematics, B.Ed.",
-        "joiningDate": "2020-06-01",
-        "expectedSalary": 42000,
-        "assignedClasses": [
-          { "standard": "10", "section": "A", "subjects": ["Mathematics"] },
-          { "standard": "10", "section": "B", "subjects": ["Mathematics"] },
-          { "standard": "9", "section": "A", "subjects": ["Mathematics"] }
-        ]
-      },
-      {
-        "email": "jayesh@av.com",
-        "employeeId": "AV-TCH-002",
-        "qualification": "M.Sc. Physics, B.Ed.",
-        "joiningDate": "2019-07-01",
-        "expectedSalary": 46000,
-        "assignedClasses": [
-          { "standard": "11", "section": "A", "subjects": ["Physics"] },
-          { "standard": "12", "section": "A", "subjects": ["Physics"] },
-          { "standard": "10", "section": "C", "subjects": ["Physics"] }
-        ]
-      },
-      {
-        "email": "usha@av.com",
-        "employeeId": "AV-TCH-003",
-        "qualification": "M.A. English, B.Ed.",
-        "joiningDate": "2021-04-01",
-        "expectedSalary": 40000,
-        "assignedClasses": [
-          { "standard": "10", "section": "A", "subjects": ["English"] },
-          { "standard": "10", "section": "B", "subjects": ["English"] },
-          { "standard": "9", "section": "B", "subjects": ["English"] }
-        ]
-      },
-      {
-        "email": "nikhil@av.com",
-        "employeeId": "AV-TCH-004",
-        "qualification": "M.A. Hindi, B.Ed.",
-        "joiningDate": "2018-06-15",
-        "expectedSalary": 48000,
-        "assignedClasses": [
-          { "standard": "10", "section": "A", "subjects": ["Hindi"] },
-          { "standard": "9", "section": "A", "subjects": ["Hindi"] },
-          { "standard": "8", "section": "A", "subjects": ["Hindi"] }
-        ]
-      },
-      {
-        "email": "parul@av.com",
-        "employeeId": "AV-TCH-005",
-        "qualification": "M.Sc. Chemistry, B.Ed.",
-        "joiningDate": "2020-08-01",
-        "expectedSalary": 44000,
-        "assignedClasses": [
-          { "standard": "11", "section": "B", "subjects": ["Chemistry"] },
-          { "standard": "12", "section": "B", "subjects": ["Chemistry"] },
-          { "standard": "10", "section": "D", "subjects": ["Chemistry"] }
-        ]
-      },
-      {
-        "email": "kamlesh@av.com",
-        "employeeId": "AV-TCH-006",
-        "qualification": "M.Sc. Biology, B.Ed.",
-        "joiningDate": "2019-04-15",
-        "expectedSalary": 45000,
-        "assignedClasses": [
-          { "standard": "11", "section": "A", "subjects": ["Biology"] },
-          { "standard": "12", "section": "A", "subjects": ["Biology"] },
-          { "standard": "9", "section": "C", "subjects": ["Biology"] }
-        ]
-      },
-      {
-        "email": "hetal@av.com",
-        "employeeId": "AV-TCH-007",
-        "qualification": "M.A. Social Science, B.Ed.",
-        "joiningDate": "2021-07-05",
-        "expectedSalary": 41000,
-        "assignedClasses": [
-          { "standard": "10", "section": "A", "subjects": ["Social Science"] },
-          { "standard": "10", "section": "B", "subjects": ["Social Science"] },
-          { "standard": "8", "section": "B", "subjects": ["Social Science"] }
-        ]
-      },
-      {
-        "email": "darshan@av.com",
-        "employeeId": "AV-TCH-008",
-        "qualification": "MCA, B.Ed.",
-        "joiningDate": "2022-01-10",
-        "expectedSalary": 50000,
-        "assignedClasses": [
-          { "standard": "11", "section": "A", "subjects": ["Computer Science"] },
-          { "standard": "12", "section": "A", "subjects": ["Computer Science"] },
-          { "standard": "10", "section": "A", "subjects": ["Computer Science"] }
-        ]
-      },
-      {
-        "email": "anjali@av.com",
-        "employeeId": "AV-TCH-009",
-        "qualification": "M.A. Sanskrit, B.Ed.",
-        "joiningDate": "2017-06-01",
-        "expectedSalary": 52000,
-        "assignedClasses": [
-          { "standard": "6", "section": "A", "subjects": ["Sanskrit"] },
-          { "standard": "7", "section": "A", "subjects": ["Sanskrit"] },
-          { "standard": "8", "section": "A", "subjects": ["Sanskrit"] }
-        ]
-      },
-      {
-        "email": "mukesh@av.com",
-        "employeeId": "AV-TCH-010",
-        "qualification": "M.Sc. Mathematics, B.Ed.",
-        "joiningDate": "2021-06-15",
-        "expectedSalary": 41000,
-        "assignedClasses": [
-          { "standard": "9", "section": "B", "subjects": ["Mathematics"] },
-          { "standard": "9", "section": "C", "subjects": ["Mathematics"] },
-          { "standard": "8", "section": "C", "subjects": ["Mathematics"] }
-        ]
-      },
-      {
-        "email": "snehal@av.com",
-        "employeeId": "AV-TCH-011",
-        "qualification": "M.A. English, M.Phil.",
-        "joiningDate": "2018-04-01",
-        "expectedSalary": 47000,
-        "assignedClasses": [
-          { "standard": "11", "section": "A", "subjects": ["English"] },
-          { "standard": "12", "section": "A", "subjects": ["English"] },
-          { "standard": "12", "section": "B", "subjects": ["English"] }
-        ]
-      },
-      {
-        "email": "ravi@av.com",
-        "employeeId": "AV-TCH-012",
-        "qualification": "B.P.Ed., M.P.Ed.",
-        "joiningDate": "2019-07-15",
-        "expectedSalary": 38000,
-        "assignedClasses": [
-          { "standard": "6", "section": "A", "subjects": ["Physical Education"] },
-          { "standard": "7", "section": "A", "subjects": ["Physical Education"] },
-          { "standard": "8", "section": "A", "subjects": ["Physical Education"] }
-        ]
-      },
-      {
-        "email": "komal@av.com",
-        "employeeId": "AV-TCH-013",
-        "qualification": "M.Sc. Mathematics, B.Ed.",
-        "joiningDate": "2022-06-01",
-        "expectedSalary": 39000,
-        "assignedClasses": [
-          { "standard": "6", "section": "A", "subjects": ["Mathematics"] },
-          { "standard": "6", "section": "B", "subjects": ["Mathematics"] },
-          { "standard": "7", "section": "A", "subjects": ["Mathematics"] }
-        ]
-      },
-      {
-        "email": "alpesh@av.com",
-        "employeeId": "AV-TCH-014",
-        "qualification": "M.A. Gujarati, B.Ed.",
-        "joiningDate": "2020-04-10",
-        "expectedSalary": 38000,
-        "assignedClasses": [
-          { "standard": "6", "section": "A", "subjects": ["Gujarati"] },
-          { "standard": "7", "section": "A", "subjects": ["Gujarati"] },
-          { "standard": "8", "section": "B", "subjects": ["Gujarati"] }
-        ]
-      },
-      {
-        "email": "bhavna@av.com",
-        "employeeId": "AV-TCH-015",
-        "qualification": "M.Sc. Science, B.Ed.",
-        "joiningDate": "2021-06-15",
-        "expectedSalary": 40000,
-        "assignedClasses": [
-          { "standard": "6", "section": "A", "subjects": ["Science"] },
-          { "standard": "6", "section": "B", "subjects": ["Science"] },
-          { "standard": "7", "section": "B", "subjects": ["Science"] }
-        ]
-      },
-      {
-        "email": "dharmesh@av.com",
-        "employeeId": "AV-TCH-016",
-        "qualification": "M.A. History, B.Ed.",
-        "joiningDate": "2019-08-01",
-        "expectedSalary": 42000,
-        "assignedClasses": [
-          { "standard": "9", "section": "D", "subjects": ["Social Science"] },
-          { "standard": "10", "section": "C", "subjects": ["Social Science"] },
-          { "standard": "10", "section": "D", "subjects": ["Social Science"] }
-        ]
-      },
-      {
-        "email": "foram@av.com",
-        "employeeId": "AV-TCH-017",
-        "qualification": "M.A. Fine Arts, B.Ed.",
-        "joiningDate": "2022-08-10",
-        "expectedSalary": 35000,
-        "assignedClasses": [
-          { "standard": "1", "section": "A", "subjects": ["Art"] },
-          { "standard": "2", "section": "A", "subjects": ["Art"] },
-          { "standard": "3", "section": "A", "subjects": ["Art"] }
-        ]
-      },
-      {
-        "email": "girish@av.com",
-        "employeeId": "AV-TCH-018",
-        "qualification": "M.A. Music, B.Ed.",
-        "joiningDate": "2020-09-01",
-        "expectedSalary": 34000,
-        "assignedClasses": [
-          { "standard": "1", "section": "A", "subjects": ["Music"] },
-          { "standard": "2", "section": "A", "subjects": ["Music"] },
-          { "standard": "3", "section": "A", "subjects": ["Music"] }
-        ]
-      }
-    ]
+    "teacherProfiles": []
   }
 }

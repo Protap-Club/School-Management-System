@@ -5,12 +5,14 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { store } from './store';
 import { queryClient } from '../lib/query-client';
+import ThemeSync from './ThemeSync';
 
 // This wraps OUTSIDE of Router since App.jsx already has Router
 export const AppProviders = ({ children }) => {
     return (
         <Provider store={store}>
             <QueryClientProvider client={queryClient}>
+                <ThemeSync />
                 {children}
                 {import.meta.env.DEV && <ReactQueryDevtools initialIsOpen={false} />}
             </QueryClientProvider>

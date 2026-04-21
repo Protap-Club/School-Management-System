@@ -21,9 +21,10 @@ const normalizeUploadedFiles = (files) => {
 export const createAssignment = asyncHandler(async (req, res) => {
     const result = await assignmentService.createAssignment(
         req.schoolId,
-        req.user._id,
+        req.user,
         req.body,
-        normalizeUploadedFiles(req.files)
+        normalizeUploadedFiles(req.files),
+        { ip: req.ip, userAgent: req.headers["user-agent"] }
     );
 
     res.status(201).json({
@@ -100,10 +101,11 @@ export const updateAssignment = asyncHandler(async (req, res) => {
     const result = await assignmentService.updateAssignment(
         req.schoolId,
         req.params.id,
-        req.user._id,
+        req.user,
         req.user.role,
         req.body,
-        normalizeUploadedFiles(req.files)
+        normalizeUploadedFiles(req.files),
+        { ip: req.ip, userAgent: req.headers["user-agent"] }
     );
 
     res.status(200).json({
@@ -121,7 +123,8 @@ export const deleteAssignment = asyncHandler(async (req, res) => {
     await assignmentService.deleteAssignment(
         req.schoolId,
         req.params.id,
-        req.user.role
+        req.user,
+        { ip: req.ip, userAgent: req.headers["user-agent"] }
     );
 
     logger.info(`Assignment deleted by ${req.user._id}: ${req.params.id}`);
@@ -134,8 +137,9 @@ export const removeAttachment = asyncHandler(async (req, res) => {
     const result = await assignmentService.removeAttachment(
         req.schoolId,
         req.params.id,
-        req.user.role,
-        req.params.publicId
+        req.user,
+        req.params.publicId,
+        { ip: req.ip, userAgent: req.headers["user-agent"] }
     );
 
     res.status(200).json({
@@ -153,8 +157,9 @@ export const submitAssignment = asyncHandler(async (req, res) => {
     const result = await assignmentService.submitAssignment(
         req.schoolId,
         req.params.id,
-        req.user._id,
-        normalizeUploadedFiles(req.files)
+        req.user,
+        normalizeUploadedFiles(req.files),
+        { ip: req.ip, userAgent: req.headers["user-agent"] }
     );
 
     res.status(201).json({

@@ -11,6 +11,7 @@ export {
     useMarkManualAttendance,
     useReplaceClassTeacher,
     useProfile,
+    useStudentHistory,
 } from './api/queries';
 
 // Constants

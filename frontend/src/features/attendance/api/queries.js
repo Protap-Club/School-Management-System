@@ -11,6 +11,7 @@ export const attendanceKeys = {
     teachers: () => [...attendanceKeys.all, 'teachers'],
     today: () => [...attendanceKeys.all, 'today'],
     profile: () => [...attendanceKeys.all, 'profile'],
+    history: (studentId) => [...attendanceKeys.all, 'history', studentId],
 };
 
 const useProtectedQueryEnabled = (enabled = true) => {
@@ -61,6 +62,17 @@ export const useProfile = () => {
         queryFn: attendanceApi.getProfile,
         enabled,
         staleTime: 10 * 60 * 1000,
+    });
+};
+
+/** Fetch a specific student's full attendance history for the history modal. */
+export const useStudentHistory = (studentId) => {
+    const enabled = useProtectedQueryEnabled(!!studentId);
+    return useQuery({
+        queryKey: attendanceKeys.history(studentId),
+        queryFn: () => attendanceApi.getStudentHistory(studentId),
+        enabled,
+        staleTime: 2 * 60 * 1000,
     });
 };
 

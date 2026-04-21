@@ -30,7 +30,11 @@ const teacherProfileSchema = new mongoose.Schema(
       type: Date,
     },
 
-    // Academic Responsibilities 
+    // Academic Responsibilities
+    classTeacherOf: {
+      standard: { type: String, trim: true },
+      section: { type: String, trim: true },
+    },
     // Example: [{ standard: "9th", section: "A", subjects: ["Math", "Physics"] }]
     assignedClasses: [
       {
@@ -57,13 +61,17 @@ const teacherProfileSchema = new mongoose.Schema(
     expectedSalary: {
       type: Number,
       min: [101, "Expected salary must be more than 100"],
-      default: 15000,
     },
   },
   {
     timestamps: true,
     id: false,
   }
+);
+
+teacherProfileSchema.index(
+  { schoolId: 1, 'classTeacherOf.standard': 1, 'classTeacherOf.section': 1 },
+  { unique: true, sparse: true }
 );
 
 export default mongoose.model("TeacherProfile", teacherProfileSchema);

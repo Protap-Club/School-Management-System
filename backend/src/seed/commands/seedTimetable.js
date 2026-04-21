@@ -94,6 +94,9 @@ const seedTimetable = async () => {
       .filter((slot) => slot.slotType === "CLASS")
       .sort((a, b) => a.slotNumber - b.slotNumber);
 
+    const occupiedTeacherSlots = new Set();
+    let conflictWarningCount = 0;
+
     for (const timetable of createdTimetables) {
       const classKey = `${timetable.standard}-${timetable.section}`.toUpperCase();
       const subjects = getSubjectsForStandard(timetable.standard);
@@ -113,15 +116,22 @@ const seedTimetable = async () => {
           const teacherId = assignmentMap.get(`${classKey}-${subject}`);
 
           if (teacherId) {
-            entries.push({
-              schoolId: school._id,
-              timetableId: timetable._id,
-              dayOfWeek: dayShort,
-              timeSlotId: slot._id,
-              subject,
-              teacherId,
-              roomNumber: `Class ${timetable.standard}-${timetable.section}`,
-            });
+            const conflictKey = `${teacherId.toString()}-${dayShort}-${slot._id.toString()}`;
+            if (occupiedTeacherSlots.has(conflictKey)) {
+              conflictWarningCount++;
+              logger.debug(`[${code}] Conflict: Teacher ${teacherId} already busy on ${dayShort} slot ${slot.slotNumber}`);
+            } else {
+              occupiedTeacherSlots.add(conflictKey);
+              entries.push({
+                schoolId: school._id,
+                timetableId: timetable._id,
+                dayOfWeek: dayShort,
+                timeSlotId: slot._id,
+                subject,
+                teacherId,
+                roomNumber: `Class ${timetable.standard}-${timetable.section}`,
+              });
+            }
           } else {
             logger.debug(`[${code}] No teacher assigned for ${classKey} -> ${subject}`);
           }
@@ -131,6 +141,10 @@ const seedTimetable = async () => {
 
     if (entries.length) {
       await TimetableEntry.insertMany(entries, { ordered: false });
+    }
+
+    if (conflictWarningCount > 0) {
+      logger.warn(`[${code}] Skipped ${conflictWarningCount} entries due to teacher timetable conflicts`);
     }
 
     logger.info(

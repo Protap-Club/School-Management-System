@@ -15,6 +15,7 @@ const commands = {
     "seed-notices": () => import("./commands/seedNotices.js"),
     "seed-assignments": () => import("./commands/seedAssignments.js"),
     "seed-examinations": () => import("./commands/seedExaminations.js"),
+    "seed-results": () => import("./commands/seedResults.js"),
     "cleanup": () => import("./commands/cleanup.js"),
     "nfc": () => import("./commands/nfc.js"),
 };
@@ -43,6 +44,7 @@ COMMANDS:
   seed-notices        Creates notices per school
   seed-assignments    Creates assignment records per class with future due dates
   seed-examinations   Creates class tests and term exams per class
+  seed-results        Generates realistic Gaussian marks for completed exams
   cleanup             Removes ALL seeded school data (run before re-seeding)
   help                Show this help message
 

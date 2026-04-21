@@ -5,6 +5,45 @@ import mongoose from "mongoose";
 // Schedule is embedded as a sub-document array.
 // ═══════════════════════════════════════════════════════════════
 
+const scheduleAttachmentSchema = new mongoose.Schema(
+    {
+        url: {
+            type: String,
+            required: true,
+            trim: true,
+        },
+        publicId: {
+            type: String,
+            trim: true,
+        },
+        name: {
+            type: String,
+            trim: true,
+        },
+        originalName: {
+            type: String,
+            trim: true,
+        },
+        fileType: {
+            type: String,
+            trim: true,
+        },
+        mimeType: {
+            type: String,
+            trim: true,
+        },
+        size: {
+            type: Number,
+            min: 0,
+        },
+        uploadedAt: {
+            type: Date,
+            default: Date.now,
+        },
+    },
+    { _id: false, id: false }
+);
+
 const scheduleItemSchema = new mongoose.Schema(
     {
         subject: {
@@ -42,8 +81,71 @@ const scheduleItemSchema = new mongoose.Schema(
             type: String,
             trim: true,
         },
+        attachments: {
+            type: [scheduleAttachmentSchema],
+            default: [],
+        },
     },
     { _id: true, id: false }
+);
+
+const syllabusDocumentSchema = new mongoose.Schema(
+    {
+        url: {
+            type: String,
+            required: true,
+            trim: true,
+        },
+        publicId: {
+            type: String,
+            trim: true,
+        },
+        name: {
+            type: String,
+            trim: true,
+        },
+        originalName: {
+            type: String,
+            trim: true,
+        },
+        fileType: {
+            type: String,
+            trim: true,
+        },
+        mimeType: {
+            type: String,
+            trim: true,
+        },
+        size: {
+            type: Number,
+            min: 0,
+        },
+        uploadedAt: {
+            type: Date,
+            default: Date.now,
+        },
+    },
+    { _id: false, id: false }
+);
+
+const creatorSnapshotSchema = new mongoose.Schema(
+    {
+        name: {
+            type: String,
+            required: true,
+            trim: true,
+        },
+        role: {
+            type: String,
+            enum: ["admin", "teacher", "super_admin"],
+            required: true,
+        },
+        classLabel: {
+            type: String,
+            trim: true,
+        },
+    },
+    { _id: false, id: false }
 );
 
 const examSchema = new mongoose.Schema(
@@ -66,16 +168,7 @@ const examSchema = new mongoose.Schema(
         },
         category: {
             type: String,
-            enum: [
-                "MIDTERM",
-                "FINAL",
-                "SEMESTER",
-                "UNIT_TEST",
-                "CLASS_TEST",
-                "SURPRISE_TEST",
-                "WEEKLY_QUIZ",
-                "OTHER",
-            ],
+            enum: ["MIDTERM","FINAL","SEMESTER","UNIT_TEST","CLASS_TEST","SURPRISE_TEST","WEEKLY_QUIZ","OTHER"],
             default: "OTHER",
         },
         // Optional explanation when category is set to "OTHER"
@@ -101,6 +194,10 @@ const examSchema = new mongoose.Schema(
             type: String,
             trim: true,
         },
+        syllabusDocument: {
+            type: syllabusDocumentSchema,
+            default: null,
+        },
 
         // Embedded schedule
         schedule: [scheduleItemSchema],
@@ -119,6 +216,10 @@ const examSchema = new mongoose.Schema(
             type: String,
             enum: ["admin", "teacher", "super_admin"],
             required: true,
+        },
+        creatorSnapshot: {
+            type: creatorSnapshotSchema,
+            default: null,
         },
         isActive: {
             type: Boolean,

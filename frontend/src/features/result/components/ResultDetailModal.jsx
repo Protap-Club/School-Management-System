@@ -6,6 +6,7 @@ import {
   FaPrint,
   FaTimes,
 } from 'react-icons/fa';
+import { formatValue } from '../../../utils';
 
 const statusStyles = {
   draft: 'bg-slate-50 text-slate-700 border-slate-200',
@@ -47,7 +48,7 @@ const ResultDetailModal = ({ isOpen, result, onClose, onEdit }) => {
                 {result.student?.name}
               </h2>
               <p className="text-sm text-slate-500 mt-1">
-                {result.exam?.name} · Roll {result.student?.rollNumber || '-'} · Class {result.student?.standard} - {result.student?.section}
+                {result.exam?.name} · Roll {formatValue(result.student?.rollNumber)} · Class {result.student?.standard} - {result.student?.section}
               </p>
             </div>
           </div>

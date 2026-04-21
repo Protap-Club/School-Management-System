@@ -1,11 +1,19 @@
 import jwt from "jsonwebtoken";
 import User from "../module/user/model/User.model.js";
+import TeacherProfile from "../module/user/model/TeacherProfile.model.js";
+import StudentProfile from "../module/user/model/StudentProfile.model.js";
 import { conf } from "../config/index.js";
 import logger from "../config/logger.js";
 import { NotFoundError, UnauthorizedError, ForbiddenError } from "../utils/customError.js";
 import { USER_ROLES } from "../constants/userRoles.js";
 
 const ACCESS_TOKEN_SECRET = conf.JWT_ACCESS_SECRET || conf.JWT_SECRET;
+const MUST_CHANGE_PASSWORD_ALLOWED_PATHS = new Set([
+    "/api/v1/auth/update-password",
+    "/api/v1/auth/logout",
+    "/api/v1/auth/me",
+    "/api/v1/auth/refresh",
+]);
 
 const checkAuth = async (req, res, next) => {
     try {
@@ -23,11 +31,24 @@ const checkAuth = async (req, res, next) => {
 
         // Optimization: .lean() returns a plain JS object instead of a heavy Mongoose document
         const findUser = await User.findById(decoded.id)
-            .select("_id name email role schoolId isActive avatarUrl avatarPublicId updatedAt contactNo")
+            .select("_id name email role schoolId isActive avatarUrl avatarPublicId updatedAt contactNo mustChangePassword")
             .lean();
 
         if (!findUser) {
             throw new NotFoundError("User Not Found");
+        }
+
+        // Attach role-specific profile data (e.g. assignedClasses for teachers)
+        if (findUser.role === USER_ROLES.TEACHER) {
+            const teacherProfile = await TeacherProfile.findOne({ userId: findUser._id })
+                .select("classTeacherOf assignedClasses expectedSalary")
+                .lean();
+            findUser.profile = teacherProfile || null;
+        } else if (findUser.role === USER_ROLES.STUDENT) {
+            const studentProfile = await StudentProfile.findOne({ userId: findUser._id })
+                .select("standard section rollNumber")
+                .lean();
+            findUser.profile = studentProfile || null;
         }
 
         req.user = findUser;
@@ -35,6 +56,14 @@ const checkAuth = async (req, res, next) => {
         // Attach platform from header (default to web)
         req.platform = req.headers["x-platform"] === "mobile" ? "mobile" : "web";
         req.schoolId = findUser.schoolId; // Attach schoolId directly for easier access
+
+        const requestPath = (req.originalUrl || req.url || "").split("?")[0];
+        // if (findUser.mustChangePassword && !MUST_CHANGE_PASSWORD_ALLOWED_PATHS.has(requestPath)) {
+        //     throw new ForbiddenError(
+        //         "Password update is required before accessing this resource",
+        //         "PASSWORD_CHANGE_REQUIRED"
+        //     );
+        // }
 
         // Mobile Rule Guard
         const MOBILE_ALLOWED_ROLES = [USER_ROLES.TEACHER, USER_ROLES.STUDENT];
@@ -44,8 +73,6 @@ const checkAuth = async (req, res, next) => {
         next();
 
     } catch (error) {
-        // Log errors only (keeps logs clean of "success" noise)
-        logger.error(`Auth Middleware Error: ${error.message}`);
         next(error);
     }
 };

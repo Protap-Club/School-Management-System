@@ -1,0 +1,2490 @@
+{
+  "NVV": {
+    "teachers": [
+      {
+        "name": "Aarav Joshi",
+        "email": "aarav.joshi@nvv.edu.in",
+        "role": "teacher",
+        "contactNo": "+91-7926303000",
+        "employeeId": "NVV-TCH-001",
+        "qualification": "M.A., B.Ed.",
+        "joiningDate": "2023-01-01",
+        "expectedSalary": 45000,
+        "specialization": "English",
+        "subjects": [
+          "English"
+        ],
+        "assignedClasses": [
+          {
+            "standard": "1",
+            "section": "A",
+            "subjects": [
+              "English"
+            ]
+          },
+          {
+            "standard": "4",
+            "section": "A",
+            "subjects": [
+              "English"
+            ]
+          },
+          {
+            "standard": "4",
+            "section": "B",
+            "subjects": [
+              "English"
+            ]
+          },
+          {
+            "standard": "7",
+            "section": "B",
+            "subjects": [
+              "English"
+            ]
+          },
+          {
+            "standard": "7",
+            "section": "C",
+            "subjects": [
+              "English"
+            ]
+          },
+          {
+            "standard": "10",
+            "section": "C",
+            "subjects": [
+              "English"
+            ]
+          },
+          {
+            "standard": "11",
+            "section": "A",
+            "subjects": [
+              "English"
+            ]
+          }
+        ],
+        "classTeacherOf": {
+          "standard": "1",
+          "section": "A"
+        }
+      },
+      {
+        "name": "Saanvi Mehta",
+        "email": "saanvi.mehta@nvv.edu.in",
+        "role": "teacher",
+        "contactNo": "+91-7926303001",
+        "employeeId": "NVV-TCH-002",
+        "qualification": "M.Sc., B.Ed.",
+        "joiningDate": "2023-02-02",
+        "expectedSalary": 45100,
+        "specialization": "English",
+        "subjects": [
+          "English"
+        ],
+        "assignedClasses": [
+          {
+            "standard": "1",
+            "section": "B",
+            "subjects": [
+              "English"
+            ]
+          },
+          {
+            "standard": "3",
+            "section": "C",
+            "subjects": [
+              "English"
+            ]
+          },
+          {
+            "standard": "4",
+            "section": "C",
+            "subjects": [
+              "English"
+            ]
+          },
+          {
+            "standard": "7",
+            "section": "A",
+            "subjects": [
+              "English"
+            ]
+          },
+          {
+            "standard": "8",
+            "section": "A",
+            "subjects": [
+              "English"
+            ]
+          },
+          {
+            "standard": "10",
+            "section": "B",
+            "subjects": [
+              "English"
+            ]
+          },
+          {
+            "standard": "11",
+            "section": "B",
+            "subjects": [
+              "English"
+            ]
+          }
+        ],
+        "classTeacherOf": {
+          "standard": "1",
+          "section": "B"
+        }
+      },
+      {
+        "name": "Vivaan Desai",
+        "email": "vivaan.desai@nvv.edu.in",
+        "role": "teacher",
+        "contactNo": "+91-7926303002",
+        "employeeId": "NVV-TCH-003",
+        "qualification": "M.Sc., B.Ed.",
+        "joiningDate": "2023-03-03",
+        "expectedSalary": 45200,
+        "specialization": "English",
+        "subjects": [
+          "English"
+        ],
+        "assignedClasses": [
+          {
+            "standard": "1",
+            "section": "C",
+            "subjects": [
+              "English"
+            ]
+          },
+          {
+            "standard": "3",
+            "section": "B",
+            "subjects": [
+              "English"
+            ]
+          },
+          {
+            "standard": "5",
+            "section": "A",
+            "subjects": [
+              "English"
+            ]
+          },
+          {
+            "standard": "6",
+            "section": "C",
+            "subjects": [
+              "English"
+            ]
+          },
+          {
+            "standard": "8",
+            "section": "B",
+            "subjects": [
+              "English"
+            ]
+          },
+          {
+            "standard": "10",
+            "section": "A",
+            "subjects": [
+              "English"
+            ]
+          },
+          {
+            "standard": "11",
+            "section": "C",
+            "subjects": [
+              "English"
+            ]
+          }
+        ],
+        "classTeacherOf": {
+          "standard": "1",
+          "section": "C"
+        }
+      },
+      {
+        "name": "Ananya Rajput",
+        "email": "ananya.rajput@nvv.edu.in",
+        "role": "teacher",
+        "contactNo": "+91-7926303003",
+        "employeeId": "NVV-TCH-004",
+        "qualification": "B.Com., B.Ed.",
+        "joiningDate": "2023-04-04",
+        "expectedSalary": 45300,
+        "specialization": "English",
+        "subjects": [
+          "English"
+        ],
+        "assignedClasses": [
+          {
+            "standard": "2",
+            "section": "A",
+            "subjects": [
+              "English"
+            ]
+          },
+          {
+            "standard": "3",
+            "section": "A",
+            "subjects": [
+              "English"
+            ]
+          },
+          {
+            "standard": "5",
+            "section": "B",
+            "subjects": [
+              "English"
+            ]
+          },
+          {
+            "standard": "6",
+            "section": "B",
+            "subjects": [
+              "English"
+            ]
+          },
+          {
+            "standard": "8",
+            "section": "C",
+            "subjects": [
+              "English"
+            ]
+          },
+          {
+            "standard": "9",
+            "section": "C",
+            "subjects": [
+              "English"
+            ]
+          },
+          {
+            "standard": "12",
+            "section": "A",
+            "subjects": [
+              "English"
+            ]
+          }
+        ],
+        "classTeacherOf": {
+          "standard": "2",
+          "section": "A"
+        }
+      },
+      {
+        "name": "Aditya Parmar",
+        "email": "aditya.parmar@nvv.edu.in",
+        "role": "teacher",
+        "contactNo": "+91-7926303004",
+        "employeeId": "NVV-TCH-005",
+        "qualification": "B.Ed.",
+        "joiningDate": "2023-05-05",
+        "expectedSalary": 45400,
+        "specialization": "English",
+        "subjects": [
+          "English"
+        ],
+        "assignedClasses": [
+          {
+            "standard": "2",
+            "section": "B",
+            "subjects": [
+              "English"
+            ]
+          },
+          {
+            "standard": "2",
+            "section": "C",
+            "subjects": [
+              "English"
+            ]
+          },
+          {
+            "standard": "5",
+            "section": "C",
+            "subjects": [
+              "English"
+            ]
+          },
+          {
+            "standard": "6",
+            "section": "A",
+            "subjects": [
+              "English"
+            ]
+          },
+          {
+            "standard": "9",
+            "section": "A",
+            "subjects": [
+              "English"
+            ]
+          },
+          {
+            "standard": "9",
+            "section": "B",
+            "subjects": [
+              "English"
+            ]
+          },
+          {
+            "standard": "12",
+            "section": "B",
+            "subjects": [
+              "English"
+            ]
+          },
+          {
+            "standard": "12",
+            "section": "C",
+            "subjects": [
+              "English"
+            ]
+          }
+        ],
+        "classTeacherOf": {
+          "standard": "2",
+          "section": "B"
+        }
+      },
+      {
+        "name": "Isha Nair",
+        "email": "isha.nair@nvv.edu.in",
+        "role": "teacher",
+        "contactNo": "+91-7926303005",
+        "employeeId": "NVV-TCH-006",
+        "qualification": "B.Ed.",
+        "joiningDate": "2023-06-06",
+        "expectedSalary": 45500,
+        "specialization": "Mathematics",
+        "subjects": [
+          "Mathematics"
+        ],
+        "assignedClasses": [
+          {
+            "standard": "1",
+            "section": "A",
+            "subjects": [
+              "Mathematics"
+            ]
+          },
+          {
+            "standard": "4",
+            "section": "A",
+            "subjects": [
+              "Mathematics"
+            ]
+          },
+          {
+            "standard": "4",
+            "section": "B",
+            "subjects": [
+              "Mathematics"
+            ]
+          },
+          {
+            "standard": "7",
+            "section": "B",
+            "subjects": [
+              "Mathematics"
+            ]
+          },
+          {
+            "standard": "7",
+            "section": "C",
+            "subjects": [
+              "Mathematics"
+            ]
+          },
+          {
+            "standard": "11",
+            "section": "C",
+            "subjects": [
+              "Mathematics"
+            ]
+          },
+          {
+            "standard": "12",
+            "section": "A",
+            "subjects": [
+              "Mathematics"
+            ]
+          }
+        ],
+        "classTeacherOf": {
+          "standard": "2",
+          "section": "C"
+        }
+      },
+      {
+        "name": "Vihaan Iyer",
+        "email": "vihaan.iyer@nvv.edu.in",
+        "role": "teacher",
+        "contactNo": "+91-7926303006",
+        "employeeId": "NVV-TCH-007",
+        "qualification": "M.Sc., B.Ed.",
+        "joiningDate": "2023-07-07",
+        "expectedSalary": 45600,
+        "specialization": "Mathematics",
+        "subjects": [
+          "Mathematics"
+        ],
+        "assignedClasses": [
+          {
+            "standard": "1",
+            "section": "B",
+            "subjects": [
+              "Mathematics"
+            ]
+          },
+          {
+            "standard": "3",
+            "section": "C",
+            "subjects": [
+              "Mathematics"
+            ]
+          },
+          {
+            "standard": "4",
+            "section": "C",
+            "subjects": [
+              "Mathematics"
+            ]
+          },
+          {
+            "standard": "7",
+            "section": "A",
+            "subjects": [
+              "Mathematics"
+            ]
+          },
+          {
+            "standard": "8",
+            "section": "A",
+            "subjects": [
+              "Mathematics"
+            ]
+          },
+          {
+            "standard": "11",
+            "section": "B",
+            "subjects": [
+              "Mathematics"
+            ]
+          },
+          {
+            "standard": "12",
+            "section": "B",
+            "subjects": [
+              "Mathematics"
+            ]
+          }
+        ],
+        "classTeacherOf": {
+          "standard": "3",
+          "section": "A"
+        }
+      },
+      {
+        "name": "Diya Pillai",
+        "email": "diya.pillai@nvv.edu.in",
+        "role": "teacher",
+        "contactNo": "+91-7926303007",
+        "employeeId": "NVV-TCH-008",
+        "qualification": "M.Ed.",
+        "joiningDate": "2023-08-08",
+        "expectedSalary": 45700,
+        "specialization": "Mathematics",
+        "subjects": [
+          "Mathematics"
+        ],
+        "assignedClasses": [
+          {
+            "standard": "1",
+            "section": "C",
+            "subjects": [
+              "Mathematics"
+            ]
+          },
+          {
+            "standard": "3",
+            "section": "B",
+            "subjects": [
+              "Mathematics"
+            ]
+          },
+          {
+            "standard": "5",
+            "section": "A",
+            "subjects": [
+              "Mathematics"
+            ]
+          },
+          {
+            "standard": "6",
+            "section": "C",
+            "subjects": [
+              "Mathematics"
+            ]
+          },
+          {
+            "standard": "8",
+            "section": "B",
+            "subjects": [
+              "Mathematics"
+            ]
+          },
+          {
+            "standard": "11",
+            "section": "A",
+            "subjects": [
+              "Mathematics"
+            ]
+          },
+          {
+            "standard": "12",
+            "section": "C",
+            "subjects": [
+              "Mathematics"
+            ]
+          }
+        ],
+        "classTeacherOf": {
+          "standard": "3",
+          "section": "B"
+        }
+      },
+      {
+        "name": "Arjun Reddy",
+        "email": "arjun.reddy@nvv.edu.in",
+        "role": "teacher",
+        "contactNo": "+91-7926303008",
+        "employeeId": "NVV-TCH-009",
+        "qualification": "M.A., B.Ed.",
+        "joiningDate": "2023-09-09",
+        "expectedSalary": 45800,
+        "specialization": "Mathematics",
+        "subjects": [
+          "Mathematics"
+        ],
+        "assignedClasses": [
+          {
+            "standard": "2",
+            "section": "A",
+            "subjects": [
+              "Mathematics"
+            ]
+          },
+          {
+            "standard": "3",
+            "section": "A",
+            "subjects": [
+              "Mathematics"
+            ]
+          },
+          {
+            "standard": "5",
+            "section": "B",
+            "subjects": [
+              "Mathematics"
+            ]
+          },
+          {
+            "standard": "6",
+            "section": "B",
+            "subjects": [
+              "Mathematics"
+            ]
+          },
+          {
+            "standard": "8",
+            "section": "C",
+            "subjects": [
+              "Mathematics"
+            ]
+          },
+          {
+            "standard": "10",
+            "section": "C",
+            "subjects": [
+              "Mathematics"
+            ]
+          }
+        ],
+        "classTeacherOf": {
+          "standard": "3",
+          "section": "C"
+        }
+      },
+      {
+        "name": "Pari Menon",
+        "email": "pari.menon@nvv.edu.in",
+        "role": "teacher",
+        "contactNo": "+91-7926303009",
+        "employeeId": "NVV-TCH-010",
+        "qualification": "M.Sc., B.Ed.",
+        "joiningDate": "2023-10-10",
+        "expectedSalary": 45900,
+        "specialization": "Mathematics",
+        "subjects": [
+          "Mathematics"
+        ],
+        "assignedClasses": [
+          {
+            "standard": "2",
+            "section": "B",
+            "subjects": [
+              "Mathematics"
+            ]
+          },
+          {
+            "standard": "2",
+            "section": "C",
+            "subjects": [
+              "Mathematics"
+            ]
+          },
+          {
+            "standard": "5",
+            "section": "C",
+            "subjects": [
+              "Mathematics"
+            ]
+          },
+          {
+            "standard": "6",
+            "section": "A",
+            "subjects": [
+              "Mathematics"
+            ]
+          },
+          {
+            "standard": "10",
+            "section": "A",
+            "subjects": [
+              "Mathematics"
+            ]
+          },
+          {
+            "standard": "10",
+            "section": "B",
+            "subjects": [
+              "Mathematics"
+            ]
+          }
+        ],
+        "classTeacherOf": {
+          "standard": "4",
+          "section": "A"
+        }
+      },
+      {
+        "name": "Reyansh Bhatia",
+        "email": "reyansh.bhatia@nvv.edu.in",
+        "role": "teacher",
+        "contactNo": "+91-7926303010",
+        "employeeId": "NVV-TCH-011",
+        "qualification": "M.Com., B.Ed.",
+        "joiningDate": "2023-11-11",
+        "expectedSalary": 46000,
+        "specialization": "Physical Education",
+        "subjects": [
+          "Physical Education"
+        ],
+        "assignedClasses": [
+          {
+            "standard": "1",
+            "section": "A",
+            "subjects": [
+              "Physical Education"
+            ]
+          },
+          {
+            "standard": "4",
+            "section": "A",
+            "subjects": [
+              "Physical Education"
+            ]
+          },
+          {
+            "standard": "4",
+            "section": "B",
+            "subjects": [
+              "Physical Education"
+            ]
+          },
+          {
+            "standard": "7",
+            "section": "B",
+            "subjects": [
+              "Physical Education"
+            ]
+          },
+          {
+            "standard": "7",
+            "section": "C",
+            "subjects": [
+              "Physical Education"
+            ]
+          },
+          {
+            "standard": "10",
+            "section": "C",
+            "subjects": [
+              "Physical Education"
+            ]
+          },
+          {
+            "standard": "11",
+            "section": "A",
+            "subjects": [
+              "Physical Education"
+            ]
+          }
+        ],
+        "classTeacherOf": {
+          "standard": "4",
+          "section": "B"
+        }
+      },
+      {
+        "name": "Myra Kulkarni",
+        "email": "myra.kulkarni@nvv.edu.in",
+        "role": "teacher",
+        "contactNo": "+91-7926303011",
+        "employeeId": "NVV-TCH-012",
+        "qualification": "B.A., B.Ed.",
+        "joiningDate": "2023-12-12",
+        "expectedSalary": 46100,
+        "specialization": "Physical Education",
+        "subjects": [
+          "Physical Education"
+        ],
+        "assignedClasses": [
+          {
+            "standard": "1",
+            "section": "B",
+            "subjects": [
+              "Physical Education"
+            ]
+          },
+          {
+            "standard": "3",
+            "section": "C",
+            "subjects": [
+              "Physical Education"
+            ]
+          },
+          {
+            "standard": "4",
+            "section": "C",
+            "subjects": [
+              "Physical Education"
+            ]
+          },
+          {
+            "standard": "7",
+            "section": "A",
+            "subjects": [
+              "Physical Education"
+            ]
+          },
+          {
+            "standard": "8",
+            "section": "A",
+            "subjects": [
+              "Physical Education"
+            ]
+          },
+          {
+            "standard": "10",
+            "section": "B",
+            "subjects": [
+              "Physical Education"
+            ]
+          },
+          {
+            "standard": "11",
+            "section": "B",
+            "subjects": [
+              "Physical Education"
+            ]
+          }
+        ],
+        "classTeacherOf": {
+          "standard": "4",
+          "section": "C"
+        }
+      },
+      {
+        "name": "Sai Chauhan",
+        "email": "sai.chauhan@nvv.edu.in",
+        "role": "teacher",
+        "contactNo": "+91-7926303012",
+        "employeeId": "NVV-TCH-013",
+        "qualification": "B.Com., B.Ed.",
+        "joiningDate": "2023-01-13",
+        "expectedSalary": 46200,
+        "specialization": "Physical Education",
+        "subjects": [
+          "Physical Education"
+        ],
+        "assignedClasses": [
+          {
+            "standard": "1",
+            "section": "C",
+            "subjects": [
+              "Physical Education"
+            ]
+          },
+          {
+            "standard": "3",
+            "section": "B",
+            "subjects": [
+              "Physical Education"
+            ]
+          },
+          {
+            "standard": "5",
+            "section": "A",
+            "subjects": [
+              "Physical Education"
+            ]
+          },
+          {
+            "standard": "6",
+            "section": "C",
+            "subjects": [
+              "Physical Education"
+            ]
+          },
+          {
+            "standard": "8",
+            "section": "B",
+            "subjects": [
+              "Physical Education"
+            ]
+          },
+          {
+            "standard": "10",
+            "section": "A",
+            "subjects": [
+              "Physical Education"
+            ]
+          },
+          {
+            "standard": "11",
+            "section": "C",
+            "subjects": [
+              "Physical Education"
+            ]
+          }
+        ],
+        "classTeacherOf": {
+          "standard": "5",
+          "section": "A"
+        }
+      },
+      {
+        "name": "Sara Saxena",
+        "email": "sara.saxena@nvv.edu.in",
+        "role": "teacher",
+        "contactNo": "+91-7926303013",
+        "employeeId": "NVV-TCH-014",
+        "qualification": "B.Sc., B.Ed.",
+        "joiningDate": "2023-02-14",
+        "expectedSalary": 46300,
+        "specialization": "Physical Education",
+        "subjects": [
+          "Physical Education"
+        ],
+        "assignedClasses": [
+          {
+            "standard": "2",
+            "section": "A",
+            "subjects": [
+              "Physical Education"
+            ]
+          },
+          {
+            "standard": "3",
+            "section": "A",
+            "subjects": [
+              "Physical Education"
+            ]
+          },
+          {
+            "standard": "5",
+            "section": "B",
+            "subjects": [
+              "Physical Education"
+            ]
+          },
+          {
+            "standard": "6",
+            "section": "B",
+            "subjects": [
+              "Physical Education"
+            ]
+          },
+          {
+            "standard": "8",
+            "section": "C",
+            "subjects": [
+              "Physical Education"
+            ]
+          },
+          {
+            "standard": "9",
+            "section": "C",
+            "subjects": [
+              "Physical Education"
+            ]
+          },
+          {
+            "standard": "12",
+            "section": "A",
+            "subjects": [
+              "Physical Education"
+            ]
+          }
+        ],
+        "classTeacherOf": {
+          "standard": "5",
+          "section": "B"
+        }
+      },
+      {
+        "name": "Ansh Agarwal",
+        "email": "ansh.agarwal@nvv.edu.in",
+        "role": "teacher",
+        "contactNo": "+91-7926303014",
+        "employeeId": "NVV-TCH-015",
+        "qualification": "M.Ed.",
+        "joiningDate": "2023-03-15",
+        "expectedSalary": 46400,
+        "specialization": "Physical Education",
+        "subjects": [
+          "Physical Education"
+        ],
+        "assignedClasses": [
+          {
+            "standard": "2",
+            "section": "B",
+            "subjects": [
+              "Physical Education"
+            ]
+          },
+          {
+            "standard": "2",
+            "section": "C",
+            "subjects": [
+              "Physical Education"
+            ]
+          },
+          {
+            "standard": "5",
+            "section": "C",
+            "subjects": [
+              "Physical Education"
+            ]
+          },
+          {
+            "standard": "6",
+            "section": "A",
+            "subjects": [
+              "Physical Education"
+            ]
+          },
+          {
+            "standard": "9",
+            "section": "A",
+            "subjects": [
+              "Physical Education"
+            ]
+          },
+          {
+            "standard": "9",
+            "section": "B",
+            "subjects": [
+              "Physical Education"
+            ]
+          },
+          {
+            "standard": "12",
+            "section": "B",
+            "subjects": [
+              "Physical Education"
+            ]
+          },
+          {
+            "standard": "12",
+            "section": "C",
+            "subjects": [
+              "Physical Education"
+            ]
+          }
+        ],
+        "classTeacherOf": {
+          "standard": "5",
+          "section": "C"
+        }
+      },
+      {
+        "name": "Anika Trivedi",
+        "email": "anika.trivedi@nvv.edu.in",
+        "role": "teacher",
+        "contactNo": "+91-7926303015",
+        "employeeId": "NVV-TCH-016",
+        "qualification": "B.Sc., B.Ed.",
+        "joiningDate": "2023-04-16",
+        "expectedSalary": 46500,
+        "specialization": "Hindi",
+        "subjects": [
+          "Hindi"
+        ],
+        "assignedClasses": [
+          {
+            "standard": "1",
+            "section": "A",
+            "subjects": [
+              "Hindi"
+            ]
+          },
+          {
+            "standard": "2",
+            "section": "C",
+            "subjects": [
+              "Hindi"
+            ]
+          },
+          {
+            "standard": "3",
+            "section": "A",
+            "subjects": [
+              "Hindi"
+            ]
+          },
+          {
+            "standard": "4",
+            "section": "C",
+            "subjects": [
+              "Hindi"
+            ]
+          },
+          {
+            "standard": "5",
+            "section": "A",
+            "subjects": [
+              "Hindi"
+            ]
+          },
+          {
+            "standard": "6",
+            "section": "C",
+            "subjects": [
+              "Hindi"
+            ]
+          },
+          {
+            "standard": "7",
+            "section": "A",
+            "subjects": [
+              "Hindi"
+            ]
+          },
+          {
+            "standard": "8",
+            "section": "C",
+            "subjects": [
+              "Hindi"
+            ]
+          }
+        ],
+        "classTeacherOf": {
+          "standard": "6",
+          "section": "A"
+        }
+      },
+      {
+        "name": "Kabir Bhat",
+        "email": "kabir.bhat@nvv.edu.in",
+        "role": "teacher",
+        "contactNo": "+91-7926303016",
+        "employeeId": "NVV-TCH-017",
+        "qualification": "B.A., B.Ed.",
+        "joiningDate": "2023-05-17",
+        "expectedSalary": 46600,
+        "specialization": "Hindi",
+        "subjects": [
+          "Hindi"
+        ],
+        "assignedClasses": [
+          {
+            "standard": "1",
+            "section": "B",
+            "subjects": [
+              "Hindi"
+            ]
+          },
+          {
+            "standard": "2",
+            "section": "B",
+            "subjects": [
+              "Hindi"
+            ]
+          },
+          {
+            "standard": "3",
+            "section": "B",
+            "subjects": [
+              "Hindi"
+            ]
+          },
+          {
+            "standard": "4",
+            "section": "B",
+            "subjects": [
+              "Hindi"
+            ]
+          },
+          {
+            "standard": "5",
+            "section": "B",
+            "subjects": [
+              "Hindi"
+            ]
+          },
+          {
+            "standard": "6",
+            "section": "B",
+            "subjects": [
+              "Hindi"
+            ]
+          },
+          {
+            "standard": "7",
+            "section": "B",
+            "subjects": [
+              "Hindi"
+            ]
+          },
+          {
+            "standard": "8",
+            "section": "B",
+            "subjects": [
+              "Hindi"
+            ]
+          }
+        ],
+        "classTeacherOf": {
+          "standard": "6",
+          "section": "B"
+        }
+      },
+      {
+        "name": "Kiara Shukla",
+        "email": "kiara.shukla@nvv.edu.in",
+        "role": "teacher",
+        "contactNo": "+91-7926303017",
+        "employeeId": "NVV-TCH-018",
+        "qualification": "M.Ed.",
+        "joiningDate": "2023-06-18",
+        "expectedSalary": 46700,
+        "specialization": "Hindi",
+        "subjects": [
+          "Hindi"
+        ],
+        "assignedClasses": [
+          {
+            "standard": "1",
+            "section": "C",
+            "subjects": [
+              "Hindi"
+            ]
+          },
+          {
+            "standard": "2",
+            "section": "A",
+            "subjects": [
+              "Hindi"
+            ]
+          },
+          {
+            "standard": "3",
+            "section": "C",
+            "subjects": [
+              "Hindi"
+            ]
+          },
+          {
+            "standard": "4",
+            "section": "A",
+            "subjects": [
+              "Hindi"
+            ]
+          },
+          {
+            "standard": "5",
+            "section": "C",
+            "subjects": [
+              "Hindi"
+            ]
+          },
+          {
+            "standard": "6",
+            "section": "A",
+            "subjects": [
+              "Hindi"
+            ]
+          },
+          {
+            "standard": "7",
+            "section": "C",
+            "subjects": [
+              "Hindi"
+            ]
+          },
+          {
+            "standard": "8",
+            "section": "A",
+            "subjects": [
+              "Hindi"
+            ]
+          }
+        ],
+        "classTeacherOf": {
+          "standard": "6",
+          "section": "C"
+        }
+      },
+      {
+        "name": "Dhruv Mishra",
+        "email": "dhruv.mishra@nvv.edu.in",
+        "role": "teacher",
+        "contactNo": "+91-7926303018",
+        "employeeId": "NVV-TCH-019",
+        "qualification": "B.Sc., B.Ed.",
+        "joiningDate": "2023-07-19",
+        "expectedSalary": 46800,
+        "specialization": "Computer Science",
+        "subjects": [
+          "Computer Science"
+        ],
+        "assignedClasses": [
+          {
+            "standard": "6",
+            "section": "A",
+            "subjects": [
+              "Computer Science"
+            ]
+          },
+          {
+            "standard": "7",
+            "section": "C",
+            "subjects": [
+              "Computer Science"
+            ]
+          },
+          {
+            "standard": "8",
+            "section": "A",
+            "subjects": [
+              "Computer Science"
+            ]
+          },
+          {
+            "standard": "9",
+            "section": "C",
+            "subjects": [
+              "Computer Science"
+            ]
+          },
+          {
+            "standard": "10",
+            "section": "A",
+            "subjects": [
+              "Computer Science"
+            ]
+          },
+          {
+            "standard": "11",
+            "section": "C",
+            "subjects": [
+              "Computer Science"
+            ]
+          },
+          {
+            "standard": "12",
+            "section": "A",
+            "subjects": [
+              "Computer Science"
+            ]
+          }
+        ],
+        "classTeacherOf": {
+          "standard": "7",
+          "section": "A"
+        }
+      },
+      {
+        "name": "Riya Yadav",
+        "email": "riya.yadav@nvv.edu.in",
+        "role": "teacher",
+        "contactNo": "+91-7926303019",
+        "employeeId": "NVV-TCH-020",
+        "qualification": "B.Ed.",
+        "joiningDate": "2023-08-20",
+        "expectedSalary": 46900,
+        "specialization": "Computer Science",
+        "subjects": [
+          "Computer Science"
+        ],
+        "assignedClasses": [
+          {
+            "standard": "6",
+            "section": "B",
+            "subjects": [
+              "Computer Science"
+            ]
+          },
+          {
+            "standard": "7",
+            "section": "B",
+            "subjects": [
+              "Computer Science"
+            ]
+          },
+          {
+            "standard": "8",
+            "section": "B",
+            "subjects": [
+              "Computer Science"
+            ]
+          },
+          {
+            "standard": "9",
+            "section": "B",
+            "subjects": [
+              "Computer Science"
+            ]
+          },
+          {
+            "standard": "10",
+            "section": "B",
+            "subjects": [
+              "Computer Science"
+            ]
+          },
+          {
+            "standard": "11",
+            "section": "B",
+            "subjects": [
+              "Computer Science"
+            ]
+          },
+          {
+            "standard": "12",
+            "section": "B",
+            "subjects": [
+              "Computer Science"
+            ]
+          }
+        ],
+        "classTeacherOf": {
+          "standard": "7",
+          "section": "B"
+        }
+      },
+      {
+        "name": "Krishna Pandey",
+        "email": "krishna.pandey@nvv.edu.in",
+        "role": "teacher",
+        "contactNo": "+91-7926303020",
+        "employeeId": "NVV-TCH-021",
+        "qualification": "M.Com., B.Ed.",
+        "joiningDate": "2023-09-21",
+        "expectedSalary": 47000,
+        "specialization": "Computer Science",
+        "subjects": [
+          "Computer Science"
+        ],
+        "assignedClasses": [
+          {
+            "standard": "6",
+            "section": "C",
+            "subjects": [
+              "Computer Science"
+            ]
+          },
+          {
+            "standard": "7",
+            "section": "A",
+            "subjects": [
+              "Computer Science"
+            ]
+          },
+          {
+            "standard": "8",
+            "section": "C",
+            "subjects": [
+              "Computer Science"
+            ]
+          },
+          {
+            "standard": "9",
+            "section": "A",
+            "subjects": [
+              "Computer Science"
+            ]
+          },
+          {
+            "standard": "10",
+            "section": "C",
+            "subjects": [
+              "Computer Science"
+            ]
+          },
+          {
+            "standard": "11",
+            "section": "A",
+            "subjects": [
+              "Computer Science"
+            ]
+          },
+          {
+            "standard": "12",
+            "section": "C",
+            "subjects": [
+              "Computer Science"
+            ]
+          }
+        ],
+        "classTeacherOf": {
+          "standard": "7",
+          "section": "C"
+        }
+      },
+      {
+        "name": "Navya Thakur",
+        "email": "navya.thakur@nvv.edu.in",
+        "role": "teacher",
+        "contactNo": "+91-7926303021",
+        "employeeId": "NVV-TCH-022",
+        "qualification": "M.Sc., B.Ed.",
+        "joiningDate": "2023-10-22",
+        "expectedSalary": 47100,
+        "specialization": "EVS",
+        "subjects": [
+          "EVS"
+        ],
+        "assignedClasses": [
+          {
+            "standard": "1",
+            "section": "A",
+            "subjects": [
+              "EVS"
+            ]
+          },
+          {
+            "standard": "2",
+            "section": "A",
+            "subjects": [
+              "EVS"
+            ]
+          },
+          {
+            "standard": "2",
+            "section": "B",
+            "subjects": [
+              "EVS"
+            ]
+          },
+          {
+            "standard": "3",
+            "section": "B",
+            "subjects": [
+              "EVS"
+            ]
+          },
+          {
+            "standard": "3",
+            "section": "C",
+            "subjects": [
+              "EVS"
+            ]
+          },
+          {
+            "standard": "4",
+            "section": "C",
+            "subjects": [
+              "EVS"
+            ]
+          },
+          {
+            "standard": "5",
+            "section": "A",
+            "subjects": [
+              "EVS"
+            ]
+          }
+        ],
+        "classTeacherOf": {
+          "standard": "8",
+          "section": "A"
+        }
+      },
+      {
+        "name": "Ritvik Solanki",
+        "email": "ritvik.solanki@nvv.edu.in",
+        "role": "teacher",
+        "contactNo": "+91-7926303022",
+        "employeeId": "NVV-TCH-023",
+        "qualification": "B.Sc., B.Ed.",
+        "joiningDate": "2023-11-23",
+        "expectedSalary": 47200,
+        "specialization": "EVS",
+        "subjects": [
+          "EVS"
+        ],
+        "assignedClasses": [
+          {
+            "standard": "1",
+            "section": "B",
+            "subjects": [
+              "EVS"
+            ]
+          },
+          {
+            "standard": "1",
+            "section": "C",
+            "subjects": [
+              "EVS"
+            ]
+          },
+          {
+            "standard": "2",
+            "section": "C",
+            "subjects": [
+              "EVS"
+            ]
+          },
+          {
+            "standard": "3",
+            "section": "A",
+            "subjects": [
+              "EVS"
+            ]
+          },
+          {
+            "standard": "4",
+            "section": "A",
+            "subjects": [
+              "EVS"
+            ]
+          },
+          {
+            "standard": "4",
+            "section": "B",
+            "subjects": [
+              "EVS"
+            ]
+          },
+          {
+            "standard": "5",
+            "section": "B",
+            "subjects": [
+              "EVS"
+            ]
+          },
+          {
+            "standard": "5",
+            "section": "C",
+            "subjects": [
+              "EVS"
+            ]
+          }
+        ],
+        "classTeacherOf": {
+          "standard": "8",
+          "section": "B"
+        }
+      },
+      {
+        "name": "Angel Rathod",
+        "email": "angel.rathod@nvv.edu.in",
+        "role": "teacher",
+        "contactNo": "+91-7926303023",
+        "employeeId": "NVV-TCH-024",
+        "qualification": "M.A., B.Ed.",
+        "joiningDate": "2023-12-24",
+        "expectedSalary": 47300,
+        "specialization": "Art",
+        "subjects": [
+          "Art"
+        ],
+        "assignedClasses": [
+          {
+            "standard": "1",
+            "section": "A",
+            "subjects": [
+              "Art"
+            ]
+          },
+          {
+            "standard": "2",
+            "section": "A",
+            "subjects": [
+              "Art"
+            ]
+          },
+          {
+            "standard": "2",
+            "section": "B",
+            "subjects": [
+              "Art"
+            ]
+          },
+          {
+            "standard": "3",
+            "section": "B",
+            "subjects": [
+              "Art"
+            ]
+          },
+          {
+            "standard": "3",
+            "section": "C",
+            "subjects": [
+              "Art"
+            ]
+          },
+          {
+            "standard": "4",
+            "section": "C",
+            "subjects": [
+              "Art"
+            ]
+          },
+          {
+            "standard": "5",
+            "section": "A",
+            "subjects": [
+              "Art"
+            ]
+          }
+        ],
+        "classTeacherOf": {
+          "standard": "8",
+          "section": "C"
+        }
+      },
+      {
+        "name": "Aarush Modi",
+        "email": "aarush.modi@nvv.edu.in",
+        "role": "teacher",
+        "contactNo": "+91-7926303024",
+        "employeeId": "NVV-TCH-025",
+        "qualification": "M.A., B.Ed.",
+        "joiningDate": "2023-01-25",
+        "expectedSalary": 47400,
+        "specialization": "Art",
+        "subjects": [
+          "Art"
+        ],
+        "assignedClasses": [
+          {
+            "standard": "1",
+            "section": "B",
+            "subjects": [
+              "Art"
+            ]
+          },
+          {
+            "standard": "1",
+            "section": "C",
+            "subjects": [
+              "Art"
+            ]
+          },
+          {
+            "standard": "2",
+            "section": "C",
+            "subjects": [
+              "Art"
+            ]
+          },
+          {
+            "standard": "3",
+            "section": "A",
+            "subjects": [
+              "Art"
+            ]
+          },
+          {
+            "standard": "4",
+            "section": "A",
+            "subjects": [
+              "Art"
+            ]
+          },
+          {
+            "standard": "4",
+            "section": "B",
+            "subjects": [
+              "Art"
+            ]
+          },
+          {
+            "standard": "5",
+            "section": "B",
+            "subjects": [
+              "Art"
+            ]
+          },
+          {
+            "standard": "5",
+            "section": "C",
+            "subjects": [
+              "Art"
+            ]
+          }
+        ],
+        "classTeacherOf": {
+          "standard": "9",
+          "section": "A"
+        }
+      },
+      {
+        "name": "Amaira Dave",
+        "email": "amaira.dave@nvv.edu.in",
+        "role": "teacher",
+        "contactNo": "+91-7926303025",
+        "employeeId": "NVV-TCH-026",
+        "qualification": "M.Ed.",
+        "joiningDate": "2023-02-26",
+        "expectedSalary": 47500,
+        "specialization": "General Knowledge",
+        "subjects": [
+          "General Knowledge"
+        ],
+        "assignedClasses": [
+          {
+            "standard": "1",
+            "section": "A",
+            "subjects": [
+              "General Knowledge"
+            ]
+          },
+          {
+            "standard": "1",
+            "section": "B",
+            "subjects": [
+              "General Knowledge"
+            ]
+          },
+          {
+            "standard": "1",
+            "section": "C",
+            "subjects": [
+              "General Knowledge"
+            ]
+          },
+          {
+            "standard": "2",
+            "section": "A",
+            "subjects": [
+              "General Knowledge"
+            ]
+          },
+          {
+            "standard": "2",
+            "section": "B",
+            "subjects": [
+              "General Knowledge"
+            ]
+          },
+          {
+            "standard": "2",
+            "section": "C",
+            "subjects": [
+              "General Knowledge"
+            ]
+          },
+          {
+            "standard": "3",
+            "section": "A",
+            "subjects": [
+              "General Knowledge"
+            ]
+          },
+          {
+            "standard": "3",
+            "section": "B",
+            "subjects": [
+              "General Knowledge"
+            ]
+          },
+          {
+            "standard": "3",
+            "section": "C",
+            "subjects": [
+              "General Knowledge"
+            ]
+          },
+          {
+            "standard": "4",
+            "section": "A",
+            "subjects": [
+              "General Knowledge"
+            ]
+          },
+          {
+            "standard": "4",
+            "section": "B",
+            "subjects": [
+              "General Knowledge"
+            ]
+          },
+          {
+            "standard": "4",
+            "section": "C",
+            "subjects": [
+              "General Knowledge"
+            ]
+          },
+          {
+            "standard": "5",
+            "section": "A",
+            "subjects": [
+              "General Knowledge"
+            ]
+          },
+          {
+            "standard": "5",
+            "section": "B",
+            "subjects": [
+              "General Knowledge"
+            ]
+          },
+          {
+            "standard": "5",
+            "section": "C",
+            "subjects": [
+              "General Knowledge"
+            ]
+          }
+        ],
+        "classTeacherOf": {
+          "standard": "9",
+          "section": "B"
+        }
+      },
+      {
+        "name": "Shivam Patel",
+        "email": "shivam.patel@nvv.edu.in",
+        "role": "teacher",
+        "contactNo": "+91-7926303026",
+        "employeeId": "NVV-TCH-027",
+        "qualification": "M.Sc. Mathematics, B.Ed.",
+        "joiningDate": "2023-03-27",
+        "expectedSalary": 47600,
+        "specialization": "Mathematics",
+        "subjects": [
+          "Mathematics"
+        ],
+        "assignedClasses": [
+          {
+            "standard": "9",
+            "section": "A",
+            "subjects": [
+              "Mathematics"
+            ]
+          },
+          {
+            "standard": "9",
+            "section": "B",
+            "subjects": [
+              "Mathematics"
+            ]
+          },
+          {
+            "standard": "9",
+            "section": "C",
+            "subjects": [
+              "Mathematics"
+            ]
+          }
+        ],
+        "classTeacherOf": {
+          "standard": "9",
+          "section": "C"
+        }
+      },
+      {
+        "name": "Shaurya Vyas",
+        "email": "shaurya.vyas@nvv.edu.in",
+        "role": "teacher",
+        "contactNo": "+91-7926303027",
+        "employeeId": "NVV-TCH-028",
+        "qualification": "M.A., B.Ed.",
+        "joiningDate": "2023-04-28",
+        "expectedSalary": 47700,
+        "specialization": "Science",
+        "subjects": [
+          "Science"
+        ],
+        "assignedClasses": [
+          {
+            "standard": "6",
+            "section": "A",
+            "subjects": [
+              "Science"
+            ]
+          },
+          {
+            "standard": "7",
+            "section": "A",
+            "subjects": [
+              "Science"
+            ]
+          },
+          {
+            "standard": "7",
+            "section": "B",
+            "subjects": [
+              "Science"
+            ]
+          },
+          {
+            "standard": "8",
+            "section": "B",
+            "subjects": [
+              "Science"
+            ]
+          },
+          {
+            "standard": "8",
+            "section": "C",
+            "subjects": [
+              "Science"
+            ]
+          },
+          {
+            "standard": "9",
+            "section": "C",
+            "subjects": [
+              "Science"
+            ]
+          },
+          {
+            "standard": "10",
+            "section": "A",
+            "subjects": [
+              "Science"
+            ]
+          }
+        ],
+        "classTeacherOf": {
+          "standard": "10",
+          "section": "A"
+        }
+      },
+      {
+        "name": "Pihu Soni",
+        "email": "pihu.soni@nvv.edu.in",
+        "role": "teacher",
+        "contactNo": "+91-7926303028",
+        "employeeId": "NVV-TCH-029",
+        "qualification": "B.Ed.",
+        "joiningDate": "2023-05-01",
+        "expectedSalary": 47800,
+        "specialization": "Science",
+        "subjects": [
+          "Science"
+        ],
+        "assignedClasses": [
+          {
+            "standard": "6",
+            "section": "B",
+            "subjects": [
+              "Science"
+            ]
+          },
+          {
+            "standard": "6",
+            "section": "C",
+            "subjects": [
+              "Science"
+            ]
+          },
+          {
+            "standard": "7",
+            "section": "C",
+            "subjects": [
+              "Science"
+            ]
+          },
+          {
+            "standard": "8",
+            "section": "A",
+            "subjects": [
+              "Science"
+            ]
+          },
+          {
+            "standard": "9",
+            "section": "A",
+            "subjects": [
+              "Science"
+            ]
+          },
+          {
+            "standard": "9",
+            "section": "B",
+            "subjects": [
+              "Science"
+            ]
+          },
+          {
+            "standard": "10",
+            "section": "B",
+            "subjects": [
+              "Science"
+            ]
+          },
+          {
+            "standard": "10",
+            "section": "C",
+            "subjects": [
+              "Science"
+            ]
+          }
+        ],
+        "classTeacherOf": {
+          "standard": "10",
+          "section": "B"
+        }
+      },
+      {
+        "name": "Atharv Gajjar",
+        "email": "atharv.gajjar@nvv.edu.in",
+        "role": "teacher",
+        "contactNo": "+91-7926303029",
+        "employeeId": "NVV-TCH-030",
+        "qualification": "M.Com., B.Ed.",
+        "joiningDate": "2023-06-02",
+        "expectedSalary": 47900,
+        "specialization": "Social Science",
+        "subjects": [
+          "Social Science"
+        ],
+        "assignedClasses": [
+          {
+            "standard": "6",
+            "section": "A",
+            "subjects": [
+              "Social Science"
+            ]
+          },
+          {
+            "standard": "7",
+            "section": "A",
+            "subjects": [
+              "Social Science"
+            ]
+          },
+          {
+            "standard": "7",
+            "section": "B",
+            "subjects": [
+              "Social Science"
+            ]
+          },
+          {
+            "standard": "8",
+            "section": "B",
+            "subjects": [
+              "Social Science"
+            ]
+          },
+          {
+            "standard": "8",
+            "section": "C",
+            "subjects": [
+              "Social Science"
+            ]
+          },
+          {
+            "standard": "9",
+            "section": "C",
+            "subjects": [
+              "Social Science"
+            ]
+          },
+          {
+            "standard": "10",
+            "section": "A",
+            "subjects": [
+              "Social Science"
+            ]
+          }
+        ],
+        "classTeacherOf": {
+          "standard": "10",
+          "section": "C"
+        }
+      },
+      {
+        "name": "Aaradhya Vaghela",
+        "email": "aaradhya.vaghela@nvv.edu.in",
+        "role": "teacher",
+        "contactNo": "+91-7926303030",
+        "employeeId": "NVV-TCH-031",
+        "qualification": "M.Com., B.Ed.",
+        "joiningDate": "2023-07-03",
+        "expectedSalary": 48000,
+        "specialization": "Social Science",
+        "subjects": [
+          "Social Science"
+        ],
+        "assignedClasses": [
+          {
+            "standard": "6",
+            "section": "B",
+            "subjects": [
+              "Social Science"
+            ]
+          },
+          {
+            "standard": "6",
+            "section": "C",
+            "subjects": [
+              "Social Science"
+            ]
+          },
+          {
+            "standard": "7",
+            "section": "C",
+            "subjects": [
+              "Social Science"
+            ]
+          },
+          {
+            "standard": "8",
+            "section": "A",
+            "subjects": [
+              "Social Science"
+            ]
+          },
+          {
+            "standard": "9",
+            "section": "A",
+            "subjects": [
+              "Social Science"
+            ]
+          },
+          {
+            "standard": "9",
+            "section": "B",
+            "subjects": [
+              "Social Science"
+            ]
+          },
+          {
+            "standard": "10",
+            "section": "B",
+            "subjects": [
+              "Social Science"
+            ]
+          },
+          {
+            "standard": "10",
+            "section": "C",
+            "subjects": [
+              "Social Science"
+            ]
+          }
+        ],
+        "classTeacherOf": {
+          "standard": "11",
+          "section": "A"
+        }
+      },
+      {
+        "name": "Advait Doshi",
+        "email": "advait.doshi@nvv.edu.in",
+        "role": "teacher",
+        "contactNo": "+91-7926303031",
+        "employeeId": "NVV-TCH-032",
+        "qualification": "M.A., B.Ed.",
+        "joiningDate": "2023-08-04",
+        "expectedSalary": 48100,
+        "specialization": "Gujarati",
+        "subjects": [
+          "Gujarati"
+        ],
+        "assignedClasses": [
+          {
+            "standard": "9",
+            "section": "A",
+            "subjects": [
+              "Gujarati"
+            ]
+          },
+          {
+            "standard": "9",
+            "section": "B",
+            "subjects": [
+              "Gujarati"
+            ]
+          },
+          {
+            "standard": "9",
+            "section": "C",
+            "subjects": [
+              "Gujarati"
+            ]
+          },
+          {
+            "standard": "10",
+            "section": "A",
+            "subjects": [
+              "Gujarati"
+            ]
+          },
+          {
+            "standard": "10",
+            "section": "B",
+            "subjects": [
+              "Gujarati"
+            ]
+          },
+          {
+            "standard": "10",
+            "section": "C",
+            "subjects": [
+              "Gujarati"
+            ]
+          }
+        ],
+        "classTeacherOf": {
+          "standard": "11",
+          "section": "B"
+        }
+      },
+      {
+        "name": "Avni Makwana",
+        "email": "avni.makwana@nvv.edu.in",
+        "role": "teacher",
+        "contactNo": "+91-7926303032",
+        "employeeId": "NVV-TCH-033",
+        "qualification": "B.Ed.",
+        "joiningDate": "2023-09-05",
+        "expectedSalary": 48200,
+        "specialization": "Physics",
+        "subjects": [
+          "Physics"
+        ],
+        "assignedClasses": [
+          {
+            "standard": "11",
+            "section": "A",
+            "subjects": [
+              "Physics"
+            ]
+          },
+          {
+            "standard": "11",
+            "section": "B",
+            "subjects": [
+              "Physics"
+            ]
+          },
+          {
+            "standard": "11",
+            "section": "C",
+            "subjects": [
+              "Physics"
+            ]
+          },
+          {
+            "standard": "12",
+            "section": "A",
+            "subjects": [
+              "Physics"
+            ]
+          },
+          {
+            "standard": "12",
+            "section": "B",
+            "subjects": [
+              "Physics"
+            ]
+          },
+          {
+            "standard": "12",
+            "section": "C",
+            "subjects": [
+              "Physics"
+            ]
+          }
+        ],
+        "classTeacherOf": {
+          "standard": "11",
+          "section": "C"
+        }
+      },
+      {
+        "name": "Arnav Jha",
+        "email": "arnav.jha@nvv.edu.in",
+        "role": "teacher",
+        "contactNo": "+91-7926303033",
+        "employeeId": "NVV-TCH-034",
+        "qualification": "M.A., B.Ed.",
+        "joiningDate": "2023-10-06",
+        "expectedSalary": 48300,
+        "specialization": "Chemistry",
+        "subjects": [
+          "Chemistry"
+        ],
+        "assignedClasses": [
+          {
+            "standard": "11",
+            "section": "A",
+            "subjects": [
+              "Chemistry"
+            ]
+          },
+          {
+            "standard": "11",
+            "section": "B",
+            "subjects": [
+              "Chemistry"
+            ]
+          },
+          {
+            "standard": "11",
+            "section": "C",
+            "subjects": [
+              "Chemistry"
+            ]
+          },
+          {
+            "standard": "12",
+            "section": "A",
+            "subjects": [
+              "Chemistry"
+            ]
+          },
+          {
+            "standard": "12",
+            "section": "B",
+            "subjects": [
+              "Chemistry"
+            ]
+          },
+          {
+            "standard": "12",
+            "section": "C",
+            "subjects": [
+              "Chemistry"
+            ]
+          }
+        ],
+        "classTeacherOf": {
+          "standard": "12",
+          "section": "A"
+        }
+      },
+      {
+        "name": "Zara Choksi",
+        "email": "zara.choksi@nvv.edu.in",
+        "role": "teacher",
+        "contactNo": "+91-7926303034",
+        "employeeId": "NVV-TCH-035",
+        "qualification": "B.Sc., B.Ed.",
+        "joiningDate": "2023-11-07",
+        "expectedSalary": 48400,
+        "specialization": "Biology",
+        "subjects": [
+          "Biology"
+        ],
+        "assignedClasses": [
+          {
+            "standard": "11",
+            "section": "A",
+            "subjects": [
+              "Biology"
+            ]
+          },
+          {
+            "standard": "12",
+            "section": "A",
+            "subjects": [
+              "Biology"
+            ]
+          },
+          {
+            "standard": "12",
+            "section": "B",
+            "subjects": [
+              "Biology"
+            ]
+          }
+        ],
+        "classTeacherOf": {
+          "standard": "12",
+          "section": "B"
+        }
+      },
+      {
+        "name": "Rudra Kapadia",
+        "email": "rudra.kapadia@nvv.edu.in",
+        "role": "teacher",
+        "contactNo": "+91-7926303035",
+        "employeeId": "NVV-TCH-036",
+        "qualification": "B.Sc., B.Ed.",
+        "joiningDate": "2023-12-08",
+        "expectedSalary": 48500,
+        "specialization": "Biology",
+        "subjects": [
+          "Biology"
+        ],
+        "assignedClasses": [
+          {
+            "standard": "11",
+            "section": "B",
+            "subjects": [
+              "Biology"
+            ]
+          },
+          {
+            "standard": "11",
+            "section": "C",
+            "subjects": [
+              "Biology"
+            ]
+          },
+          {
+            "standard": "12",
+            "section": "C",
+            "subjects": [
+              "Biology"
+            ]
+          }
+        ],
+        "classTeacherOf": {
+          "standard": "12",
+          "section": "C"
+        }
+      }
+    ]
+  }
+}

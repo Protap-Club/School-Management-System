@@ -30,7 +30,7 @@ export const getDashboardStats = async (user) => {
             userId: user._id,
             schoolId: rawSchoolId,
         })
-            .select("assignedClasses")
+            .select("assignedClasses classTeacherOf")
             .lean();
 
         const assignedClasses = profile?.assignedClasses || [];
@@ -42,10 +42,18 @@ export const getDashboardStats = async (user) => {
                 classMatrix: [],
             };
         }
-        classFilter = assignedClasses.map((c) => ({
-            standard: c.standard,
-            section: c.section,
-        }));
+
+        // If the teacher is a class teacher, only show their primary class in the matrix.
+        // Otherwise fall back to all assigned classes (subject teachers without homeroom).
+        const classTeacherOf = profile?.classTeacherOf;
+        if (classTeacherOf?.standard && classTeacherOf?.section) {
+            classFilter = [{ standard: classTeacherOf.standard, section: classTeacherOf.section }];
+        } else {
+            classFilter = assignedClasses.map((c) => ({
+                standard: c.standard,
+                section: c.section,
+            }));
+        }
     }
 
     // ── Query 1: Student counts per class ─────────────────────────

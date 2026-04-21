@@ -1,6 +1,7 @@
 export const normalizeClassSection = (input = {}) => ({
     standard: String(input?.standard || "").trim(),
     section: String(input?.section || "").trim().toUpperCase(),
+    subjects: Array.isArray(input?.subjects) ? input.subjects : [],
 });
 
 export const makeClassKey = (standardOrInput, maybeSection) => {

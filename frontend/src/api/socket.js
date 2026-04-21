@@ -68,7 +68,7 @@ export const connectSocket = (schoolId) => {
             auth: {
                 token: token || null,
             },
-            autoConnect: true,
+            autoConnect: false,
             transports: ['websocket', 'polling'],
             reconnection: true,
             reconnectionAttempts: 10,
@@ -84,8 +84,11 @@ export const connectSocket = (schoolId) => {
             }
         });
 
-        socket.on('connect_error', () => {
-            // Connection error - socket will retry automatically
+        socket.on('connect_error', (error) => {
+            // Surface root cause during development (auth/CORS/network) instead of silent retries.
+            if (import.meta.env.DEV) {
+                console.warn('[socket] connect_error:', error?.message || error);
+            }
         });
     }
 

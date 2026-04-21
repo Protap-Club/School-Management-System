@@ -25,6 +25,10 @@ const timeSlotSchema = new mongoose.Schema({
         enum: ["CLASS", "BREAK"],
         default: "CLASS"
     },
+    label: {
+        type: String,
+        trim: true
+    },
 }, { timestamps: true });
 
 timeSlotSchema.index({ schoolId: 1, slotNumber: 1 }, { unique: true });

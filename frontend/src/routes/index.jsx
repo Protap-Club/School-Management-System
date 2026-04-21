@@ -4,20 +4,21 @@
 import { lazy, Suspense } from 'react';
 
 // Lazy load pages for code-splitting
-// Lazy load pages for code-splitting
-const Login = lazy(() => import('../pages/Login'));
-const Dashboard = lazy(() => import('../pages/Dashboard'));
-const UsersPage = lazy(() => import('../features/users/UsersPage'));
-const Settings = lazy(() => import('../pages/Settings'));
-const Attendance = lazy(() => import('../features/attendance/AttendancePage'));
-const Notice = lazy(() => import('../pages/Notice'));
-const TimetablePage = lazy(() => import('../features/timetable/TimetablePage'));
-const Calendar = lazy(() => import('../pages/Calendar'));
-const Notifications = lazy(() => import('../pages/Notifications'));
-const Fees = lazy(() => import('../pages/Fees'));
-const Examination = lazy(() => import('../pages/Examination'));
-const Assignments = lazy(() => import('../features/assignment/AssignmentPage'));
-const Result = lazy(() => import('../pages/Result'));
+const Login = lazy(() => import('@/features/auth/LoginPage'));
+const Dashboard = lazy(() => import('@/features/dashboard/DashboardPage'));
+const UsersPage = lazy(() => import('@/features/users/UsersPage'));
+const Settings = lazy(() => import('@/features/settings/SettingsPage'));
+const Attendance = lazy(() => import('@/features/attendance/AttendancePage'));
+const Notice = lazy(() => import('@/features/notices/NoticePage'));
+const TimetablePage = lazy(() => import('@/features/timetable/TimetablePage'));
+const Calendar = lazy(() => import('@/features/calendar/CalendarPage'));
+const Notifications = lazy(() => import('@/features/notifications/NotificationsPage'));
+const Profile = lazy(() => import('@/features/profile/ProfilePage'));
+const Fees = lazy(() => import('@/features/fees/FeesPage'));
+const Examination = lazy(() => import('@/features/examination/ExaminationPage'));
+const Assignments = lazy(() => import('@/features/assignment/AssignmentPage'));
+const Result = lazy(() => import('@/features/result/ResultPage'));
+const AuditLog = lazy(() => import('@/features/audit/AuditLogPage'));
 // Loading fallback component
 const PageLoader = () => (
     <div className="flex items-center justify-center min-h-screen">
@@ -52,6 +53,7 @@ export const routes = {
         examination: '/superadmin/examination',
         result: '/superadmin/result',
         assignments: '/superadmin/assignments',
+        audit: '/superadmin/audit',
     },
 
     // Admin
@@ -94,10 +96,12 @@ export const pages = {
     TimetablePage,
     Calendar,
     Notifications,
+    Profile,
     Fees,
     Examination,
     Assignments,
     Result,
+    AuditLog,
 };
 
 // Export utilities
@@ -109,8 +113,8 @@ export const prefetchRoutes = () => {
         // Use requestIdleCallback if available, fallback to setTimeout
         const runPrefetch = () => {
             // Pre-load critical modules
-            import('../pages/Dashboard').catch(() => {});
-            import('../features/attendance/AttendancePage').catch(() => {});
+            import('@/features/dashboard/DashboardPage').catch(() => {});
+            import('@/features/attendance/AttendancePage').catch(() => {});
         };
 
         if ('requestIdleCallback' in window) {

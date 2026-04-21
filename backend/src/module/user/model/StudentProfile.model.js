@@ -38,6 +38,13 @@ const studentProfileSchema = new mongoose.Schema(
     admissionDate: {
       type: Date,
     },
+    dateOfBirth: {
+      type: Date,
+    },
+    bloodGroup: {
+      type: String,
+      enum: ["A+", "A-", "B+", "B-", "O+", "O-", "AB+", "AB-"],
+    },
 
     // Guardian & Personal Info 
     // Parent Info 

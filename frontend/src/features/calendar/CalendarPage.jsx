@@ -72,19 +72,21 @@ const CalendarPage = () => {
   useEffect(() => {
     if (!canEdit) return;
     
-    // Teachers fetch ONLY their assigned classes from their profile.
+    // Teachers can target ONLY their class-teacher class from their profile.
     if (isTeacher) {
       api.get('/users/me/profile')
         .then(res => {
           const userObj = res.data?.data;
           const profile = userObj?.profile || userObj;
-          const assigned = profile?.assignedClasses || [];
-          setClasses(
-            assigned.map(t => ({
-              value: `${t.standard}-${t.section}`,
-              label: `Class ${t.standard} - Section ${t.section}`,
-            }))
-          );
+          const classTeacherOf = profile?.classTeacherOf;
+          if (classTeacherOf?.standard && classTeacherOf?.section) {
+            setClasses([{
+              value: `${classTeacherOf.standard}-${classTeacherOf.section}`,
+              label: `Class ${classTeacherOf.standard} - Section ${classTeacherOf.section}`,
+            }]);
+            return;
+          }
+          setClasses([]);
         })
         .catch(() => {});
     }
@@ -105,7 +107,6 @@ const CalendarPage = () => {
 
   const normalizedStandard = adminClassInput.standard.trim();
   const normalizedSection = adminClassInput.section.trim().toUpperCase();
-  const adminClassKey = normalizedStandard && normalizedSection ? `${normalizedStandard}-${normalizedSection}` : '';
 
   const adminStandardOptions = useMemo(() => {
     const fromPairs = Array.from(
@@ -146,18 +147,8 @@ const CalendarPage = () => {
     return fallback.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
   }, [availableClasses.classSections, availableClasses.sections, normalizedStandard]);
 
-  const classSectionKeys = useMemo(
-    () => new Set((availableClasses.classSections || []).map(c => `${c.standard}-${c.section}`)),
-    [availableClasses.classSections]
-  );
-  const isAdminClassValid = isAdmin && formData.targetAudience === 'classes'
-    && normalizedStandard
-    && normalizedSection
-    && (classSectionKeys.size
-      ? classSectionKeys.has(adminClassKey)
-      : (availableClasses.standards.includes(normalizedStandard) && availableClasses.sections.includes(normalizedSection)));
-  const isClassSelectionInvalid = formData.targetAudience === 'classes'
-    && (isAdmin ? !isAdminClassValid : formData.targetClasses.length === 0);
+  const isAdminClassValid = isAdmin && formData.targetAudience === 'classes' && formData.targetClasses.length > 0;
+  const isClassSelectionInvalid = formData.targetAudience === 'classes' && formData.targetClasses.length === 0;
 
   const { message, showMessage } = useToastMessage();
   const updateFormField = (field, value) => setFormData(prev => ({ ...prev, [field]: value }));
@@ -167,51 +158,19 @@ const CalendarPage = () => {
       setLoading(true);
       const startOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
       const endOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
-      
-      const [calRes, examRes] = await Promise.all([
-        api.get('/calendar', { params: { start: startOfMonth.toISOString(), end: endOfMonth.toISOString() } }),
-        !isAdmin ? api.get('/examinations', { params: { status: 'PUBLISHED' } }) : Promise.resolve({ data: { success: false } })
-      ]);
+      startOfMonth.setHours(0, 0, 0, 0);
+      endOfMonth.setHours(23, 59, 59, 999); 
+      const calRes = await api.get('/calendar', {
+        params: { start: startOfMonth.toISOString(), end: endOfMonth.toISOString() }
+      });
 
-      let allEvents = [];
-      if (calRes.data.success) {
-        allEvents = [...calRes.data.data];
-      }
-
-      if (examRes.data.success && Array.isArray(examRes.data.data)) {
-        const exams = examRes.data.data;
-        exams.forEach(exam => {
-          if (exam.schedule && Array.isArray(exam.schedule)) {
-            exam.schedule.forEach((s, idx) => {
-              if (s.examDate) {
-                const start = new Date(`${s.examDate.split('T')[0]}T${s.startTime || '09:00'}:00`);
-                const end = new Date(`${s.examDate.split('T')[0]}T${s.endTime || s.startTime || '10:00'}:00`);
-                
-                allEvents.push({
-                  _id: `exam-${exam._id}-${idx}`,
-                  title: s.subject,
-                  start: start.toISOString(),
-                  end: end.toISOString(),
-                  type: 'exam',
-                  description: exam.description || `Class ${exam.standard} - ${exam.section}`,
-                  allDay: false,
-                  targetAudience: 'classes',
-                  targetClasses: [`${exam.standard}-${exam.section}`],
-                  sourceType: 'exam' // Mark as coming from exams module
-                });
-              }
-            });
-          }
-        });
-      }
-
-      setEvents(allEvents);
+      setEvents(calRes.data?.success && Array.isArray(calRes.data?.data) ? calRes.data.data : []);
     } catch (error) { 
       console.error('Failed to fetch events:', error); 
       showMessage('Failed to load calendar events', 'error'); 
     }
     finally { setLoading(false); }
-  }, [currentDate]);
+  }, [currentDate, showMessage]);
 
   useEffect(() => { fetchEvents(); }, [fetchEvents]);
 
@@ -277,11 +236,7 @@ const CalendarPage = () => {
   const openEditEventModal = (event) => {
     setFormData(loadFormFromEvent(event));
     if (isAdmin) {
-      const classKey = event?.targetClasses?.[0] || '';
-      const splitIndex = classKey.lastIndexOf('-');
-      const standard = splitIndex > 0 ? classKey.slice(0, splitIndex) : '';
-      const section = splitIndex > 0 ? classKey.slice(splitIndex + 1) : '';
-      setAdminClassInput({ standard, section });
+      setAdminClassInput({ standard: '', section: '' });
     }
     setShowEditModal(true);
   };
@@ -313,8 +268,8 @@ const CalendarPage = () => {
     try {
       setSaving(true);
 
-      if (isAdmin && formData.targetAudience === 'classes' && !isAdminClassValid) {
-        showMessage('Please enter a valid class and section.', 'error');
+      if (isAdmin && formData.targetAudience === 'classes' && formData.targetClasses.length === 0) {
+        showMessage('Please select at least one class.', 'error');
         setSaving(false);
         return;
       }
@@ -330,9 +285,7 @@ const CalendarPage = () => {
         endD = new Date(`${formData.endDate}T${formData.endTime}:00`);
       }
       
-      const resolvedTargetClasses = isAdmin && formData.targetAudience === 'classes'
-        ? (adminClassKey ? [adminClassKey] : [])
-        : formData.targetClasses;
+      const resolvedTargetClasses = formData.targetClasses;
 
       const payload = { 
         title: formData.title.trim(), 
@@ -350,7 +303,7 @@ const CalendarPage = () => {
       setShowEditModal(false); fetchEvents();
     } catch (error) { showMessage('error', error.response?.data?.message || 'Failed to save event'); }
     finally { setSaving(false); }
-  }, [formData, fetchEvents, isAdmin, isAdminClassValid, adminClassKey, showMessage]);
+  }, [formData, fetchEvents, isAdmin, showMessage]);
 
   const handleDeleteEvent = useCallback(async (idToUse = formData._id) => {
     if (!idToUse) return;
@@ -396,14 +349,34 @@ const CalendarPage = () => {
 
   const calendarDays = useMemo(() => {
     const cells = [];
-    for (let i = 0; i < firstDay; i++) cells.push(<div key={`empty-${i}`} className="h-28 bg-gray-50/40 border-b border-r border-gray-100"></div>);
+    const totalCells = firstDay + daysInMonth;
+    const rows = Math.ceil(totalCells / 7);
+    
+    for (let i = 0; i < firstDay; i++) {
+      const isFirstRow = i < 7;
+      const isFirstCol = i % 7 === 0;
+      cells.push(
+        <div 
+          key={`empty-${i}`} 
+          className={`h-28 bg-gray-50/40 border-b border-r border-gray-200 ${isFirstRow ? 'border-t' : ''} ${isFirstCol ? 'border-l' : ''}`}
+        />
+      );
+    }
+    
     for (let day = 1; day <= daysInMonth; day++) {
+      const cellIndex = firstDay + day - 1;
+      const isFirstRow = cellIndex < 7;
+      const isFirstCol = cellIndex % 7 === 0;
       const dateStr = formatDate(new Date(currentDate.getFullYear(), currentDate.getMonth(), day));
       const dayEvents = getEventsForDate[dateStr] || [];
       const isToday = dateStr === formatDate(new Date());
+      
       cells.push(
-        <div key={day} onClick={() => handleDayClick(dateStr)}
-          className={`h-28 border-b border-r border-gray-200 p-1.5 transition-all group relative overflow-hidden cursor-pointer hover:bg-gray-50 ${isToday ? 'bg-indigo-50/30' : 'bg-transparent'}`}>
+        <div 
+          key={day} 
+          onClick={() => handleDayClick(dateStr)}
+          className={`h-28 border-b border-r border-gray-200 p-1.5 transition-all group relative overflow-hidden cursor-pointer hover:bg-gray-50 ${isFirstRow ? 'border-t' : ''} ${isFirstCol ? 'border-l' : ''} ${isToday ? 'bg-indigo-50/30' : 'bg-transparent'}`}
+        >
           <div className="flex items-center justify-between mb-1">
             <span className={`text-[11px] font-semibold w-6 h-6 flex items-center justify-center rounded-full ${isToday ? 'bg-indigo-600 text-white shadow-sm' : 'text-gray-700'}`}>{day}</span>
             {canEdit && <FaPlus className="text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity text-[10px]" onClick={(e) => { e.stopPropagation(); openCreateEventModal(dateStr); }} />}
@@ -720,33 +693,76 @@ const renderFormField = (label, children) => (
                   {formData.targetAudience === 'classes' && (
                     isAdmin ? (
                       <div className="mt-4 bg-white border border-gray-200 rounded-2xl p-4">
-                        <div className="grid grid-cols-2 gap-3">
-                          <select
-                            value={adminClassInput.standard}
-                            onChange={(e) => setAdminClassInput({ standard: e.target.value, section: '' })}
-                            className={`${INPUT_CLASS} appearance-none`}
+                        <div className="flex gap-3 items-end">
+                          <div className="flex-1 space-y-2">
+                            <select
+                              value={adminClassInput.standard}
+                              onChange={(e) => setAdminClassInput({ standard: e.target.value, section: '' })}
+                              className={`${INPUT_CLASS} appearance-none py-2`}
+                            >
+                              <option value="">Select Class</option>
+                              {adminStandardOptions.map((standard) => (
+                                <option key={standard} value={standard}>{standard}</option>
+                              ))}
+                            </select>
+                          </div>
+                          <div className="flex-1 space-y-2">
+                            <select
+                              value={adminClassInput.section}
+                              onChange={(e) => setAdminClassInput(prev => ({ ...prev, section: e.target.value }))}
+                              disabled={!normalizedStandard || adminSectionOptions.length === 0}
+                              className={`${INPUT_CLASS} appearance-none disabled:bg-gray-50 disabled:text-gray-400 disabled:cursor-not-allowed py-2`}
+                            >
+                              <option value="">
+                                {!normalizedStandard ? 'Select Class First' : 'Select Section'}
+                              </option>
+                              {normalizedStandard && adminSectionOptions.length > 0 && <option value="ALL">All Sections</option>}
+                              {adminSectionOptions.map((section) => (
+                                <option key={section} value={section}>{section}</option>
+                              ))}
+                            </select>
+                          </div>
+                          <button
+                            type="button"
+                            disabled={!adminClassInput.standard || !adminClassInput.section}
+                            onClick={() => {
+                              let newClasses = [];
+                              if (adminClassInput.section === 'ALL') {
+                                newClasses = adminSectionOptions.map(sec => `${adminClassInput.standard}-${sec}`);
+                              } else {
+                                newClasses = [`${adminClassInput.standard}-${adminClassInput.section}`];
+                              }
+                              setFormData(prev => {
+                                const classesSet = new Set(prev.targetClasses || []);
+                                newClasses.forEach(c => classesSet.add(c));
+                                return { ...prev, targetClasses: Array.from(classesSet) };
+                              });
+                              setAdminClassInput({ standard: '', section: '' });
+                            }}
+                            className="p-3 mb-2 bg-indigo-50 border border-indigo-200 text-indigo-600 rounded-xl hover:bg-indigo-100 disabled:opacity-50 transition-colors"
+                            title="Add Class"
                           >
-                            <option value="">Select Class</option>
-                            {adminStandardOptions.map((standard) => (
-                              <option key={standard} value={standard}>{standard}</option>
-                            ))}
-                          </select>
-                          <select
-                            value={adminClassInput.section}
-                            onChange={(e) => setAdminClassInput(prev => ({ ...prev, section: e.target.value }))}
-                            disabled={!normalizedStandard || adminSectionOptions.length === 0}
-                            className={`${INPUT_CLASS} appearance-none disabled:bg-gray-50 disabled:text-gray-400 disabled:cursor-not-allowed`}
-                          >
-                            <option value="">
-                              {!normalizedStandard ? 'Select Class First' : 'Select Section'}
-                            </option>
-                            {adminSectionOptions.map((section) => (
-                              <option key={section} value={section}>{section}</option>
-                            ))}
-                          </select>
+                            <FaPlus />
+                          </button>
                         </div>
-                        <p className={`mt-3 text-xs font-semibold ${isAdminClassValid ? 'text-emerald-600' : 'text-gray-500'}`}>
-                          {isAdminClassValid ? 'Class and section verified.' : 'Select a valid class and section to continue.'}
+                        {formData.targetClasses?.length > 0 && (
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {formData.targetClasses.map(c => (
+                              <div key={c} className="flex items-center gap-1.5 bg-indigo-50 border border-indigo-100 text-indigo-700 text-xs font-bold px-2.5 py-1.5 rounded-lg shadow-sm">
+                                <span>{c}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => setFormData(prev => ({ ...prev, targetClasses: prev.targetClasses.filter(x => x !== c) }))}
+                                  className="text-indigo-400 hover:text-indigo-600 focus:outline-none p-0.5 rounded-full hover:bg-indigo-200/50 transition-colors"
+                                >
+                                  <FaTimes size={10} />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        <p className={`mt-3 text-xs font-semibold ${formData.targetClasses?.length > 0 ? 'text-emerald-600' : 'text-gray-500'}`}>
+                          {formData.targetClasses?.length > 0 ? `${formData.targetClasses.length} class(es) selected.` : 'Add at least one class to continue.'}
                         </p>
                       </div>
                     ) : (

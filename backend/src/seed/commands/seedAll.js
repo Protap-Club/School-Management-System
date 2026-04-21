@@ -4,15 +4,17 @@ import seedUsers from "./seedUsers.js";
 import seedProfiles from "./seedProfiles.js";
 import seedTimetable from "./seedTimetable.js";
 import seedAttendance from "./seedAttendance.js";
+import seedFinancials from "./seedFinancials.js";
 import seedCalendar from "./seedCalendar.js";
 import seedNotices from "./seedNotices.js";
 import seedAssignments from "./seedAssignments.js";
 import seedExaminations from "./seedExaminations.js";
+import seedResults from "./seedResults.js";
 import logger from "../../config/logger.js";
 
 const seedAll = async () => {
     logger.info("═══════════════════════════════════════════");
-    logger.info("  FULL SEED — 3 Schools (JNV, NV, AV)");
+    logger.info("  FULL SEED — 3 Schools (JNV, NV, NVV)");
     logger.info("═══════════════════════════════════════════");
 
     const start = Date.now();
@@ -30,6 +32,8 @@ const seedAll = async () => {
     await seedNotices();
     await seedAssignments();
     await seedExaminations();
+    await seedResults();
+    await seedFinancials();
 
     const elapsed = ((Date.now() - start) / 1000).toFixed(1);
     logger.info("═══════════════════════════════════════════");

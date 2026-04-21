@@ -1,9 +1,10 @@
 import School from "../module/school/School.model.js";
 import { BadRequestError, NotFoundError } from "./customError.js";
 
-export const normalizeClassSection = ({ standard, section } = {}) => ({
+export const normalizeClassSection = ({ standard, section, subjects } = {}) => ({
     standard: String(standard || "").trim(),
     section: String(section || "").trim().toUpperCase(),
+    subjects: Array.isArray(subjects) ? subjects : [],
 });
 
 export const buildClassSectionKey = (standard, section) =>

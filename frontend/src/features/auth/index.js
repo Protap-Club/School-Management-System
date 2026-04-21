@@ -2,6 +2,9 @@
 // Main auth hook used by all components
 export { useAuth } from './useAuth';
 
+// API functions
+export { authApi, authKeys } from './api/api';
+
 // Redux Slice & Selectors
 export {
     setUser,

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { FaBook, FaPaperclip, FaSave, FaTimes, FaTrash } from 'react-icons/fa';
 import { useUsers } from '../../users/api/queries';
 import { useAssignmentOptions } from '../hooks/useAssignmentOptions';
+import { useAuth } from '../../auth';
 import {
   useAssignmentById,
   useCreateAssignment,
@@ -15,6 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../../../components/ui/select';
+import { formatValue } from '../../../utils';
 
 const INITIAL_FORM = {
   title: '',
@@ -114,12 +116,24 @@ const SelectField = ({
 );
 
 export const AssignmentModal = ({ isOpen, onClose, assignmentToEdit = null }) => {
+  const { user } = useAuth();
   const createMutation = useCreateAssignment();
   const updateMutation = useUpdateAssignment();
   const removeAttachmentMutation = useRemoveAssignmentAttachment();
   const { data: detailResponse, isLoading: detailLoading } = useAssignmentById(assignmentToEdit?._id, isOpen && Boolean(assignmentToEdit));
-  const teachersQuery = useUsers({ role: 'teacher', pageSize: 5000, enabled: isOpen });
-  const { loading: optionsLoading, availableStandards, getSectionsForStandard, getSubjectsForSections } = useAssignmentOptions();
+  const isEditing = Boolean(assignmentToEdit);
+  // Only fetch teachers when creating (not editing) - teachers can't change assigned teacher
+  const teachersQuery = useUsers({ role: 'teacher', pageSize: 5000, enabled: isOpen && !isEditing });
+  const {
+    loading: optionsLoading,
+    availableStandards,
+    getSectionsForStandard,
+    getSubjectsForSections,
+    isTeacher,
+    hasSingleSubject,
+    singleSubject,
+    assignedClasses,
+  } = useAssignmentOptions(user);
   const fileInputRef = useRef(null);
 
   const [formData, setFormData] = useState({ ...INITIAL_FORM });
@@ -129,7 +143,6 @@ export const AssignmentModal = ({ isOpen, onClose, assignmentToEdit = null }) =>
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
 
-  const isEditing = Boolean(assignmentToEdit);
   const sectionOptions = useMemo(() => getSectionsForStandard(formData.standard), [formData.standard, getSectionsForStandard]);
   const selectedSections = useMemo(() => formData.sections || [], [formData.sections]);
   const subjects = getSubjectsForSections(formData.standard, selectedSections);
@@ -153,13 +166,36 @@ export const AssignmentModal = ({ isOpen, onClose, assignmentToEdit = null }) =>
   }, [selectedSections, teacherMatchesBySection]);
 
   const teacherOptions = useMemo(() => {
-    const options = singleSectionTeachers.map((teacher) => ({ label: teacher.name, value: teacher._id }));
-    if (formData.assignedTeacher && !options.some((item) => String(item.value) === String(formData.assignedTeacher))) {
-      const current = teachers.find((teacher) => String(teacher._id) === String(formData.assignedTeacher));
-      if (current) options.push({ label: current.name, value: current._id });
+    const options = new Map();
+    
+    // Add teachers that match the class-section-subject mapping
+    singleSectionTeachers.forEach((teacher) => {
+      options.set(String(teacher._id), { label: teacher.name, value: teacher._id });
+    });
+    
+    // For teachers creating assignments, ensure they can see themselves if they teach this class-section-subject
+    if (isTeacher && user?._id && selectedSections.length === 1 && formData.subject) {
+      const isMappedToAssignment = assignedClasses.some((item) =>
+        String(item.standard).trim() === String(formData.standard).trim() &&
+        normalizeSection(item.section) === normalizeSection(selectedSections[0]) &&
+        Array.isArray(item.subjects) && item.subjects.includes(formData.subject)
+      );
+      
+      if (isMappedToAssignment && !options.has(String(user._id))) {
+        options.set(String(user._id), { label: user.name, value: user._id });
+      }
     }
-    return options;
-  }, [formData.assignedTeacher, singleSectionTeachers, teachers]);
+    
+    // Add currently selected teacher if not already in options
+    if (formData.assignedTeacher && !options.has(String(formData.assignedTeacher))) {
+      const current = teachers.find((teacher) => String(teacher._id) === String(formData.assignedTeacher));
+      if (current) {
+        options.set(String(formData.assignedTeacher), { label: current.name, value: current._id });
+      }
+    }
+    
+    return Array.from(options.values());
+  }, [formData.assignedTeacher, formData.standard, formData.subject, selectedSections, singleSectionTeachers, teachers, isTeacher, user, assignedClasses]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -180,9 +216,11 @@ export const AssignmentModal = ({ isOpen, onClose, assignmentToEdit = null }) =>
         status: assignmentToEdit.status || 'active',
       });
     } else {
-      setFormData({ ...INITIAL_FORM });
+      // For teachers with single subject, pre-fill the subject
+      const initialSubject = isTeacher && hasSingleSubject ? singleSubject : '';
+      setFormData({ ...INITIAL_FORM, subject: initialSubject });
     }
-  }, [isOpen, assignmentToEdit]);
+  }, [isOpen, assignmentToEdit, isTeacher, hasSingleSubject, singleSubject]);
 
   useEffect(() => {
     if (detailedAssignment?.attachments) {
@@ -190,30 +228,70 @@ export const AssignmentModal = ({ isOpen, onClose, assignmentToEdit = null }) =>
     }
   }, [detailedAssignment]);
 
+  // Update form data when detailed assignment loads (for complete data)
+  useEffect(() => {
+    if (isEditing && detailedAssignment) {
+      setFormData({
+        title: detailedAssignment.title || '',
+        description: detailedAssignment.description || '',
+        standard: detailedAssignment.standard || '',
+        sections: detailedAssignment.section ? [normalizeSection(detailedAssignment.section)] : [],
+        subject: detailedAssignment.subject || '',
+        assignedTeacher: detailedAssignment.assignedTeacher?._id || detailedAssignment.assignedTeacher || '',
+        dueDate: detailedAssignment.dueDate ? new Date(detailedAssignment.dueDate).toISOString().split('T')[0] : '',
+        status: detailedAssignment.status || 'active',
+      });
+    }
+  }, [detailedAssignment, isEditing]);
+
   useEffect(() => {
     if (!isOpen) return;
     setFormData((current) => {
       let next = current;
-      if (current.standard && !availableStandards.includes(current.standard)) {
+      // Only reset form for creation flow - never reset when editing
+      if (!isEditing && current.standard && !availableStandards.includes(current.standard)) {
         return { ...INITIAL_FORM };
       }
-      const validSections = (current.sections || []).filter((section) => sectionOptions.includes(section));
-      if (validSections.length !== (current.sections || []).length) {
-        next = { ...next, sections: validSections, subject: '', assignedTeacher: '' };
+      // Only validate sections/subjects for creation - editing shows read-only info
+      if (!isEditing) {
+        const validSections = (current.sections || []).filter((section) => sectionOptions.includes(section));
+        if (validSections.length !== (current.sections || []).length) {
+          next = { ...next, sections: validSections, subject: '', assignedTeacher: '' };
+        }
+        const validSubjects = getSubjectsForSections(next.standard, next.sections || []);
+        if (next.subject && !validSubjects.includes(next.subject)) {
+          next = { ...next, subject: '', assignedTeacher: '' };
+        }
+        if (next.sections.length !== 1 && next.assignedTeacher) {
+          next = { ...next, assignedTeacher: '' };
+        }
       }
-      const validSubjects = getSubjectsForSections(next.standard, next.sections || []);
-      if (next.subject && !validSubjects.includes(next.subject)) {
-        next = { ...next, subject: '', assignedTeacher: '' };
+      // Auto-select assigned teacher logic
+      if (!isEditing && next.sections.length === 1 && !next.assignedTeacher) {
+        if (singleSectionTeachers.length === 1) {
+          // Only one teacher mapped to this class-section-subject
+          next = { ...next, assignedTeacher: String(singleSectionTeachers[0]._id) };
+        } else if (isTeacher && user?._id) {
+          // For teachers creating assignments, auto-select themselves if they teach this class-section-subject
+          const isMappedToAssignment = assignedClasses.some((item) =>
+            String(item.standard).trim() === String(next.standard).trim() &&
+            normalizeSection(item.section) === normalizeSection(next.sections[0]) &&
+            Array.isArray(item.subjects) && item.subjects.includes(next.subject)
+          );
+          if (isMappedToAssignment) {
+            next = { ...next, assignedTeacher: String(user._id) };
+          }
+        }
       }
-      if (next.sections.length !== 1 && next.assignedTeacher) {
-        next = { ...next, assignedTeacher: '' };
+
+      // For teachers with single subject, ensure subject is always set
+      if (isTeacher && hasSingleSubject && !next.subject) {
+        next = { ...next, subject: singleSubject };
       }
-      if (!isEditing && next.sections.length === 1 && !next.assignedTeacher && singleSectionTeachers.length === 1) {
-        next = { ...next, assignedTeacher: String(singleSectionTeachers[0]._id) };
-      }
+
       return next;
     });
-  }, [availableStandards, getSubjectsForSections, isEditing, isOpen, sectionOptions, singleSectionTeachers]);
+  }, [availableStandards, getSubjectsForSections, isEditing, isOpen, sectionOptions, singleSectionTeachers, isTeacher, user?._id, assignedClasses, hasSingleSubject, singleSubject]);
 
   if (!isOpen) return null;
 
@@ -258,9 +336,11 @@ export const AssignmentModal = ({ isOpen, onClose, assignmentToEdit = null }) =>
     const nextErrors = {};
     if (!formData.title.trim()) nextErrors.title = 'Title is required.';
     if (!formData.description.trim()) nextErrors.description = 'Description is required.';
-    if (!formData.standard) nextErrors.standard = 'Class is required.';
-    if (selectedSections.length === 0) nextErrors.sections = 'Select at least one section.';
-    if (!formData.subject) nextErrors.subject = 'Subject is required.';
+    if (!isEditing) {
+      if (!formData.standard) nextErrors.standard = 'Class is required.';
+      if (selectedSections.length === 0) nextErrors.sections = 'Select at least one section.';
+      if (!formData.subject) nextErrors.subject = 'Subject is required.';
+    }
     if (!formData.dueDate) nextErrors.dueDate = 'Due date is required.';
     if (selectedSections.length === 1 && !formData.assignedTeacher) {
       nextErrors.assignedTeacher = 'Assigned teacher is required.';
@@ -356,109 +436,227 @@ export const AssignmentModal = ({ isOpen, onClose, assignmentToEdit = null }) =>
             </div>
 
             <div className="space-y-4">
-              <h4 className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Class, Sections & Teacher</h4>
-              <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                <SelectField
-                  label="Class"
-                  name="standard"
-                  value={formData.standard}
-                  onChange={handleChange}
-                  options={availableStandards.map((item) => ({ label: `Class ${item}`, value: item }))}
-                  placeholder="Select Class"
-                  loading={optionsLoading}
-                  disabled={isEditing}
-                  error={fieldErrors.standard}
-                  required
-                />
-                <SelectField
-                  label="Subject"
-                  name="subject"
-                  value={formData.subject}
-                  onChange={handleChange}
-                  options={subjects.map((item) => ({ label: item, value: item }))}
-                  placeholder={selectedSections.length ? 'Select Subject' : 'Select Section First'}
-                  loading={optionsLoading}
-                  disabled={isEditing || selectedSections.length === 0}
-                  error={fieldErrors.subject}
-                  required
-                />
-              </div>
+              <h4 className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Assignment For</h4>
 
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold uppercase tracking-tight text-gray-500">Sections <span className="text-red-500">*</span></label>
-                  {!isEditing && sectionOptions.length > 0 && (
-                    <div className="flex gap-3 text-[11px] font-semibold">
-                      <button type="button" className="text-indigo-600" onClick={() => setFormData((prev) => ({ ...prev, sections: [...sectionOptions], subject: '', assignedTeacher: '' }))}>Select All</button>
-                      <button type="button" className="text-slate-500" onClick={() => setFormData((prev) => ({ ...prev, sections: [], subject: '', assignedTeacher: '' }))}>Clear</button>
+              {isEditing ? (
+                /* Clean info display when editing - no form fields */
+                <div className="rounded-xl border border-indigo-100 bg-indigo-50/50 p-4">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-wide text-gray-500">Class</p>
+                      <p className="text-sm font-semibold text-gray-900">{formData.standard || '-'}</p>
                     </div>
-                  )}
-                </div>
-                <div className={`rounded-xl border bg-white p-3 ${fieldErrors.sections ? 'border-red-300' : 'border-gray-200'}`}>
-                  {isEditing ? (
-                    <div className="flex flex-wrap gap-2">
-                      {selectedSections.map((section) => (
-                        <span key={section} className="rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm font-semibold text-indigo-700">Section {section}</span>
-                      ))}
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-wide text-gray-500">Section</p>
+                      <p className="text-sm font-semibold text-gray-900">{formData.sections?.[0] || '-'}</p>
                     </div>
-                  ) : (
-                    <div className="flex flex-wrap gap-2">
-                      {sectionOptions.length === 0 && <span className="text-sm text-gray-500">Select a class to load sections.</span>}
-                      {sectionOptions.map((section) => {
-                        const selected = selectedSections.includes(section);
-                        return (
-                          <button
-                            key={section}
-                            type="button"
-                            onClick={() => toggleSection(section)}
-                            className={`rounded-lg border px-3 py-2 text-sm font-semibold transition-all ${selected ? 'border-indigo-200 bg-indigo-50 text-indigo-700' : 'border-slate-200 text-slate-600 hover:border-indigo-200 hover:bg-indigo-50/40'}`}
-                          >
-                            Section {section}
-                          </button>
-                        );
-                      })}
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-wide text-gray-500">Subject</p>
+                      <p className="text-sm font-semibold text-gray-900">{formData.subject || '-'}</p>
                     </div>
-                  )}
-                </div>
-                {fieldErrors.sections && <p className="text-[11px] text-red-500">{fieldErrors.sections}</p>}
-              </div>
-
-              <SelectField
-                label="Assigned Teacher"
-                name="assignedTeacher"
-                value={formData.assignedTeacher}
-                onChange={handleChange}
-                options={teacherOptions}
-                placeholder={!formData.subject ? 'Select Subject First' : 'Select Teacher'}
-                loading={teachersQuery.isLoading}
-                disabled={selectedSections.length !== 1}
-                error={fieldErrors.assignedTeacher}
-                required
-              />
-
-              {selectedSections.length === 1 && formData.subject && singleSectionTeachers.length === 1 && (
-                <p className="text-xs text-emerald-600">Responsible teacher auto-selected from the subject mapping.</p>
-              )}
-
-              {!isEditing && selectedSections.length > 1 && formData.subject && (
-                <div className="rounded-xl border border-slate-200 bg-white p-4">
-                  <p className="text-sm font-semibold text-slate-900">Teacher Preview</p>
-                  <p className="mb-3 text-xs text-slate-500">A separate assignment will be created for each selected section.</p>
-                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                    {selectedSections.map((section) => {
-                      const matches = teacherMatchesBySection.get(section) || [];
-                      const valid = matches.length === 1;
-                      return (
-                        <div key={section} className={`rounded-xl border px-4 py-3 ${valid ? 'border-emerald-200 bg-emerald-50/70' : 'border-amber-200 bg-amber-50/70'}`}>
-                          <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Section {section}</p>
-                          <p className={`mt-1 text-sm font-semibold ${valid ? 'text-emerald-700' : 'text-amber-700'}`}>
-                            {valid ? matches[0].name : 'Needs one unique mapped teacher'}
-                          </p>
-                        </div>
-                      );
-                    })}
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-wide text-gray-500">Assigned Teacher</p>
+                      <p className="text-sm font-semibold text-gray-900">
+                        {detailedAssignment?.assignedTeacher?.name ||
+                         (typeof formData.assignedTeacher === 'string' ? 'Loading...' : '-')}
+                      </p>
+                    </div>
                   </div>
                 </div>
+              ) : (
+                /* Form fields only when creating */
+                <>
+                  <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                    <SelectField
+                      label="Class"
+                      name="standard"
+                      value={formData.standard}
+                      onChange={handleChange}
+                      options={availableStandards.map((item) => ({ label: `Class ${item}`, value: item }))}
+                      placeholder="Select Class"
+                      loading={optionsLoading}
+                      error={fieldErrors.standard}
+                      required
+                    />
+                    <SelectField
+                      label="Subject"
+                      name="subject"
+                      value={formData.subject}
+                      onChange={handleChange}
+                      options={subjects.map((item) => ({ label: item, value: item }))}
+                      placeholder={hasSingleSubject ? singleSubject : (selectedSections.length ? 'Select Subject' : 'Select Section First')}
+                      loading={optionsLoading}
+                      disabled={selectedSections.length === 0 || hasSingleSubject}
+                      error={fieldErrors.subject}
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold uppercase tracking-tight text-gray-500">Sections <span className="text-red-500">*</span></label>
+                      {sectionOptions.length > 0 && (
+                        <div className="flex gap-3 text-[11px] font-semibold">
+                          <button type="button" className="text-indigo-600" onClick={() => setFormData((prev) => ({ ...prev, sections: [...sectionOptions], subject: '', assignedTeacher: '' }))}>Select All</button>
+                          <button type="button" className="text-slate-500" onClick={() => setFormData((prev) => ({ ...prev, sections: [], subject: '', assignedTeacher: '' }))}>Clear</button>
+                        </div>
+                      )}
+                    </div>
+                    <div className={`rounded-xl border bg-white p-3 ${fieldErrors.sections ? 'border-red-300' : 'border-gray-200'}`}>
+                      <div className="flex flex-wrap gap-2">
+                        {sectionOptions.length === 0 && <span className="text-sm text-gray-500">Select a class to load sections.</span>}
+                        {sectionOptions.map((section) => {
+                          const selected = selectedSections.includes(section);
+                          return (
+                            <button
+                              key={section}
+                              type="button"
+                              onClick={() => toggleSection(section)}
+                              className={`rounded-lg border px-3 py-2 text-sm font-semibold transition-all ${selected ? 'border-indigo-200 bg-indigo-50 text-indigo-700' : 'border-slate-200 text-slate-600 hover:border-indigo-200 hover:bg-indigo-50/40'}`}
+                            >
+                              Section {section}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    {fieldErrors.sections && <p className="text-[11px] text-red-500">{fieldErrors.sections}</p>}
+                  </div>
+
+                  {selectedSections.length === 1 ? (
+                    <>
+                      <SelectField
+                        label="Assigned Teacher"
+                        name="assignedTeacher"
+                        value={formData.assignedTeacher}
+                        onChange={handleChange}
+                        options={teacherOptions}
+                        placeholder={!formData.subject ? 'Select Subject First' : 'Select Teacher'}
+                        loading={teachersQuery.isLoading}
+                        disabled={selectedSections.length !== 1}
+                        error={fieldErrors.assignedTeacher}
+                        required
+                      />
+                      {selectedSections.length === 1 && formData.subject && singleSectionTeachers.length === 1 && (
+                        <p className="text-xs text-emerald-600">Responsible teacher auto-selected from the subject mapping.</p>
+                      )}
+                      {isTeacher && selectedSections.length === 1 && formData.assignedTeacher && (
+                        <p className="text-xs text-blue-600">
+                          You will be assigned as the responsible teacher for this assignment.
+                        </p>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <div className="mb-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <p className="text-sm font-semibold text-slate-900">Teacher Assignment</p>
+                          <span className="text-xs text-slate-500 bg-slate-100 px-2 py-1 rounded-full">{selectedSections.length} sections</span>
+                        </div>
+                        <p className="text-xs text-slate-500">
+                          Each section will have its own assigned teacher based on subject mapping.
+                        </p>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {selectedSections.map((section) => {
+                          const matches = teacherMatchesBySection.get(section) || [];
+                          const valid = matches.length === 1;
+                          const multiple = matches.length > 1;
+                          const none = matches.length === 0;
+
+                          return (
+                            <div key={section} className={`rounded-xl border-2 p-4 transition-all ${
+                              valid ? 'border-emerald-200 bg-emerald-50/50' :
+                              multiple ? 'border-amber-200 bg-amber-50/50' :
+                              'border-red-200 bg-red-50/50'
+                            }`}>
+                              <div className="flex items-center justify-between mb-3">
+                                <div className="flex items-center gap-2">
+                                  <div className={`w-2 h-2 rounded-full ${
+                                    valid ? 'bg-emerald-500' :
+                                    multiple ? 'bg-amber-500' :
+                                    'bg-red-500'
+                                  }`} />
+                                  <span className="text-xs font-bold text-slate-600 uppercase tracking-wide">Section {section}</span>
+                                </div>
+                                {multiple && (
+                                  <span className="text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded-full font-medium">
+                                    {matches.length} teachers
+                                  </span>
+                                )}
+                              </div>
+
+                              {valid && (
+                                <div className="space-y-1">
+                                  <p className="text-sm font-semibold text-emerald-700">{matches[0].name}</p>
+                                  <p className="text-xs text-emerald-600">Assigned teacher</p>
+                                </div>
+                              )}
+
+                              {multiple && (
+                                <div className="space-y-2">
+                                  <p className="text-xs font-medium text-amber-700">Available teachers:</p>
+                                  <div className="space-y-1">
+                                    {matches.slice(0, 2).map((teacher) => (
+                                      <div key={teacher._id} className="flex items-center gap-2">
+                                        <div className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                                        <p className="text-xs text-slate-700 font-medium">{teacher.name}</p>
+                                      </div>
+                                    ))}
+                                    {matches.length > 2 && (
+                                      <p className="text-xs text-slate-500 italic">+{matches.length - 2} more teachers</p>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+
+                              {none && (
+                                <div className="space-y-1">
+                                  <p className="text-sm font-semibold text-red-700">No teacher</p>
+                                  <p className="text-xs text-red-600">Not assigned for this subject</p>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {(selectedSections.some(section => {
+                        const matches = teacherMatchesBySection.get(section) || [];
+                        return matches.length === 0;
+                      }) || selectedSections.some(section => {
+                        const matches = teacherMatchesBySection.get(section) || [];
+                        return matches.length > 1;
+                      })) && (
+                        <div className="mt-4 space-y-2">
+                          {selectedSections.some(section => {
+                            const matches = teacherMatchesBySection.get(section) || [];
+                            return matches.length === 0;
+                          }) && (
+                            <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 flex items-start gap-2">
+                              <div className="w-4 h-4 rounded-full bg-red-500 flex-shrink-0 mt-0.5" />
+                              <p className="text-xs text-red-700">
+                                <strong>Warning:</strong> Some sections don't have a teacher assigned for this subject.
+                              </p>
+                            </div>
+                          )}
+                          {selectedSections.some(section => {
+                            const matches = teacherMatchesBySection.get(section) || [];
+                            return matches.length > 1;
+                          }) && (
+                            <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 flex items-start gap-2">
+                              <div className="w-4 h-4 rounded-full bg-amber-500 flex-shrink-0 mt-0.5" />
+                              <p className="text-xs text-amber-700">
+                                <strong>Note:</strong> Some sections have multiple teachers. Separate assignments will be created.
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </>
+                  )}
+                </>
               )}
             </div>
 
@@ -550,22 +748,18 @@ export const AssignmentModal = ({ isOpen, onClose, assignmentToEdit = null }) =>
 
             {isEditing && (
               <div className="space-y-3">
-                <h4 className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Submission Snapshot</h4>
+                <h4 className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Submissions</h4>
                 {detailLoading ? (
                   <div className="rounded-xl border border-gray-100 bg-white px-4 py-4 text-sm text-gray-500">Loading submission details...</div>
                 ) : (
                   <>
-                    <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                       <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3">
-                        <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-600">Submission</p>
+                        <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-600">Submission Status</p>
                         <p className="mt-1 text-sm font-semibold text-emerald-900">Required</p>
                       </div>
-                      <div className="rounded-xl border border-indigo-100 bg-indigo-50 px-4 py-3">
-                        <p className="text-[10px] font-bold uppercase tracking-wide text-indigo-600">Assigned Teacher</p>
-                        <p className="mt-1 text-sm font-semibold text-indigo-900">{detailedAssignment?.assignedTeacher?.name || 'Not assigned'}</p>
-                      </div>
                       <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
-                        <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Submissions</p>
+                        <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Total Submissions</p>
                         <p className="mt-1 text-sm font-semibold text-slate-900">{detailedAssignment?.submissions?.length || 0}</p>
                       </div>
                     </div>

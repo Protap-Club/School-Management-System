@@ -1,9 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
-  FaTimes, FaIdCard, FaBuilding, FaLayerGroup, FaEnvelope, FaPhone, FaSave, FaChalkboardTeacher
+  FaTimes, FaIdCard, FaBuilding, FaLayerGroup, FaEnvelope, FaPhone, FaSave, FaChalkboardTeacher, FaWallet
 } from 'react-icons/fa';
-import { useUpdateUser, useUsers } from '../api/queries';
+import { useUpdateTeacherExpectedSalary, useUpdateUser, useUsers } from '../api/queries';
 import { useSchoolClasses } from '../../../hooks/useSchoolClasses';
+import { useAuth } from '../../../features/auth';
+import { formatValue } from '../../../utils';
+import TeacherConflictModal from './TeacherConflictModal';
 
 const LIGHT_SELECT_CLASS = 'w-full bg-white text-gray-900 rounded px-2 py-1.5 text-xs font-black outline-none border border-gray-100 focus:border-blue-300 transition-all';
 
@@ -16,14 +19,29 @@ const naturalSort = (arr) => {
 const buildClassKey = ({ standard, section } = {}) =>
   `${String(standard || '').trim()}::${String(section || '').trim().toUpperCase()}`;
 
+const normalizeAssignedClassesForCompare = (assignedClasses = []) =>
+  (Array.isArray(assignedClasses) ? assignedClasses : []).map((item) => ({
+    standard: String(item?.standard || '').trim(),
+    section: String(item?.section || '').trim().toUpperCase(),
+    subjects: Array.isArray(item?.subjects) ? [...item.subjects] : [],
+  }));
+
 const UserDetailModal = ({ user, onClose, initialMode = 'view', onSuccess }) => {
+  const { user: currentUser } = useAuth();
+  const isTeacherLoggedIn = currentUser?.role === 'teacher';
+  const canViewContacts = ['admin', 'super_admin'].includes(currentUser?.role);
+
   const updateUserMutation = useUpdateUser();
+  const updateTeacherExpectedSalaryMutation = useUpdateTeacherExpectedSalary();
   const teachersQuery = useUsers({ role: 'teacher', pageSize: 5000, enabled: initialMode === 'edit' && user?.role === 'teacher' });
   const [mode, setMode] = useState(initialMode);
   const [formData, setFormData] = useState({});
   const [guardianTab, setGuardianTab] = useState('parents');
   const [teacherClassDraft, setTeacherClassDraft] = useState({ standard: '', section: '' });
   const [saveError, setSaveError] = useState('');
+  const [conflicts, setConflicts] = useState([]);
+  const [showConflictModal, setShowConflictModal] = useState(false);
+  const [pendingPayload, setPendingPayload] = useState(null);
 
   useEffect(() => {
     if (user) {
@@ -37,6 +55,7 @@ const UserDetailModal = ({ user, onClose, initialMode = 'view', onSuccess }) => 
           standard: user.profile?.standard || '',
           section: user.profile?.section || '',
           department: user.profile?.department || '',
+          expectedSalary: user.profile?.expectedSalary ?? '',
           assignedClasses: user.profile?.assignedClasses || [],
           fatherName: user.profile?.fatherName || '',
           fatherContact: user.profile?.fatherContact || '',
@@ -141,44 +160,127 @@ const UserDetailModal = ({ user, onClose, initialMode = 'view', onSuccess }) => 
 
   if (!user) return null;
 
-    const handleSave = async () => {
-        try {
-            setSaveError('');
-            
-            // New Validation for Admin/Super Admin
-            const { user: currentUser } = JSON.parse(localStorage.getItem('auth_user') || '{}');
-            const isTeacherLoggedIn = currentUser?.role === 'teacher';
+  const handleConfirmConflict = async () => {
+    if (!pendingPayload) return;
+    try {
+      setSaveError('');
+      setShowConflictModal(false);
+      await updateUserMutation.mutateAsync({
+        id: user._id,
+        payload: { ...pendingPayload, forceOverride: true }
+      });
+      if (onSuccess) onSuccess('User updated successfully (override)');
+      setMode('view');
+    } catch (error) {
+      setSaveError(error?.response?.data?.message || 'Failed to override conflict');
+    } finally {
+      setPendingPayload(null);
+    }
+  };
 
-            if (!isTeacherLoggedIn && isStudent) {
-                if (formData.profile?.fatherName?.trim() && !formData.profile?.fatherContact?.trim()) {
-                    setSaveError("Father's contact number is required.");
-                    return;
-                }
-                if (formData.profile?.motherName?.trim() && !formData.profile?.motherContact?.trim()) {
-                    setSaveError("Mother's contact number is required.");
-                    return;
-                }
-                if (formData.profile?.guardianName?.trim() && !formData.profile?.guardianContact?.trim()) {
-                    setSaveError("Guardian's contact number is required.");
-                    return;
-                }
-            }
+  const handleSave = async () => {
+    try {
+      setSaveError('');
 
-            await updateUserMutation.mutateAsync({
-                id: user._id,
-                payload: {
-                    name: formData.name,
-                    email: formData.email,
-                    contactNo: formData.contactNo,
-                    profile: formData.profile,
-                }
-            });
-            if (onSuccess) onSuccess('User updated successfully');
-            setMode('view');
-        } catch (error) {
-            setSaveError(error?.response?.data?.message || 'Failed to update user');
+      // New Validation for Admin/Super Admin
+      if (!isTeacherLoggedIn && isStudent) {
+        if (formData.profile?.fatherName?.trim() && !formData.profile?.fatherContact?.trim()) {
+          setSaveError("Father's contact number is required.");
+          return;
         }
-    };
+        if (formData.profile?.motherName?.trim() && !formData.profile?.motherContact?.trim()) {
+          setSaveError("Mother's contact number is required.");
+          return;
+        }
+        if (formData.profile?.guardianName?.trim() && !formData.profile?.guardianContact?.trim()) {
+          setSaveError("Guardian's contact number is required.");
+          return;
+        }
+      }
+
+      // Construct role-specific profile payload
+      const rawProfile = formData.profile || {};
+      const profilePayload = {};
+
+      if (isStudent) {
+        const studentFields = [
+          'rollNumber', 'standard', 'section', 'year', 'admissionDate',
+          'fatherName', 'fatherContact', 'motherName', 'motherContact',
+          'guardianName', 'guardianContact', 'address'
+        ];
+        studentFields.forEach(field => {
+          if (rawProfile[field] !== undefined && rawProfile[field] !== '') {
+            profilePayload[field] = rawProfile[field];
+          }
+        });
+      } else if (isTeacher) {
+        const teacherFields = ['employeeId', 'qualification', 'joiningDate'];
+        teacherFields.forEach(field => {
+          if (rawProfile[field] !== undefined && rawProfile[field] !== '') {
+            profilePayload[field] = rawProfile[field];
+          }
+        });
+
+        // Handle assignedClasses separately because of potential conflicts
+        const originalAssignedClasses = normalizeAssignedClassesForCompare(user?.profile?.assignedClasses);
+        const nextAssignedClasses = normalizeAssignedClassesForCompare(rawProfile.assignedClasses);
+        const hasAssignedClassChanges = JSON.stringify(originalAssignedClasses) !== JSON.stringify(nextAssignedClasses);
+
+        if (hasAssignedClassChanges) {
+          profilePayload.assignedClasses = rawProfile.assignedClasses;
+        }
+      } else if (isAdminUser) {
+        const adminFields = ['department', 'employeeId', 'permissions'];
+        adminFields.forEach(field => {
+          if (rawProfile[field] !== undefined && rawProfile[field] !== '') {
+            profilePayload[field] = rawProfile[field];
+          }
+        });
+      }
+
+      const hasExpectedSalaryChanged =
+        isTeacher && rawProfile.expectedSalary !== undefined &&
+        Number(rawProfile.expectedSalary) !== Number(user?.profile?.expectedSalary);
+
+      const payload = {
+        name: formData.name,
+        email: formData.email,
+        contactNo: formData.contactNo,
+        profile: profilePayload,
+      };
+
+      await updateUserMutation.mutateAsync({
+        id: user._id,
+        payload
+      });
+
+      if (hasExpectedSalaryChanged) {
+        await updateTeacherExpectedSalaryMutation.mutateAsync({
+          id: user._id,
+          payload: { expectedSalary: Number(formData.profile?.expectedSalary) }
+        });
+      }
+      if (onSuccess) onSuccess('User updated successfully');
+      setMode('view');
+    } catch (error) {
+      console.error('Update error:', error);
+      const errorMessage = error?.response?.data?.error?.message || error?.response?.data?.message || 'Failed to update user';
+      
+      if (error?.response?.status === 409 && error.response.data?.code === 'CLASS_TEACHER_ALREADY_ASSIGNED') {
+        const payload = {
+          name: formData.name,
+          email: formData.email,
+          contactNo: formData.contactNo,
+          profile: { ...formData.profile }
+        };
+        setConflicts(error.response.data.conflicts || []);
+        setPendingPayload(payload);
+        setShowConflictModal(true);
+        return;
+      }
+      setSaveError(errorMessage);
+    }
+  };
   const handleAddTeacherClass = () => {
     const standard = String(teacherClassDraft.standard || '').trim();
     const section = String(teacherClassDraft.section || '').trim().toUpperCase();
@@ -270,11 +372,11 @@ const UserDetailModal = ({ user, onClose, initialMode = 'view', onSuccess }) => 
               {isEditing && (
                 <button
                   onClick={handleSave}
-                  disabled={updateUserMutation.isPending}
+                  disabled={updateUserMutation.isPending || updateTeacherExpectedSalaryMutation.isPending}
                   className="flex items-center gap-2 px-5 py-2 bg-white text-blue-700 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-blue-50 transition-all shadow-lg disabled:opacity-50 shrink-0"
                 >
                   <FaSave size={14} />
-                  {updateUserMutation.isPending ? 'Saving...' : 'Save Changes'}
+                  {(updateUserMutation.isPending || updateTeacherExpectedSalaryMutation.isPending) ? 'Saving...' : 'Save Changes'}
                 </button>
               )}
               <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-xl transition-all shrink-0">
@@ -320,7 +422,7 @@ const UserDetailModal = ({ user, onClose, initialMode = 'view', onSuccess }) => 
                       />
                     ) : (
                       <span className="text-sm font-black text-gray-900 break-all">
-                        {isAdmin ? (formData.profile?.department || 'N/A') : isTeacher ? getTeacherClass() : (formData.profile?.rollNumber || `#${user._id?.slice(-6)?.toUpperCase()}`)}
+                        {isAdmin ? formatValue(formData.profile?.department) : isTeacher ? getTeacherClass() : (formData.profile?.rollNumber || `#${user._id?.slice(-6)?.toUpperCase()}`)}
                       </span>
                     )}
                   </div>
@@ -355,10 +457,39 @@ const UserDetailModal = ({ user, onClose, initialMode = 'view', onSuccess }) => 
                         onChange={(e) => setFormData({ ...formData, contactNo: e.target.value.replace(/\D/g, '') })}
                       />
                     ) : (
-                      <span className="text-sm font-black text-gray-900 break-all">{formData.contactNo || 'N/A'}</span>
+                      <span className="text-sm font-black text-gray-900 break-all">{formatValue(formData.contactNo)}</span>
                     )}
                   </div>
                 </div>
+
+                {isTeacher && (
+                  <div className="p-4 bg-white rounded-2xl border border-gray-100 shadow-sm flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-xl bg-violet-50 text-violet-600 flex items-center justify-center shrink-0"><FaWallet /></div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-0.5">Salary</p>
+                      {isEditing ? (
+                        <input
+                          type="number"
+                          min="101"
+                          step="1"
+                          className="w-full bg-gray-50 rounded px-3 py-1.5 text-sm font-black outline-none border border-gray-100 focus:border-blue-300 transition-all"
+                          value={formData.profile?.expectedSalary ?? ''}
+                          onChange={(e) => setFormData({
+                            ...formData,
+                            profile: {
+                              ...formData.profile,
+                              expectedSalary: e.target.value === '' ? '' : Number(e.target.value)
+                            }
+                          })}
+                        />
+                      ) : (
+                        <span className="text-sm font-black text-gray-900 break-all">
+                          ₹{Number(formData.profile?.expectedSalary || 0).toLocaleString()}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 {isStudent && (
                   <div className="grid grid-cols-2 gap-3">
@@ -386,7 +517,7 @@ const UserDetailModal = ({ user, onClose, initialMode = 'view', onSuccess }) => 
                           {standards.map(std => <option key={std} value={std} className="bg-white text-gray-900">{std}</option>)}
                         </select>
                       ) : (
-                        <span className="text-sm font-black text-gray-900">{formData.profile?.standard || 'N/A'}</span>
+                        <span className="text-sm font-black text-gray-900">{formatValue(formData.profile?.standard)}</span>
                       )}
                     </div>
                     <div className="p-4 bg-white rounded-2xl border border-gray-100 shadow-sm flex flex-col gap-1">
@@ -405,7 +536,7 @@ const UserDetailModal = ({ user, onClose, initialMode = 'view', onSuccess }) => 
                           {sections.map(sec => <option key={sec} value={sec} className="bg-white text-gray-900">{sec}</option>)}
                         </select>
                       ) : (
-                        <span className="text-sm font-black text-gray-900">{formData.profile?.section || 'N/A'}</span>
+                        <span className="text-sm font-black text-gray-900">{formatValue(formData.profile?.section)}</span>
                       )}
                     </div>
                   </div>
@@ -523,21 +654,23 @@ const UserDetailModal = ({ user, onClose, initialMode = 'view', onSuccess }) => 
                               onChange={(e) => setFormData({ ...formData, profile: { ...formData.profile, fatherName: e.target.value } })}
                             />
                           ) : (
-                            <p className="text-sm font-bold text-gray-800">{formData.profile?.fatherName || 'N/A'}</p>
+                            <p className="text-sm font-bold text-gray-800">{formatValue(formData.profile?.fatherName)}</p>
                           )}
                         </div>
                         <div>
                           <p className="text-[10px] font-bold text-blue-400 uppercase tracking-widest leading-none mb-1.5">
                             Contact Number {isTeacher ? '(optional)' : ''}
                           </p>
-                          {isEditing ? (
+                          {isEditing && canViewContacts ? (
                             <input
                               className="w-full bg-white/50 border border-blue-100 focus:border-blue-400 rounded-lg py-2 px-3 text-sm font-bold outline-none"
                               value={formData.profile?.fatherContact}
                               onChange={(e) => setFormData({ ...formData, profile: { ...formData.profile, fatherContact: e.target.value.replace(/\D/g, '') } })}
                             />
                           ) : (
-                            <p className="text-sm font-bold text-gray-800">{formData.profile?.fatherContact || 'N/A'}</p>
+                            <p className="text-sm font-bold text-gray-800">
+                              {canViewContacts ? formatValue(formData.profile?.fatherContact) : 'Hidden'}
+                            </p>
                           )}
                         </div>
                       </div>
@@ -559,21 +692,23 @@ const UserDetailModal = ({ user, onClose, initialMode = 'view', onSuccess }) => 
                               onChange={(e) => setFormData({ ...formData, profile: { ...formData.profile, motherName: e.target.value } })}
                             />
                           ) : (
-                            <p className="text-sm font-bold text-gray-800">{formData.profile?.motherName || 'N/A'}</p>
+                            <p className="text-sm font-bold text-gray-800">{formatValue(formData.profile?.motherName)}</p>
                           )}
                         </div>
                         <div>
                           <p className="text-[10px] font-bold text-pink-400 uppercase tracking-widest leading-none mb-1.5">
                             Contact Number {isTeacher ? '(optional)' : ''}
                           </p>
-                          {isEditing ? (
+                          {isEditing && canViewContacts ? (
                             <input
                               className="w-full bg-white/50 border border-pink-100 focus:border-pink-400 rounded-lg py-2 px-3 text-sm font-bold outline-none"
                               value={formData.profile?.motherContact}
                               onChange={(e) => setFormData({ ...formData, profile: { ...formData.profile, motherContact: e.target.value.replace(/\D/g, '') } })}
                             />
                           ) : (
-                            <p className="text-sm font-bold text-gray-800">{formData.profile?.motherContact || 'N/A'}</p>
+                            <p className="text-sm font-bold text-gray-800">
+                              {canViewContacts ? formatValue(formData.profile?.motherContact) : 'Hidden'}
+                            </p>
                           )}
                         </div>
                       </div>
@@ -596,21 +731,23 @@ const UserDetailModal = ({ user, onClose, initialMode = 'view', onSuccess }) => 
                             onChange={(e) => setFormData({ ...formData, profile: { ...formData.profile, guardianName: e.target.value } })}
                           />
                         ) : (
-                          <p className="text-sm font-bold text-gray-800">{formData.profile?.guardianName || 'N/A'}</p>
+                          <p className="text-sm font-bold text-gray-800">{formatValue(formData.profile?.guardianName)}</p>
                         )}
                       </div>
                       <div>
                         <p className="text-[10px] font-bold text-purple-400 uppercase tracking-widest leading-none mb-1.5">
                           Guardian Contact {isTeacher ? '(optional)' : ''}
                         </p>
-                        {isEditing ? (
+                        {isEditing && canViewContacts ? (
                           <input
                             className="w-full bg-white/50 border border-purple-100 focus:border-purple-400 rounded-lg py-2 px-3 text-sm font-bold outline-none"
                             value={formData.profile?.guardianContact}
                             onChange={(e) => setFormData({ ...formData, profile: { ...formData.profile, guardianContact: e.target.value.replace(/\D/g, '') } })}
                           />
                         ) : (
-                          <p className="text-sm font-bold text-gray-800">{formData.profile?.guardianContact || 'N/A'}</p>
+                          <p className="text-sm font-bold text-gray-800">
+                            {canViewContacts ? formatValue(formData.profile?.guardianContact) : 'Hidden'}
+                          </p>
                         )}
                       </div>
                     </div>
@@ -618,21 +755,28 @@ const UserDetailModal = ({ user, onClose, initialMode = 'view', onSuccess }) => 
                 )}
               </div>
             )}
-            
+
             {/* If not a student, show placeholder or role description to fill space */}
             {!isStudent && (
               <div className="lg:col-span-2 hidden lg:flex items-center justify-center border-2 border-dashed border-gray-100 rounded-3xl p-12 text-center opacity-40 grayscale group hover:opacity-100 hover:grayscale-0 transition-all duration-700">
-                  <div className="max-w-xs transition-transform group-hover:scale-105">
-                    <div className="w-24 h-24 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-6 group-hover:bg-blue-50 group-hover:rotate-12 transition-all">
-                        {isAdmin ? <FaBuilding className="text-gray-300 group-hover:text-purple-500" size={32} /> : <FaChalkboardTeacher className="text-gray-300 group-hover:text-indigo-500" size={32} />}
-                    </div>
-                    <h5 className="text-lg font-black text-gray-900 mb-2">Official Record</h5>
-                    <p className="text-xs font-medium text-gray-500 leading-relaxed uppercase tracking-wider">Authorized {user.role?.replace('_', ' ')} documents verified and integrated into school registry.</p>
+                <div className="max-w-xs transition-transform group-hover:scale-105">
+                  <div className="w-24 h-24 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-6 group-hover:bg-blue-50 group-hover:rotate-12 transition-all">
+                    {isAdmin ? <FaBuilding className="text-gray-300 group-hover:text-purple-500" size={32} /> : <FaChalkboardTeacher className="text-gray-300 group-hover:text-indigo-500" size={32} />}
                   </div>
+                  <h5 className="text-lg font-black text-gray-900 mb-2">Official Record</h5>
+                  <p className="text-xs font-medium text-gray-500 leading-relaxed uppercase tracking-wider">Authorized {user.role?.replace('_', ' ')} documents verified and integrated into school registry.</p>
+                </div>
               </div>
             )}
           </div>
         </div>
+
+        <TeacherConflictModal
+          isOpen={showConflictModal}
+          onClose={() => setShowConflictModal(false)}
+          onConfirm={handleConfirmConflict}
+          conflicts={conflicts}
+        />
       </div>
     </div>
   );

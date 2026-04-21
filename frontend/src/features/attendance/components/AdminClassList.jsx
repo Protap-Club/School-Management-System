@@ -9,6 +9,7 @@ import { FaUserTie, FaSearch, FaArrowLeft, FaExchangeAlt } from 'react-icons/fa'
 import { Switch } from "@/components/ui/switch";
 import { useAuth } from '../../auth';
 import { PaginationControls } from '../../../components/ui/PaginationControls';
+import { formatValue } from '../../../utils';
 
 const AdminClassList = ({
     groupedClasses,
@@ -26,6 +27,7 @@ const AdminClassList = ({
     teachers = [],
     onReplaceClassTeacher,
     replaceTeacherPending = false,
+    onPageSizeChange,
 }) => {
     const navigate = useNavigate();
     const { user: currentUser } = useAuth();
@@ -38,27 +40,50 @@ const AdminClassList = ({
     const [replaceModalClass, setReplaceModalClass] = React.useState(null);
     const [replacementTeacherId, setReplacementTeacherId] = React.useState("");
     const [replaceMode, setReplaceMode] = React.useState("replace");
-    const [reassignTeacherId, setReassignTeacherId] = React.useState("");
     const [replaceError, setReplaceError] = React.useState("");
+
+    // Helper: check if teacher is a class teacher
+    const getTeacherClass = (teacher) => {
+        if (!teacher?.profile) return null;
+        const classTeacherOf = teacher.profile.classTeacherOf;
+        if (classTeacherOf?.standard && classTeacherOf?.section) {
+            return classTeacherOf;
+        }
+        return teacher.profile.assignedClasses?.[0] || null;
+    };
+
+    // Filter candidates based on mode
     const replacementCandidates = React.useMemo(() => {
         if (!replaceModalClass) return [];
-        return (teachers || []).filter((teacher) => String(teacher._id) !== String(replaceModalClass.teacher?._id));
-    }, [replaceModalClass, teachers]);
+        const otherTeachers = (teachers || []).filter((teacher) => String(teacher._id) !== String(replaceModalClass.teacher?._id));
+
+        if (replaceMode === "replace") {
+            // Replace: only show teachers WITHOUT a class (unassigned teachers)
+            return otherTeachers.filter((teacher) => !getTeacherClass(teacher));
+        } else if (replaceMode === "swap") {
+            // Swap: only show teachers WITH a class (can exchange)
+            return otherTeachers.filter((teacher) => getTeacherClass(teacher));
+        }
+        return otherTeachers;
+    }, [replaceModalClass, teachers, replaceMode]);
     const selectedReplacementTeacher = React.useMemo(
         () => replacementCandidates.find((teacher) => String(teacher._id) === String(replacementTeacherId)) || null,
         [replacementCandidates, replacementTeacherId]
     );
-    const selectedReplacementPrimaryClass = selectedReplacementTeacher?.profile?.assignedClasses?.[0] || null;
-    const reassignCandidates = React.useMemo(
-        () => (teachers || []).filter((teacher) => String(teacher._id) !== String(replacementTeacherId)),
-        [teachers, replacementTeacherId]
-    );
-
+    const selectedReplacementPrimaryClass = React.useMemo(() => {
+        if (!selectedReplacementTeacher?.profile) return null;
+        // Prefer classTeacherOf (explicit class teacher assignment),
+        // fall back to assignedClasses[0] for compatibility
+        const classTeacherOf = selectedReplacementTeacher.profile.classTeacherOf;
+        if (classTeacherOf?.standard && classTeacherOf?.section) {
+            return classTeacherOf;
+        }
+        return selectedReplacementTeacher.profile.assignedClasses?.[0] || null;
+    }, [selectedReplacementTeacher]);
     const openReplaceModal = (group) => {
         setReplaceModalClass(group);
         setReplacementTeacherId("");
         setReplaceMode("replace");
-        setReassignTeacherId("");
         setReplaceError("");
     };
 
@@ -66,16 +91,11 @@ const AdminClassList = ({
         setReplaceModalClass(null);
         setReplacementTeacherId("");
         setReplaceMode("replace");
-        setReassignTeacherId("");
         setReplaceError("");
     };
 
     const handleReplaceTeacher = async () => {
         if (!replaceModalClass || !replacementTeacherId || !onReplaceClassTeacher) return;
-        if (replaceMode === "reassign" && !reassignTeacherId) {
-            setReplaceError("Please select a teacher to reassign the previous class.");
-            return;
-        }
 
         try {
             setReplaceError("");
@@ -84,7 +104,6 @@ const AdminClassList = ({
                 section: replaceModalClass.section,
                 replacementTeacherId,
                 mode: replaceMode,
-                ...(replaceMode === "reassign" ? { reassignTeacherId } : {}),
             });
             closeReplaceModal();
         } catch (error) {
@@ -118,7 +137,7 @@ const AdminClassList = ({
                                     </Button>
 
                                     <div className="flex items-center gap-4">
-                                        <div className="w-20 h-14 rounded-2xl bg-[#1a1a1a] text-white flex items-center justify-center shadow-md shrink-0">
+                                        <div className="min-w-[5rem] w-fit px-4 h-14 rounded-2xl bg-[#1a1a1a] text-white flex items-center justify-center shadow-md shrink-0">
                                             <span className="font-black text-2xl uppercase tracking-tighter">{`${group.standard}${group.section}`}</span>
                                         </div>
 
@@ -141,7 +160,7 @@ const AdminClassList = ({
                                     </div>
                                     <div>
                                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] leading-tight mb-0.5">Class Teacher</p>
-                                        <p className="text-base font-black text-slate-900 leading-tight tracking-tight">{group.teacher?.name || 'Unassigned'}</p>
+                                        <p className="text-base font-black text-slate-900 leading-tight tracking-tight">{formatValue(group.teacher?.name)}</p>
                                     </div>
                                     <Button
                                         type="button"
@@ -221,9 +240,7 @@ const AdminClassList = ({
                                                                 </div>
                                                             </TableCell>
                                                             <TableCell className="text-center">
-                                                                <Badge variant="outline" className="bg-slate-50 text-slate-600 border-slate-200 font-black px-3 py-1 rounded-lg">
-                                                                    {student.profile?.rollNumber || '-'}
-                                                                </Badge>
+                                                                <Badge variant="outline" className="bg-slate-50 text-slate-600 border-slate-200 font-black px-3 py-1 rounded-lg">{formatValue(student.profile?.rollNumber)}</Badge>
                                                             </TableCell>
                                                             <TableCell className="text-center">
                                                                 <Badge variant="outline" className={`font-black uppercase tracking-[0.1em] text-[10px] px-3 py-1.5 rounded-xl ${STATUS_STYLES[status]}`}>
@@ -257,6 +274,7 @@ const AdminClassList = ({
                                     ).length}
                                     itemsPerPage={itemsPerPage}
                                     onPageChange={(p) => setClassPage(group.id, p)}
+                                    onPageSizeChange={onPageSizeChange}
                                 />
                             </div>
                         </div>
@@ -277,7 +295,7 @@ const AdminClassList = ({
                             <div className="flex items-center gap-5 w-full md:w-auto">
                                 <div className="relative shrink-0">
                                     <div className="absolute inset-0 bg-[#1a1a1a]/20 blur-xl rounded-[1.25rem] pointer-events-none" />
-                                    <div className="relative w-20 h-14 rounded-[1.25rem] bg-[#1a1a1a] text-white flex items-center justify-center shadow-md">
+                                    <div className="relative min-w-[5rem] w-fit px-4 h-14 rounded-[1.25rem] bg-[#1a1a1a] text-white flex items-center justify-center shadow-md">
                                         <span className="font-black text-2xl uppercase tracking-tighter">{`${group.standard}${group.section}`}</span>
                                     </div>
                                 </div>
@@ -293,7 +311,7 @@ const AdminClassList = ({
                                         <FaUserTie className="text-slate-500" />
                                     </div>
                                     <div className="text-sm hidden sm:block">
-                                        <p className="font-bold text-slate-900">{group.teacher?.name || 'Unassigned'}</p>
+                                        <p className="font-bold text-slate-900">{formatValue(group.teacher?.name)}</p>
                                         <p className="font-medium text-muted-foreground text-xs uppercase tracking-widest">Class Teacher</p>
                                     </div>
                                 </div>
@@ -307,7 +325,7 @@ const AdminClassList = ({
                     <div className="w-full max-w-md rounded-2xl bg-white border border-slate-200 shadow-xl p-5">
                         <h3 className="text-lg font-black text-slate-900 tracking-tight">Replace Class Teacher</h3>
                         <p className="mt-1 text-sm text-slate-500">
-                            Class {replaceModalClass.id} currently has <span className="font-semibold text-slate-700">{replaceModalClass.teacher?.name || "no teacher"}</span> as class teacher.
+                            Class {replaceModalClass.id} currently has <span className="font-semibold text-slate-700">{formatValue(replaceModalClass.teacher?.name)}</span> as class teacher.
                         </p>
                         {replaceError && (
                             <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
@@ -316,7 +334,31 @@ const AdminClassList = ({
                         )}
                         <div className="mt-4">
                             <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
-                                New Class Teacher
+                                Action
+                            </label>
+                            <select
+                                value={replaceMode}
+                                onChange={(event) => {
+                                    setReplaceMode(event.target.value);
+                                    setReplacementTeacherId(""); // Reset selection when mode changes
+                                }}
+                                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800"
+                                style={{ colorScheme: 'light' }}
+                            >
+                                <option value="replace">Replace (assign unassigned teacher)</option>
+                                {replaceModalClass?.teacher && (
+                                    <option value="swap">Swap with another class teacher</option>
+                                )}
+                            </select>
+                            <p className="mt-2 text-xs text-slate-500">
+                                {replaceMode === "replace"
+                                    ? "Select a teacher who is not currently a class teacher."
+                                    : "Select a teacher to exchange classes with."}
+                            </p>
+                        </div>
+                        <div className="mt-4">
+                            <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
+                                {replaceMode === "replace" ? "New Class Teacher (Unassigned)" : "Swap With Class Teacher"}
                             </label>
                             <select
                                 value={replacementTeacherId}
@@ -324,61 +366,29 @@ const AdminClassList = ({
                                 className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800"
                                 style={{ colorScheme: 'light' }}
                             >
-                                <option value="">Select teacher</option>
-                                {replacementCandidates.map((teacher) => (
-                                    <option key={teacher._id} value={teacher._id}>
-                                        {teacher.name}
-                                    </option>
-                                ))}
+                                <option value="">
+                                    {replaceMode === "replace" ? "Select unassigned teacher" : "Select class teacher to swap with"}
+                                </option>
+                                {replacementCandidates.map((teacher) => {
+                                    const teacherClass = getTeacherClass(teacher);
+                                    return (
+                                        <option key={teacher._id} value={teacher._id}>
+                                            {teacher.name} {teacherClass ? `(${teacherClass.standard}-${teacherClass.section})` : "(Unassigned)"}
+                                        </option>
+                                    );
+                                })}
                             </select>
                             {replacementCandidates.length === 0 && (
                                 <p className="mt-2 text-xs text-amber-600">
-                                    No alternate active teacher is available right now.
+                                    {replaceMode === "replace"
+                                        ? "No unassigned teachers available. All teachers are already class teachers. Use Swap instead."
+                                        : "No other class teachers available to swap with."}
                                 </p>
                             )}
                         </div>
-                        {selectedReplacementPrimaryClass && (
-                            <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
-                                Selected teacher currently owns class {selectedReplacementPrimaryClass.standard}-{selectedReplacementPrimaryClass.section}. Choose how to handle that class.
-                            </div>
-                        )}
-                        {selectedReplacementPrimaryClass && (
-                            <div className="mt-4">
-                                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
-                                    Action
-                                </label>
-                                <select
-                                    value={replaceMode}
-                                    onChange={(event) => setReplaceMode(event.target.value)}
-                                    className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800"
-                                    style={{ colorScheme: 'light' }}
-                                >
-                                    <option value="replace">Replace (old class becomes unassigned)</option>
-                                    {replaceModalClass?.teacher && (
-                                        <option value="swap">Swap with current class teacher</option>
-                                    )}
-                                    <option value="reassign">Reassign old class to another teacher</option>
-                                </select>
-                            </div>
-                        )}
-                        {selectedReplacementPrimaryClass && replaceMode === "reassign" && (
-                            <div className="mt-4">
-                                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
-                                    Reassign Previous Class To
-                                </label>
-                                <select
-                                    value={reassignTeacherId}
-                                    onChange={(event) => setReassignTeacherId(event.target.value)}
-                                    className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800"
-                                    style={{ colorScheme: 'light' }}
-                                >
-                                    <option value="">Select teacher</option>
-                                    {reassignCandidates.map((teacher) => (
-                                        <option key={teacher._id} value={teacher._id}>
-                                            {teacher.name}
-                                        </option>
-                                    ))}
-                                </select>
+                        {selectedReplacementPrimaryClass && replaceMode === "swap" && (
+                            <div className="mt-3 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700">
+                                This will swap classes: <strong>{replaceModalClass.teacher?.name}</strong> will move to class {selectedReplacementPrimaryClass.standard}-{selectedReplacementPrimaryClass.section}, and <strong>{selectedReplacementTeacher?.name}</strong> will become class teacher of {replaceModalClass.id}.
                             </div>
                         )}
                         <div className="mt-5 flex items-center justify-end gap-2">

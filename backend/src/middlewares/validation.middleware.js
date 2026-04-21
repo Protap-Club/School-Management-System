@@ -42,18 +42,24 @@ export const validate = (schema) => (req, res, next) => {
     } catch (error) {
         // Handle Zod errors immediately to ensure consistent 400 format
         if (error instanceof z.ZodError) {
-            // Zod uses 'issues' not 'errors'
             const errors = (error.issues || []).map(e => ({
                 path: e.path.join('.'),
                 message: e.message
             }));
 
+            // Join all error messages into a single descriptive string for easier debugging
+            const combinedMessage = errors.map(e => `${e.path}: ${e.message}`).join(' | ');
+
+            console.error("❌ Zod Validation Failed!");
+            console.error("Payload Received:", JSON.stringify(req.body, null, 2));
+            console.error("Errors:", combinedMessage);
+            
             logger.warn({
                 msg: "Validation Failed",
                 errors: errors
             });
 
-            throw new ValidationError("Input validation failed", errors);
+            throw new ValidationError(`Validation failed: ${combinedMessage}`, errors);
         }
         // Pass unexpected errors to global handler
         next(error);

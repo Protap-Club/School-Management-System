@@ -6,9 +6,13 @@ const TimetableGrid = ({
   entries = [],
   timeSlots = [],
   teachers = [],
+  weekDates = {},
+  formatDateShort,
   onCellClick,
+  onMarkUnavailable,
   readOnly = false,
-  showClass = false
+  showClass = false,
+  isTeacherView = false
 }) => {
   const getSlotId = (slot) => slot._id || slot.slotNumber;
 
@@ -60,6 +64,40 @@ const TimetableGrid = ({
     return `${hour12.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')} ${period}`;
   };
 
+  const getCellState = (entry) => {
+    if (!entry) return 'empty';
+    if (entry.isProxy) return 'proxy_duty';
+    if (entry.proxyRequestStatus === 'pending') return 'proxy_pending';
+    if (entry.proxyRequestStatus === 'proxy_assigned') return 'proxy_assigned';
+    if (entry.proxyRequestStatus === 'free_period' || entry.isFreePeriod || entry.proxyType === 'free_period') {
+      return 'free_period';
+    }
+    return 'regular';
+  };
+
+  const getCellClasses = (state) => {
+    switch (state) {
+      case 'proxy_duty':
+        return 'bg-white border-l-[4px] border-l-emerald-700 hover:bg-gray-50 cursor-pointer shadow-sm';
+      case 'proxy_pending':
+        return 'bg-white border-l-[4px] border-l-amber-800 hover:bg-gray-50 cursor-pointer shadow-sm';
+      case 'proxy_assigned':
+        return 'bg-white border-l-[4px] border-l-blue-800 hover:bg-gray-50 cursor-pointer shadow-sm';
+      case 'free_period':
+        return 'bg-white border-l-[4px] border-l-slate-800 hover:bg-gray-50 cursor-pointer shadow-sm';
+      default:
+        return 'bg-white border-l-[3px] border-l-gray-800 hover:bg-gray-50 cursor-pointer shadow-sm';
+    }
+  };
+
+  const getTextColor = (state) => {
+    if (state === 'proxy_duty') return 'text-emerald-700';
+    if (state === 'proxy_pending') return 'text-amber-900';
+    if (state === 'proxy_assigned') return 'text-blue-900';
+    if (state === 'free_period') return 'text-slate-800';
+    return 'text-gray-600';
+  };
+
   return (
     <div className="w-full">
       <div className="w-full border border-gray-300 shadow-sm rounded-xl overflow-hidden bg-white">
@@ -71,9 +109,14 @@ const TimetableGrid = ({
           {DAYS_OF_WEEK.map((day) => (
             <div
               key={day}
-              className="py-2.5 px-3 text-[12px] font-bold text-gray-800 text-center border-r border-gray-300 last:border-r-0"
+              className="py-2.5 px-3 text-center border-r border-gray-300 last:border-r-0"
             >
-              {day}
+              <div className="text-[12px] font-bold text-gray-800">{day}</div>
+              {weekDates[day] && formatDateShort && (
+                <div className="text-[10px] text-gray-500 mt-0.5">
+                  {formatDateShort(weekDates[day])}
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -110,34 +153,87 @@ const TimetableGrid = ({
               ) : (
                 DAYS_OF_WEEK.map((day) => {
                   const entry = getEntry(day, slot);
+                  const cellState = getCellState(entry);
 
                   return (
                     <div
                       key={`${day}-${slotId}`}
-                      onClick={() => !readOnly && onCellClick(day, slot, entry)}
+                      onClick={() => {
+                        // If teacher view and has entry, trigger mark unavailable (always allowed for teachers)
+                        if (isTeacherView && entry && onMarkUnavailable) {
+                          if (entry.isProxy) return;
+                          onMarkUnavailable(day, slot, entry);
+                          return;
+                        }
+                        // For other cases, respect readOnly
+                        if (readOnly) return;
+                        if (onCellClick) {
+                          onCellClick(day, slot, entry);
+                        }
+                      }}
                       className={`min-h-[85px] p-3 border-r border-gray-200/60 last:border-r-0 transition-colors relative group flex flex-col justify-start ${
-                        entry 
-                          ? 'bg-white border-l-[3px] border-l-gray-800 hover:bg-gray-50 cursor-pointer shadow-sm' 
+                        entry
+                          ? getCellClasses(cellState)
                           : !readOnly ? 'cursor-pointer hover:bg-gray-50/30' : ''
                       }`}
                     >
                       {entry ? (
                           <div className="space-y-1">
-                            <h4 className="text-[13px] font-semibold text-gray-900 leading-tight line-clamp-2">
-                              {entry.subject || 'No Subject'}
-                            </h4>
-                            
-                            <div className="flex items-center gap-2 pt-0.5">
-                              {showClass ? (
-                                <span className="text-[12px] font-medium text-gray-600">
-                                  {getClassDisplay(entry)}
+                            <div className="flex items-start justify-between gap-1">
+                              <h4 className="text-[13px] font-semibold text-gray-900 leading-tight line-clamp-2">
+                                {entry.subject || 'No Subject'}
+                              </h4>
+                              {entry.isProxy && (
+                                <span className="flex-shrink-0 px-1.5 py-0.5 text-[9px] font-bold text-emerald-700 bg-emerald-200 rounded">
+                                  PROXY DUTY
                                 </span>
-                              ) : (
-                                <span className="text-[12px] font-medium text-gray-600 truncate max-w-[120px]">
-                                  {getTeacherName(entry.teacherId)}
+                              )}
+                              {entry.proxyRequestStatus === 'pending' && (
+                                <span className="flex-shrink-0 px-1.5 py-0.5 text-[9px] font-bold text-amber-900 bg-amber-300 rounded">
+                                  PROXY REQUESTED
+                                </span>
+                              )}
+                              {entry.proxyRequestStatus === 'proxy_assigned' && (
+                                <span className="flex-shrink-0 px-1.5 py-0.5 text-[9px] font-bold text-blue-900 bg-blue-300 rounded">
+                                  PROXY ASSIGNED
+                                </span>
+                              )}
+                              {(entry.proxyRequestStatus === 'free_period' || entry.isFreePeriod || entry.proxyType === 'free_period') && (
+                                <span className="flex-shrink-0 px-1.5 py-0.5 text-[9px] font-bold text-slate-900 bg-slate-400 rounded">
+                                  PROXY FREE PERIOD
                                 </span>
                               )}
                             </div>
+
+                            <div className="flex items-center gap-2 pt-0.5">
+                              {showClass ? (
+                                <span className={`text-[12px] font-medium ${getTextColor(cellState)}`}>
+                                  {getClassDisplay(entry)}
+                                </span>
+                              ) : (
+                                <span className={`text-[12px] font-medium truncate max-w-[120px] ${getTextColor(cellState)}`}>
+                                  {(entry.proxyRequestStatus === 'free_period' || entry.isFreePeriod || entry.proxyType === 'free_period')
+                                    ? 'Free Period'
+                                    : getTeacherName(entry.teacherId)}
+                                </span>
+                              )}
+                            </div>
+
+                            {entry.isProxy && entry.originalTeacherId?.name && (
+                              <p className="text-[10px] text-emerald-600 italic">
+                                for {entry.originalTeacherId.name}
+                              </p>
+                            )}
+                            {entry.proxyRequestStatus === 'pending' && (
+                              <p className="text-[10px] text-amber-900 font-semibold">
+                                Awaiting admin decision
+                              </p>
+                            )}
+                            {(entry.proxyRequestStatus === 'free_period' || entry.isFreePeriod || entry.proxyType === 'free_period') && entry.originalTeacherId?.name && (
+                              <p className="text-[10px] text-slate-800 italic">
+                                {entry.originalTeacherId.name} unavailable
+                              </p>
+                            )}
                           </div>
 
                       ) : (

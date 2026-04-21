@@ -45,10 +45,59 @@ export const getExamById = asyncHandler(async (req, res) => {
 // ═══════════════════════════════════════════════════════════════
 
 export const updateExam = asyncHandler(async (req, res) => {
-    const result = await examinationService.updateExam(req.schoolId, req.params.id, req.body, req.user);
+    const result = await examinationService.updateExam(
+        req.schoolId,
+        req.params.id,
+        req.body,
+        req.user,
+        { ip: req.ip, userAgent: req.headers["user-agent"] }
+    );
     res.status(200).json({
         success: true,
         message: "Exam updated successfully",
+        data: result,
+    });
+});
+
+export const uploadSyllabusDocument = asyncHandler(async (req, res) => {
+    const result = await examinationService.uploadSyllabusDocument( req.schoolId, req.params.id, req.file, req.user);
+
+    res.status(200).json({
+        success: true,
+        message: "Syllabus document uploaded successfully",
+        data: result,
+    });
+});
+
+export const uploadScheduleAttachments = asyncHandler(async (req, res) => {
+    const files = Array.isArray(req.files) ? req.files : [];
+    const result = await examinationService.uploadScheduleAttachments(
+        req.schoolId,
+        req.params.id,
+        req.params.scheduleItemId,
+        files,
+        req.user
+    );
+
+    res.status(200).json({
+        success: true,
+        message: "Schedule attachments uploaded successfully",
+        data: result,
+    });
+});
+
+export const patchScheduleSyllabus = asyncHandler(async (req, res) => {
+    const result = await examinationService.patchScheduleSyllabus(
+        req.schoolId,
+        req.params.id,
+        req.params.scheduleItemId,
+        req.body,
+        req.user
+    );
+
+    res.status(200).json({
+        success: true,
+        message: "Schedule syllabus updated successfully",
         data: result,
     });
 });
@@ -74,7 +123,8 @@ export const updateStatus = asyncHandler(async (req, res) => {
         req.schoolId,
         req.params.id,
         req.body.status,
-        req.user
+        req.user,
+        { ip: req.ip, userAgent: req.headers["user-agent"] }
     );
     res.status(200).json({
         success: true,

@@ -90,7 +90,6 @@ export default defineConfig(({ mode }) => {
         output: {
           manualChunks: {
             vendor: ['react', 'react-dom', 'react-router-dom'],
-            charts: ['recharts'],
             ui: ['framer-motion', 'lucide-react', 'react-icons'],
             query: ['@tanstack/react-query'],
           },

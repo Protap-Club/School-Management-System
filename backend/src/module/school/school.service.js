@@ -14,11 +14,64 @@ import {
     sortClassSections,
 } from "../../utils/classSection.util.js";
 import { findTeacherClassConflicts } from "../../utils/teacher.util.js";
+import { createAuditLog } from "../audit/audit.service.js";
+import { AUDIT_ACTIONS } from "../../constants/auditActions.js";
 
 const escapeRegex = (value = "") => String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const REMOVED_CLASS_MARKER_REGEX = /\(removed\b/i;
 const CLASS_STANDARD_REGEX = /^[A-Za-z0-9_]+$/;
 const CLASS_SECTION_REGEX = /^[A-Za-z0-9_]+$/;
+const DEFAULT_BRANDING = {
+    name: "Protap Club",
+    logoUrl: null,
+    logoPublicId: null,
+    updatedAt: null,
+    theme: { accentColor: "#2563eb" },
+};
+
+const buildSchoolProfileData = (school) => ({
+    name: school.name,
+    isActive: school.isActive,
+    code: school.code,
+    logoUrl: school.logoUrl,
+    logoPublicId: school.logoPublicId,
+    updatedAt: school.updatedAt,
+    theme: school.theme,
+    features: school.features,
+    schoolId: school._id,
+    _id: school._id,
+});
+
+const buildSchoolBrandingData = (school) => ({
+    ...DEFAULT_BRANDING,
+    ...(school ? {
+        name: school.name,
+        logoUrl: school.logoUrl,
+        logoPublicId: school.logoPublicId,
+        updatedAt: school.updatedAt,
+        theme: school.theme || DEFAULT_BRANDING.theme,
+        schoolId: school._id,
+        _id: school._id,
+    } : {}),
+});
+
+const emitSchoolBrandingChanged = (school) => {
+    if (!school?._id) return;
+
+    try {
+        const io = getIO();
+        const branding = buildSchoolBrandingData(school);
+        io.to(`school-${school._id}`).emit("school:branding:changed", branding);
+        io.to(`school-${school._id}`).emit("school:theme:changed", {
+            schoolId: String(school._id),
+            theme: branding.theme,
+            school: branding,
+            version: new Date().toISOString(),
+        });
+    } catch (err) {
+        logger.warn(`Socket emit failed (school:branding:changed): ${err.message}`);
+    }
+};
 
 const isActiveLegacyClassSection = (item = {}) => {
     const normalized = normalizeClassSection(item);
@@ -153,7 +206,7 @@ export const createSchool = async (creatorId, schoolData) => {
 
 
 // Updates School Settings (Address, Contact info, etc.)
-export const updateSchool = async (schoolId, updateData) => {
+export const updateSchool = async (schoolId, updateData, user, metadata) => {
     // Only allow updating safe fields. Code and Features are protected.
     const allowedUpdates = {};
     if (updateData.name) allowedUpdates.name = updateData.name;
@@ -165,13 +218,24 @@ export const updateSchool = async (schoolId, updateData) => {
     const updated = await School.findByIdAndUpdate(schoolId, allowedUpdates, { new: true, runValidators: true });
     if (!updated) throw new NotFoundError("School not found");
 
-    const data = {
-        name: updated.name,
-        isActive: updated.isActive,
-        code: updated.code,
-        schoolId: updated._id,
-        _id: updated._id,
+    const data = buildSchoolProfileData(updated);
+
+    // Fire-and-forget audit log
+    if (user) {
+        createAuditLog({
+            schoolId,
+            action: AUDIT_ACTIONS.PROFILE_UPDATED,
+            actorId: user._id,
+            actorRole: user.role,
+            targetEntity: "School",
+            targetId: schoolId,
+            details: { updatedFields: Object.keys(allowedUpdates) },
+            ipAddress: metadata?.ip,
+            userAgent: metadata?.userAgent,
+        }).catch(() => {});
     }
+
+    emitSchoolBrandingChanged(updated);
 
     return { school: data };
 };
@@ -184,30 +248,23 @@ export const getSchoolProfile = async (schoolId) => {
     const school = await School.findById(schoolId).lean();
     if (!school) throw new NotFoundError("School not found");
 
-    const data = {
-        name: school.name,
-        isActive: school.isActive,
-        code: school.code,
-        logoUrl: school.logoUrl,
-        logoPublicId: school.logoPublicId,
-        updatedAt: school.updatedAt,
-        theme: school.theme,
-        features: school.features,
-        schoolId: school._id,
-        _id: school._id,
-    };
+    const data = buildSchoolProfileData(school);
 
     return { school: data };
+};
+
+// Gets all schools for system-wide filters
+export const getAllSchools = async () => {
+    return await School.find({}).select('name _id').sort({ name: 1 }).lean();
 };
 
 // BRANDING (Logo)
 export const getSchoolBranding = async (schoolId) => {
     // If no context , return default
-    const defaultBranding = { name: "Protap Club", logoUrl: null, theme: { accentColor: "#2563eb" } };
-    if (!schoolId) return { branding: defaultBranding };
+    if (!schoolId) return { branding: DEFAULT_BRANDING };
 
-    const school = await School.findById(schoolId).select('name logoUrl theme').lean();
-    return { branding: school || defaultBranding };
+    const school = await School.findById(schoolId).select('name logoUrl logoPublicId updatedAt theme').lean();
+    return { branding: buildSchoolBrandingData(school) };
 };
 
 export const updateLogo = async (schoolId, logoUrl, logoPublicId) => {
@@ -222,7 +279,9 @@ export const updateLogo = async (schoolId, logoUrl, logoPublicId) => {
 
     if (oldLogoPublicId) await deleteFromCloudinary(oldLogoPublicId);
 
-    return { logoUrl: school.logoUrl, logoPublicId: school.logoPublicId, updatedAt: school.updatedAt };
+    emitSchoolBrandingChanged(school);
+
+    return { school: buildSchoolProfileData(school) };
 };
 
 // FEATURE MANAGEMENT 
@@ -233,7 +292,7 @@ const featureCache = new Map();
 const FEATURE_CACHE_TTL_MS = 60_000;
 
 // The Super Admin calls this to turn on/off features for THEIR school.
-export const updateSchoolFeatures = async (schoolId, featureUpdates) => {
+export const updateSchoolFeatures = async (schoolId, featureUpdates, user, metadata) => {
     const school = await School.findById(schoolId);
     if (!school) throw new NotFoundError("School not found");
 
@@ -251,6 +310,21 @@ export const updateSchoolFeatures = async (schoolId, featureUpdates) => {
         if (cacheKey.startsWith(`${schoolId}:`)) {
             featureCache.delete(cacheKey);
         }
+    }
+
+    // Fire-and-forget audit log
+    if (user) {
+        createAuditLog({
+            schoolId,
+            action: AUDIT_ACTIONS.FEATURE_FLAG_TOGGLED,
+            actorId: user._id,
+            actorRole: user.role,
+            targetEntity: "School",
+            targetId: schoolId,
+            details: { featureUpdates },
+            ipAddress: metadata?.ip,
+            userAgent: metadata?.userAgent,
+        }).catch(() => {});
     }
 
     return { features: school.features };
@@ -285,6 +359,30 @@ export const addSchoolClassSection = async (schoolId, data) => {
     if (!CLASS_SECTION_REGEX.test(normalized.section)) {
         throw new BadRequestError("Section must be alphanumeric (letters, numbers, underscore only)");
     }
+
+    if (!Array.isArray(normalized.subjects) || normalized.subjects.length === 0) {
+        throw new BadRequestError("At least one subject is required");
+    }
+
+    // Deduplicate subjects case-insensitively
+    const seenSubjects = new Set();
+    const deduplicatedSubjects = [];
+    for (const sub of normalized.subjects) {
+        const trimmed = String(sub).trim();
+        if (!trimmed) continue;
+        const lower = trimmed.toLowerCase();
+        if (!seenSubjects.has(lower)) {
+            seenSubjects.add(lower);
+            deduplicatedSubjects.push(trimmed);
+        }
+    }
+
+    if (deduplicatedSubjects.length === 0) {
+        throw new BadRequestError("At least one valid subject is required");
+    }
+    
+    // Assign back the cleaned array
+    normalized.subjects = deduplicatedSubjects;
 
     const existing = school.academic?.classSections || [];
     const alreadyExists = existing.some(

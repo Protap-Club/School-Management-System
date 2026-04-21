@@ -40,7 +40,11 @@ export const createEvent = asyncHandler(async (req, res) => {
     const userId = req.user._id;
     const schoolId = req.user.schoolId;
 
-    const result = await createCalendarEvent(req.body, req.user);
+    const result = await createCalendarEvent(
+        req.body,
+        req.user,
+        { ip: req.ip, userAgent: req.headers["user-agent"] }
+    );
 
     return res.status(201).json({
         success: true,
@@ -108,7 +112,12 @@ export const getEventById = asyncHandler(async (req, res) => {
 export const updateEvent = asyncHandler(async (req, res) => {
     const { id } = req.params;
 
-    const result = await updateCalendarEvent(id, req.body, req.user);
+    const result = await updateCalendarEvent(
+        id,
+        req.body,
+        req.user,
+        { ip: req.ip, userAgent: req.headers["user-agent"] }
+    );
 
     return res.status(200).json({
         success: true,
@@ -125,7 +134,11 @@ export const updateEvent = asyncHandler(async (req, res) => {
 export const deleteEvent = asyncHandler(async (req, res) => {
     const { id } = req.params;
 
-    await deleteCalendarEvent(id, req.user);
+    await deleteCalendarEvent(
+        id,
+        req.user,
+        { ip: req.ip, userAgent: req.headers["user-agent"] }
+    );
 
     return res.status(204).end();
 });
@@ -139,7 +152,12 @@ export const deleteEventsByDate = asyncHandler(async (req, res) => {
     const { date } = req.params;
     const { eventId } = req.query || {};
 
-    const result = await deleteCalendarEventsByDate(date, req.user, eventId);
+    const result = await deleteCalendarEventsByDate(
+        date,
+        req.user,
+        eventId,
+        { ip: req.ip, userAgent: req.headers["user-agent"] }
+    );
 
     return res.status(200).json({
         success: true,

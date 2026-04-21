@@ -6,21 +6,19 @@ import { conf } from '../config/index.js';
 import logger from "../config/logger.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const TEMPLATE_CACHE = new Map(); // Cache templates to avoid constant Disk I/O
+const TEMPLATE_CACHE = new Map();
 const TEMPLATE_DIR = path.join(__dirname, '../view');
 
-let transporter = nodemailer.createTransport({
+const transporter = nodemailer.createTransport({
     host: conf.SMTP_HOST || 'smtp.gmail.com',
-    port: parseInt(conf.SMTP_PORT) || 587,
-    secure: conf.SMTP_PORT === '465', 
+    port: parseInt(conf.SMTP_PORT, 10) || 587,
+    secure: String(conf.SMTP_PORT) === '465',
     auth: { user: conf.SMTP_USER, pass: conf.SMTP_PASS }
 });
 
-// Loads and caches email templates
 const getTemplate = async (templateName) => {
     if (TEMPLATE_CACHE.has(templateName)) return TEMPLATE_CACHE.get(templateName);
-    
-    // Path traversal guard: enforce safe basename and verify resolved path
+
     const safeName = path.basename(templateName);
     if (safeName !== templateName) {
         throw new Error(`Invalid template name: ${templateName}`);
@@ -36,18 +34,19 @@ const getTemplate = async (templateName) => {
     return content;
 };
 
-// Basic Template Parser (Senior version: use EJS/Handlebars instead)
 const parseTemplate = (html, data) => {
-    return html.replace(/{{(\w+)}}/g, (match, key) => data[key] || '');
+    return html.replace(/{{(\w+)}}/g, (_match, key) => data[key] || '');
 };
 
-// Sends credentials email with School Branding
-export const sendCredentialsEmail = async ({ to, name, role, password, schoolName }) => {
+const resolveWebResetUrl = (resetToken) => {
+    const frontendBase = conf.FRONTEND_URL || 'http://localhost:5173';
+    return `${frontendBase}/reset-password?token=${encodeURIComponent(resetToken)}`;
+};
+
+
+
+export const sendCredentialsEmail = async ({ to, name, role, password, schoolName, updatePasswordUrl }) => {
     try {
-        // ── DEV GUARD ────────────────────────────────────────────────────────────
-        // In local development we skip real email delivery and just log
-        // the credentials to the console.  Remove this block (or set
-        // NODE_ENV=production) before deploying to a live environment.
         if (process.env.NODE_ENV !== 'production') {
             logger.warn(`[DEV] Email sending skipped. Credentials for ${to}:`);
             logger.warn(`[DEV]   Name     : ${name}`);
@@ -56,32 +55,39 @@ export const sendCredentialsEmail = async ({ to, name, role, password, schoolNam
             logger.warn(`[DEV]   Password : ${password}`);
             return { success: true };
         }
-        // ─────────────────────────────────────────────────────────────────────────
 
         if (!conf.SMTP_USER || !conf.SMTP_PASS) {
-            logger.warn("SMTP not configured. Email skipped.");
+            logger.warn('SMTP not configured. Email skipped.');
             return { success: false };
         }
 
         const roleDisplay = role.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
-        const displaySchool = schoolName || "Our School"; // Default fallback
+        const displaySchool = schoolName || 'Our School';
         const recipientLabelMap = {
-            student: "Student Name",
-            teacher: "Teacher Name",
-            admin: "Admin Name",
-            super_admin: "Administrator Name",
+            student: 'Student Name',
+            teacher: 'Teacher Name',
+            admin: 'Admin Name',
+            super_admin: 'Administrator Name',
         };
-        const recipientLabel = recipientLabelMap[role] || "User Name";
+        const recipientLabel = recipientLabelMap[role] || 'User Name';
+        const passwordUpdateUrl = updatePasswordUrl || `${conf.FRONTEND_URL || 'http://localhost:5173'}/update-password`;
 
         const rawHtml = await getTemplate('credentials.template.html');
-        const htmlContent = parseTemplate(rawHtml, { name, to, password, schoolName: displaySchool, recipientLabel});
+        const htmlContent = parseTemplate(rawHtml, {
+            name,
+            to,
+            password,
+            schoolName: displaySchool,
+            recipientLabel,
+            updatePasswordUrl: passwordUpdateUrl,
+        });
 
         const mailOptions = {
-            from: `"${displaySchool}" <${conf.SMTP_FROM || conf.SMTP_USER}>`, // Dynamic branding
+            from: `"${displaySchool}" <${conf.SMTP_FROM || conf.SMTP_USER}>`,
             to,
             subject: `Welcome to ${displaySchool} - Account Created`,
             html: htmlContent,
-            text: `Welcome ${name}. Your ${roleDisplay} account for ${displaySchool} is ready. Email: ${to}, Password: ${password}`
+            text: `Welcome ${name}. Your ${roleDisplay} account for ${displaySchool} is ready. Email: ${to}, Password: ${password}. Please update your password at: ${passwordUpdateUrl}`
         };
 
         const info = await transporter.sendMail(mailOptions);
@@ -89,6 +95,169 @@ export const sendCredentialsEmail = async ({ to, name, role, password, schoolNam
         return { success: true };
     } catch (error) {
         logger.error(`Email Failure: ${error.message}`);
+        return { success: false, error: error.message };
+    }
+};
+
+export const sendPasswordResetEmail = async ({
+    to,
+    name,
+    resetToken,
+    resetOtp,
+    method,
+    expiresInMinutes = 15,
+    schoolName,
+}) => {
+    try {
+        if (process.env.NODE_ENV !== 'production') {
+            logger.warn('[DEV] Password reset email sending skipped.');
+            logger.warn(`[DEV]   Recipient : ${to}`);
+            logger.warn(`[DEV]   Name      : ${name}`);
+            logger.warn(`[DEV]   Reset Token: ${resetToken}`);
+            logger.warn(`[DEV]   Reset OTP : ${resetOtp}`);
+            logger.warn(`[DEV]   Method    : ${method || 'both'}`);
+            return { success: true };
+        }
+
+        if (!conf.SMTP_USER || !conf.SMTP_PASS) {
+            logger.warn('SMTP not configured. Password reset email skipped.');
+            return { success: false };
+        }
+
+        const displaySchool = schoolName || 'School Management System';
+        const resetUrl = resetToken ? resolveWebResetUrl(resetToken) : null;
+        const expiresInText = `${expiresInMinutes} minutes`;
+
+        // Build the method-specific content block for the template
+        let contentBlock = '';
+        let methodLabel = 'request';
+
+        if (method === 'link' && resetUrl) {
+            methodLabel = 'link';
+            contentBlock = `
+                <p style="font-size: 15px; color: #555; line-height: 1.6; margin-bottom: 24px;">Click the button below to reset your password.</p>
+                <a class="action-btn" href="${resetUrl}" style="display: block; width: 100%; background: #000; color: #fff; text-decoration: none; padding: 16px 24px; border-radius: 12px; text-align: center; font-weight: 600; font-size: 15px; margin-bottom: 8px;">Reset Password</a>
+            `;
+        } else if (resetOtp) {
+            methodLabel = 'code';
+            const otpDigits = resetOtp.split('').map(digit => `<span class="otp-digit">${digit}</span>`).join('');
+            contentBlock = `
+                <p style="font-size: 15px; color: #555; line-height: 1.6; margin-bottom: 24px; text-align: center;">Enter the code below in the app to continue.</p>
+                <div class="otp-section" style="text-align: center; margin: 32px 0;">
+                    <div class="otp-label" style="font-size: 12px; font-weight: 500; color: #888; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 20px;">OTP</div>
+                    <div class="otp-code" style="display: flex; justify-content: center; gap: 8px; font-family: 'SF Mono', Monaco, 'Courier New', monospace;">
+                        ${otpDigits}
+                    </div>
+                </div>
+            `;
+        }
+
+        const rawHtml = await getTemplate('password-reset.template.html');
+        const htmlContent = parseTemplate(rawHtml, {
+            name,
+            schoolName: displaySchool,
+            expiresInText,
+            contentBlock,
+            methodLabel,
+        });
+
+        const textLines = [
+            `Hello ${name},`,
+            '',
+            `We received a password reset request for your ${displaySchool} account.`,
+            ''
+        ];
+
+        if (method !== 'link' && resetOtp) {
+            textLines.push(`OTP code: ${resetOtp}`);
+            textLines.push(`OTP expiry: ${expiresInText}`);
+            textLines.push('');
+        }
+
+        if (method !== 'otp' && resetUrl) {
+            textLines.push(`Reset link: ${resetUrl}`);
+            textLines.push('');
+        }
+
+        textLines.push(`If you did not request this, you can safely ignore this email.`);
+
+        const subject = method === 'otp'
+            ? `Password Reset OTP - ${displaySchool}`
+            : `Password Reset Request - ${displaySchool}`;
+
+        const info = await transporter.sendMail({
+            from: `"${displaySchool}" <${conf.SMTP_FROM || conf.SMTP_USER}>`,
+            to,
+            subject,
+            html: htmlContent,
+            text: textLines.join('\n'),
+        });
+
+        logger.info(`Password Reset Email Sent: ${info.messageId} to ${to} (method: ${method || 'both'})`);
+        return { success: true };
+    } catch (error) {
+        logger.error(`Password Reset Email Failure: ${error.message}`);
+        return { success: false, error: error.message };
+    }
+};
+
+export const sendPasswordChangedEmail = async ({ to, name, schoolName, reason }) => {
+    try {
+        if (process.env.NODE_ENV !== 'production') {
+            logger.warn('[DEV] Password-changed email sending skipped.');
+            logger.warn(`[DEV]   Recipient : ${to}`);
+            logger.warn(`[DEV]   Name      : ${name}`);
+            logger.warn(`[DEV]   Reason    : ${reason}`);
+            return { success: true };
+        }
+
+        if (!conf.SMTP_USER || !conf.SMTP_PASS) {
+            logger.warn('SMTP not configured. Password-changed email skipped.');
+            return { success: false };
+        }
+
+        const displaySchool = schoolName || 'School Management System';
+        const changedAt = new Date().toLocaleString('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: true,
+            timeZoneName: 'short',
+        });
+
+        const rawHtml = await getTemplate('password-changed.template.html');
+        const htmlContent = parseTemplate(rawHtml, {
+            name,
+            schoolName: displaySchool,
+            changedAt,
+            reason,
+        });
+
+        const text = [
+            `Hello ${name},`,
+            '',
+            `Your password was changed for your ${displaySchool} account.`,
+            `When: ${changedAt}`,
+            `Method: ${reason}`,
+            '',
+            'If this was not you, contact your administrator immediately.'
+        ].join('\n');
+
+        const info = await transporter.sendMail({
+            from: `"${displaySchool}" <${conf.SMTP_FROM || conf.SMTP_USER}>`,
+            to,
+            subject: `Password Updated - ${displaySchool}`,
+            html: htmlContent,
+            text,
+        });
+
+        logger.info(`Password Changed Email Sent: ${info.messageId} to ${to}`);
+        return { success: true };
+    } catch (error) {
+        logger.error(`Password Changed Email Failure: ${error.message}`);
         return { success: false, error: error.message };
     }
 };

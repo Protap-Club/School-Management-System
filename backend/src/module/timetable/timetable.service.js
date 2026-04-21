@@ -2,6 +2,8 @@ import { TimeSlot, Timetable, TimetableEntry, DAYS_OF_WEEK } from "./Timetable.m
 import { NotFoundError, ConflictError, ForbiddenError, BadRequestError } from "../../utils/customError.js";
 import logger from "../../config/logger.js";
 import StudentProfile from "../user/model/StudentProfile.model.js";
+import TeacherProfile from "../user/model/TeacherProfile.model.js";
+import { ProxyAssignment, ProxyRequest } from "../proxy/Proxy.model.js";
 import {
     buildClassSectionKey,
     getConfiguredClassSections,
@@ -30,6 +32,60 @@ const groupEntriesByDay = (entries) => {
     });
 
     return grouped;
+};
+
+const normalizeStartOfDay = (value) => {
+    const date = new Date(value);
+    date.setHours(0, 0, 0, 0);
+    return date;
+};
+
+const normalizeEndOfDay = (value) => {
+    const date = new Date(value);
+    date.setHours(23, 59, 59, 999);
+    return date;
+};
+
+const toLocalDateKey = (value) => {
+    const date = new Date(value);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+};
+
+const buildDaySlotKey = (dayOfWeek, timeSlotId) => `${dayOfWeek}_${String(timeSlotId)}`;
+
+const getWeekWindow = (referenceDateInput) => {
+    const normalizedReference =
+        typeof referenceDateInput === "string" && /^\d{4}-\d{2}-\d{2}$/.test(referenceDateInput)
+            ? `${referenceDateInput}T00:00:00`
+            : referenceDateInput;
+    const referenceDate = normalizedReference ? new Date(normalizedReference) : new Date();
+    if (Number.isNaN(referenceDate.getTime())) {
+        throw new BadRequestError("Invalid date format");
+    }
+
+    referenceDate.setHours(0, 0, 0, 0);
+
+    const monday = new Date(referenceDate);
+    const jsDay = monday.getDay(); // Sun=0
+    const offsetToMonday = jsDay === 0 ? -6 : 1 - jsDay;
+    monday.setDate(monday.getDate() + offsetToMonday);
+    monday.setHours(0, 0, 0, 0);
+
+    const dayToDateMap = {};
+    DAYS_OF_WEEK.forEach((day, index) => {
+        const date = new Date(monday);
+        date.setDate(monday.getDate() + index);
+        dayToDateMap[day] = normalizeStartOfDay(date);
+    });
+
+    const weekStart = dayToDateMap[DAYS_OF_WEEK[0]];
+    const weekEnd = normalizeEndOfDay(dayToDateMap[DAYS_OF_WEEK[DAYS_OF_WEEK.length - 1]]);
+    const weekDateKeys = new Set(Object.values(dayToDateMap).map((date) => toLocalDateKey(date)));
+
+    return { weekStart, weekEnd, weekDateKeys };
 };
 
 const getConfiguredClassSectionSet = async (schoolId) => {
@@ -377,21 +433,181 @@ export const getTeacherSchedule = async (schoolId, teacherId) => {
 // teachers see all classes they teach across the week
 // students see their class timetable based on their standard + section
 // mobile platform gets a simplified response shape (no nested IDs)
-export const getUserTimetable = async (schoolId, userId, role, platform) => {
+export const getUserTimetable = async (schoolId, userId, role, platform, date = null) => {
     await cleanupOrphanTimetables(schoolId);
 
-    let query = { schoolId };
-
     if (role === "teacher") {
-        // teacher sees entries where they are the assigned teacher
-        query.teacherId = userId;
+        // Step 1: Personal schedule
+        const personalEntries = await TimetableEntry.find({ schoolId, teacherId: userId })
+            .populate("teacherId", "name isArchived")
+            .populate("timetableId", "standard section academicYear")
+            .populate("timeSlotId", "slotNumber startTime endTime slotType")
+            .lean();
+
+        // Step 2: Check if teacher is a class teacher
+        const profile = await TeacherProfile.findOne({ userId, schoolId }).select("classTeacherOf").lean();
+
+        let classTimetable = null;
+        if (profile?.classTeacherOf?.standard && profile?.classTeacherOf?.section) {
+            const timetable = await Timetable.findOne({
+                schoolId,
+                standard: profile.classTeacherOf.standard,
+                section: profile.classTeacherOf.section,
+            }).sort({ academicYear: -1 }).lean();
+
+            if (timetable) {
+                const classEntries = await TimetableEntry.find({ schoolId, timetableId: timetable._id })
+                    .populate("teacherId", "name isArchived")
+                    .populate("timetableId", "standard section academicYear")
+                    .populate("timeSlotId", "slotNumber startTime endTime slotType")
+                    .lean();
+                classTimetable = {
+                    classLabel: `${profile.classTeacherOf.standard}-${profile.classTeacherOf.section}`,
+                    schedule: groupEntriesByDay(classEntries)
+                };
+            }
+        }
+
+        // Merge proxy assignments into personal entries before grouping
+        if (date) {
+            const { weekStart, weekEnd, weekDateKeys } = getWeekWindow(date);
+            const widenedStart = new Date(weekStart);
+            widenedStart.setDate(widenedStart.getDate() - 1);
+            const widenedEnd = new Date(weekEnd);
+            widenedEnd.setDate(widenedEnd.getDate() + 1);
+            widenedEnd.setHours(23, 59, 59, 999);
+
+            // Proxy duties assigned to this teacher for the selected week.
+            const proxyAssignmentsRaw = await ProxyAssignment.find({
+                schoolId,
+                proxyTeacherId: userId,
+                type: "proxy",
+                isActive: true,
+                date: { $gte: widenedStart, $lte: widenedEnd }
+            })
+            .populate("originalTeacherId", "name")
+            .populate("timeSlotId", "slotNumber startTime endTime slotType")
+            .lean();
+            const proxyAssignments = proxyAssignmentsRaw.filter((assignment) => weekDateKeys.has(toLocalDateKey(assignment.date)));
+
+            // Transform proxy duties into timetable-compatible entries.
+            const proxyEntries = proxyAssignments.map(proxy => ({
+                _id: `proxy-${proxy._id}`,
+                isProxy: true,
+                proxyAssignmentId: proxy._id,
+                originalTeacherId: proxy.originalTeacherId,
+                subject: proxy.subject,
+                roomNumber: `Class ${proxy.standard}-${proxy.section}`,
+                dayOfWeek: proxy.dayOfWeek,
+                timeSlotId: proxy.timeSlotId,
+                standard: proxy.standard,
+                section: proxy.section,
+                proxyDate: proxy.date,
+                timetableId: {
+                    standard: proxy.standard,
+                    section: proxy.section
+                }
+            }));
+
+            // Requested slots by this teacher in the same selected week.
+            const weeklyProxyRequestsRaw = await ProxyRequest.find({
+                schoolId,
+                teacherId: userId,
+                status: { $in: ["pending", "resolved"] },
+                date: { $gte: widenedStart, $lte: widenedEnd }
+            })
+            .populate({
+                path: "proxyAssignmentId",
+                select: "type proxyTeacherId",
+                populate: {
+                    path: "proxyTeacherId",
+                    select: "name email"
+                }
+            })
+            .lean();
+            const weeklyProxyRequests = weeklyProxyRequestsRaw.filter((request) => weekDateKeys.has(toLocalDateKey(request.date)));
+
+            const regularEntryMap = new Map();
+            personalEntries.forEach((entry) => {
+                const timeSlotId = entry.timeSlotId?._id || entry.timeSlotId;
+                if (!entry.dayOfWeek || !timeSlotId) return;
+                regularEntryMap.set(buildDaySlotKey(entry.dayOfWeek, timeSlotId), entry);
+            });
+
+            weeklyProxyRequests.forEach((request) => {
+                const key = buildDaySlotKey(request.dayOfWeek, request.timeSlotId);
+                const regularEntry = regularEntryMap.get(key);
+                if (!regularEntry) return;
+
+                const assignmentType = request.proxyAssignmentId?.type;
+                if (request.status === "pending") {
+                    regularEntry.proxyRequestStatus = "pending";
+                    regularEntry.proxyRequestId = request._id;
+                    return;
+                }
+
+                if (request.status === "resolved" && assignmentType === "proxy") {
+                    regularEntry.proxyRequestStatus = "proxy_assigned";
+                    regularEntry.proxyAssignmentId = request.proxyAssignmentId?._id || null;
+                    regularEntry.assignedProxyTeacher = request.proxyAssignmentId?.proxyTeacherId || null;
+                    return;
+                }
+
+                if (request.status === "resolved" && assignmentType === "free_period") {
+                    regularEntry.proxyRequestStatus = "free_period";
+                    regularEntry.isFreePeriod = true;
+                    regularEntry.proxyType = "free_period";
+                }
+            });
+
+            // Add proxy entries to personal entries
+            personalEntries.push(...proxyEntries);
+        }
+
+        const personalSchedule = groupEntriesByDay(personalEntries);
+
+        if (platform === "mobile") {
+            const formatMobile = (grouped) => {
+                const formatted = {};
+                Object.keys(grouped).forEach(day => {
+                    formatted[day] = grouped[day].map(entry => ({
+                        subject: entry.subject,
+                        teacher: entry.teacherId?.name,
+                        room: entry.roomNumber,
+                        startTime: entry.timeSlotId?.startTime,
+                        endTime: entry.timeSlotId?.endTime,
+                        slotNumber: entry.timeSlotId?.slotNumber,
+                        slotType: entry.timeSlotId?.slotType,
+                        isProxy: entry.isProxy || false,
+                        proxyRequestStatus: entry.proxyRequestStatus || null,
+                        originalTeacher: entry.originalTeacherId?.name,
+                        assignedProxyTeacher: entry.assignedProxyTeacher?.name || null,
+                        standard: entry.standard,
+                        section: entry.section
+                    }));
+                });
+                return formatted;
+            };
+
+            return {
+                isClassTeacher: !!classTimetable,
+                personalSchedule: formatMobile(personalSchedule),
+                classTimetable: classTimetable ? {
+                    classLabel: classTimetable.classLabel,
+                    schedule: formatMobile(classTimetable.schedule)
+                } : null
+            };
+        }
+
+        return {
+            isClassTeacher: !!classTimetable,
+            personalSchedule,
+            classTimetable
+        };
     } else if (role === "student") {
-        // student needs their class info from profile to find the right timetable
         const profile = await StudentProfile.findOne({ userId, schoolId }).lean();
         if (!profile) throw new NotFoundError("Student profile not found");
 
-        // find the most recent timetable for student's class (latest academic year first)
-        // this avoids hardcoding the year and always picks the current/latest schedule
         const timetable = await Timetable.findOne({
             schoolId,
             standard: profile.standard,
@@ -399,12 +615,72 @@ export const getUserTimetable = async (schoolId, userId, role, platform) => {
         }).sort({ academicYear: -1 }).lean();
 
         if (!timetable) throw new NotFoundError("No timetable found for your class");
-        query.timetableId = timetable._id;
+        
+        const result = await TimetableEntry.find({ schoolId, timetableId: timetable._id })
+            .populate("teacherId", "name isArchived")
+            .populate("timetableId", "standard section academicYear")
+            .populate("timeSlotId", "slotNumber startTime endTime slotType")
+            .lean();
+
+        const grouped = groupEntriesByDay(result);
+
+        if (platform === "mobile") {
+            const formatted = {};
+            Object.keys(grouped).forEach(day => {
+                formatted[day] = grouped[day].map(entry => ({
+                    subject: entry.subject,
+                    teacher: entry.teacherId?.name,
+                    room: entry.roomNumber,
+                    startTime: entry.timeSlotId?.startTime,
+                    endTime: entry.timeSlotId?.endTime,
+                    slotNumber: entry.timeSlotId?.slotNumber,
+                    slotType: entry.timeSlotId?.slotType
+                }));
+            });
+            return formatted;
+        }
+
+        return grouped;
     } else {
         throw new ForbiddenError("Only teachers and students can access their schedule");
     }
+};
 
-    const result = await TimetableEntry.find(query)
+// returns the class timetable for a teacher's assigned class
+// teachers can see their own class's timetable (if they are class teacher)
+// this is similar to student timetable but for teachers
+export const getTeacherClassTimetable = async (schoolId, teacherId, platform) => {
+    await cleanupOrphanTimetables(schoolId);
+
+    // Get teacher's profile to find assigned classes
+    const teacherProfile = await TeacherProfile.findOne({
+        userId: teacherId,
+        schoolId
+    }).lean();
+
+    if (!teacherProfile || !teacherProfile.assignedClasses || teacherProfile.assignedClasses.length === 0) {
+        throw new NotFoundError("No assigned class found. You are not assigned as class teacher to any class.");
+    }
+
+    // Get the primary assigned class (first one)
+    const assignedClass = teacherProfile.assignedClasses[0];
+
+    // Find the timetable for this class
+    const timetable = await Timetable.findOne({
+        schoolId,
+        standard: assignedClass.standard,
+        section: assignedClass.section,
+    }).sort({ academicYear: -1 }).lean();
+
+    if (!timetable) {
+        throw new NotFoundError(`No timetable found for class ${assignedClass.standard}-${assignedClass.section}`);
+    }
+
+    // Get all entries for this timetable
+    const result = await TimetableEntry.find({
+        schoolId,
+        timetableId: timetable._id
+    })
         .populate("teacherId", "name isArchived")
         .populate("timetableId", "standard section academicYear")
         .populate("timeSlotId", "slotNumber startTime endTime slotType")
@@ -423,11 +699,22 @@ export const getUserTimetable = async (schoolId, userId, role, platform) => {
                 startTime: entry.timeSlotId?.startTime,
                 endTime: entry.timeSlotId?.endTime,
                 slotNumber: entry.timeSlotId?.slotNumber,
-                slotType: entry.timeSlotId?.slotType
+                slotType: entry.timeSlotId?.slotType,
+                isProxy: entry.isProxy || false,
+                originalTeacher: entry.originalTeacherId?.name,
+                standard: entry.standard,
+                section: entry.section
             }));
         });
         return formatted;
     }
 
-    return grouped;
+    return {
+        timetable: grouped,
+        classInfo: {
+            standard: assignedClass.standard,
+            section: assignedClass.section,
+            subjects: assignedClass.subjects || []
+        }
+    };
 };

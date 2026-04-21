@@ -143,28 +143,41 @@ const seedExaminations = async () => {
     const examRecords = [];
     const classSections = getSchoolClassSections(code);
 
+    let examCount = 0;
     classSections.forEach((classRef, classIdx) => {
-      if (examRecords.length >= 100) return;
+      if (examCount >= 25) return;
 
       const classLabel = `${classRef.standard}-${classRef.section}`;
       const classKey = classLabel.toUpperCase();
       const subjects = getSubjectsForStandard(classRef.standard);
       const templates = [examData.classTestTemplate, examData.termExamTemplate];
 
-      templates.forEach((template) => {
-        if (examRecords.length >= 100) return;
+      templates.forEach((baseTemplate) => {
+        if (examCount >= 25) return;
 
-        // Try to find a teacher for this class to serve as creator for class tests.
-        // We select the teacher of the first subject.
         const defaultSubject = subjects[0];
         const teacherUserId = assignmentMap.get(`${classKey}-${defaultSubject}`);
 
-        if (template.examType === "CLASS_TEST" && !teacherUserId) {
-          return; // skip if we can't tie it to a teacher
+        if (baseTemplate.examType === "CLASS_TEST" && !teacherUserId) {
+          return;
         }
 
-        const createdBy = template.examType === "CLASS_TEST" ? teacherUserId : admin._id;
-        const createdByRole = template.examType === "CLASS_TEST" ? "teacher" : admin.role;
+        const createdBy = baseTemplate.examType === "CLASS_TEST" ? teacherUserId : admin._id;
+        const createdByRole = baseTemplate.examType === "CLASS_TEST" ? "teacher" : admin.role;
+
+        // Clone template to safely mutate daysFromNow
+        const template = { ...baseTemplate };
+        
+        // Force first 10 to be past (COMPLETED), remaining 15 to be future (PUBLISHED/DRAFT)
+        if (examCount < 10) {
+          template.daysFromNow = -30 - (examCount * 2); // strictly past
+        } else {
+          template.daysFromNow = 15 + (examCount * 2);  // strictly future
+        }
+
+        const schedule = buildSchedule(template, classIdx, classRef, subjects, assignmentMap, admin._id);
+        const isPast = schedule.every((s) => new Date(s.examDate).getTime() < new Date().getTime());
+        const status = isPast ? "COMPLETED" : "PUBLISHED";
 
         examRecords.push({
           schoolId: school._id,
@@ -175,12 +188,14 @@ const seedExaminations = async () => {
           standard: classRef.standard,
           section: classRef.section,
           description: fillTemplate(template.descriptionTemplate, { classLabel }),
-          schedule: buildSchedule(template, classIdx, classRef, subjects, assignmentMap, admin._id),
-          status: template.status,
+          schedule,
+          status,
           createdBy,
           createdByRole,
           isActive: true,
         });
+
+        examCount++;
       });
     });
 
@@ -189,7 +204,7 @@ const seedExaminations = async () => {
       : [];
 
     const calendarEvents = insertedExams
-      .filter((exam) => exam.status === "PUBLISHED")
+      .filter((exam) => exam.status === "PUBLISHED" || exam.status === "COMPLETED")
       .flatMap((exam) => buildCalendarEvents(exam, school._id));
 
     if (calendarEvents.length) {

@@ -2,6 +2,17 @@ import { z } from "zod";
 
 const objectIdSchema = z.string().regex(/^[0-9a-fA-F]{24}$/, "Invalid ObjectId");
 
+const attachmentSchema = z.object({
+    url: z.string().url(),
+    publicId: z.string().optional(),
+    name: z.string().optional(),
+    originalName: z.string().optional(),
+    fileType: z.string().optional(),
+    mimeType: z.string().nullable().optional(),
+    size: z.number().int().min(0).nullable().optional(),
+    uploadedAt: z.union([z.string().datetime({ offset: true }), z.date()]).nullable().optional(),
+});
+
 // Time format: HH:MM (24-hour)
 const timeSchema = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Invalid time format (HH:MM)").optional();
 
@@ -10,6 +21,7 @@ const timeSchema = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Invalid time f
 // ═══════════════════════════════════════════════════════════════
 
 const scheduleItemSchema = z.object({
+    _id: z.union([objectIdSchema, z.literal("")]).optional(),
     subject: z.string({ required_error: "Subject is required" }).nonempty().max(100),
     examDate: z.string({ required_error: "Exam date is required" })
         .datetime({ offset: true })
@@ -27,6 +39,7 @@ const scheduleItemSchema = z.object({
     passingMarks: z.number().int().min(0).optional().default(0),
     assignedTeacher: objectIdSchema.optional(),
     syllabus: z.string().max(500).optional(),
+    attachments: z.array(attachmentSchema).max(10, "Maximum 10 attachments allowed per paper").optional().default([]),
 });
 
 // ═══════════════════════════════════════════════════════════════
@@ -43,8 +56,8 @@ export const createExamSchema = z.object({
             .default("OTHER"),
         categoryDescription: z.string().max(200).optional(),
         academicYear: z.number({ required_error: "Academic year is required" }).int().min(2000).max(2100),
-        standard: z.string({ required_error: "Standard is required" }).nonempty(),
-        section: z.string({ required_error: "Section is required" }).nonempty(),
+        standard: z.union([z.string(), z.array(z.string())], { required_error: "Standard is required" }),
+        section: z.union([z.string(), z.array(z.string())], { required_error: "Section is required" }),
         description: z.string().max(500).optional(),
         schedule: z.array(scheduleItemSchema).optional().default([]),
         schoolId: objectIdSchema.optional(),
@@ -70,8 +83,8 @@ export const updateExamSchema = z.object({
         schedule: z.array(scheduleItemSchema).optional(),
         status: z.enum(["DRAFT", "PUBLISHED", "COMPLETED", "CANCELLED"]).optional(),
         examType: z.enum(["TERM_EXAM", "CLASS_TEST"]).optional(),
-        standard: z.string().optional(),
-        section: z.string().optional(),
+        standard: z.union([z.string(), z.array(z.string())]).optional(),
+        section: z.union([z.string(), z.array(z.string())]).optional(),
         academicYear: z.number().optional(),
         schoolId: objectIdSchema.optional(),
     }),
@@ -107,6 +120,25 @@ export const getExamsQuerySchema = z.object({
 export const examIdParamsSchema = z.object({
     params: z.object({
         id: objectIdSchema,
+    }),
+});
+
+export const scheduleAttachmentParamsSchema = z.object({
+    params: z.object({
+        id: objectIdSchema,
+        scheduleItemId: objectIdSchema,
+    }),
+});
+
+export const scheduleSyllabusUpdateSchema = z.object({
+    params: z.object({
+        id: objectIdSchema,
+        scheduleItemId: objectIdSchema,
+    }),
+    body: z.object({
+        syllabus: z.string().max(500).optional(),
+        attachments: z.array(attachmentSchema).max(10, "Maximum 10 attachments allowed per paper").optional().default([]),
+        suppressNotice: z.boolean().optional(),
     }),
 });
 

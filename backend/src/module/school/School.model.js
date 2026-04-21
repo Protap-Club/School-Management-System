@@ -13,6 +13,13 @@ const classSectionSchema = new mongoose.Schema(
       trim: true,
       uppercase: true,
     },
+    subjects: [
+      {
+        type: String,
+        trim: true,
+        maxlength: [100, "Subject name cannot exceed 100 characters"],
+      },
+    ],
   },
   { _id: false }
 );

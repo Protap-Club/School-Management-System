@@ -148,9 +148,7 @@ export const getTodayAttendance = async (user, platform) => {
 
     const schoolId = user.schoolId?._id || user.schoolId;
 
-    // Platform-specific logic (same pattern as auth.service.js)
     if (platform === 'mobile') {
-        // Mobile: Only students and teachers allowed
         if (user.role === USER_ROLES.STUDENT) {
             return await getStudentMobileAttendance(user._id, schoolId);
         } else if (user.role === USER_ROLES.TEACHER) {
@@ -160,10 +158,40 @@ export const getTodayAttendance = async (user, platform) => {
         }
     }
 
-    // Web/default: existing behavior (all school records for admin dashboard)
+    // For web:
     const startOfDay = new Date();
     startOfDay.setHours(0, 0, 0, 0);
 
+    // If teacher, ONLY fetch records for students in their classTeacherOf class
+    if (user.role === USER_ROLES.TEACHER) {
+        const teacherProfile = await TeacherProfile.findOne({ userId: user._id, schoolId })
+            .select("classTeacherOf")
+            .lean();
+
+        if (!teacherProfile?.classTeacherOf?.standard || !teacherProfile?.classTeacherOf?.section) {
+            return []; // Not a class teacher, no students to show
+        }
+        const homeroomStandard = String(teacherProfile.classTeacherOf.standard).trim();
+        const homeroomSection = String(teacherProfile.classTeacherOf.section).trim().toUpperCase();
+
+        const classStudents = await StudentProfile.find({
+            schoolId,
+            standard: homeroomStandard,
+            section: homeroomSection
+        }).select("userId").lean();
+
+        const studentIds = classStudents.map(s => s.userId);
+
+        if (!studentIds.length) return [];
+
+        return await Attendance.find({
+            schoolId,
+            studentId: { $in: studentIds },
+            date: { $gte: startOfDay }
+        }).select("studentId status checkInTime").sort({ checkInTime: -1 }).lean();
+    }
+
+    // For admin/super_admin: fetch recent school records
     const records = await Attendance.find({
         schoolId,
         date: { $gte: startOfDay }
@@ -218,26 +246,25 @@ const getStudentMobileAttendance = async (studentId, schoolId) => {
     };
 };
 
-// TEACHER: Returns assigned-class students with today's attendance status
+// TEACHER: Returns class-teacher students with today's attendance status
 const getTeacherMobileAttendance = async (teacherUserId, schoolId) => {
-    // Step 1: Get teacher's assigned classes
+    // Step 1: Get teacher's class-teacher assignment
     const teacherProfile = await TeacherProfile.findOne({ userId: teacherUserId, schoolId })
-        .select("assignedClasses")
+        .select("classTeacherOf")
         .lean();
 
-    if (!teacherProfile || !teacherProfile.assignedClasses?.length) {
+    if (!teacherProfile?.classTeacherOf?.standard || !teacherProfile?.classTeacherOf?.section) {
         return { students: [] };
     }
+    const homeroomStandard = String(teacherProfile.classTeacherOf.standard).trim();
+    const homeroomSection = String(teacherProfile.classTeacherOf.section).trim().toUpperCase();
 
-    // Step 2: Build OR conditions for each assigned class (standard + section)
-    const classConditions = teacherProfile.assignedClasses.map(c => ({
+    // Step 2: Get all students in the teacher's class-teacher class
+    const studentProfiles = await StudentProfile.find({
         schoolId,
-        standard: c.standard,
-        section: c.section
-    }));
-
-    // Step 3: Get all students in those classes
-    const studentProfiles = await StudentProfile.find({ $or: classConditions })
+        standard: homeroomStandard,
+        section: homeroomSection
+    })
         .select("userId rollNumber standard section fatherName fatherContact motherName motherContact")
         .populate("userId", "_id name email")
         .lean();
@@ -323,7 +350,7 @@ export const markManualAttendance = async (markerUserId, markerRole, studentId, 
         throw new NotFoundError("Student not found in this school");
     }
 
-    // Step 2: If teacher, verify they are assigned to the student's class
+    // Step 2: If teacher, verify they are class teacher of the student's class
     if (markerRole === USER_ROLES.TEACHER) {
         const studentProfile = await StudentProfile.findOne({ userId: studentId, schoolId })
             .select("standard section")
@@ -334,20 +361,22 @@ export const markManualAttendance = async (markerUserId, markerRole, studentId, 
         }
 
         const teacherProfile = await TeacherProfile.findOne({ userId: markerUserId, schoolId })
-            .select("assignedClasses")
+            .select("classTeacherOf")
             .lean();
 
-        if (!teacherProfile || !teacherProfile.assignedClasses?.length) {
-            throw new ForbiddenError("You have no assigned classes");
+        if (!teacherProfile?.classTeacherOf?.standard || !teacherProfile?.classTeacherOf?.section) {
+            throw new ForbiddenError("You are not assigned as class teacher to any class");
         }
+        const homeroomStandard = String(teacherProfile.classTeacherOf.standard).trim();
+        const homeroomSection = String(teacherProfile.classTeacherOf.section).trim().toUpperCase();
 
-        // Check if teacher is assigned to the student's standard + section
-        const isAssigned = teacherProfile.assignedClasses.some(
-            c => c.standard === studentProfile.standard && c.section === studentProfile.section
-        );
+        // Check if teacher is class teacher of the student's standard + section
+        const isAssigned =
+            homeroomStandard === String(studentProfile.standard).trim() &&
+            homeroomSection === String(studentProfile.section).trim().toUpperCase();
 
         if (!isAssigned) {
-            throw new ForbiddenError("You can only mark attendance for students in your assigned classes");
+            throw new ForbiddenError("You can only mark attendance for students in your class-teacher class");
         }
     }
 
