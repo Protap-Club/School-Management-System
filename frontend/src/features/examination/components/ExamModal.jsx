@@ -753,7 +753,6 @@ const ExamModal = ({ isOpen, onClose, onSubmit, editData, isLoading, userRole, u
                                                 <div className="flex-1 min-w-[200px]">
                                                 {isTeacher ? (
                                                     <SearchableSelect
-                                                        label="Class"
                                                         placeholder="Select Class"
                                                         options={(availableStandards || []).map((s) => ({ label: `Class ${s}`, value: s }))}
                                                         value={form.standard?.[0] || ''}
@@ -782,7 +781,6 @@ const ExamModal = ({ isOpen, onClose, onSubmit, editData, isLoading, userRole, u
                                                 <div className="flex-1 min-w-[200px]">
                                                 {isTeacher ? (
                                                     <SearchableSelect
-                                                        label="Section"
                                                         placeholder="Select Section"
                                                         options={(availableSections || []).map((s) => ({ label: `Section ${s}`, value: s }))}
                                                         value={form.section?.[0] || ''}

@@ -4,7 +4,7 @@ import { formatValue } from './index.js';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
-const SCHOOL_NAME = 'Navrachna International School';
+const DEFAULT_SCHOOL_NAME = 'School Management System';
 const ACADEMIC_YEAR = 'Academic Year 2026';
 
 const MONTH_LABELS = {
@@ -975,6 +975,195 @@ export const generateTimetable = async ({
     : `schedule-${standard}.pdf`;
 
   doc.save(filename);
+};
+
+// ─── Exam Schedule Generator ────────────────────────────────────────────────
+
+/**
+ * Generates an official examination schedule PDF.
+ * 
+ * @param {object} exam     - The basic exam document
+ * @param {object} meta     - Calculated metadata (subjects, duration, candidate count, etc.)
+ * @param {string} school   - School name for branding
+ */
+export const generateExamSchedulePDF = (exam, meta, school = DEFAULT_SCHOOL_NAME) => {
+    console.log('Generating Exam Schedule PDF...', { exam, meta });
+    
+    try {
+        const doc = new jsPDF({ orientation: 'portrait' });
+        const pw = doc.internal.pageSize.width;
+        const navy = [30, 41, 59]; // slate-800
+        const primary = [79, 70, 229]; // indigo-600
+        const slate600 = [75, 85, 99];
+        const slate400 = [148, 163, 184];
+
+        // ── Header ──────────────────────────────────────────────────────────────
+        doc.setFillColor(...navy);
+        doc.rect(0, 0, pw, 50, 'F');
+        
+        doc.setFontSize(24);
+        doc.setTextColor(255, 255, 255);
+        doc.setFont(undefined, 'bold');
+        doc.text(exam.name.toUpperCase(), 20, 30);
+        
+        doc.setFontSize(10);
+        doc.setFont(undefined, 'normal');
+        doc.text(school.toUpperCase(), pw - 20, 20, { align: 'right' });
+        doc.text(`AY ${exam.academicYear} • ${exam.category} EXAM`, pw - 20, 30, { align: 'right' });
+
+        // ── Info Cards ──────────────────────────────────────────────────────────
+        let y = 65;
+        const drawMetadataField = (label, value, x, w) => {
+            doc.setFontSize(8);
+            doc.setTextColor(...slate400);
+            doc.setFont(undefined, 'bold');
+            doc.text(label.toUpperCase(), x, y);
+            
+            doc.setFontSize(11);
+            doc.setTextColor(...navy);
+            doc.setFont(undefined, 'bold');
+            doc.text(String(value), x, y + 6);
+        };
+
+        const targetText = `Class ${exam.standard} — ${Array.isArray(exam.section) ? exam.section.join(', ') : (exam.section || 'All')}`;
+        drawMetadataField('Target Audience', targetText, 20, 80);
+        drawMetadataField('Schedule Period', meta?.dateLabel || 'N/A', pw / 2 - 10, 60);
+        drawMetadataField('Total Sessions', `${exam.schedule?.length || 0} Subjects`, pw - 50, 40, { align: 'right' });
+
+        y += 25;
+
+        // ── Instructions / Overview ─────────────────────────────────────────────
+        if (exam.description) {
+            doc.setFillColor(248, 250, 252); // slate-50
+            doc.setDrawColor(226, 232, 240); // slate-200
+            
+            // Calculate height for description
+            const splitDescription = doc.splitTextToSize(exam.description, pw - 50);
+            const descHeight = (splitDescription.length * 5) + 15;
+            
+            doc.roundedRect(20, y, pw - 40, descHeight, 2, 2, 'FD');
+            
+            doc.setFontSize(8);
+            doc.setTextColor(...slate400);
+            doc.setFont(undefined, 'bold');
+            doc.text('OVERVIEW & INSTRUCTIONS', 28, y + 8);
+            
+            doc.setFontSize(9);
+            doc.setTextColor(...slate600);
+            doc.setFont(undefined, 'italic');
+            doc.text(splitDescription, 28, y + 16);
+            
+            y += descHeight + 10;
+        }
+
+        // ── Timetable Section ───────────────────────────────────────────────────
+        doc.setFontSize(12);
+        doc.setTextColor(...navy);
+        doc.setFont(undefined, 'bold');
+        doc.text('EXAMINATION TIMETABLE', 20, y);
+        y += 6;
+
+        const tableData = (exam.schedule || []).map(slot => [
+            slot.subject,
+            new Date(slot.examDate).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }),
+            `${slot.startTime} — ${slot.endTime}`,
+            `${slot.totalMarks} Marks`,
+            slot.assignedTeacher?.name || 'Unassigned'
+        ]);
+
+        autoTable(doc, {
+            startY: y,
+            margin: { left: 20, right: 20 },
+            head: [['Subject', 'Date', 'Time', 'Max Marks', 'Invigilator']],
+            body: tableData,
+            theme: 'striped',
+            headStyles: { 
+                fillColor: [...navy], 
+                textColor: [255, 255, 255], 
+                fontSize: 10, 
+                fontStyle: 'bold',
+                cellPadding: 5
+            },
+            bodyStyles: {
+                fontSize: 9,
+                cellPadding: 5,
+                textColor: [30, 41, 59]
+            },
+            columnStyles: {
+                0: { fontStyle: 'bold', textColor: [...primary] },
+                3: { halign: 'center', fontStyle: 'bold' }
+            },
+            didDrawPage: (data) => {
+                // Add page number to footer on each page
+                doc.setFontSize(8);
+                doc.setTextColor(...slate400);
+                doc.text(
+                    `Page ${data.pageNumber}`,
+                    pw / 2,
+                    doc.internal.pageSize.height - 10,
+                    { align: 'center' }
+                );
+            }
+        });
+
+        // ── Syllabus Appendix ───────────────────────────────────────────────────
+        const hasSyllabus = exam.schedule?.some(s => s.syllabus);
+        if (hasSyllabus) {
+            let finalY = doc.lastAutoTable.finalY + 20;
+            
+            // Check if we need a new page for syllabus
+            if (finalY > doc.internal.pageSize.height - 40) {
+                doc.addPage();
+                finalY = 30;
+            }
+
+            doc.setFontSize(12);
+            doc.setTextColor(...navy);
+            doc.setFont(undefined, 'bold');
+            doc.text('SYLLABUS DETAILS', 20, finalY);
+            finalY += 10;
+
+            exam.schedule.forEach(slot => {
+                if (!slot.syllabus) return;
+
+                const splitSyllabus = doc.splitTextToSize(slot.syllabus, pw - 40);
+                const heightNeeded = (splitSyllabus.length * 5) + 15;
+
+                if (finalY + heightNeeded > doc.internal.pageSize.height - 20) {
+                    doc.addPage();
+                    finalY = 30;
+                }
+
+                doc.setFontSize(10);
+                doc.setTextColor(...primary);
+                doc.setFont(undefined, 'bold');
+                doc.text(slot.subject, 20, finalY);
+                
+                doc.setFontSize(9);
+                doc.setTextColor(...slate600);
+                doc.setFont(undefined, 'normal');
+                doc.text(splitSyllabus, 20, finalY + 7);
+                
+                finalY += heightNeeded;
+            });
+        }
+
+        // ── Footer Branding ─────────────────────────────────────────────────────
+        const documentFooterY = doc.internal.pageSize.height - 15;
+        doc.setFontSize(8);
+        doc.setTextColor(...slate400);
+        doc.text(
+            `${school} Official Examination Schedule • Generated on ${new Date().toLocaleDateString()}`,
+            pw / 2,
+            documentFooterY,
+            { align: 'center' }
+        );
+
+        doc.save(`Exam_Schedule_${exam.name.replace(/\s+/g, '_')}_${exam.standard}.pdf`);
+
+    } catch (error) {
+        console.error('Failed to generate Exam Schedule PDF:', error);
+    }
 };
 
 // Backward-compatible alias used by timetable feature imports.

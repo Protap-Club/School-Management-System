@@ -15,6 +15,7 @@ import { EmptyState } from '../../components/ui/EmptyState';
 import { ButtonSpinner } from '../../components/ui/Spinner';
 import { useToastMessage } from '../../hooks/useToastMessage';
 import { PaginationControls } from '../../components/ui/PaginationControls';
+import { generateTimetablePDF, generateExamSchedulePDF } from '@/utils/pdfGenerator';
 import { downloadFile } from '../../utils/downloadFile';
 import { useExamSubmit } from './useExamSubmit';
 
@@ -178,6 +179,16 @@ const ExaminationPage = () => {
   const isTeacher = user?.role === 'teacher';
   const showCandidatesInList = isAdmin;
   const showSubjectsInList = !showCandidatesInList;
+
+  // Retrieve school name from cached branding if available
+  const schoolName = useMemo(() => {
+    try {
+      const cached = JSON.parse(sessionStorage.getItem('schoolBranding'));
+      return (cached?.name || cached?.school?.name) || (user?.role === 'super_admin' ? 'Protap' : 'School Management System');
+    } catch {
+      return 'School Management System';
+    }
+  }, [user]);
 
   // Page-level guard: show disabled placeholder if feature is off
   if (examinationEnabled === false) {
@@ -893,7 +904,7 @@ const ExaminationPage = () => {
 
               <div className="p-6 bg-slate-50 flex justify-center border-t border-slate-100 no-print">
                 <button
-                  onClick={() => window.print()}
+                  onClick={() => generateExamSchedulePDF(selectedExam, selectedExamMeta, schoolName)}
                   className="flex items-center gap-3 px-10 py-3.5 bg-primary text-white rounded-2xl font-bold hover:bg-primary/90 transition-all shadow-xl shadow-primary/20 group"
                 >
                   <FaCalendarAlt size={18} className="group-hover:scale-110 transition-transform" />
