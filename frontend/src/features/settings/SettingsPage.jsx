@@ -20,6 +20,7 @@ import {
     normalizeClassSection,
 } from '@/utils/classSection';
 import {FaPalette,FaImage,FaCheck,FaUpload,FaToggleOn,FaBuilding,FaGraduationCap,FaPlus,FaTrash,FaCog,FaTimes,FaLayerGroup,FaUserGraduate,FaChalkboardTeacher,FaArrowRight} from 'react-icons/fa';
+import { DEFAULT_ACCENT_COLOR } from '@/state/themeSlice';
 
 const THEME_COLORS = [
     { name: 'Royal Blue', value: '#2563eb' },
@@ -101,22 +102,39 @@ const REACT_SELECT_STYLES = {
         },
     }),
 };
+
+const mergeSchoolProfileCache = (prev, school) => ({
+    ...(prev || {}),
+    success: true,
+    data: {
+        ...(prev?.data || {}),
+        school: {
+            ...(prev?.data?.school || {}),
+            ...school,
+            theme: {
+                ...(prev?.data?.school?.theme || {}),
+                ...(school.theme || {}),
+            },
+        },
+    },
+});
     
 const Settings = () => {
     const queryClient = useQueryClient();
     const location = useLocation();
     const navigate = useNavigate();
     const { user: currentUser } = useAuth();
-    const { updateTheme, fetchBranding } = useTheme();
+    const { branding, updateTheme, fetchBranding, applyBrandingSnapshot } = useTheme();
     const { refreshFeatures } = useFeatures();
     const isSuperAdmin = currentUser?.role === 'super_admin';
     const canManageAcademic = ['super_admin', 'admin'].includes(currentUser?.role);
     const currentSchoolId = currentUser?.schoolId?._id || currentUser?.schoolId;
     const fileInputRef = useRef(null);
 
-    const [settings, setSettings] = useState({ logoUrl: '', logoPublicId: '', updatedAt: '', theme: { accentColor: '#2563eb' } });
+    const [settings, setSettings] = useState({ logoUrl: '', logoPublicId: '', updatedAt: '', theme: { accentColor: DEFAULT_ACCENT_COLOR } });
     const [loading, setLoading] = useState(true);
     const [uploading, setUploading] = useState(false);
+    const [savingTheme, setSavingTheme] = useState(false);
     const { message, showMessage } = useToastMessage();
 
     const [features, setFeatures] = useState({});
@@ -142,20 +160,29 @@ const Settings = () => {
     // Shared hook — provides classSections + real-time socket sync
     const { classSections, loading: classesLoading } = useSchoolClasses({ enabled: canManageAcademic });
 
+    const applySchoolSettings = useCallback((school) => {
+        if (!school) return;
+
+        setSettings((prev) => ({
+            ...prev,
+            logoUrl: school.logoUrl || '',
+            logoPublicId: school.logoPublicId || '',
+            updatedAt: school.updatedAt || '',
+            theme: school.theme || prev.theme || { accentColor: DEFAULT_ACCENT_COLOR },
+        }));
+
+        if (isSuperAdmin && school.features) {
+            setFeatures(school.features || {});
+        }
+    }, [isSuperAdmin]);
+
     useEffect(() => {
         const fetchSchoolData = async () => {
             try {
                 if (isSuperAdmin) setFeaturesLoading(true);
                 const response = await api.get('/school/');
                 if (response.data.success && response.data.data?.school) {
-                    const school = response.data.data.school;
-                    setSettings({
-                        logoUrl: school.logoUrl || '',
-                        logoPublicId: school.logoPublicId || '',
-                        updatedAt: school.updatedAt || '',
-                        theme: school.theme || { accentColor: '#2563eb' },
-                    });
-                    if (isSuperAdmin) setFeatures(school.features || {});
+                    applySchoolSettings(response.data.data.school);
                 }
             } catch (error) {
                 console.error('Failed to fetch settings', error);
@@ -166,7 +193,12 @@ const Settings = () => {
         };
 
         fetchSchoolData();
-    }, [currentSchoolId, isSuperAdmin]);
+    }, [applySchoolSettings, currentSchoolId, isSuperAdmin]);
+
+    useEffect(() => {
+        if (!branding) return;
+        applySchoolSettings(branding);
+    }, [applySchoolSettings, branding]);
 
     useEffect(() => {
         if (!loading && location.hash === '#academic-management') {
@@ -208,17 +240,42 @@ const Settings = () => {
     }, [currentSchoolId, togglingFeature, features, refreshFeatures, showMessage]);
 
     const handleColorSelect = useCallback(async (colorValue) => {
+        const previousColor = settings.theme?.accentColor || DEFAULT_ACCENT_COLOR;
+        if (savingTheme || colorValue === previousColor) return;
+
+        setSavingTheme(true);
         setSettings((prev) => ({ ...prev, theme: { ...prev.theme, accentColor: colorValue } }));
         updateTheme(colorValue);
+        queryClient.setQueryData(settingsKeys.profile(), (prev) =>
+            mergeSchoolProfileCache(prev, { theme: { accentColor: colorValue } })
+        );
+
         try {
-            await api.put('/school/', { theme: { accentColor: colorValue } });
+            const response = await api.put('/school/', { theme: { accentColor: colorValue } });
+            const updatedSchool = response.data?.data?.school;
+            if (updatedSchool) {
+                applySchoolSettings(updatedSchool);
+                applyBrandingSnapshot(updatedSchool);
+                queryClient.setQueryData(settingsKeys.profile(), (prev) => mergeSchoolProfileCache(prev, updatedSchool));
+                window.dispatchEvent(new CustomEvent('settingsUpdated', { detail: { school: updatedSchool } }));
+            } else {
+                fetchBranding();
+                queryClient.invalidateQueries({ queryKey: settingsKeys.profile() });
+            }
             showMessage('success', 'Theme updated successfully');
-            fetchBranding();
         } catch (error) {
             console.error('Failed to save theme', error);
+            setSettings((prev) => ({ ...prev, theme: { ...prev.theme, accentColor: previousColor } }));
+            updateTheme(previousColor);
+            queryClient.setQueryData(settingsKeys.profile(), (prev) =>
+                mergeSchoolProfileCache(prev, { theme: { accentColor: previousColor } })
+            );
+            fetchBranding();
             showMessage('error', 'Failed to save theme');
+        } finally {
+            setSavingTheme(false);
         }
-    }, [updateTheme, showMessage, fetchBranding]);
+    }, [applyBrandingSnapshot, applySchoolSettings, fetchBranding, queryClient, savingTheme, settings.theme?.accentColor, showMessage, updateTheme]);
 
     const handleFileUpload = async (e) => {
         const file = e.target.files?.[0];
@@ -251,28 +308,15 @@ const Settings = () => {
             });
 
             if (response.data.success) {
-                const nextLogo = {
-                    logoUrl: response.data.data.logoUrl || '',
-                    logoPublicId: response.data.data.logoPublicId || '',
-                    updatedAt: response.data.data.updatedAt || '',
-                };
-                setSettings((prev) => ({ ...prev, ...nextLogo }));
-                queryClient.setQueryData(settingsKeys.profile(), (prev) => {
-                    if (!prev?.data?.school) return prev;
-                    return {
-                        ...prev,
-                        data: {
-                            ...prev.data,
-                            school: {
-                                ...prev.data.school,
-                                ...nextLogo,
-                            },
-                        },
-                    };
-                });
+                const updatedSchool = response.data?.data?.school;
+                if (updatedSchool) {
+                    applySchoolSettings(updatedSchool);
+                    applyBrandingSnapshot(updatedSchool);
+                    queryClient.setQueryData(settingsKeys.profile(), (prev) => mergeSchoolProfileCache(prev, updatedSchool));
+                    window.dispatchEvent(new CustomEvent('settingsUpdated', { detail: { school: updatedSchool } }));
+                }
                 queryClient.invalidateQueries({ queryKey: settingsKeys.profile() });
                 showMessage('success', 'Logo uploaded successfully');
-                window.dispatchEvent(new Event('settingsUpdated'));
             }
         } catch (error) {
             showMessage('error', error?.response?.data?.message || 'Failed to upload logo');
@@ -465,7 +509,7 @@ const Settings = () => {
         );
     }
 
-    const accentColor = settings.theme?.accentColor || '#2563eb';
+    const accentColor = settings.theme?.accentColor || DEFAULT_ACCENT_COLOR;
     const hasStudentsToMove = (deletePrompt?.studentCount || 0) > 0;
     const hasTeachersToMove = (deletePrompt?.teacherCount || 0) > 0;
     const deleteActionLabel = hasStudentsToMove
@@ -803,8 +847,8 @@ const Settings = () => {
                                         <p className="text-sm text-gray-500">Choose a premium accent color</p>
                                     </div>
                                 </div>
-                                <span className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-100 px-2.5 py-1 rounded-full font-semibold">
-                                    Auto Save
+                                <span className={`text-xs px-2.5 py-1 rounded-full font-semibold border ${savingTheme ? 'text-amber-700 bg-amber-50 border-amber-100' : 'text-emerald-700 bg-emerald-50 border-emerald-100'}`}>
+                                    {savingTheme ? 'Saving...' : 'Auto Save'}
                                 </span>
                             </div>
                             <div className="px-6 pt-6 pb-12">
@@ -814,7 +858,8 @@ const Settings = () => {
                                             key={color.value}
                                             type="button"
                                             onClick={() => handleColorSelect(color.value)}
-                                            className={`group relative w-14 h-14 rounded-2xl transition-all duration-200 hover:scale-105 focus:outline-none shadow-sm ${accentColor === color.value ? 'ring-2 ring-offset-4 ring-slate-900 scale-105' : 'hover:ring-2 hover:ring-offset-2 hover:ring-gray-200'}`}
+                                            disabled={savingTheme}
+                                            className={`group relative w-14 h-14 rounded-2xl transition-all duration-200 focus:outline-none shadow-sm ${savingTheme ? 'cursor-wait opacity-70' : 'hover:scale-105'} ${accentColor === color.value ? 'ring-2 ring-offset-4 ring-slate-900 scale-105' : 'hover:ring-2 hover:ring-offset-2 hover:ring-gray-200'}`}
                                             style={{ backgroundColor: color.value }}
                                             title={color.name}
                                         >

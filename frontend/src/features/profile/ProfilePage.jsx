@@ -1,21 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/features/auth';
 import { useMutation } from '@tanstack/react-query';
 import { authApi } from '@/features/auth';
 import { User, Mail, Shield, Building2, Calendar, ChevronLeft, Eye, EyeOff } from 'lucide-react';
-import api from '@/lib/axios';
+import { useSelector } from 'react-redux';
+import { selectBranding } from '@/state/themeSlice';
 
 const Profile = () => {
     const { user, logout } = useAuth();
     const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState('info');
-    const [schoolName, setSchoolName] = useState(() => {
-        try {
-            const cached = JSON.parse(sessionStorage.getItem('schoolBranding'));
-            return cached?.name || cached?.school?.name || null;
-        } catch { return null; }
-    });
+    const schoolName = useSelector(selectBranding)?.name || user?.schoolName || null;
     
     // Password states
     const [currentPassword, setCurrentPassword] = useState('');
@@ -26,23 +22,6 @@ const Profile = () => {
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState(false);
-
-    useEffect(() => {
-        const fetchSchool = async () => {
-            if (schoolName) return;
-            try {
-                const response = await api.get('/school');
-                if (response.data?.success && response.data?.data) {
-                    const schoolData = response.data.data.school || response.data.data;
-                    setSchoolName(schoolData?.name);
-                    sessionStorage.setItem('schoolBranding', JSON.stringify(schoolData));
-                }
-            } catch (error) {
-                console.error('Failed to fetch school', error);
-            }
-        };
-        fetchSchool();
-    }, [schoolName]);
 
     const updatePasswordMutation = useMutation({
         mutationFn: authApi.updatePassword,

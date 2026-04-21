@@ -5,12 +5,12 @@ import { useNavigate } from 'react-router-dom';
 import { headerContent } from '../../config/headerContent.js';
 import { FaSignOutAlt, FaBell, FaUser } from 'react-icons/fa';
 import AvatarUploadModal from './AvatarUploadModal';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { setUser } from '../../features/auth/authSlice';
 import { useReceivedNotices } from '../../features/notices';
 import { useQueryClient } from '@tanstack/react-query';
 import { authKeys } from '../../features/auth/api/api';
-import api from '../../lib/axios';
+import { selectBranding } from '../../state/themeSlice';
 
 const ROLE_GRADIENTS = {
     super_admin: 'from-purple-600 to-blue-600',
@@ -19,18 +19,12 @@ const ROLE_GRADIENTS = {
 };
 
 const Header = () => {
-    const { user, logout, accessToken } = useAuth();
+    const { user, logout } = useAuth();
     const { isMobileOpen, toggleSidebar, setMobileSidebarOpen } = useSidebar();
     const navigate = useNavigate();
     const dispatch = useDispatch();
     const queryClient = useQueryClient();
-    const [school, setSchool] = useState(() => {
-        try {
-            const cached = JSON.parse(sessionStorage.getItem('schoolBranding'));
-            return (cached?.school || cached) || null;
-        } catch { return null; }
-    });
-    const [refreshKey, setRefreshKey] = useState(() => Date.now());
+    const school = useSelector(selectBranding);
     const [dropdownOpen, setDropdownOpen] = useState(false);
     const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
     const dropdownRef = useRef(null);
@@ -56,27 +50,6 @@ const Header = () => {
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
-
-    useEffect(() => {
-        const fetchBranding = async () => {
-            if (!user || !accessToken) return;
-
-            try {
-                const response = await api.get('/school');
-                if (response.data.success && response.data.data) {
-                    const schoolData = response.data.data.school || response.data.data;
-                    setSchool(schoolData);
-                    sessionStorage.setItem('schoolBranding', JSON.stringify(schoolData));
-                    setRefreshKey(Date.now());
-                }
-            } catch (error) {
-                console.error('Failed to fetch branding', error);
-            }
-        };
-        fetchBranding();
-        window.addEventListener('settingsUpdated', fetchBranding);
-        return () => window.removeEventListener('settingsUpdated', fetchBranding);
-    }, [user, accessToken]);
 
     const handleUploadSuccess = (payload) => {
         if (user) {
@@ -111,6 +84,7 @@ const Header = () => {
 
     const title = school?.name || (user?.role === 'super_admin' ? 'Protap' : 'SMS Portal');
     const logo = school?.logoUrl || null;
+    const logoVersion = school?.logoPublicId || school?.updatedAt || null;
     const roleGradient = ROLE_GRADIENTS[user?.role] || 'from-gray-600 to-gray-700';
     const avatarVersion = user?.avatarPublicId || user?.updatedAt || null;
     const avatarSrc = user?.avatarUrl
@@ -132,7 +106,7 @@ const Header = () => {
                 <div className="flex min-w-0 items-center gap-2 sm:gap-3">
                     {(logo || headerContent.logo) ? (
                         <img
-                            src={logo ? `${logo}${logo.includes('?') ? '&' : '?'}t=${refreshKey}` : headerContent.logo}
+                            src={logo ? `${logo}${logoVersion ? `${logo.includes('?') ? '&' : '?'}v=${encodeURIComponent(logoVersion)}` : ''}` : headerContent.logo}
                             alt="Logo"
                             className="h-9 w-auto max-w-[2.5rem] object-contain sm:h-10 sm:max-w-none"
                             onError={(e) => { e.target.style.display = 'none'; }}

@@ -3,7 +3,7 @@
 
 import { useSelector, useDispatch } from 'react-redux';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
-import { useEffect } from 'react';
+import { useCallback, useEffect } from 'react';
 
 // ==== Sidebar Hook ====
 import {
@@ -39,20 +39,31 @@ export const useSidebar = () => {
 };
 
 // ==== Theme Hook ====
-import { selectBranding, setBranding, setAccentColor, applyThemeToDOM } from './themeSlice';
+import { selectBranding, setBranding, setAccentColor, applyThemeToDOM, extractBrandingSchool, DEFAULT_ACCENT_COLOR } from './themeSlice';
 import { selectAccessToken, selectIsAuthenticated } from '../features/auth';
 import api from '../lib/axios';
 
 // Theme query keys
-const themeKeys = {
+export const themeKeys = {
     branding: () => ['branding'],
 };
 
 export const useTheme = () => {
     const dispatch = useDispatch();
+    const queryClient = useQueryClient();
     const branding = useSelector(selectBranding);
     const isAuthenticated = useSelector(selectIsAuthenticated);
     const accessToken = useSelector(selectAccessToken);
+
+    const applyBrandingSnapshot = useCallback((payload) => {
+        const schoolData = extractBrandingSchool(payload);
+        if (!schoolData) return null;
+
+        dispatch(setBranding(schoolData));
+        applyThemeToDOM(schoolData.theme?.accentColor || DEFAULT_ACCENT_COLOR);
+
+        return schoolData;
+    }, [dispatch]);
 
     // Fetch branding using TanStack Query
     const { data: brandingData, isLoading: loading, refetch: fetchBranding } = useQuery({
@@ -68,32 +79,27 @@ export const useTheme = () => {
     // Sync TanStack Query data to Redux store
     useEffect(() => {
         if (brandingData?.data) {
-            const schoolData = brandingData.data.school || brandingData.data;
-            const apiColor = schoolData.theme?.accentColor;
-
-            // Centralize branding data in Redux
-            dispatch(setBranding(brandingData.data));
-
-            // Only apply theme from DOM if we don't have a local preference yet
-            // or if we're initializing and want to ensure the latest school brand is set.
-            // Note: updateTheme locally updates localStorage immediately.
-            if (apiColor && !localStorage.getItem('school-accent-color')) {
-                applyThemeToDOM(apiColor);
-                dispatch(setAccentColor(apiColor));
-            }
+            applyBrandingSnapshot(brandingData.data);
         }
-    }, [brandingData, dispatch]);
+    }, [applyBrandingSnapshot, brandingData]);
 
     // Listen for settings updates
     useEffect(() => {
-        const handleSettingsUpdate = () => {
+        const handleSettingsUpdate = (event) => {
+            const nextBranding = event?.detail?.school || event?.detail?.branding || event?.detail;
+            if (nextBranding) {
+                queryClient.setQueryData(themeKeys.branding(), { success: true, data: { school: nextBranding } });
+                applyBrandingSnapshot(nextBranding);
+                return;
+            }
+
             if (isAuthenticated) {
                 fetchBranding();
             }
         };
         window.addEventListener('settingsUpdated', handleSettingsUpdate);
         return () => window.removeEventListener('settingsUpdated', handleSettingsUpdate);
-    }, [isAuthenticated, fetchBranding]);
+    }, [applyBrandingSnapshot, fetchBranding, isAuthenticated, queryClient]);
 
     // Update theme (for immediate UI feedback)
     const updateTheme = (color) => {
@@ -101,7 +107,7 @@ export const useTheme = () => {
         dispatch(setAccentColor(color));
     };
 
-    return { branding, loading, updateTheme, fetchBranding };
+    return { branding, loading, updateTheme, fetchBranding, applyBrandingSnapshot };
 };
 
 // ==== Features Hook ====

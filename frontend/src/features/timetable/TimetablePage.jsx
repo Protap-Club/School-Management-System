@@ -27,6 +27,7 @@ import {
     useUpdateEntry,
 } from "./api/queries";
 import { Button } from "@/components/ui/button";
+import SearchableSelect from "@/components/ui/SearchableSelect";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { makeClassKey, sortClassSections } from "../../utils/classSection";
@@ -45,6 +46,12 @@ const toDateOnlyString = (date) => {
 };
 
 const buildDaySlotKey = (dayOfWeek, timeSlotId) => `${dayOfWeek}_${String(timeSlotId)}`;
+const formatTeacherClassLabel = (item) => {
+    const standard = String(item?.standard || "").trim();
+    const section = String(item?.section || "").trim().toUpperCase();
+    if (!standard || !section) return "";
+    return `${standard}-${section}`;
+};
 
 const TimetablePage = () => {
     const { user } = useAuth();
@@ -164,6 +171,40 @@ const TimetablePage = () => {
                 };
             }),
         [configuredClassSections, latestTimetableByClassKey]
+    );
+
+    const teacherOptions = useMemo(
+        () =>
+            [...teachers]
+                .sort((a, b) =>
+                    String(a?.name || "").localeCompare(String(b?.name || ""), undefined, {
+                        sensitivity: "base",
+                    })
+                )
+                .map((teacher) => {
+                    const classTeacherLabel = formatTeacherClassLabel(teacher?.profile?.classTeacherOf);
+                    const assignedClasses = Array.isArray(teacher?.profile?.assignedClasses)
+                        ? teacher.profile.assignedClasses
+                        : [];
+                    const assignedClassLabels = assignedClasses
+                        .map((item) => formatTeacherClassLabel(item))
+                        .filter(Boolean);
+                    const previewLabels = assignedClassLabels.slice(0, 2);
+
+                    let sublabel = "No class mapping added";
+                    if (classTeacherLabel) {
+                        sublabel = `Class teacher • ${classTeacherLabel}`;
+                    } else if (previewLabels.length > 0) {
+                        sublabel = `Assigned classes • ${previewLabels.join(", ")}${assignedClassLabels.length > previewLabels.length ? ` +${assignedClassLabels.length - previewLabels.length} more` : ""}`;
+                    }
+
+                    return {
+                        value: teacher._id,
+                        label: teacher.name || "Unnamed Teacher",
+                        sublabel,
+                    };
+                }),
+        [teachers]
     );
 
     useEffect(() => {
@@ -544,18 +585,17 @@ const TimetablePage = () => {
                                     </div>
                                 ) : (
                                     <div className="flex w-full flex-col gap-3 sm:flex-row sm:flex-wrap lg:w-auto lg:flex-nowrap lg:items-center lg:justify-end">
-                                        <Select value={activeTeacherId} onValueChange={setSelectedTeacherId}>
-                                            <SelectTrigger className="h-10 w-full rounded-md border-gray-200/80 text-[13px] font-medium focus:ring-gray-200 sm:w-52">
-                                                <SelectValue placeholder="Select teacher" />
-                                            </SelectTrigger>
-                                            <SelectContent className="rounded-md border-gray-200/80 shadow-sm">
-                                                {teachers.map((teacher) => (
-                                                    <SelectItem key={teacher._id} value={teacher._id} className="text-[13px]">
-                                                        {teacher.name}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
+                                        <div className="w-full sm:w-72">
+                                            <SearchableSelect
+                                                label={`Teacher List (${teacherOptions.length})`}
+                                                options={teacherOptions}
+                                                value={activeTeacherId}
+                                                onChange={setSelectedTeacherId}
+                                                placeholder="Search teacher by name or class"
+                                                disabled={!teacherOptions.length}
+                                                loading={teachersQuery.isLoading}
+                                            />
+                                        </div>
                                         {teacherScheduleEntries.length > 0 && activeTeacherId && (
                                             <Button
                                                 size="sm"

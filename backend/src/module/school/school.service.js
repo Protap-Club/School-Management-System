@@ -21,6 +21,57 @@ const escapeRegex = (value = "") => String(value).replace(/[.*+?^${}()|[\]\\]/g,
 const REMOVED_CLASS_MARKER_REGEX = /\(removed\b/i;
 const CLASS_STANDARD_REGEX = /^[A-Za-z0-9_]+$/;
 const CLASS_SECTION_REGEX = /^[A-Za-z0-9_]+$/;
+const DEFAULT_BRANDING = {
+    name: "Protap Club",
+    logoUrl: null,
+    logoPublicId: null,
+    updatedAt: null,
+    theme: { accentColor: "#2563eb" },
+};
+
+const buildSchoolProfileData = (school) => ({
+    name: school.name,
+    isActive: school.isActive,
+    code: school.code,
+    logoUrl: school.logoUrl,
+    logoPublicId: school.logoPublicId,
+    updatedAt: school.updatedAt,
+    theme: school.theme,
+    features: school.features,
+    schoolId: school._id,
+    _id: school._id,
+});
+
+const buildSchoolBrandingData = (school) => ({
+    ...DEFAULT_BRANDING,
+    ...(school ? {
+        name: school.name,
+        logoUrl: school.logoUrl,
+        logoPublicId: school.logoPublicId,
+        updatedAt: school.updatedAt,
+        theme: school.theme || DEFAULT_BRANDING.theme,
+        schoolId: school._id,
+        _id: school._id,
+    } : {}),
+});
+
+const emitSchoolBrandingChanged = (school) => {
+    if (!school?._id) return;
+
+    try {
+        const io = getIO();
+        const branding = buildSchoolBrandingData(school);
+        io.to(`school-${school._id}`).emit("school:branding:changed", branding);
+        io.to(`school-${school._id}`).emit("school:theme:changed", {
+            schoolId: String(school._id),
+            theme: branding.theme,
+            school: branding,
+            version: new Date().toISOString(),
+        });
+    } catch (err) {
+        logger.warn(`Socket emit failed (school:branding:changed): ${err.message}`);
+    }
+};
 
 const isActiveLegacyClassSection = (item = {}) => {
     const normalized = normalizeClassSection(item);
@@ -167,13 +218,7 @@ export const updateSchool = async (schoolId, updateData, user, metadata) => {
     const updated = await School.findByIdAndUpdate(schoolId, allowedUpdates, { new: true, runValidators: true });
     if (!updated) throw new NotFoundError("School not found");
 
-    const data = {
-        name: updated.name,
-        isActive: updated.isActive,
-        code: updated.code,
-        schoolId: updated._id,
-        _id: updated._id,
-    };
+    const data = buildSchoolProfileData(updated);
 
     // Fire-and-forget audit log
     if (user) {
@@ -190,6 +235,8 @@ export const updateSchool = async (schoolId, updateData, user, metadata) => {
         }).catch(() => {});
     }
 
+    emitSchoolBrandingChanged(updated);
+
     return { school: data };
 };
 
@@ -201,18 +248,7 @@ export const getSchoolProfile = async (schoolId) => {
     const school = await School.findById(schoolId).lean();
     if (!school) throw new NotFoundError("School not found");
 
-    const data = {
-        name: school.name,
-        isActive: school.isActive,
-        code: school.code,
-        logoUrl: school.logoUrl,
-        logoPublicId: school.logoPublicId,
-        updatedAt: school.updatedAt,
-        theme: school.theme,
-        features: school.features,
-        schoolId: school._id,
-        _id: school._id,
-    };
+    const data = buildSchoolProfileData(school);
 
     return { school: data };
 };
@@ -225,11 +261,10 @@ export const getAllSchools = async () => {
 // BRANDING (Logo)
 export const getSchoolBranding = async (schoolId) => {
     // If no context , return default
-    const defaultBranding = { name: "Protap Club", logoUrl: null, theme: { accentColor: "#2563eb" } };
-    if (!schoolId) return { branding: defaultBranding };
+    if (!schoolId) return { branding: DEFAULT_BRANDING };
 
-    const school = await School.findById(schoolId).select('name logoUrl theme').lean();
-    return { branding: school || defaultBranding };
+    const school = await School.findById(schoolId).select('name logoUrl logoPublicId updatedAt theme').lean();
+    return { branding: buildSchoolBrandingData(school) };
 };
 
 export const updateLogo = async (schoolId, logoUrl, logoPublicId) => {
@@ -244,7 +279,9 @@ export const updateLogo = async (schoolId, logoUrl, logoPublicId) => {
 
     if (oldLogoPublicId) await deleteFromCloudinary(oldLogoPublicId);
 
-    return { logoUrl: school.logoUrl, logoPublicId: school.logoPublicId, updatedAt: school.updatedAt };
+    emitSchoolBrandingChanged(school);
+
+    return { school: buildSchoolProfileData(school) };
 };
 
 // FEATURE MANAGEMENT 
