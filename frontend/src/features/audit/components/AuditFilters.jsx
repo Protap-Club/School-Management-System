@@ -76,24 +76,9 @@ export const AuditFilters = ({ filters, setFilters, schools = [] }) => {
         filters.action_type || filters.severity || filters.outcome;
 
     return (
-        <div className="w-full px-4 py-3 bg-white ring-1 ring-slate-900/5 rounded-xl shadow-sm mb-2">
-            {/* ── Single unified filter bar ─────────────────────────────── */}
+        <div className="w-full px-4 py-3 bg-white ring-1 ring-slate-900/5 rounded-xl shadow-sm mb-2 flex flex-col gap-3">
+            {/* ── Row 1: Primary Filters ─────────────────────────────── */}
             <div className="flex items-center gap-2 flex-wrap">
-
-                {/* School */}
-                <FilterSelect
-                    aria-label="Filter by school"
-                    value={filters.schoolId}
-                    onChange={(v) => set('schoolId', v)}
-                >
-                    <option value="">All Schools</option>
-                    {schools?.map(school => (
-                        <option key={school._id} value={school._id}>{school.name}</option>
-                    ))}
-                </FilterSelect>
-
-                <Divider />
-
                 {/* Search — widest control */}
                 <div className="relative flex-[2] min-w-[200px]">
                     <Search
@@ -180,40 +165,57 @@ export const AuditFilters = ({ filters, setFilters, schools = [] }) => {
                     <option value="SUCCESS">Success</option>
                     <option value="FAILED">Failed</option>
                 </FilterSelect>
+            </div>
 
-                <Divider />
-
-                {/* Date range — always wraps as a pair, never splits */}
-                <div className="flex items-center gap-1.5 flex-shrink-0">
-                    <DateInput
-                        aria-label="Start date"
-                        value={filters.startDate}
-                        onChange={(v) => set('startDate', v)}
-                        placeholder="Start date"
-                    />
-                    <span className="text-slate-400 text-xs font-medium">to</span>
-                    <DateInput
-                        aria-label="End date"
-                        value={filters.endDate}
-                        onChange={(v) => set('endDate', v)}
-                        placeholder="End date"
-                    />
+            {/* ── Row 2: School & Dates ─────────────────────────────── */}
+            <div className="flex flex-wrap items-center justify-between gap-2 w-full">
+                {/* School — takes remaining space but looks neatly aligned */}
+                <div className="flex-1 min-w-[200px]">
+                    <FilterSelect
+                        aria-label="Filter by school"
+                        value={filters.schoolId}
+                        onChange={(v) => set('schoolId', v)}
+                    >
+                        <option value="">All Schools</option>
+                        {schools?.map(school => (
+                            <option key={school._id} value={school._id}>{school.name}</option>
+                        ))}
+                    </FilterSelect>
                 </div>
 
-                {/* Clear — only shown when any filter is active */}
-                {hasActiveFilters && (
-                    <>
-                        <Divider />
-                        <button
-                            onClick={() => setFilters({ page: 0, limit: filters.limit ?? 25 })}
-                            aria-label="Clear all filters"
-                            className="flex-shrink-0 flex items-center gap-1.5 h-9 px-3 text-xs font-semibold text-slate-500 hover:text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg transition-all duration-150 whitespace-nowrap"
-                        >
-                            <X size={12} />
-                            Clear
-                        </button>
-                    </>
-                )}
+                <div className="flex items-center gap-2 ml-auto flex-wrap">
+                    {/* Date range — always wraps as a pair, never splits */}
+                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                        <DateInput
+                            aria-label="Start date"
+                            value={filters.startDate}
+                            onChange={(v) => set('startDate', v)}
+                            placeholder="Start date"
+                        />
+                        <span className="text-slate-400 text-xs font-medium">to</span>
+                        <DateInput
+                            aria-label="End date"
+                            value={filters.endDate}
+                            onChange={(v) => set('endDate', v)}
+                            placeholder="End date"
+                        />
+                    </div>
+
+                    {/* Clear — only shown when any filter is active */}
+                    {hasActiveFilters && (
+                        <>
+                            <Divider />
+                            <button
+                                onClick={() => setFilters({ page: 0, limit: filters.limit ?? 25 })}
+                                aria-label="Clear all filters"
+                                className="flex-shrink-0 flex items-center gap-1.5 h-9 px-3 text-xs font-semibold text-slate-500 hover:text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg transition-all duration-150 whitespace-nowrap"
+                            >
+                                <X size={12} />
+                                Clear
+                            </button>
+                        </>
+                    )}
+                </div>
             </div>
         </div>
     );

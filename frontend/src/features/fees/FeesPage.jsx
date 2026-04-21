@@ -14,9 +14,9 @@ import {
 } from './index';
 import { useAuth } from '../auth';
 import { useUsers } from '../users/api/queries';
-import FeeStructureModal from '../../components/fees/FeeStructureModal';
-import PaymentModal from '../../components/fees/PaymentModal';
-import FeeStructureForm from '../../components/fees/FeeStructureForm';
+import FeeStructureModal from './components/FeeStructureModal';
+import PaymentModal from './components/PaymentModal';
+import FeeStructureForm from './components/FeeStructureForm';
 // SalaryForm import removed - Pay Salary is now inline inside View Ledger
 import TeacherSalaryTab from './components/TeacherSalaryTab';
 import StudentStructuresTab from './components/StudentStructuresTab';

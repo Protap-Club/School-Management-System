@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { ShieldCheck, X } from 'lucide-react';
 import { AuditFilters } from './components/AuditFilters';
 import { AuditLogTable } from './components/AuditLogTable';
 import { useAuditLogs, useAllSchools } from './api/queries';
@@ -49,22 +50,33 @@ export const AuditLogPage = () => {
     return (
         <DashboardLayout>
             <div className="w-full flex-col flex gap-6 p-6 max-w-7xl mx-auto">
-                <div className="flex flex-col gap-1">
-                    <div className="flex items-center gap-3">
-                        <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Audit Logs</h1>
+                <div className="flex items-start gap-4 mb-2">
+                    <div className="bg-white rounded-xl shadow-sm p-3 border border-slate-100 text-violet-600 shrink-0">
+                        <ShieldCheck size={32} />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                        <h1 className="text-3xl font-bold text-slate-900">Audit Logs</h1>
+                        <p className="text-sm text-slate-500 font-normal">
+                            Comprehensive, immutable trail of critical system operations and data mutations.
+                        </p>
                         {filters.schoolId ? (
-                            <span className="px-2.5 py-0.5 rounded-md bg-indigo-50 border border-indigo-100 text-indigo-700 text-xs font-semibold">
-                                {schools.find(s => s._id === filters.schoolId)?.name || 'Loading...'}
-                            </span>
+                            <div className="mt-1 flex w-fit items-center gap-1.5 px-2.5 py-1 rounded-md bg-indigo-50 border border-indigo-100 text-indigo-700 text-xs font-semibold">
+                                <span className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
+                                <span>{schools.find(s => s._id === filters.schoolId)?.name || 'Loading...'}</span>
+                                <button 
+                                    onClick={() => setFilters(prev => ({ ...prev, schoolId: '', page: 0 }))}
+                                    className="ml-1 text-indigo-400 hover:text-indigo-700 transition-colors"
+                                    aria-label="Clear school filter"
+                                >
+                                    <X size={12} />
+                                </button>
+                            </div>
                         ) : (
-                            <span className="px-2.5 py-0.5 rounded-md bg-slate-100 border border-slate-200 text-slate-600 text-xs font-semibold">
-                                Viewing All Schools
-                            </span>
+                            <div className="text-xs text-slate-400 mt-1">
+                                Showing logs across all schools
+                            </div>
                         )}
                     </div>
-                    <p className="text-sm text-slate-500">
-                        Comprehensive, immutable trail of critical system operations and data mutations.
-                    </p>
                 </div>
 
                 <AuditFilters filters={filters} setFilters={setFilters} schools={schools} />
