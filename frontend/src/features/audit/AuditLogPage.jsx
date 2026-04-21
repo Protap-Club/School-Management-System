@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { ShieldCheck, X } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { ShieldCheck, X, Info, RefreshCw, Clock3 } from 'lucide-react';
 import { AuditFilters } from './components/AuditFilters';
 import { AuditLogTable } from './components/AuditLogTable';
 import { useAuditLogs, useAllSchools } from './api/queries';
@@ -25,7 +25,11 @@ export const AuditLogPage = () => {
     const { data: schoolsData } = useAllSchools();
     const schools = schoolsData?.data || [];
 
-    const { data, isLoading, isError } = useAuditLogs({
+    const [lastRefreshed, setLastRefreshed] = useState(null);
+    const [isRefreshing, setIsRefreshing] = useState(false);
+    const [flashGreen, setFlashGreen] = useState(false);
+
+    const { data, isLoading, isError, refetch } = useAuditLogs({
         page: filters.page + 1, // API expects 1-indexed
         limit: filters.limit,
         search: filters.search,
@@ -41,6 +45,26 @@ export const AuditLogPage = () => {
 
     const handlePageChange = (newPage) => {
         setFilters(prev => ({ ...prev, page: newPage }));
+    };
+
+    useEffect(() => {
+        if (data && !lastRefreshed) {
+            setLastRefreshed(new Date());
+        }
+    }, [data, lastRefreshed]);
+
+    const handleRefresh = async () => {
+        setIsRefreshing(true);
+        try {
+            await refetch();
+            setLastRefreshed(new Date());
+            setFlashGreen(true);
+            setTimeout(() => setFlashGreen(false), 1500);
+        } catch {
+            // silent fail
+        } finally {
+            setIsRefreshing(false);
+        }
     };
 
     const handlePageSizeChange = (newSize) => {
@@ -76,6 +100,39 @@ export const AuditLogPage = () => {
                                 Showing logs across all schools
                             </div>
                         )}
+                    </div>
+                </div>
+
+                {/* ── Refresh Control Bar ── */}
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                        <Info className="w-3.5 h-3.5 text-slate-400" />
+                        <span className="text-xs text-slate-400">
+                            Audit logs are not live — refresh to see the latest activity.
+                        </span>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                        {lastRefreshed && (
+                            <div className="flex items-center gap-1.5 transition-opacity duration-300">
+                                <Clock3 className="w-3.5 h-3.5 text-slate-400" />
+                                <span className={`text-xs font-mono transition-colors duration-300 ${flashGreen ? 'text-emerald-500' : 'text-slate-400'}`}>
+                                    Logs shown till {lastRefreshed.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                            </div>
+                        )}
+                        <button
+                            onClick={handleRefresh}
+                            disabled={isRefreshing}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-white border border-slate-200 rounded-lg shadow-sm transition-all duration-150 ${
+                                isRefreshing 
+                                ? 'opacity-60 cursor-not-allowed text-slate-600' 
+                                : 'text-slate-600 hover:bg-slate-50 hover:border-slate-300 hover:text-slate-800 hover:shadow-md'
+                            }`}
+                        >
+                            <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
+                            {isRefreshing ? 'Refreshing...' : 'Refresh'}
+                        </button>
                     </div>
                 </div>
 
