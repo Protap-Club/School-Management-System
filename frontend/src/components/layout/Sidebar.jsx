@@ -3,20 +3,7 @@ import { NavLink, useLocation } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
 import { useAuth } from '../../features/auth';
 import { useSidebar, useFeatures, setMobileSidebarOpen } from '../../state';
-import {
-    FaUserGraduate,
-    FaCog,
-    FaClipboardList,
-    FaHome,
-    FaBullhorn,
-    FaCalendarAlt,
-    FaCalendarDay,
-    FaMoneyCheckAlt,
-    FaGraduationCap,
-    FaBook,
-    FaClipboardCheck,
-    FaHistory,
-} from 'react-icons/fa';
+import { FaUserGraduate, FaCog, FaClipboardList, FaHome, FaBullhorn, FaCalendarAlt, FaCalendarDay, FaMoneyCheckAlt, FaGraduationCap, FaBook, FaClipboardCheck, FaHistory} from 'react-icons/fa';
 
 const Sidebar = () => {
     const dispatch = useDispatch();
@@ -125,9 +112,6 @@ const Sidebar = () => {
                 if (hasFeature('assignment')) {
                     adminLinks.push({ path: '/admin/assignments', label: 'Assignments', icon: <FaBook /> });
                 }
-
-                // Audit Logs
-                adminLinks.push({ path: '/admin/audit', label: 'Audit Log', icon: <FaHistory /> });
 
                 // Settings always last
                 adminLinks.push({ path: '/admin/settings', label: 'Settings', icon: <FaCog /> });

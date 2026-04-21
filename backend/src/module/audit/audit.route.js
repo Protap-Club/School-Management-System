@@ -7,13 +7,9 @@ import { USER_ROLES } from '../../constants/userRoles.js';
 
 const router = express.Router();
 
-// Only Super Admin and Admin can access audit logs
-router.use(checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN]));
+// Only Super Admin can access audit logs
+router.use(checkRole([USER_ROLES.SUPER_ADMIN]));
 
-router.get(
-    '/',
-    validate(getAuditLogsSchema),
-    auditController.getAuditLogs
-);
+router.get('/', validate(getAuditLogsSchema), auditController.getAuditLogs);
 
 export default router;

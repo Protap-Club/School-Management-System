@@ -45,7 +45,7 @@ function App() {
         { suffix: 'examination', roles: ['super_admin', 'admin', 'teacher'], component: <Examination />, feature: 'examination' },
         { suffix: 'result', roles: ['super_admin', 'admin', 'teacher'], component: <Result />, feature: 'examination' },
         { suffix: 'assignments', roles: ['super_admin', 'admin', 'teacher'], component: <Assignments />, feature: 'assignment' },
-        { suffix: 'audit', roles: ['super_admin', 'admin'], component: <AuditLog /> },
+        { suffix: 'audit', roles: ['super_admin'], component: <AuditLog /> },
     ];
 
     return (
