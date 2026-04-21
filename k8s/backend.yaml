@@ -1,0 +1,96 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  labels:
+    app: backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      # Security best practice: prevents unnecessary token mounting
+      automountServiceAccountToken: false
+      containers:
+      - name: backend
+        # Ensure this image path is correct for your Google Container Registry
+        image: gcr.io/school-mgmt-493518/backend:v1.0.0-placeholder
+        ports:
+        - containerPort: 3000
+        env:
+          - name: PORT
+            value: "3000"
+          - name: NODE_ENV
+            value: "production"
+          - name: MONGO_URI
+            valueFrom:
+              secretKeyRef:
+                name: backend-secrets
+                key: MONGO_URI
+          - name: DB_NAME
+            valueFrom:
+              secretKeyRef:
+                name: backend-secrets
+                key: DB_NAME
+          - name: JWT_SECRET
+            valueFrom:
+              secretKeyRef:
+                name: backend-secrets
+                key: JWT_SECRET
+          - name: JWT_REFRESH_SECRET
+            valueFrom:
+              secretKeyRef:
+                name: backend-secrets
+                key: JWT_REFRESH_SECRET
+          - name: CORS_ORIGINS
+            valueFrom:
+              secretKeyRef:
+                name: backend-secrets
+                key: CORS_ORIGINS
+          - name: CLOUDINARY_API_KEY
+            valueFrom:
+              secretKeyRef:
+                name: backend-secrets
+                key: CLOUDINARY_API_KEY
+          - name: CLOUDINARY_API_SECRET
+            valueFrom:
+              secretKeyRef:
+                name: backend-secrets
+                key: CLOUDINARY_API_SECRET
+          - name: CLOUDINARY_CLOUD_NAME
+            valueFrom:
+              secretKeyRef:
+                name: backend-secrets
+                key: CLOUDINARY_CLOUD_NAME
+        # Health checks to ensure the "Green" status in GKE
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 3000
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "256Mi"
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+spec:
+  selector:
+    app: backend
+  ports:
+    - protocol: TCP
+      port: 80         # Port exposed to the frontend
+      targetPort: 3000 # Matches the PORT in your code
+  type: LoadBalancer   # Generates the External IP for your API

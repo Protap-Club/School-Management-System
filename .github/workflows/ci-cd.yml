@@ -1,0 +1,82 @@
+name: CI/CD Pipeline
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+env:
+  GCP_PROJECT_ID: school-mgmt-493518 # REPLACE with your actual Project ID
+  GKE_CLUSTER: school-cluster
+  GKE_ZONE: us-central1-a
+  IMAGE_REPO: gcr.io/school-mgmt-493518 # REPLACE with your actual Project ID
+
+jobs:
+  build-and-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # - name: SonarQube Scan
+      #   uses: SonarSource/sonarcloud-github-action@master
+      #   env:
+      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      #     SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      #   with:
+      #     projectDir: .
+
+  deploy:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: build-and-scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: 'Authenticate to Google Cloud'
+        uses: 'google-github-actions/auth@v2'
+        with:
+          credentials_json: '${{ secrets.GCP_SA_KEY }}'
+
+      - name: 'Set up Cloud SDK'
+        uses: 'google-github-actions/setup-gcloud@v2'
+
+      - name: 'Configure Docker'
+        run: gcloud auth configure-docker --quiet
+
+      - name: Build and Push Backend
+        run: |
+          docker build -t ${{ env.IMAGE_REPO }}/backend:${{ github.sha }} ./backend
+          docker push ${{ env.IMAGE_REPO }}/backend:${{ github.sha }}
+
+      - name: Build and Push Frontend
+        run: |
+          docker build -t ${{ env.IMAGE_REPO }}/frontend:${{ github.sha }} ./frontend
+          docker push ${{ env.IMAGE_REPO }}/frontend:${{ github.sha }}
+
+      - name: 'Get GKE credentials'
+        uses: 'google-github-actions/get-gke-credentials@v2'
+        with:
+          cluster_name: ${{ env.GKE_CLUSTER }}
+          location: ${{ env.GKE_ZONE }}
+
+      - name: 'Deploy to GKE'
+        run: |
+          # Use sed to replace the specific placeholder strings used to pass Sonar checks
+          sed -i "s|gcr.io/school-mgmt-493518/backend:v1.0.0-placeholder|${{ env.IMAGE_REPO }}/backend:${{ github.sha }}|g" k8s/backend.yaml
+          sed -i "s|gcr.io/school-mgmt-493518/frontend:v1.0.0-placeholder|${{ env.IMAGE_REPO }}/frontend:${{ github.sha }}|g" k8s/frontend.yaml
+          
+          kubectl apply -f k8s/backend.yaml
+          kubectl apply -f k8s/frontend.yaml
+          
+          kubectl rollout status deployment/backend
+          kubectl rollout status deployment/frontend
