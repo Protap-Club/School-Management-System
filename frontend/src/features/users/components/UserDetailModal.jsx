@@ -160,6 +160,24 @@ const UserDetailModal = ({ user, onClose, initialMode = 'view', onSuccess }) => 
 
   if (!user) return null;
 
+  const handleConfirmConflict = async () => {
+    if (!pendingPayload) return;
+    try {
+      setSaveError('');
+      setShowConflictModal(false);
+      await updateUserMutation.mutateAsync({
+        id: user._id,
+        payload: { ...pendingPayload, forceOverride: true }
+      });
+      if (onSuccess) onSuccess('User updated successfully (override)');
+      setMode('view');
+    } catch (error) {
+      setSaveError(error?.response?.data?.message || 'Failed to override conflict');
+    } finally {
+      setPendingPayload(null);
+    }
+  };
+
   const handleSave = async () => {
     try {
       setSaveError('');
@@ -180,29 +198,60 @@ const UserDetailModal = ({ user, onClose, initialMode = 'view', onSuccess }) => 
         }
       }
 
-      const profilePayload = { ...formData.profile };
-      const originalAssignedClasses = normalizeAssignedClassesForCompare(user?.profile?.assignedClasses);
-      const nextAssignedClasses = normalizeAssignedClassesForCompare(formData.profile?.assignedClasses);
-      const hasAssignedClassChanges =
-        JSON.stringify(originalAssignedClasses) !== JSON.stringify(nextAssignedClasses);
-      const hasExpectedSalaryChanged =
-        isTeacher && Number(formData.profile?.expectedSalary) !== Number(user?.profile?.expectedSalary);
+      // Construct role-specific profile payload
+      const rawProfile = formData.profile || {};
+      const profilePayload = {};
 
-      if (isTeacher && !hasAssignedClassChanges) {
-        delete profilePayload.assignedClasses;
+      if (isStudent) {
+        const studentFields = [
+          'rollNumber', 'standard', 'section', 'year', 'admissionDate',
+          'fatherName', 'fatherContact', 'motherName', 'motherContact',
+          'guardianName', 'guardianContact', 'address'
+        ];
+        studentFields.forEach(field => {
+          if (rawProfile[field] !== undefined && rawProfile[field] !== '') {
+            profilePayload[field] = rawProfile[field];
+          }
+        });
+      } else if (isTeacher) {
+        const teacherFields = ['employeeId', 'qualification', 'joiningDate'];
+        teacherFields.forEach(field => {
+          if (rawProfile[field] !== undefined && rawProfile[field] !== '') {
+            profilePayload[field] = rawProfile[field];
+          }
+        });
+
+        // Handle assignedClasses separately because of potential conflicts
+        const originalAssignedClasses = normalizeAssignedClassesForCompare(user?.profile?.assignedClasses);
+        const nextAssignedClasses = normalizeAssignedClassesForCompare(rawProfile.assignedClasses);
+        const hasAssignedClassChanges = JSON.stringify(originalAssignedClasses) !== JSON.stringify(nextAssignedClasses);
+
+        if (hasAssignedClassChanges) {
+          profilePayload.assignedClasses = rawProfile.assignedClasses;
+        }
+      } else if (isAdminUser) {
+        const adminFields = ['department', 'employeeId', 'permissions'];
+        adminFields.forEach(field => {
+          if (rawProfile[field] !== undefined && rawProfile[field] !== '') {
+            profilePayload[field] = rawProfile[field];
+          }
+        });
       }
-      if (isTeacher) {
-        delete profilePayload.expectedSalary;
-      }
+
+      const hasExpectedSalaryChanged =
+        isTeacher && rawProfile.expectedSalary !== undefined &&
+        Number(rawProfile.expectedSalary) !== Number(user?.profile?.expectedSalary);
+
+      const payload = {
+        name: formData.name,
+        email: formData.email,
+        contactNo: formData.contactNo,
+        profile: profilePayload,
+      };
 
       await updateUserMutation.mutateAsync({
         id: user._id,
-        payload: {
-          name: formData.name,
-          email: formData.email,
-          contactNo: formData.contactNo,
-          profile: profilePayload,
-        }
+        payload
       });
 
       if (hasExpectedSalaryChanged) {
@@ -214,7 +263,22 @@ const UserDetailModal = ({ user, onClose, initialMode = 'view', onSuccess }) => 
       if (onSuccess) onSuccess('User updated successfully');
       setMode('view');
     } catch (error) {
-      setSaveError(error?.response?.data?.message || 'Failed to update user');
+      console.error('Update error:', error);
+      const errorMessage = error?.response?.data?.error?.message || error?.response?.data?.message || 'Failed to update user';
+      
+      if (error?.response?.status === 409 && error.response.data?.code === 'CLASS_TEACHER_ALREADY_ASSIGNED') {
+        const payload = {
+          name: formData.name,
+          email: formData.email,
+          contactNo: formData.contactNo,
+          profile: { ...formData.profile }
+        };
+        setConflicts(error.response.data.conflicts || []);
+        setPendingPayload(payload);
+        setShowConflictModal(true);
+        return;
+      }
+      setSaveError(errorMessage);
     }
   };
   const handleAddTeacherClass = () => {

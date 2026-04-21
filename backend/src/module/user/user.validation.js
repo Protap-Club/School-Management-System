@@ -35,7 +35,10 @@ export const createUserSchema = z.object({
         employeeId: z.string().optional(),
         qualification: z.string().optional(),
         joiningDate: z.string().optional(),
-        expectedSalary: z.coerce.number().gt(100, 'Expected salary must be more than 100').optional(),
+        expectedSalary: z.preprocess(
+            (val) => (val === '' || val === null) ? undefined : val,
+            z.coerce.number().gt(100, 'Expected salary must be more than 100').optional()
+        ),
         assignedClasses: z.array(z.object({
             standard: z.string(),
             section: z.string(),
@@ -184,7 +187,10 @@ const profileUpdateSchema = z.object({
     rollNumber: z.string().optional(),
     standard: z.string().optional(),
     section: z.string().optional(),
-    year: z.coerce.number().optional(),
+    year: z.preprocess(
+        (val) => (val === '' || val === null) ? undefined : val,
+        z.coerce.number().optional()
+    ),
     admissionDate: z.string().optional(),
     fatherName: z.string().optional(),
     fatherContact: z.string().optional(),
@@ -198,7 +204,10 @@ const profileUpdateSchema = z.object({
     employeeId: z.string().optional(),
     qualification: z.string().optional(),
     joiningDate: z.string().optional(),
-    expectedSalary: z.coerce.number().gt(100, 'Expected salary must be more than 100').optional(),
+    expectedSalary: z.preprocess(
+        (val) => (val === '' || val === null) ? undefined : val,
+        z.coerce.number().gt(100, 'Expected salary must be more than 100').optional()
+    ),
     assignedClasses: z.array(classAssignmentSchema).optional(),
 
     // Admin profile fields
