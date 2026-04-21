@@ -1031,15 +1031,18 @@ export const replaceClassTeacher = async (creator, data = {}, metadata = {}) => 
         schoolId: creator.schoolId,
         userId: { $in: activeTeacherIds },
     })
-        .select("userId assignedClasses")
+        .select("userId assignedClasses classTeacherOf")
         .lean();
 
     const primaryClassByTeacher = new Map();
     teacherProfiles.forEach((profile) => {
-        primaryClassByTeacher.set(
-            String(profile.userId),
-            getPrimaryTeacherAssignedClass(profile.assignedClasses || [])
-        );
+        // Prefer classTeacherOf (explicit class teacher assignment),
+        // fall back to assignedClasses[0] for compatibility
+        const classTeacherOf = profile.classTeacherOf;
+        const primaryClass = (classTeacherOf?.standard && classTeacherOf?.section)
+            ? classTeacherOf
+            : getPrimaryTeacherAssignedClass(profile.assignedClasses || []);
+        primaryClassByTeacher.set(String(profile.userId), primaryClass || null);
     });
 
     const currentOwner = teacherProfiles.find((profile) => {
@@ -1110,12 +1113,19 @@ export const replaceClassTeacher = async (creator, data = {}, metadata = {}) => 
                 schoolId: creator.schoolId,
                 userId: teacherId,
                 assignedClasses: [],
+                classTeacherOf: null,
             });
         }
 
         profile.assignedClasses = classAssignment
             ? [{ standard: classAssignment.standard, section: classAssignment.section, subjects: [] }]
             : [];
+
+        // Also update classTeacherOf to keep both fields in sync
+        profile.classTeacherOf = classAssignment
+            ? { standard: classAssignment.standard, section: classAssignment.section }
+            : null;
+
         await profile.save();
     }
 
