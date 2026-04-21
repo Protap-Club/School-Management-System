@@ -542,7 +542,7 @@ export const getUsers = async (creator, filters = {}) => {
 
     // 1. INPUT VALIDATION & SANITIZATION
     const page = Math.max(0, filters.page || 0);
-    const maxPageSize = 100;
+    const maxPageSize = 2000;
     const pageSize = Math.min(maxPageSize, Math.max(1, filters.pageSize || 25));
     const { page: _, pageSize: __, ...queryFilters } = filters;
 
@@ -1306,6 +1306,27 @@ export const updateUser = async (creator, userId, payload = {}, metadata = {}) =
         };
 
         if (user.role === USER_ROLES.STUDENT) {
+            // Check for roll number conflict before update
+            const targetRollNumber = profileInput.rollNumber || user.studentProfile?.rollNumber;
+            const targetStandard = classPayload.standard || user.studentProfile?.standard;
+            const targetSection = classPayload.section || user.studentProfile?.section;
+
+            if (targetRollNumber && targetStandard) {
+                const existingStudent = await StudentProfile.findOne({
+                    schoolId: creator.schoolId,
+                    standard: targetStandard,
+                    section: targetSection,
+                    rollNumber: targetRollNumber,
+                    userId: { $ne: user._id } // Exclude the user being updated
+                }).lean();
+
+                if (existingStudent) {
+                    throw new ConflictError(
+                        `Roll number ${targetRollNumber} already exists in class ${targetStandard}-${targetSection}`
+                    );
+                }
+            }
+
             applyUpdate("rollNumber", profileInput.rollNumber);
             applyUpdate("year", profileInput.year);
             applyUpdate("admissionDate", profileInput.admissionDate);

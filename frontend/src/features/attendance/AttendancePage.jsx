@@ -94,6 +94,8 @@ const buildClassGroups = (students = [], teachers = [], configuredClassSections 
         groups[key] = { id: key, standard: item.standard, section: item.section, teacher: classTeacher || null, students: [] };
     });
 
+    const seenStudentIdsByGroup = {};
+
     students.forEach(student => {
         // Hide "Unassigned" class by skipping students without a assigned standard
         if (!student.profile?.standard) return;
@@ -106,7 +108,15 @@ const buildClassGroups = (students = [], teachers = [], configuredClassSections 
             const classTeacher = primaryClassTeacherByClass[key] || null;
             groups[key] = { id: key, standard: std, section: sec, teacher: classTeacher || null, students: [] };
         }
-        groups[key].students.push(student);
+
+        // Initialize seen set for this group
+        if (!seenStudentIdsByGroup[key]) seenStudentIdsByGroup[key] = new Set();
+
+        // Only add if not seen in this group
+        if (!seenStudentIdsByGroup[key].has(student._id)) {
+            seenStudentIdsByGroup[key].add(student._id);
+            groups[key].students.push(student);
+        }
     });
 
     // Sort students by roll number within each group
