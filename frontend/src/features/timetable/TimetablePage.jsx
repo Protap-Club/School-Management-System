@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { FaCalendarAlt, FaChalkboardTeacher, FaExclamationTriangle, FaFilePdf, FaTimes } from "react-icons/fa";
+import { FaCalendarAlt, FaCheck, FaChevronLeft, FaChevronRight, FaExclamationTriangle, FaFilePdf, FaTimes, FaUserClock } from "react-icons/fa";
 import { readError } from "../../utils";
 import { generateTimetablePDF } from "../../utils/pdfGenerator";
 import { ButtonSpinner } from "../../components/ui/Spinner";
@@ -9,12 +9,16 @@ import TimetableGrid from "./components/TimetableGrid";
 import TimetableModal from "./components/TimetableModal";
 import CreateTimetableDialog from "./components/CreateTimetableDialog";
 import { useToastMessage } from "../../hooks/useToastMessage";
+import ProxyManagementPage from "../proxy/components/ProxyManagementPage";
+import MarkUnavailableModal from "../proxy/components/MarkUnavailableModal";
+import { useMyProxyRequests } from "../proxy/api/queries";
 import {
     useAvailableClasses,
     useCreateEntry,
     useCreateTimetable,
     useDeleteEntry,
     useMySchedule,
+    useMyClassSchedule,
     useTeacherSchedule,
     useTeachers,
     useTimetable,
@@ -23,6 +27,7 @@ import {
     useUpdateEntry,
 } from "./api/queries";
 import { Button } from "@/components/ui/button";
+import SearchableSelect from "@/components/ui/SearchableSelect";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { makeClassKey, sortClassSections } from "../../utils/classSection";
@@ -31,6 +36,21 @@ import { makeClassKey, sortClassSections } from "../../utils/classSection";
 const flattenSchedule = (schedule) => {
     if (!schedule || typeof schedule !== "object") return [];
     return Object.values(schedule).flat();
+};
+
+const toDateOnlyString = (date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+};
+
+const buildDaySlotKey = (dayOfWeek, timeSlotId) => `${dayOfWeek}_${String(timeSlotId)}`;
+const formatTeacherClassLabel = (item) => {
+    const standard = String(item?.standard || "").trim();
+    const section = String(item?.section || "").trim().toUpperCase();
+    if (!standard || !section) return "";
+    return `${standard}-${section}`;
 };
 
 const TimetablePage = () => {
@@ -42,18 +62,49 @@ const TimetablePage = () => {
         try {
             const cached = JSON.parse(sessionStorage.getItem('schoolBranding'));
             schoolData = cached?.school || cached || schoolData;
-        } catch (e) { }
+        } catch {
+            // Ignore malformed cache payload and fallback to auth school data.
+        }
     }
     const schoolName = schoolData?.name || 'School';
     const schoolLogo = schoolData?.logoUrl || null;
 
+    // Determine if this teacher is a class teacher and which class they own
+    const classTeacherOf = isTeacher ? user?.profile?.classTeacherOf : null;
+    const isClassTeacher = !!(classTeacherOf?.standard && classTeacherOf?.section);
+
     const [adminViewMode, setAdminViewMode] = useState("class");
+    const [teacherTab, setTeacherTab] = useState(isClassTeacher ? "class" : "schedule"); // "class" | "schedule"
+    const [activeTab, setActiveTab] = useState("timetable");  // timetable | proxy
+    const [weekOffset, setWeekOffset] = useState(0);  // 0 = current week, 1 = next week, etc.
+    const [markUnavailableModal, setMarkUnavailableModal] = useState({ open: false, slotInfo: null });
     const [selectedTeacherId, setSelectedTeacherId] = useState("");
     const [selectedClassKey, setSelectedClassKey] = useState("");
     const [createDialogOpen, setCreateDialogOpen] = useState(false);
     const [errorMessage, setErrorMessage] = useState("");
     const [modalState, setModalState] = useState({ open: false, cell: null });
     const { message: toast, showMessage } = useToastMessage(5000);
+
+    const weekReferenceDate = useMemo(() => {
+        const today = new Date();
+        const currentDay = today.getDay(); // Sun=0
+        const diff = today.getDate() - currentDay + (currentDay === 0 ? -6 : 1); // Monday
+        const monday = new Date(today.setDate(diff));
+        monday.setDate(monday.getDate() + weekOffset * 7);
+        monday.setHours(0, 0, 0, 0);
+        return toDateOnlyString(monday);
+    }, [weekOffset]);
+
+    const activeWeekDateKeySet = useMemo(() => {
+        const monday = new Date(`${weekReferenceDate}T00:00:00`);
+        const keySet = new Set();
+        for (let i = 0; i < 6; i += 1) {
+            const dayDate = new Date(monday);
+            dayDate.setDate(monday.getDate() + i);
+            keySet.add(toDateOnlyString(dayDate));
+        }
+        return keySet;
+    }, [weekReferenceDate]);
 
     const timeSlotsQuery = useTimeSlots();
     const timetablesQuery = useTimetables({}, isAdmin);
@@ -122,6 +173,40 @@ const TimetablePage = () => {
         [configuredClassSections, latestTimetableByClassKey]
     );
 
+    const teacherOptions = useMemo(
+        () =>
+            [...teachers]
+                .sort((a, b) =>
+                    String(a?.name || "").localeCompare(String(b?.name || ""), undefined, {
+                        sensitivity: "base",
+                    })
+                )
+                .map((teacher) => {
+                    const classTeacherLabel = formatTeacherClassLabel(teacher?.profile?.classTeacherOf);
+                    const assignedClasses = Array.isArray(teacher?.profile?.assignedClasses)
+                        ? teacher.profile.assignedClasses
+                        : [];
+                    const assignedClassLabels = assignedClasses
+                        .map((item) => formatTeacherClassLabel(item))
+                        .filter(Boolean);
+                    const previewLabels = assignedClassLabels.slice(0, 2);
+
+                    let sublabel = "No class mapping added";
+                    if (classTeacherLabel) {
+                        sublabel = `Class teacher • ${classTeacherLabel}`;
+                    } else if (previewLabels.length > 0) {
+                        sublabel = `Assigned classes • ${previewLabels.join(", ")}${assignedClassLabels.length > previewLabels.length ? ` +${assignedClassLabels.length - previewLabels.length} more` : ""}`;
+                    }
+
+                    return {
+                        value: teacher._id,
+                        label: teacher.name || "Unnamed Teacher",
+                        sublabel,
+                    };
+                }),
+        [teachers]
+    );
+
     useEffect(() => {
         if (!classOptions.length) {
             if (selectedClassKey) {
@@ -144,7 +229,9 @@ const TimetablePage = () => {
         activeTimetableId,
         isAdmin && adminViewMode === "class" && Boolean(activeTimetableId)
     );
-    const myScheduleQuery = useMySchedule(isTeacher);
+    const myScheduleQuery = useMySchedule(weekReferenceDate, isTeacher);
+    const myClassScheduleQuery = useMyClassSchedule(isTeacher && teacherTab === "class");
+    const myProxyRequestsQuery = useMyProxyRequests({}, { enabled: isTeacher });
     const teacherScheduleQuery = useTeacherSchedule(
         activeTeacherId,
         null,
@@ -161,13 +248,88 @@ const TimetablePage = () => {
         [selectedTimetableQuery.data]
     );
     const teacherScheduleEntries = flattenSchedule(teacherScheduleQuery.data?.data);
-    const myScheduleEntries = flattenSchedule(myScheduleQuery.data?.data);
+
+    // Support both teacher schedule shapes:
+    // 1) { isClassTeacher, personalSchedule, classTimetable }
+    // 2) { Mon: [...], Tue: [...] }
+    const myScheduleData = myScheduleQuery.data?.data;
+    const myScheduleRaw = isTeacher ? (myScheduleData?.personalSchedule || myScheduleData) : myScheduleData;
+    const myClassTimetableRaw = isTeacher ? myScheduleData?.classTimetable?.schedule : null;
+    const myClassInfoFromQuery = myClassScheduleQuery.data?.data?.timetable;
+    const myClassInfo = myClassInfoFromQuery || myScheduleData?.classTimetable || null;
+    const myClassEntriesFromQuery = myClassScheduleQuery.data?.data?.entries || [];
+    const isClassTeacherFromData = isTeacher && Boolean(myScheduleData?.isClassTeacher || isClassTeacher || myClassInfo);
+
+    const myScheduleEntries = flattenSchedule(myScheduleRaw);
+    const myClassTimetableEntries = flattenSchedule(myClassTimetableRaw);
+    const myClassEntries = myClassEntriesFromQuery.length > 0 ? myClassEntriesFromQuery : myClassTimetableEntries;
+    const myProxyRequests = myProxyRequestsQuery.data?.data || [];
+
+    const myClassLabel = myScheduleData?.classTimetable?.classLabel ||
+        (myClassInfo?.standard && myClassInfo?.section ? `${myClassInfo.standard}-${myClassInfo.section}` : "") ||
+        (classTeacherOf?.standard && classTeacherOf?.section ? `${classTeacherOf.standard}-${classTeacherOf.section}` : "");
+
+    const myRequestStateByCell = useMemo(() => {
+        const map = new Map();
+
+        myProxyRequests.forEach((request) => {
+            const requestDateKey = toDateOnlyString(new Date(request.date));
+            if (!activeWeekDateKeySet.has(requestDateKey)) return;
+
+            const slotId = request.timeSlotId?._id || request.timeSlotId;
+            if (!request.dayOfWeek || !slotId) return;
+
+            const key = buildDaySlotKey(request.dayOfWeek, slotId);
+            if (request.status === "pending") {
+                map.set(key, { proxyRequestStatus: "pending", proxyRequestId: request._id });
+                return;
+            }
+
+            if (request.status === "resolved" && request.proxyAssignmentId?.type === "proxy") {
+                map.set(key, {
+                    proxyRequestStatus: "proxy_assigned",
+                    proxyAssignmentId: request.proxyAssignmentId?._id || null,
+                    assignedProxyTeacher: request.proxyAssignmentId?.proxyTeacherId || null
+                });
+                return;
+            }
+
+            if (request.status === "resolved" && request.proxyAssignmentId?.type === "free_period") {
+                map.set(key, {
+                    proxyRequestStatus: "free_period",
+                    isFreePeriod: true,
+                    proxyType: "free_period"
+                });
+            }
+        });
+
+        return map;
+    }, [activeWeekDateKeySet, myProxyRequests]);
+
+    const myScheduleEntriesWithRequestState = useMemo(
+        () =>
+            myScheduleEntries.map((entry) => {
+                if (entry.isProxy) return entry;
+
+                const slotId = entry.timeSlotId?._id || entry.timeSlotId || entry.timeSlot?._id;
+                if (!entry.dayOfWeek || !slotId) return entry;
+
+                const requestState = myRequestStateByCell.get(buildDaySlotKey(entry.dayOfWeek, slotId));
+                if (!requestState) return entry;
+
+                return { ...entry, ...requestState };
+            }),
+        [myRequestStateByCell, myScheduleEntries]
+    );
 
     const displayEntries = useMemo(() => {
-        if (isTeacher) return myScheduleEntries;
+        if (isTeacher) {
+            if (isClassTeacherFromData && teacherTab === "class") return myClassEntries;
+            return myScheduleEntriesWithRequestState;
+        }
         if (adminViewMode === "teacher") return teacherScheduleEntries;
         return selectedTimetableEntries;
-    }, [isTeacher, adminViewMode, myScheduleEntries, teacherScheduleEntries, selectedTimetableEntries]);
+    }, [isTeacher, isClassTeacherFromData, teacherTab, myClassEntries, myScheduleEntriesWithRequestState, adminViewMode, teacherScheduleEntries, selectedTimetableEntries]);
 
     const currentError = errorMessage ||
         readError(timeSlotsQuery.error, "") ||
@@ -175,6 +337,7 @@ const TimetablePage = () => {
         readError(teachersQuery.error, "") ||
         readError(selectedTimetableQuery.error, "") ||
         readError(myScheduleQuery.error, "") ||
+        readError(myClassScheduleQuery.error, "") ||
         readError(teacherScheduleQuery.error, "");
 
     const closeModal = () => {
@@ -245,34 +408,102 @@ const TimetablePage = () => {
     // Export PDF for teacher / student personal schedule
     const handleExportSchedulePDF = async () => {
         if (!myScheduleEntries.length) return;
-        const firstEntry = myScheduleEntries[0];
         await generateTimetablePDF({
             entries: myScheduleEntries,
             timeSlots,
-            standard: firstEntry?.timetableId?.standard || 'My Schedule',
-            section: firstEntry?.timetableId?.section || '',
+            standard: `${user?.profile?.name || user?.name || 'Faculty'}'s Schedule`,
+            section: '',
+            academicYear: '',
             schoolName,
             schoolLogo,
         });
     };
 
-    const isLoading = timeSlotsQuery.isLoading || (isTeacher ? myScheduleQuery.isLoading : false);
+    // Export PDF for admin viewing a teacher's schedule
+    const handleExportAdminTeacherPDF = async () => {
+        if (!teacherScheduleEntries.length || !activeTeacherId) return;
+        const teacher = teachers.find((t) => t._id === activeTeacherId);
+        await generateTimetablePDF({
+            entries: teacherScheduleEntries,
+            timeSlots,
+            standard: teacher ? `${teacher.name}'s Schedule` : 'Teacher Schedule',
+            section: '',
+            academicYear: '',
+            schoolName,
+            schoolLogo,
+        });
+    };
+
+    // Export PDF for teacher viewing their homeroom class
+    const handleExportClassPDF = async () => {
+        if (!myClassEntries.length) return;
+
+        let academicYear = myClassInfo?.academicYear || '';
+        if (!academicYear) {
+            const firstClassEntry = myClassEntries.find((entry) => entry?.timetableId?.academicYear);
+            if (firstClassEntry?.timetableId?.academicYear) {
+                academicYear = firstClassEntry.timetableId.academicYear;
+            }
+        }
+
+        await generateTimetablePDF({
+            entries: myClassEntries,
+            timeSlots,
+            standard: myClassInfo?.standard || classTeacherOf?.standard || 'Class',
+            section: myClassInfo?.section || classTeacherOf?.section || '',
+            academicYear,
+            schoolName,
+            schoolLogo,
+        });
+    };
+
+    const isLoading = timeSlotsQuery.isLoading || (isTeacher ? (myScheduleQuery.isLoading || myClassScheduleQuery.isLoading) : false);
     const isEntryMutationPending = createEntryMutation.isPending || updateEntryMutation.isPending || deleteEntryMutation.isPending;
+
+    // Calculate week dates based on offset
+    const getWeekDates = () => {
+        const today = new Date();
+        const currentDay = today.getDay(); // 0 = Sunday, 1 = Monday, etc.
+        // Adjust so week starts from Monday (or keep Sunday based on preference)
+        const diff = today.getDate() - currentDay + (currentDay === 0 ? -6 : 1); // Monday start
+        const monday = new Date(today.setDate(diff));
+        monday.setDate(monday.getDate() + weekOffset * 7);
+
+        const dates = {};
+        const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+        days.forEach((day, index) => {
+            const date = new Date(monday);
+            date.setDate(monday.getDate() + index);
+            dates[day] = date;
+        });
+        return dates;
+    };
+
+    const weekDates = getWeekDates();
+    const formatDateShort = (date) => {
+        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    };
 
     return (
         <DashboardLayout>
             <div className="space-y-4">
                 {toast?.text && (
-                    <div className={`fixed top-6 right-6 z-[120] px-5 py-3.5 rounded-2xl shadow-xl flex items-start gap-3 animate-fadeIn backdrop-blur-sm border ${toast?.type === 'warning'
-                        ? 'bg-amber-500/90 text-white border-amber-200/40'
-                        : 'bg-red-500/90 text-white border-red-200/40'
+                    <div className={`fixed left-4 right-4 top-20 z-[120] flex items-start gap-3 rounded-2xl border px-4 py-3.5 shadow-xl animate-fadeIn backdrop-blur-sm sm:left-auto sm:right-6 sm:top-6 sm:max-w-sm sm:px-5 ${toast?.type === 'warning'
+                            ? 'bg-amber-500/90 text-white border-amber-200/40'
+                            : toast?.type === 'success'
+                                ? 'bg-emerald-500/90 text-white border-emerald-200/40'
+                                : 'bg-red-500/90 text-white border-red-200/40'
                         }`}>
                         <div className="mt-0.5 text-white/90">
-                            {toast?.type === 'warning' ? <FaExclamationTriangle size={14} /> : <FaTimes size={12} />}
+                            {toast?.type === 'warning' ? <FaExclamationTriangle size={14} />
+                                : toast?.type === 'success' ? <FaCheck size={14} />
+                                    : <FaTimes size={12} />}
                         </div>
                         <div className="text-sm">
                             <p className="font-semibold">
-                                {toast?.type === 'warning' ? 'Schedule Conflict' : 'Action Failed'}
+                                {toast?.type === 'warning' ? 'Schedule Conflict'
+                                    : toast?.type === 'success' ? 'Success'
+                                        : 'Action Failed'}
                             </p>
                             <p className="opacity-95">{toast.text}</p>
                         </div>
@@ -285,93 +516,149 @@ const TimetablePage = () => {
                     </div>
                 )}
 
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
-                    <div className="flex flex-col space-y-1">
-                        <h1 className="text-2xl font-semibold text-gray-900 tracking-tight">Timetable</h1>
-                        <p className="text-sm text-gray-500">
+                <div className="mb-8 flex flex-col justify-between gap-5 lg:flex-row lg:items-start">
+                    <div className="flex min-w-0 flex-col space-y-1">
+                        <div className="flex items-start gap-3 sm:items-center">
+                            <div className="rounded-xl bg-primary/10 p-2 text-primary">
+                                <FaCalendarAlt size={22} />
+                            </div>
+                            <h1 className="text-xl font-semibold tracking-tight text-gray-900 sm:text-2xl">Timetable</h1>
+                        </div>
+                        <p className="max-w-2xl text-sm text-gray-500">
                             {isTeacher ? "Manage your teaching hours and academic schedule." : "Academic scheduling and faculty coordination."}
                         </p>
                     </div>
 
                     {isAdmin ? (
-                        <div className="flex flex-wrap items-center gap-3">
-                            <Tabs value={adminViewMode} onValueChange={setAdminViewMode} className="bg-gray-100/50 p-1 rounded-lg border border-gray-200/60">
-                                <TabsList className="bg-transparent gap-1 h-auto p-0">
+                        <div className="flex w-full flex-col gap-3 lg:w-auto lg:flex-row lg:flex-wrap lg:items-center lg:justify-end">
+                            <Tabs value={adminViewMode} onValueChange={(val) => { setAdminViewMode(val); setActiveTab("timetable"); }} className="w-full rounded-lg border border-gray-200/60 bg-gray-100/50 p-1 lg:w-auto lg:shrink-0">
+                                <TabsList className="grid h-auto w-full grid-cols-2 gap-1 bg-transparent p-0 lg:w-auto">
                                     <TabsTrigger value="class" className="rounded-md text-[13px] font-medium data-[state=active]:bg-white data-[state=active]:shadow-sm px-4 py-1.5 data-[state=active]:text-gray-900 text-gray-600">Class</TabsTrigger>
                                     <TabsTrigger value="teacher" className="rounded-md text-[13px] font-medium data-[state=active]:bg-white data-[state=active]:shadow-sm px-4 py-1.5 data-[state=active]:text-gray-900 text-gray-600">Teacher</TabsTrigger>
                                 </TabsList>
                             </Tabs>
 
-                            {adminViewMode === "class" ? (
-                                <div className="flex items-center gap-3">
-                                    <Select value={activeClassOption?.key || ""} onValueChange={setSelectedClassKey}>
-                                        <SelectTrigger className="w-52 h-9 text-[13px] font-medium border-gray-200/80 rounded-md focus:ring-gray-200">
-                                            <SelectValue placeholder="Select class" />
-                                        </SelectTrigger>
-                                        <SelectContent className="rounded-md border-gray-200/80 shadow-sm">
-                                            {classOptions.map((item) => (
-                                                <SelectItem key={item.key} value={item.key} className="text-[13px]">
-                                                    {item.standard}-{item.section}{item.timetable ? ` (${item.timetable.academicYear})` : " (Not created)"}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                    <Button
-                                        size="sm"
-                                        className="h-9 px-4 text-[13px] font-medium bg-gray-900 hover:bg-gray-800 text-white rounded-md transition-colors shadow-none"
-                                        onClick={() => setCreateDialogOpen(true)}
-                                    >
-                                        New Schedule
-                                    </Button>
-                                    {activeTimetableId && selectedTimetableEntries.length > 0 && (
+                            <div className="flex w-full flex-col gap-3 sm:flex-row sm:flex-wrap lg:w-auto lg:flex-nowrap lg:items-center lg:justify-end">
+                                <button
+                                    onClick={() => setActiveTab("proxy")}
+                                    className={`inline-flex w-full items-center justify-center gap-2 rounded-md px-4 py-2 text-[13px] font-medium transition-all sm:w-auto ${activeTab === "proxy"
+                                        ? "bg-blue-600 text-white shadow-sm"
+                                        : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50"
+                                    }`}
+                                >
+                                    <FaUserClock size={14} />
+                                    Proxy Management
+                                </button>
+
+                                {adminViewMode === "class" ? (
+                                    <div className="flex w-full flex-col gap-3 sm:flex-row sm:flex-wrap lg:w-auto lg:flex-nowrap lg:items-center lg:justify-end">
+                                        <Select value={activeClassOption?.key || ""} onValueChange={setSelectedClassKey}>
+                                            <SelectTrigger className="h-10 w-full rounded-md border-gray-200/80 text-[13px] font-medium focus:ring-gray-200 sm:w-52">
+                                                <SelectValue placeholder="Select class" />
+                                            </SelectTrigger>
+                                            <SelectContent className="rounded-md border-gray-200/80 shadow-sm">
+                                                {classOptions.map((item) => (
+                                                    <SelectItem key={item.key} value={item.key} className="text-[13px]">
+                                                        {item.standard}-{item.section}{item.timetable ? ` (${item.timetable.academicYear})` : " (Not created)"}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
                                         <Button
                                             size="sm"
-                                            variant="outline"
-                                            className="h-9 px-4 text-[13px] font-medium border-gray-200 rounded-md transition-colors shadow-none flex items-center gap-1.5"
-                                            onClick={handleExportPDF}
+                                            className="h-10 w-full rounded-md px-4 text-[13px] font-medium shadow-none transition-colors sm:w-auto"
+                                            onClick={() => setCreateDialogOpen(true)}
                                         >
-                                            <FaFilePdf size={12} />
-                                            Export PDF
+                                            New Schedule
                                         </Button>
-                                    )}
-                                </div>
-                            ) : (
-                                <Select value={activeTeacherId} onValueChange={setSelectedTeacherId}>
-                                    <SelectTrigger className="w-52 h-9 text-[13px] font-medium border-gray-200/80 rounded-md focus:ring-gray-200">
-                                        <SelectValue placeholder="Select teacher" />
-                                    </SelectTrigger>
-                                    <SelectContent className="rounded-md border-gray-200/80 shadow-sm">
-                                        {teachers.map((teacher) => (
-                                            <SelectItem key={teacher._id} value={teacher._id} className="text-[13px]">
-                                                {teacher.name}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            )}
-                        </div>
-                    ) : (
-                        <div className="flex items-center gap-3">
-                            <div className="inline-flex items-center gap-2 rounded-md bg-gray-100 border border-gray-200/80 px-3 py-1.5 text-xs font-medium text-gray-600">
-                                <FaChalkboardTeacher size={14} />
-                                Active Faculty Schedule
+                                        {activeTimetableId && selectedTimetableEntries.length > 0 && (
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                className="flex h-10 w-full items-center justify-center gap-1.5 rounded-md border-gray-200 px-4 text-[13px] font-medium shadow-none transition-colors sm:w-auto"
+                                                onClick={handleExportPDF}
+                                            >
+                                                <FaFilePdf size={12} />
+                                                Export PDF
+                                            </Button>
+                                        )}
+                                    </div>
+                                ) : (
+                                    <div className="flex w-full flex-col gap-3 sm:flex-row sm:flex-wrap lg:w-auto lg:flex-nowrap lg:items-center lg:justify-end">
+                                        <div className="w-full sm:w-72">
+                                            <SearchableSelect
+                                                label={`Teacher List (${teacherOptions.length})`}
+                                                options={teacherOptions}
+                                                value={activeTeacherId}
+                                                onChange={setSelectedTeacherId}
+                                                placeholder="Search teacher by name or class"
+                                                disabled={!teacherOptions.length}
+                                                loading={teachersQuery.isLoading}
+                                            />
+                                        </div>
+                                        {teacherScheduleEntries.length > 0 && activeTeacherId && (
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                className="flex h-10 w-full items-center justify-center gap-1.5 rounded-md border-gray-200 px-4 text-[13px] font-medium shadow-none transition-colors sm:w-auto"
+                                                onClick={handleExportAdminTeacherPDF}
+                                            >
+                                                <FaFilePdf size={12} />
+                                                Export PDF
+                                            </Button>
+                                        )}
+                                    </div>
+                                )}
                             </div>
-                            {myScheduleEntries.length > 0 && (
+                        </div>
+                    ) : isTeacher && isClassTeacherFromData ? (
+                        // Class teacher: two tabs — homeroom class timetable + personal schedule
+                        <div className="flex items-center gap-3">
+                            <Tabs value={teacherTab} onValueChange={setTeacherTab} className="bg-gray-100/50 p-1 rounded-lg border border-gray-200/60">
+                                <TabsList className="bg-transparent gap-1 h-auto p-0">
+                                    <TabsTrigger value="class" className="rounded-md text-[13px] font-medium data-[state=active]:bg-white data-[state=active]:shadow-sm px-4 py-1.5 data-[state=active]:text-gray-900 text-gray-600">
+                                        Class {myClassLabel || "Assigned"}
+                                    </TabsTrigger>
+                                    <TabsTrigger value="schedule" className="rounded-md text-[13px] font-medium data-[state=active]:bg-white data-[state=active]:shadow-sm px-4 py-1.5 data-[state=active]:text-gray-900 text-gray-600">
+                                        My Schedule
+                                    </TabsTrigger>
+                                </TabsList>
+                            </Tabs>
+                            {(teacherTab === "schedule" ? myScheduleEntries : myClassEntries).length > 0 && (
                                 <Button
                                     size="sm"
                                     variant="outline"
                                     className="h-9 px-4 text-[13px] font-medium border-gray-200 rounded-md transition-colors shadow-none flex items-center gap-1.5"
-                                    onClick={handleExportSchedulePDF}
+                                    onClick={teacherTab === "schedule" ? handleExportSchedulePDF : handleExportClassPDF}
                                 >
                                     <FaFilePdf size={12} />
                                     Export PDF
                                 </Button>
                             )}
                         </div>
+                    ) : (
+                        // Regular (subject-only) teacher: just their schedule
+                        <div className="flex items-center gap-3">
+                            <div className="flex w-full flex-col gap-3 sm:flex-row sm:flex-wrap lg:w-auto lg:flex-nowrap lg:items-center lg:justify-end">
+                                {myScheduleEntries.length > 0 && (
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="flex h-10 w-full items-center justify-center gap-1.5 rounded-md border-gray-200 px-4 text-[13px] font-medium shadow-none transition-colors sm:w-auto"
+                                        onClick={handleExportSchedulePDF}
+                                    >
+                                        <FaFilePdf size={12} />
+                                        Export PDF
+                                    </Button>
+                                )}
+                            </div>
+                        </div>
                     )}
                 </div>
 
-                {isLoading ? (
+                {activeTab === "proxy" && isAdmin ? (
+                    <ProxyManagementPage />
+                ) : isLoading ? (
                     <div className="flex h-64 items-center justify-center rounded-xl border border-gray-200/80 bg-white">
                         <ButtonSpinner className="text-2xl text-gray-400" />
                     </div>
@@ -383,15 +670,71 @@ const TimetablePage = () => {
                             </div>
                         )}
 
+                        {/* Class teacher's homeroom — no entries notice */}
+                        {isTeacher && isClassTeacherFromData && teacherTab === "class" && myClassEntries.length === 0 && (
+                            <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-[13px] text-gray-700">
+                                No timetable has been created yet for Class {myClassLabel || "assigned"}.
+                            </div>
+                        )}
+
+                        {/* Week Navigation - only show for teacher view */}
+                        {isTeacher && (
+                            <div className="mb-4 flex flex-col gap-3 rounded-lg border border-gray-200 bg-gray-50 p-3 sm:flex-row sm:items-center sm:justify-between">
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={() => setWeekOffset(w => w - 1)}
+                                        className="p-2 text-gray-600 hover:bg-white hover:text-gray-900 rounded-lg transition-all border border-transparent hover:border-gray-200"
+                                    >
+                                        <FaChevronLeft size={14} />
+                                    </button>
+                                    <button
+                                        onClick={() => setWeekOffset(0)}
+                                        className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-all ${weekOffset === 0
+                                                ? 'bg-white text-gray-900 border border-gray-300 shadow-sm'
+                                                : 'text-gray-600 hover:bg-white hover:border-gray-200 border border-transparent'
+                                            }`}
+                                    >
+                                        This Week
+                                    </button>
+                                    <button
+                                        onClick={() => setWeekOffset(w => w + 1)}
+                                        className="p-2 text-gray-600 hover:bg-white hover:text-gray-900 rounded-lg transition-all border border-transparent hover:border-gray-200"
+                                    >
+                                        <FaChevronRight size={14} />
+                                    </button>
+                                </div>
+                                <div className="text-sm text-gray-600 sm:text-right">
+                                    {formatDateShort(weekDates["Mon"])} - {formatDateShort(weekDates["Sat"])}
+                                </div>
+                            </div>
+                        )}
+
                         <div className="overflow-x-auto pb-4 pt-1">
-                            <div className="min-w-[900px]">
+                            <div className="min-w-[820px]">
                                 <TimetableGrid
                                     entries={displayEntries}
                                     timeSlots={timeSlots}
                                     teachers={teachers}
+                                    weekDates={weekDates}
+                                    formatDateShort={formatDateShort}
                                     onCellClick={handleCellClick}
+                                    onMarkUnavailable={(isTeacher && (!isClassTeacherFromData || teacherTab === "schedule")) ? ((day, slot, entry) => {
+                                        setMarkUnavailableModal({
+                                            open: true,
+                                            slotInfo: {
+                                                dayOfWeek: day,
+                                                timeSlot: slot,
+                                                date: weekDates[day], // Use actual date from week view
+                                                subject: entry?.subject,
+                                                standard: entry?.timetableId?.standard,
+                                                section: entry?.timetableId?.section,
+                                                entry
+                                            }
+                                        });
+                                    }) : undefined}
                                     readOnly={isTeacher || adminViewMode === "teacher" || (isAdmin && adminViewMode === "class" && !activeTimetableId)}
-                                    showClass={isTeacher || adminViewMode === "teacher"}
+                                    showClass={(isTeacher && teacherTab === "schedule") || adminViewMode === "teacher"}
+                                    isTeacherView={isTeacher && (!isClassTeacherFromData || teacherTab === "schedule")}
                                 />
                             </div>
                         </div>
@@ -419,6 +762,18 @@ const TimetablePage = () => {
                 onCreate={handleCreateTimetable}
                 isPending={createTimetableMutation.isPending}
                 availableClasses={availableClasses}
+            />
+
+            <MarkUnavailableModal
+                isOpen={markUnavailableModal.open}
+                onClose={() => setMarkUnavailableModal({ open: false, slotInfo: null })}
+                slotInfo={markUnavailableModal.slotInfo}
+                onSuccess={() => {
+                    showMessage("success", "Proxy request created successfully");
+                }}
+                onError={(errorMessage) => {
+                    showMessage("error", errorMessage);
+                }}
             />
         </DashboardLayout>
     );

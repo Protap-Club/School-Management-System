@@ -35,7 +35,10 @@ export const createUserSchema = z.object({
         employeeId: z.string().optional(),
         qualification: z.string().optional(),
         joiningDate: z.string().optional(),
-        expectedSalary: z.coerce.number().gt(100, 'Expected salary must be more than 100').optional(),
+        expectedSalary: z.preprocess(
+            (val) => (val === '' || val === null) ? undefined : val,
+            z.coerce.number().gt(100, 'Expected salary must be more than 100').optional()
+        ),
         assignedClasses: z.array(z.object({
             standard: z.string(),
             section: z.string(),
@@ -75,6 +78,47 @@ export const createUserSchema = z.object({
 });
 
 // ─── Get Users (query params) ───────────────────────────────────────
+export const createTeacherStudentSchema = z.object({
+    body: z.object({
+        name: z.string().trim().min(1, 'Name is required'),
+        email: z.string().trim().email('Invalid email address'),
+        contactNo: z.string().trim().optional(),
+        rollNumber: z.string().trim().min(1, 'Roll number is required'),
+        standard: z.string().trim().min(1, 'Standard is required'),
+        section: z.string().trim().min(1, 'Section is required'),
+        fatherName: z.string().trim().optional(),
+        fatherContact: z.string().trim().optional(),
+        motherName: z.string().trim().optional(),
+        motherContact: z.string().trim().optional(),
+        guardianName: z.string().trim().optional(),
+        guardianContact: z.string().trim().optional(),
+        address: z.string().trim().optional(),
+    }).strict().superRefine((data, ctx) => {
+        const rollNumberValue = Number(data.rollNumber);
+        if (!Number.isFinite(rollNumberValue) || rollNumberValue <= 0 || !/^\d+$/.test(data.rollNumber)) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: 'Roll number must be a positive number',
+                path: ['rollNumber'],
+            });
+        }
+
+        const hasParentOrGuardianName = [
+            data.fatherName,
+            data.motherName,
+            data.guardianName,
+        ].some((value) => String(value || '').trim().length > 0);
+
+        if (!hasParentOrGuardianName) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: 'At least one of fatherName, motherName, or guardianName is required',
+                path: ['guardianName'],
+            });
+        }
+    }),
+});
+
 export const getUsersSchema = z.object({
     query: z.object({
         role: z.enum([...roleValues, 'all']).optional(),
@@ -100,6 +144,14 @@ export const getSubjectTeacherSchema = z.object({
     }),
 });
 
+// ─── Get Next Roll Number (query params) ───────────────────────────
+export const getNextRollNumberSchema = z.object({
+    query: z.object({
+        standard: z.string().min(1, 'Standard is required'),
+        section: z.string().min(1, 'Section is required'),
+    }),
+});
+
 // ─── Single User Params ─────────────────────────────────────────────
 export const userIdParamsSchema = z.object({
     params: z.object({
@@ -113,6 +165,7 @@ export const userIdsBodySchema = z.object({
         userIds: z.array(objectIdSchema).nonempty('User IDs array cannot be empty'),
         isArchived: z.boolean({ required_error: 'isArchived is required' }),
         replacementTeacherId: objectIdSchema.optional(),
+        skipReplacement: z.boolean().optional(),
     }),
 });
 
@@ -134,7 +187,10 @@ const profileUpdateSchema = z.object({
     rollNumber: z.string().optional(),
     standard: z.string().optional(),
     section: z.string().optional(),
-    year: z.coerce.number().optional(),
+    year: z.preprocess(
+        (val) => (val === '' || val === null) ? undefined : val,
+        z.coerce.number().optional()
+    ),
     admissionDate: z.string().optional(),
     fatherName: z.string().optional(),
     fatherContact: z.string().optional(),
@@ -148,7 +204,10 @@ const profileUpdateSchema = z.object({
     employeeId: z.string().optional(),
     qualification: z.string().optional(),
     joiningDate: z.string().optional(),
-    expectedSalary: z.coerce.number().gt(100, 'Expected salary must be more than 100').optional(),
+    expectedSalary: z.preprocess(
+        (val) => (val === '' || val === null) ? undefined : val,
+        z.coerce.number().gt(100, 'Expected salary must be more than 100').optional()
+    ),
     assignedClasses: z.array(classAssignmentSchema).optional(),
 
     // Admin profile fields

@@ -81,8 +81,12 @@ export const refresh = async (req, res, next) => {
 // Handle user logout — clears refresh token from DB and cookie
 export const logout = asyncHandler(async (req, res) => {
     const refreshToken = req.cookies?.refreshToken || req.body?.refreshToken;
+    const metadata = {
+        userAgent: req.headers["user-agent"],
+        ip: req.ip || req.headers["x-forwarded-for"] || req.connection.remoteAddress,
+    };
 
-    await authService.logout(refreshToken);
+    await authService.logout(refreshToken, metadata);
 
     // Clear the refresh cookie
     res.clearCookie("refreshToken", {
@@ -105,3 +109,61 @@ export const checkAuthStatus = (req, res) => {
         user: req.user,
     });
 };
+
+// Update password for users with system-generated passwords
+export const updatePassword = asyncHandler(async (req, res) => {
+    const { currentPassword, newPassword } = req.body;
+    const userId = req.user._id;
+
+    const result = await authService.updatePassword(userId, currentPassword, newPassword);
+
+    res.status(200).json({
+        success: true,
+        message: result.message,
+    });
+});
+
+// Forgot password - Request password reset email
+export const forgotPassword = asyncHandler(async (req, res) => {
+    const { email, method } = req.body;
+    const metadata = {
+        userAgent: req.headers["user-agent"],
+        ip: req.ip || req.headers["x-forwarded-for"] || req.connection.remoteAddress,
+    };
+
+    const result = await authService.forgotPassword(email, metadata, method);
+
+    // Always return success to prevent email enumeration attacks
+    res.status(200).json({
+        success: true,
+        message: "If an account exists with this email, you will receive password reset instructions.",
+    });
+});
+
+// Reset password - Set new password using reset token
+export const resetPassword = asyncHandler(async (req, res) => {
+    const { token, newPassword } = req.body;
+    const metadata = {
+        userAgent: req.headers["user-agent"],
+        ip: req.ip || req.headers["x-forwarded-for"] || req.connection.remoteAddress,
+    };
+
+    const result = await authService.resetPassword(token, newPassword, metadata);
+
+    res.status(200).json({
+        success: true,
+        message: result.message,
+    });
+});
+
+// Reset password - Set new password using email + OTP
+export const resetPasswordWithOtp = asyncHandler(async (req, res) => {
+    const { email, otp, newPassword } = req.body;
+
+    const result = await authService.resetPasswordWithOtp(email, otp, newPassword);
+
+    res.status(200).json({
+        success: true,
+        message: result.message,
+    });
+});

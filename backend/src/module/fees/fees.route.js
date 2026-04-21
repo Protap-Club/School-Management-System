@@ -14,6 +14,18 @@ import {
     getMyFees,
     getFeeTypes,
     createFeeType,
+    getPenaltyTypes,
+    createPenaltyType,
+    getStudentsByClass,
+    getPenaltyStudentsByClass,
+    getStudentPenalties,
+    createStudentPenalty,
+    updatePenaltyStatus,
+    getAllClassesPenaltyOverview,
+    getClassPenaltyOverview,
+    getYearlyPenaltySummary,
+    getMyPenalties,
+    deleteStudentPenalty,
 } from "./fees.controller.js";
 import {
     createSalaryEntry,
@@ -41,6 +53,16 @@ import {
     studentFeeHistorySchema,
     myFeesSchema,
     createFeeTypeSchema,
+    createPenaltyTypeSchema,
+    createStudentPenaltySchema,
+    getStudentsByClassSchema,
+    getPenaltyStudentsByClassSchema,
+    getStudentPenaltiesSchema,
+    updatePenaltyStatusSchema,
+    allClassesPenaltyOverviewSchema,
+    classPenaltyOverviewSchema,
+    yearlyPenaltySummarySchema,
+    myPenaltiesSchema,
 } from "./fees.validation.js";
 import {
     createSalarySchema,
@@ -60,6 +82,13 @@ router.get(
     checkRole([USER_ROLES.STUDENT]),
     validate(myFeesSchema),
     getMyFees
+);
+
+router.get(
+    "/my-penalties",
+    checkRole([USER_ROLES.STUDENT]),
+    validate(myPenaltiesSchema),
+    getMyPenalties
 );
 
 // ── Shared: Student Fee History (Admin Only, mobile + web)
@@ -200,5 +229,97 @@ router.post(
     validate(createFeeTypeSchema),
     createFeeType
 );
+
+router.get(
+    "/penalty-types",
+    checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN]),
+    getPenaltyTypes
+);
+
+router.post(
+    "/penalty-types",
+    checkWebOnly,
+    checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN]),
+    validate(createPenaltyTypeSchema),
+    createPenaltyType
+);
+
+// ── Student Penalty Dashboards & Reports ─────────────────────────────
+// (Specific subpaths moved to top to prevent conflict)
+router.get(
+    "/penalties/overview/all-classes",
+    checkWebOnly,
+    checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN]),
+    validate(allClassesPenaltyOverviewSchema),
+    getAllClassesPenaltyOverview
+);
+
+router.get(
+    "/penalties/overview/:standard/:section",
+    checkWebOnly,
+    checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN]),
+    validate(classPenaltyOverviewSchema),
+    getClassPenaltyOverview
+);
+
+router.get(
+    "/penalties/summary/yearly",
+    checkWebOnly,
+    checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN]),
+    validate(yearlyPenaltySummarySchema),
+    getYearlyPenaltySummary
+);
+
+// ── Student Penalty Management ──────────────────────────────
+router.get(
+    "/students-by-class",
+    checkWebOnly,
+    checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN]),
+    validate(getStudentsByClassSchema),
+    getStudentsByClass
+);
+
+router.get(
+    "/penalties/students",
+    checkWebOnly,
+    checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN]),
+    validate(getPenaltyStudentsByClassSchema),
+    getPenaltyStudentsByClass
+);
+
+router.get(
+    "/penalties",
+    checkWebOnly,
+    checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN]),
+    validate(getStudentPenaltiesSchema),
+    getStudentPenalties
+);
+
+router.post(
+    "/penalties",
+    checkWebOnly,
+    checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN]),
+    validate(createStudentPenaltySchema),
+    createStudentPenalty
+);
+
+router.patch(
+    "/penalties/:id",
+    checkWebOnly,
+    checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN]),
+    validate(updatePenaltyStatusSchema),
+    updatePenaltyStatus
+);
+
+router.delete(
+    "/penalties/:id",
+    checkWebOnly,
+    checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN]),
+    validate(feeStructureIdParamsSchema),
+    deleteStudentPenalty
+);
+
+// Final verification log for routing registration
+// console.log("Student Penalty Routes registered successfully");
 
 export default router;

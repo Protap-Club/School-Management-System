@@ -4,7 +4,7 @@ import { useAuth } from '../auth';
 import {
     useNotices, useCreateNotice, useDeleteNotice, useGroups,
     useCreateGroup, useDeleteGroup, useClasses, useStudents, useTeachers, useAllUsers,
-    useReceivedNotices, useAcknowledgeNotice, useAcknowledgments,
+    useReceivedNotices, useDeleteReceivedNotice, useBulkDeleteReceivedNotices, useAcknowledgeNotice, useAcknowledgments,
 } from './api/queries';
 import { ALLOWED_EXTENSIONS, IMAGE_EXTENSIONS, SELECTION_VALIDATORS, RECIPIENT_MAP } from './noticeConstants';
 import { getRecipientLabel, getFileIcon } from './NoticeUtils';
@@ -14,7 +14,7 @@ export const useNoticeHandlers = () => {
     const isAdmin = ['admin', 'super_admin'].includes(currentUser?.role);
     const isTeacher = currentUser?.role === 'teacher';
     const fileInputRef = useRef(null);
-    const PAGE_SIZE = 12;
+    const PAGE_SIZE = 25;
 
     // Compose state
     const [activeTab, setActiveTab] = useState('compose');
@@ -57,6 +57,7 @@ export const useNoticeHandlers = () => {
     const [toast, setToast] = useState({ type: '', text: '' });
     const [historyPage, setHistoryPage] = useState(1);
     const [receivedPage, setReceivedPage] = useState(1);
+    const [selectedReceivedNoticeIds, setSelectedReceivedNoticeIds] = useState([]);
 
     const selectionState = useMemo(() => ({ selectedClasses, selectedUsers, selectedStudents, selectedGroups }), [selectedClasses, selectedUsers, selectedStudents, selectedGroups]);
 
@@ -94,6 +95,8 @@ export const useNoticeHandlers = () => {
     const deleteNoticeMutation = useDeleteNotice();
     const createGroupMutation = useCreateGroup();
     const deleteGroupMutation = useDeleteGroup();
+    const deleteReceivedNoticeMutation = useDeleteReceivedNotice();
+    const bulkDeleteReceivedNoticesMutation = useBulkDeleteReceivedNotices();
 
     const rawStudents = studentsData?.data?.users || studentsData?.data || [];
     const teachers = teachersData?.data?.users || teachersData?.data || [];
@@ -186,6 +189,55 @@ export const useNoticeHandlers = () => {
         catch (error) { showToast('error', error?.response?.data?.message || 'Failed to delete group'); }
     }, [deleteGroupMutation, showToast]);
 
+    const handleDeleteReceivedNotice = useCallback(async (noticeId) => {
+        try {
+            await deleteReceivedNoticeMutation.mutateAsync(noticeId);
+            setSelectedReceivedNoticeIds((current) => current.filter((id) => id !== noticeId));
+            showToast('success', 'Notice removed from received list');
+        } catch (error) {
+            showToast('error', error?.response?.data?.message || 'Failed to remove notice');
+        }
+    }, [deleteReceivedNoticeMutation, showToast]);
+
+    const handleBulkDeleteReceivedNotices = useCallback(async () => {
+        if (selectedReceivedNoticeIds.length === 0) {
+            showToast('error', 'Select at least one notice');
+            return;
+        }
+
+        try {
+            await bulkDeleteReceivedNoticesMutation.mutateAsync(selectedReceivedNoticeIds);
+            setSelectedReceivedNoticeIds([]);
+            showToast('success', 'Selected notices removed from received list');
+        } catch (error) {
+            showToast('error', error?.response?.data?.message || 'Failed to remove selected notices');
+        }
+    }, [bulkDeleteReceivedNoticesMutation, selectedReceivedNoticeIds, showToast]);
+
+    const toggleReceivedNoticeSelection = useCallback((noticeId) => {
+        setSelectedReceivedNoticeIds((current) =>
+            current.includes(noticeId)
+                ? current.filter((id) => id !== noticeId)
+                : [...current, noticeId]
+        );
+    }, []);
+
+    const toggleSelectAllReceivedOnPage = useCallback((noticeIdsOnPage) => {
+        const idsOnPage = (noticeIdsOnPage || []).filter(Boolean);
+        if (idsOnPage.length === 0) {
+            return;
+        }
+
+        setSelectedReceivedNoticeIds((current) => {
+            const allSelected = idsOnPage.every((id) => current.includes(id));
+            if (allSelected) {
+                return current.filter((id) => !idsOnPage.includes(id));
+            }
+
+            return [...new Set([...current, ...idsOnPage])];
+        });
+    }, []);
+
     /**
      * Downloads a file from a cross-origin URL (Cloudinary) with the correct filename.
      *
@@ -238,6 +290,11 @@ export const useNoticeHandlers = () => {
         setReceivedPage(1);
     }, [receivedItems.length]);
 
+    useEffect(() => {
+        const receivedIdSet = new Set(receivedItems.map((item) => item._id));
+        setSelectedReceivedNoticeIds((current) => current.filter((id) => receivedIdSet.has(id)));
+    }, [receivedItems]);
+
     const totalHistoryPages = Math.max(1, Math.ceil(filteredHistory.length / PAGE_SIZE));
     const totalReceivedPages = Math.max(1, Math.ceil(receivedItems.length / PAGE_SIZE));
 
@@ -265,6 +322,9 @@ export const useNoticeHandlers = () => {
         isSending, students, teachers, allUsers, classes, groups, historyItems, receivedItems, filteredHistory,
         historyPage, setHistoryPage, totalHistoryPages, pagedHistory,
         receivedPage, setReceivedPage, totalReceivedPages, pagedReceivedItems,
-        toggleSelection, handleFileUpload, removeAttachment, handleSendClick, resetComposeState, handleFinalSend, handleDeleteHistory, handleCreateGroup, handleDeleteGroup, handleDownload
+        selectedReceivedNoticeIds, setSelectedReceivedNoticeIds,
+        toggleSelection, handleFileUpload, removeAttachment, handleSendClick, resetComposeState, handleFinalSend, handleDeleteHistory, handleCreateGroup, handleDeleteGroup, handleDownload,
+        handleDeleteReceivedNotice, handleBulkDeleteReceivedNotices, toggleReceivedNoticeSelection, toggleSelectAllReceivedOnPage,
+        isDeletingReceived: deleteReceivedNoticeMutation.isPending || bulkDeleteReceivedNoticesMutation.isPending
     };
 };

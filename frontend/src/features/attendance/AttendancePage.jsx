@@ -1,5 +1,6 @@
 // Attendance Page — Teacher/Admin view for daily attendance with manual toggle.
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useSearchParams, useParams, useNavigate } from 'react-router-dom';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import { useAuth } from '../../features/auth';
@@ -12,7 +13,9 @@ import {
     useTodayAttendance,
     useMarkManualAttendance,
     useReplaceClassTeacher,
+    attendanceKeys,
 } from './index';
+import { formatValue } from '../../utils';
 
 // Components
 import StudentHistoryModal from './components/StudentHistoryModal';
@@ -35,13 +38,22 @@ const STATUS_STYLES = {
     unmarked: 'bg-slate-100 text-slate-500 hover:bg-slate-200 border-slate-200',
 };
 const STATUS_LABELS = { present: 'Present', late: 'Late', absent: 'Absent', unmarked: 'Unmarked' };
-const ITEMS_PER_PAGE = 15;
+// const ITEMS_PER_PAGE = 25; // Removed in favor of dynamic state
 
 // ─── Helpers ────────────────────────────────────────────
 const buildAttendanceMap = (records = []) => {
     const map = {};
     records.forEach(record => { map[record.studentId] = { status: record.status.toLowerCase(), checkInTime: record.checkInTime }; });
     return map;
+};
+
+const normalizeSearch = (str) => {
+    if (!str) return "";
+    return str
+        .toLowerCase()
+        .replace(/\bclass\b/g, "")
+        .replace(/\s+/g, "")
+        .trim();
 };
 
 const buildClassGroups = (students = [], teachers = [], configuredClassSections = []) => {
@@ -52,7 +64,13 @@ const buildClassGroups = (students = [], teachers = [], configuredClassSections 
     const primaryClassTeacherByClass = {};
 
     teachers.forEach((teacher) => {
-        const primaryClass = teacher.profile?.assignedClasses?.[0];
+        // Prefer classTeacherOf (explicit 1-to-1 class teacher assignment),
+        // fall back to assignedClasses[0] for schools that don't use classTeacherOf.
+        const classTeacherOf = teacher.profile?.classTeacherOf;
+        const primaryClass = (classTeacherOf?.standard && classTeacherOf?.section)
+            ? classTeacherOf
+            : teacher.profile?.assignedClasses?.[0];
+
         if (!primaryClass?.standard || !primaryClass?.section) return;
 
         const key = `${primaryClass.standard} ${primaryClass.section}`.trim();
@@ -76,6 +94,8 @@ const buildClassGroups = (students = [], teachers = [], configuredClassSections 
         groups[key] = { id: key, standard: item.standard, section: item.section, teacher: classTeacher || null, students: [] };
     });
 
+    const seenStudentIdsByGroup = {};
+
     students.forEach(student => {
         // Hide "Unassigned" class by skipping students without a assigned standard
         if (!student.profile?.standard) return;
@@ -88,7 +108,15 @@ const buildClassGroups = (students = [], teachers = [], configuredClassSections 
             const classTeacher = primaryClassTeacherByClass[key] || null;
             groups[key] = { id: key, standard: std, section: sec, teacher: classTeacher || null, students: [] };
         }
-        groups[key].students.push(student);
+
+        // Initialize seen set for this group
+        if (!seenStudentIdsByGroup[key]) seenStudentIdsByGroup[key] = new Set();
+
+        // Only add if not seen in this group
+        if (!seenStudentIdsByGroup[key].has(student._id)) {
+            seenStudentIdsByGroup[key].add(student._id);
+            groups[key].students.push(student);
+        }
     });
 
     // Sort students by roll number within each group
@@ -107,7 +135,18 @@ const buildClassGroups = (students = [], teachers = [], configuredClassSections 
         if (stdA === 'Unassigned') return 1;
         if (stdB === 'Unassigned') return -1;
 
-        return Number(stdA) - Number(stdB) || secA.localeCompare(secB);
+        const numA = parseInt(stdA, 10);
+        const numB = parseInt(stdB, 10);
+        const isNumA = !isNaN(numA);
+        const isNumB = !isNaN(numB);
+
+        if (isNumA && isNumB) {
+            return numA - numB || secA.localeCompare(secB);
+        }
+        if (isNumA) return -1;
+        if (isNumB) return 1;
+
+        return stdA.localeCompare(stdB) || secA.localeCompare(secB);
     }).reduce((acc, k) => { acc[k] = groups[k]; return acc; }, {});
 };
 
@@ -130,6 +169,18 @@ const AttendancePage = () => {
     const [expandedClasses, setExpandedClasses] = useState({});
     const [selectedStudent, setSelectedStudent] = useState(null);
     const [teacherPage, setTeacherPage] = useState(0);
+    const [pageSize, setPageSize] = useState(() => {
+        const saved = localStorage.getItem('attendance_pageSize');
+        return saved ? parseInt(saved, 10) : 25;
+    });
+    const handlePageSizeChange = (size) => {
+        setPageSize(size);
+        localStorage.setItem('attendance_pageSize', size);
+        setTeacherPage(0);
+        setStatsModalPage(0);
+        // Also reset all class pages
+        setClassPages({});
+    };
     const [classPages, setClassPages] = useState({});
     const [searchQuery, setSearchQuery] = useState("");
     const [classSearchQuery, setClassSearchQuery] = useState("");
@@ -146,7 +197,27 @@ const AttendancePage = () => {
     const isLoading = studentsLoading || attendanceLoading || (isAdmin && teachersLoading);
 
     // Derived Data
-    const students = useMemo(() => studentsRes?.data?.users || [], [studentsRes]);
+    const rawStudents = useMemo(() => studentsRes?.data?.users || [], [studentsRes]);
+    
+    const students = useMemo(() => {
+        if (isAdmin) return rawStudents;
+        
+        // For teachers: only show students in their homeroom (classTeacherOf)
+        const classTeacherOf = currentUser?.profile?.classTeacherOf;
+        if (!classTeacherOf?.standard || !classTeacherOf?.section) return [];
+        
+        return rawStudents
+            .filter(s => 
+                s.profile?.standard === classTeacherOf.standard && 
+                s.profile?.section === classTeacherOf.section
+            )
+            .sort((a, b) => {
+                const rollA = a.profile?.rollNumber || '';
+                const rollB = b.profile?.rollNumber || '';
+                return rollA.localeCompare(rollB, undefined, { numeric: true, sensitivity: 'base' });
+            });
+    }, [isAdmin, rawStudents, currentUser]);
+
     const filteredStudents = useMemo(() => {
         if (!searchQuery) return students;
         const q = searchQuery.toLowerCase();
@@ -177,10 +248,10 @@ const AttendancePage = () => {
 
         // Otherwise filter by classSearchQuery
         if (classSearchQuery) {
-            const q = classSearchQuery.toLowerCase();
+            const q = normalizeSearch(classSearchQuery);
             const filtered = {};
             Object.keys(classes).forEach(id => {
-                if (id.toLowerCase().includes(q)) {
+                if (normalizeSearch(id).includes(q)) {
                     filtered[id] = classes[id];
                 }
             });
@@ -274,12 +345,19 @@ const AttendancePage = () => {
         }
     }, [classId, classParam, groupedClasses]);
 
+    const queryClient = useQueryClient();
+
     useEffect(() => {
         const socket = connectSocket(currentUser?.schoolId);
         socket.on('connect', () => setSocketConnected(true));
         socket.on('disconnect', () => setSocketConnected(false));
+        // Invalidate today's attendance cache whenever any NFC tap or manual mark
+        // is broadcast from the server — keeps the table in sync in real-time.
+        socket.on('attendance-marked', () => {
+            queryClient.invalidateQueries({ queryKey: attendanceKeys.today() });
+        });
         return () => disconnectSocket();
-    }, [currentUser?.schoolId]);
+    }, [currentUser?.schoolId, queryClient]);
 
     // ─── Access Guards ──────────────────────────────────
     if (!featuresLoading && !hasFeature('attendance')) return (
@@ -355,7 +433,8 @@ const AttendancePage = () => {
                 ) : isAdmin ? (
                     <AdminClassList
                         groupedClasses={groupedClasses} expandedClasses={expandedClasses} setExpandedClasses={setExpandedClasses}
-                        getClassPage={getClassPage} setClassPage={setClassPage} itemsPerPage={ITEMS_PER_PAGE}
+                        getClassPage={getClassPage} setClassPage={setClassPage} itemsPerPage={pageSize}
+                        onPageSizeChange={handlePageSizeChange}
                         setSelectedStudent={setSelectedStudent} getStudentStatus={getStudentStatus}
                         STATUS_STYLES={STATUS_STYLES} STATUS_LABELS={STATUS_LABELS}
                         handleManualToggle={handleManualToggle} manualMutation={manualMutation}
@@ -366,7 +445,8 @@ const AttendancePage = () => {
                 ) : (
                     <TeacherStudentList
                         filteredStudents={filteredStudents} teacherPage={teacherPage} setTeacherPage={setTeacherPage}
-                        itemsPerPage={ITEMS_PER_PAGE} getStudentStatus={getStudentStatus} handleManualToggle={handleManualToggle}
+                        itemsPerPage={pageSize} onPageSizeChange={handlePageSizeChange}
+                        getStudentStatus={getStudentStatus} handleManualToggle={handleManualToggle}
                         manualMutation={manualMutation} setSelectedStudent={setSelectedStudent}
                         STATUS_STYLES={STATUS_STYLES} STATUS_LABELS={STATUS_LABELS}
                     />
@@ -415,8 +495,8 @@ const AttendancePage = () => {
                                         s.name.toLowerCase().includes(statsModalSearch.toLowerCase()) ||
                                         s.profile?.rollNumber?.toLowerCase().includes(statsModalSearch.toLowerCase())
                                     );
-                                    const modalTotalPages = Math.ceil(filteredList.length / ITEMS_PER_PAGE);
-                                    const paginatedList = filteredList.slice(statsModalPage * ITEMS_PER_PAGE, (statsModalPage + 1) * ITEMS_PER_PAGE);
+                                    const modalTotalPages = Math.ceil(filteredList.length / pageSize);
+                                    const paginatedList = filteredList.slice(statsModalPage * pageSize, (statsModalPage + 1) * pageSize);
 
                                     if (paginatedList.length === 0) {
                                         return (
@@ -441,7 +521,7 @@ const AttendancePage = () => {
                                                             <div>
                                                                 <h3 className="font-bold text-slate-800">{student.name}</h3>
                                                                 <div className="flex items-center gap-3 mt-1 text-xs font-medium text-slate-500">
-                                                                    <span className="bg-slate-100 px-2.5 py-0.5 flex items-center rounded-md">Roll: {student.profile?.rollNumber || '-'}</span>
+                                                                    <span className="bg-slate-100 px-2.5 py-0.5 flex items-center rounded-md">Roll: {formatValue(student.profile?.rollNumber)}</span>
                                                                     {student.profile?.standard && (
                                                                         <span className="bg-slate-100 px-2.5 py-0.5 flex items-center rounded-md text-primary font-semibold">Class {student.profile.standard} {student.profile.section}</span>
                                                                     )}
@@ -462,8 +542,9 @@ const AttendancePage = () => {
                                                 <PaginationControls
                                                     currentPage={statsModalPage}
                                                     totalItems={filteredList.length}
-                                                    itemsPerPage={ITEMS_PER_PAGE}
+                                                    itemsPerPage={pageSize}
                                                     onPageChange={setStatsModalPage}
+                                                    onPageSizeChange={handlePageSizeChange}
                                                 />
                                             )}
                                         </div>

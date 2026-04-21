@@ -2,6 +2,7 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FaClock } from 'react-icons/fa';
 import { STATUS_CONFIG } from './AttendanceCalendar';
+import { formatValue } from '../../../../utils';
 
 export const STAT_CARDS = [
     { key: 'present', label: 'Present', ...STATUS_CONFIG.present },
@@ -64,7 +65,7 @@ const HistorySidebar = ({ stats, selectedDay }) => {
                                     </div>
                                     <div>
                                         <span className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Check-in</span>
-                                        <span className="block text-xs font-black text-slate-900 leading-none">{selectedDay.checkIn || 'N/A'}</span>
+                                        <span className="block text-xs font-black text-slate-900 leading-none">{formatValue(selectedDay.checkIn)}</span>
                                     </div>
                                 </div>
                             </div>

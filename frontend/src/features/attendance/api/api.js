@@ -1,31 +1,53 @@
 // Attendance API — all server calls for the attendance feature.
 import api from '../../../lib/axios';
 
+// ─── Shared parallel paginator ────────────────────────────────────────────
+// Fires page 0 first to get totalCount, then fans out all remaining pages
+// simultaneously with Promise.all — no serial waterfall.
+const paginateUsers = async (role, extra = '') => {
+    const PAGE_SIZE = 2000;
+    const firstRes = await api.get(`/users?role=${role}&pageSize=${PAGE_SIZE}&page=0${extra}`);
+    const firstData = firstRes.data?.data;
+    if (!firstData) return [];
+
+    const firstBatch = firstData.users || [];
+    const totalCount = firstData.totalCount ?? firstBatch.length;
+    const remainingPages = Math.ceil(totalCount / PAGE_SIZE) - 1;
+
+    if (remainingPages <= 0) return firstBatch;
+
+    // Fire all remaining pages at once
+    const restResponses = await Promise.all(
+        Array.from({ length: remainingPages }, (_, i) =>
+            api.get(`/users?role=${role}&pageSize=${PAGE_SIZE}&page=${i + 1}${extra}`)
+        )
+    );
+
+    const allUsers = [
+        ...firstBatch,
+        ...restResponses.flatMap(r => r.data?.data?.users || []),
+    ];
+
+    // Ensure uniqueness by _id to prevent duplicate key errors in React lists 
+    // when records shift between parallel page requests.
+    const uniqueUsers = [];
+    const seenIds = new Set();
+    for (const user of allUsers) {
+        if (user?._id && !seenIds.has(user._id)) {
+            seenIds.add(user._id);
+            uniqueUsers.push(user);
+        }
+    }
+
+    return uniqueUsers;
+};
+
 export const attendanceApi = {
     /**
-     * Fetch ALL students by paginating through every page.
-     * The backend caps pageSize at 100, so we loop pages until we have every student.
-     * Returns the same shape as a normal single-page response so the rest of the app needs no changes.
+     * Fetch ALL students — first page gives totalCount, remaining pages fire in parallel.
      */
     getStudents: async () => {
-        const PAGE_SIZE = 100;
-        let page = 0;
-        let allUsers = [];
-        let totalCount = Infinity; // will be set from the first response
-
-        while (allUsers.length < totalCount) {
-            const response = await api.get(`/users?role=student&pageSize=${PAGE_SIZE}&page=${page}`);
-            const data = response.data?.data;
-            if (!data) break;
-
-            allUsers = allUsers.concat(data.users || []);
-            totalCount = data.totalCount ?? allUsers.length; // lock in the real total
-            page++;
-
-            // Safety: if the server returned nothing new, stop to avoid infinite loop
-            if ((data.users || []).length === 0) break;
-        }
-
+        const allUsers = await paginateUsers('student');
         return {
             success: true,
             data: {
@@ -36,25 +58,9 @@ export const attendanceApi = {
         };
     },
 
-    /** Fetch ALL teachers (paginated, same pattern as getStudents). */
+    /** Fetch ALL teachers — parallel fan-out, same pattern. */
     getTeachers: async () => {
-        const PAGE_SIZE = 100;
-        let page = 0;
-        let allUsers = [];
-        let totalCount = Infinity;
-
-        while (allUsers.length < totalCount) {
-            const response = await api.get(`/users?role=teacher&pageSize=${PAGE_SIZE}&page=${page}&isArchived=false`);
-            const data = response.data?.data;
-            if (!data) break;
-
-            allUsers = allUsers.concat(data.users || []);
-            totalCount = data.totalCount ?? allUsers.length;
-            page++;
-
-            if ((data.users || []).length === 0) break;
-        }
-
+        const allUsers = await paginateUsers('teacher', '&isArchived=false');
         return {
             success: true,
             data: {
@@ -78,14 +84,23 @@ export const attendanceApi = {
     },
 
     /** Link an NFC tag to a student. */
-    linkNfcTag: async ({ userId, tagId }) => {
-        const response = await api.post('/attendance/nfc/link', { userId, tagId });
+    linkNfcTag: async ({ studentId, nfcUid }) => {
+        const response = await api.post('/attendance/nfc/link', { studentId, nfcUid });
         return response.data;
     },
 
-    /** Mark attendance via NFC scan. */
-    markNfcAttendance: async ({ tagId }) => {
-        const response = await api.post('/attendance/nfc', { tagId });
+    /** Mark attendance via NFC scan (called from browser/admin UI, not hardware reader). */
+    markNfcAttendance: async ({ nfcUid }) => {
+        const response = await api.post('/attendance/nfc', { nfcUid });
+        return response.data;
+    },
+
+    /**
+     * Fetch a specific student's full attendance history.
+     * Returns: { today, calendar[], stats: { totalDays, totalPresent, totalAbsent, percentage } }
+     */
+    getStudentHistory: async (studentId) => {
+        const response = await api.get(`/attendance/${studentId}`);
         return response.data;
     },
 

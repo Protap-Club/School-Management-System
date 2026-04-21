@@ -25,7 +25,7 @@ const userSchema = new mongoose.Schema(
     },
     role: {
       type: String,
-      enum: USER_ROLES,
+      enum: Object.values(USER_ROLES),
       required: true,
       index: true,
     },
@@ -96,6 +96,11 @@ const userSchema = new mongoose.Schema(
   },
   { timestamps: true, id: false },
 );
+
+// Compound index: covers the most common query pattern — fetch all users of a
+// given role in a school (attendance, users page, teacher lists, etc.)
+// { isArchived } is appended because queries almost always filter out archived users.
+userSchema.index({ schoolId: 1, role: 1, isArchived: 1 });
 
 // Hooks
 // Hash password before saving if it's new or modified

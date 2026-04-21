@@ -1,6 +1,8 @@
 // Fees TanStack Query Hooks
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { feesApi } from './api';
+import { useAuth } from '../../auth';
+import { patchTeacherExpectedSalaryInUsersCache } from '../../users/api/cache';
 
 export const feeKeys = {
     all: ['fees'],
@@ -15,15 +17,20 @@ export const feeKeys = {
     mySalary: (filters) => [...feeKeys.all, 'mySalary', filters],
     myFees: (filters) => [...feeKeys.all, 'myFees', filters],
     feeTypes: () => [...feeKeys.all, 'feeTypes'],
+    penaltyTypes: () => [...feeKeys.all, 'penaltyTypes'],
+    penaltyStudents: (filters) => [...feeKeys.all, 'penaltyStudents', filters],
+    penalties: (filters) => [...feeKeys.all, 'penalties', filters],
 };
 
 // ── Fee Type Queries ──────────────────────────────────────────
 
 export const useFeeTypes = (config = {}) => {
+    const { user, accessToken } = useAuth();
     return useQuery({
         queryKey: feeKeys.feeTypes(),
         queryFn: feesApi.getFeeTypes,
         ...config,
+        enabled: (config.enabled !== false) && !!user && !!accessToken,
     });
 };
 
@@ -37,33 +44,50 @@ export const useCreateFeeType = () => {
     });
 };
 
+export const usePenaltyTypes = (config = {}) => {
+    const { user, accessToken } = useAuth();
+    return useQuery({
+        queryKey: feeKeys.penaltyTypes(),
+        queryFn: feesApi.getPenaltyTypes,
+        ...config,
+        enabled: (config.enabled !== false) && !!user && !!accessToken,
+    });
+};
+
+export const useCreatePenaltyType = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: feesApi.createPenaltyType,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: feeKeys.penaltyTypes() });
+        },
+    });
+};
+
 // ── Fee Structure Queries ─────────────────────────────────────
 
 export const useFeeStructures = (filters = {}, enabled = false) => {
+    const { accessToken } = useAuth();
     return useQuery({
         queryKey: feeKeys.structureList(filters),
         queryFn: () => feesApi.getFeeStructures(filters),
-        enabled: enabled,
+        enabled: enabled && !!accessToken,
     });
 };
 
 export const useCreateFeeStructure = () => {
-    const queryClient = useQueryClient();
     return useMutation({
         mutationFn: feesApi.createFeeStructure,
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: feeKeys.structures() });
-        },
+        // NOTE: No onSuccess invalidation — handleCreateStructure batch-invalidates
+        // after all generate calls complete, preventing request floods.
     });
 };
 
 export const useUpdateFeeStructure = () => {
-    const queryClient = useQueryClient();
     return useMutation({
         mutationFn: feesApi.updateFeeStructure,
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: feeKeys.structures() });
-        },
+        // NOTE: No onSuccess invalidation — handleUpdateStructure batch-invalidates
+        // after all generate calls complete, preventing request floods.
     });
 };
 
@@ -80,12 +104,10 @@ export const useDeleteFeeStructure = () => {
 // ── Assignment Mutations ──────────────────────────────────────
 
 export const useGenerateAssignments = () => {
-    const queryClient = useQueryClient();
     return useMutation({
         mutationFn: feesApi.generateAssignments,
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: feeKeys.all });
-        },
+        // NOTE: No onSuccess invalidation here — callers (handleCreateStructure, handleUpdateStructure)
+        // batch-invalidate once after all generate calls complete, preventing request floods.
     });
 };
 
@@ -114,44 +136,51 @@ export const useRecordPayment = () => {
 // ── Dashboard Queries ─────────────────────────────────────────
 
 export const useAllClassesOverview = (academicYear, month, isAdmin = false) => {
+    const { accessToken } = useAuth();
     return useQuery({
         queryKey: feeKeys.allClassesOverview(academicYear, month),
         queryFn: () => feesApi.getAllClassesOverview({ academicYear, month }),
-        enabled: !!academicYear && !!month && isAdmin,
+        enabled: !!academicYear && !!month && isAdmin && !!accessToken,
     });
 };
 
 export const useClassOverview = (standard, section, academicYear, month) => {
+    const { user, accessToken } = useAuth();
+    const isAdmin = ['admin', 'super_admin'].includes(user?.role);
     return useQuery({
         queryKey: feeKeys.classOverview(standard, section, academicYear, month),
         queryFn: () => feesApi.getClassOverview({ standard, section, academicYear, month }),
-        enabled: !!standard && !!section && !!academicYear && !!month,
+        enabled: !!standard && !!section && !!academicYear && !!month && isAdmin && !!accessToken,
     });
 };
 
 export const useYearlySummary = (academicYear, isAdmin = false) => {
+    const { accessToken } = useAuth();
     return useQuery({
         queryKey: feeKeys.yearlySummary(academicYear),
         queryFn: () => feesApi.getYearlySummary({ academicYear }),
-        enabled: !!academicYear && isAdmin,
+        enabled: !!academicYear && isAdmin && !!accessToken,
     });
 };
 
 // ── Student History Query ─────────────────────────────────────
 
 export const useStudentFeeHistory = (studentId, academicYear) => {
+    const { user, accessToken } = useAuth();
+    const isAuthorized = ['admin', 'super_admin', 'student'].includes(user?.role);
     return useQuery({
         queryKey: feeKeys.studentHistory(studentId, academicYear),
         queryFn: () => feesApi.getStudentFeeHistory({ studentId, academicYear }),
-        enabled: !!studentId,
+        enabled: !!studentId && !!academicYear && isAuthorized && !!accessToken,
     });
 };
 
 export const useMyFees = (filters = {}, isStudent = false) => {
+    const { accessToken } = useAuth();
     return useQuery({
         queryKey: feeKeys.myFees(filters),
         queryFn: () => feesApi.getMyFees(filters),
-        enabled: isStudent,
+        enabled: isStudent && !!accessToken,
     });
 };
 
@@ -171,10 +200,11 @@ export const useCreateSalary = () => {
 };
 
 export const useSalaries = (filters = {}, enabled = true) => {
+    const { accessToken } = useAuth();
     return useQuery({
         queryKey: feeKeys.salaryList(filters),
         queryFn: () => salaryApi.getSalaries(filters),
-        enabled: enabled,
+        enabled: enabled && !!accessToken,
     });
 };
 
@@ -190,10 +220,11 @@ export const useUpdateSalaryStatus = () => {
 };
 
 export const useMySalary = (filters = {}, enabled = true) => {
+    const { accessToken } = useAuth();
     return useQuery({
         queryKey: feeKeys.mySalary(filters),
         queryFn: () => salaryApi.getMySalary(filters),
-        enabled: enabled,
+        enabled: enabled && !!accessToken,
     });
 };
 
@@ -201,8 +232,108 @@ export const useUpdateTeacherProfile = () => {
     const queryClient = useQueryClient();
     return useMutation({
         mutationFn: salaryApi.updateTeacherProfile,
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['users'] });
+        onSuccess: (_response, variables) => {
+            patchTeacherExpectedSalaryInUsersCache(
+                queryClient,
+                variables.id,
+                variables.data.expectedSalary
+            );
         },
+    });
+};
+
+// ── Student Penalty Hooks ─────────────────────────────────────
+
+export const useStudentsByClass = (standard, section, enabled = false) => {
+    const { accessToken } = useAuth();
+    return useQuery({
+        queryKey: [...feeKeys.all, 'studentsByClass', standard, section],
+        queryFn: () => feesApi.getStudentsByClass({ standard, section }),
+        enabled: enabled && !!standard && !!section && !!accessToken,
+    });
+};
+
+export const usePenaltyStudentsByClass = (filters = {}, enabled = false) => {
+    const { accessToken } = useAuth();
+    return useQuery({
+        queryKey: feeKeys.penaltyStudents(filters),
+        queryFn: () => feesApi.getPenaltyStudentsByClass(filters),
+        enabled: enabled && !!filters.standard && !!filters.section && !!accessToken,
+    });
+};
+
+export const useStudentPenalties = (filters = {}, enabled = false) => {
+    const { accessToken } = useAuth();
+    return useQuery({
+        queryKey: feeKeys.penalties(filters),
+        queryFn: () => feesApi.getStudentPenalties(filters),
+        enabled: enabled && !!filters.standard && !!filters.section && !!filters.studentId && !!accessToken,
+    });
+};
+
+export const useCreateStudentPenalty = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: feesApi.createStudentPenalty,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: feeKeys.all });
+        },
+    });
+};
+
+export const useUpdatePenaltyStatus = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: feesApi.updatePenaltyStatus,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: feeKeys.all });
+        },
+    });
+};
+
+export const useDeleteStudentPenalty = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: feesApi.deleteStudentPenalty,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: feeKeys.all });
+        },
+    });
+};
+
+export const useAllClassesPenaltyOverview = (academicYear, isAdmin = false) => {
+    const { accessToken } = useAuth();
+    return useQuery({
+        queryKey: [...feeKeys.all, 'penaltyOverviewAll', academicYear],
+        queryFn: () => feesApi.getAllClassesPenaltyOverview({ academicYear }),
+        enabled: !!academicYear && isAdmin && !!accessToken,
+    });
+};
+
+export const useClassPenaltyOverview = (standard, section, academicYear) => {
+    const { user, accessToken } = useAuth();
+    const isAdmin = ['admin', 'super_admin'].includes(user?.role);
+    return useQuery({
+        queryKey: [...feeKeys.all, 'penaltyOverviewClass', standard, section, academicYear],
+        queryFn: () => feesApi.getClassPenaltyOverview({ standard, section, academicYear }),
+        enabled: !!standard && !!section && !!academicYear && isAdmin && !!accessToken,
+    });
+};
+
+export const useYearlyPenaltySummary = (academicYear, isAdmin = false) => {
+    const { accessToken } = useAuth();
+    return useQuery({
+        queryKey: [...feeKeys.all, 'penaltySummaryYearly', academicYear],
+        queryFn: () => feesApi.getYearlyPenaltySummary({ academicYear }),
+        enabled: !!academicYear && isAdmin && !!accessToken,
+    });
+};
+
+export const useMyPenalties = (filters = {}, isStudent = false) => {
+    const { accessToken } = useAuth();
+    return useQuery({
+        queryKey: [...feeKeys.all, 'myPenalties', filters],
+        queryFn: () => feesApi.getMyPenalties(filters),
+        enabled: isStudent && !!accessToken,
     });
 };

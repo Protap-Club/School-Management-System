@@ -6,55 +6,64 @@
       "slotNumber": 1,
       "startTime": "08:00",
       "endTime": "08:45",
-      "slotType": "CLASS"
+      "slotType": "CLASS",
+      "label": "Period 1"
     },
     {
       "slotNumber": 2,
       "startTime": "08:45",
       "endTime": "09:30",
-      "slotType": "CLASS"
+      "slotType": "CLASS",
+      "label": "Period 2"
     },
     {
       "slotNumber": 3,
       "startTime": "09:30",
       "endTime": "09:45",
-      "slotType": "BREAK"
+      "slotType": "BREAK",
+      "label": "Short Break"
     },
     {
       "slotNumber": 4,
       "startTime": "09:45",
       "endTime": "10:30",
-      "slotType": "CLASS"
+      "slotType": "CLASS",
+      "label": "Period 3"
     },
     {
       "slotNumber": 5,
       "startTime": "10:30",
       "endTime": "11:15",
-      "slotType": "CLASS"
+      "slotType": "CLASS",
+      "label": "Period 4"
     },
     {
       "slotNumber": 6,
       "startTime": "11:15",
       "endTime": "12:00",
-      "slotType": "CLASS"
+      "slotType": "CLASS",
+      "label": "Period 5"
     },
     {
       "slotNumber": 7,
       "startTime": "12:00",
       "endTime": "12:45",
-      "slotType": "BREAK"
+      "slotType": "BREAK",
+      "label": "Lunch Break"
     },
     {
       "slotNumber": 8,
       "startTime": "12:45",
       "endTime": "13:30",
-      "slotType": "CLASS"
+      "slotType": "CLASS",
+      "label": "Period 6"
     },
     {
       "slotNumber": 9,
       "startTime": "13:30",
       "endTime": "14:15",
-      "slotType": "CLASS"
+      "slotType": "CLASS",
+      "label": "Period 7"
     }
   ]
 }

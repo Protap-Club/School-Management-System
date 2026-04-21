@@ -2,6 +2,7 @@ import express from "express";
 import {
     getMyProfile,
     createUser,
+    createTeacherStudent,
     getUsers,
     getUserById,
     toggleArchive,
@@ -10,12 +11,14 @@ import {
     updateTeacherProfile,
     replaceClassTeacher,
     getSubjectTeacher,
+    getNextRollNumber,
 } from "./user.controller.js";
 import { checkRole } from "../../middlewares/role.middleware.js";
 import { USER_ROLES } from "../../constants/userRoles.js";
 import { validate } from "../../middlewares/validation.middleware.js";
 import {
     createUserSchema,
+    createTeacherStudentSchema,
     getUsersSchema,
     userIdsBodySchema,
     userIdParamsSchema,
@@ -23,6 +26,7 @@ import {
     updateUserSchema,
     replaceClassTeacherSchema,
     getSubjectTeacherSchema,
+    getNextRollNumberSchema,
 } from "./user.validation.js";
 import checkWebOnly from "../../middlewares/checkWebOnly.js";
 import { avatarUpload } from "../../middlewares/upload.middleware.js";
@@ -48,10 +52,24 @@ router.get(
 );
 
 router.get(
+    "/next-roll-number",
+    checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN, USER_ROLES.TEACHER]),
+    validate(getNextRollNumberSchema),
+    getNextRollNumber
+);
+
+router.get(
     "/:id",
     checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN, USER_ROLES.TEACHER]),
     validate(userIdParamsSchema),
     getUserById
+);
+
+router.post(
+    "/students",
+    checkRole([USER_ROLES.TEACHER]),
+    validate(createTeacherStudentSchema),
+    createTeacherStudent
 );
 
 router.post(

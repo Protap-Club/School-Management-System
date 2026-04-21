@@ -17,22 +17,35 @@ const seedNotices = async () => {
     await Notice.deleteMany({ schoolId: school._id });
     await NoticeGroup.deleteMany({ schoolId: school._id });
 
+    const records = [];
     let seededNotices = 0;
+    
     for (const notice of noticeData.notices) {
-      // Find sender by role — admin or teacher
       const senderRole = notice.senderRole || "admin";
       const sender = await User.findOne({ schoolId: school._id, role: senderRole }).select("_id");
+      
       if (!sender) {
         logger.warn(`[${schoolDef.code}] No ${senderRole} found for notice: ${notice.title}`);
         continue;
       }
 
-      // Map JSON recipientType to model enum: all, classes, users, students, groups
       const typeMap = { student: "students", teacher: "users", teachers: "users" };
       let recipientType = notice.recipientType || "all";
       recipientType = typeMap[recipientType] || recipientType;
 
-      await Notice.create({
+      const startDate = new Date(notice.startDate || Date.now());
+      const endDate = new Date(notice.endDate || Date.now());
+      const now = new Date();
+
+      // Backdate all seed notices explicitly into the past so they don't float to the top
+      // We will distribute them over the last 30 days so recent live notices appear first
+      const daysAgo = 30 - (seededNotices % 30);
+      const createdAt = new Date(now.getTime() - (daysAgo * 24 * 60 * 60 * 1000));
+      
+      // Auto-expire notices if the event has completely concluded (if it had hard dates)
+      const isActive = endDate.getTime() >= now.getTime();
+
+      records.push({
         schoolId: school._id,
         createdBy: sender._id,
         title: notice.title || "",
@@ -41,9 +54,15 @@ const seedNotices = async () => {
         recipientType,
         recipients: [],
         status: "sent",
-        isActive: true,
+        isActive,
+        createdAt,
+        updatedAt: createdAt
       });
       seededNotices += 1;
+    }
+
+    if (records.length > 0) {
+        await Notice.insertMany(records, { ordered: false });
     }
 
     logger.info(`[${schoolDef.code}] Notices seeded: ${seededNotices}`);

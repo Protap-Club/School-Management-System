@@ -1,5 +1,6 @@
 import express from "express";
 import {
+    getAllSchools,
     getSchoolById,
     updateSchool,
     uploadSchoolLogo,
@@ -25,6 +26,7 @@ const router = express.Router();
 
 
 
+router.get("/all", checkRole([USER_ROLES.SUPER_ADMIN]), getAllSchools);
 router.get("/", getSchoolById);
 router.get("/classes", checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN, USER_ROLES.TEACHER]), getSchoolClasses);
 router.post("/classes", checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN]), validate(upsertClassSectionSchema), addSchoolClassSection);

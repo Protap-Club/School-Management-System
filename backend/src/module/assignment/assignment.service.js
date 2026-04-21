@@ -3,6 +3,7 @@ import { Assignment } from "./Assignment.model.js";
 import { Submission } from "./Submission.model.js";
 import StudentProfile from "../user/model/StudentProfile.model.js";
 import TeacherProfile from "../user/model/TeacherProfile.model.js";
+import User from "../user/model/User.model.js";
 import { Timetable, TimetableEntry } from "../timetable/Timetable.model.js";
 import { BadRequestError, NotFoundError, ForbiddenError } from "../../utils/customError.js";
 import { deleteFromCloudinary } from "../../middlewares/upload.middleware.js";
@@ -14,6 +15,8 @@ import {
     getConfiguredClassSections,
     normalizeClassSection,
 } from "../../utils/classSection.util.js";
+import { createAuditLog } from "../audit/audit.service.js";
+import { AUDIT_ACTIONS } from "../../constants/auditActions.js";
 
 const isAdminRole = (role) => [USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN].includes(role);
 
@@ -149,7 +152,6 @@ const assertCanManageAssignment = (role) => {
 };
 
 const getActiveTeacherIds = async (schoolId) => {
-    const User = mongoose.model("User");
     const teachers = await User.find({
         schoolId,
         role: USER_ROLES.TEACHER,
@@ -307,7 +309,8 @@ const buildAssignmentSummaryMap = async (assignmentIds = []) => {
     return new Map(submissionCounts.map((entry) => [entry._id.toString(), entry.count]));
 };
 
-export const createAssignment = async (schoolId, userId, body, files) => {
+export const createAssignment = async (schoolId, user, body, files, metadata) => {
+    const userId = user._id;
     const subject = String(body.subject || "").trim();
     const dueDate = assertFutureDueDate(body.dueDate);
     const requestedSections = normalizeSectionValues(body);
@@ -352,6 +355,24 @@ export const createAssignment = async (schoolId, userId, body, files) => {
 
     createdAssignments.forEach((assignment) => {
         logger.info(`Assignment created: ${assignment._id}`);
+        
+        createAuditLog({
+            schoolId,
+            actorId: user._id,
+            actorRole: user.role,
+            action: AUDIT_ACTIONS.ASSIGNMENT.CREATED,
+            targetModel: "Assignment",
+            targetId: assignment._id,
+            description: `Created assignment: ${assignment.title} for Class ${assignment.standard}-${assignment.section}`,
+            metadata: {
+                title: assignment.title,
+                subject: assignment.subject,
+                standard: assignment.standard,
+                section: assignment.section
+            },
+            ip: metadata?.ip,
+            userAgentString: metadata?.userAgent
+        }).catch(err => logger.error(`Failed to create audit log: ${err.message}`));
     });
 
     return {
@@ -661,12 +682,17 @@ export const getAssignment = async (schoolId, assignmentId, userId, role) => {
     return response;
 };
 
-export const updateAssignment = async (schoolId, assignmentId, userId, role, body, files) => {
+export const updateAssignment = async (schoolId, assignmentId, user, role, body, files, metadata) => {
+    const userId = user._id;
     if (!mongoose.Types.ObjectId.isValid(assignmentId)) {
         throw new BadRequestError("Invalid assignment ID");
     }
 
     assertCanManageAssignment(role);
+
+    // Capture state BEFORE update for diff
+    const before = await Assignment.findOne({ _id: assignmentId, schoolId }).lean();
+    if (!before) throw new NotFoundError("Assignment not found");
 
     const assignment = await Assignment.findOne({ _id: assignmentId, schoolId });
     if (!assignment) throw new NotFoundError("Assignment not found");
@@ -695,10 +721,43 @@ export const updateAssignment = async (schoolId, assignmentId, userId, role, bod
 
     await assignment.save();
     logger.info(`Assignment updated: ${assignmentId}`);
+
+    // Capture state AFTER update for diff
+    const after = await Assignment.findById(assignmentId).lean();
+
+    // Build field-level changes diff
+    const IGNORED_FIELDS = ['_id', '__v', 'createdAt', 'updatedAt', 'createdBy', 'schoolId'];
+    const changes = [];
+    if (before && after) {
+        const allKeys = new Set([...Object.keys(before), ...Object.keys(after)]);
+        for (const key of allKeys) {
+            if (IGNORED_FIELDS.includes(key)) continue;
+            const prev = JSON.stringify(before[key]);
+            const next = JSON.stringify(after[key]);
+            if (prev !== next) {
+                changes.push({ field: key, before: before[key], after: after[key] });
+            }
+        }
+    }
+
+    createAuditLog({
+        schoolId,
+        actorId: user._id,
+        actorRole: user.role,
+        action: AUDIT_ACTIONS.ASSIGNMENT.UPDATED,
+        targetModel: "Assignment",
+        targetId: assignment._id,
+        description: `Updated assignment: ${assignment.title}`,
+        metadata: { changes },
+        ip: metadata?.ip,
+        userAgentString: metadata?.userAgent
+    }).catch(err => logger.error(`Failed to create audit log: ${err.message}`));
+
     return formatAssignment(assignment.toObject());
 };
 
-export const deleteAssignment = async (schoolId, assignmentId, role) => {
+export const deleteAssignment = async (schoolId, assignmentId, user, metadata) => {
+    const role = user.role;
     if (!mongoose.Types.ObjectId.isValid(assignmentId)) {
         throw new BadRequestError("Invalid assignment ID");
     }
@@ -725,9 +784,26 @@ export const deleteAssignment = async (schoolId, assignmentId, role) => {
     }
 
     logger.info(`Assignment deleted with cascade: ${assignmentId}`);
+
+    createAuditLog({
+        schoolId,
+        actorId: user._id,
+        actorRole: user.role,
+        action: AUDIT_ACTIONS.ASSIGNMENT.DELETED,
+        targetModel: "Assignment",
+        targetId: assignmentId,
+        description: `Deleted assignment: ${assignment.title} along with ${submissions.length} submissions`,
+        metadata: {
+            title: assignment.title,
+            submissionsCleaned: submissions.length
+        },
+        ip: metadata?.ip,
+        userAgentString: metadata?.userAgent
+    }).catch(err => logger.error(`Failed to create audit log: ${err.message}`));
 };
 
-export const removeAttachment = async (schoolId, assignmentId, role, publicId) => {
+export const removeAttachment = async (schoolId, assignmentId, user, publicId, metadata) => {
+    const role = user.role;
     if (!mongoose.Types.ObjectId.isValid(assignmentId)) {
         throw new BadRequestError("Invalid assignment ID");
     }
@@ -750,10 +826,26 @@ export const removeAttachment = async (schoolId, assignmentId, role, publicId) =
     await deleteStoredFileIfUnused(schoolId, attachment);
 
     logger.info(`Attachment removed from assignment ${assignmentId}: ${publicId}`);
+
+    createAuditLog({
+        schoolId,
+        actor: user._id,
+        actorModel: user.role === USER_ROLES.SUPER_ADMIN ? "SuperAdmin" : "User",
+        action: AUDIT_ACTIONS.ASSIGNMENT.UPDATED,
+        entityId: assignment._id,
+        entityModel: "Assignment",
+        status: "success",
+        details: { removedAttachment: publicId },
+        ipAddress: metadata?.ip,
+        userAgent: metadata?.userAgent,
+        sessionToken: null
+    }).catch(err => logger.error(`Failed to create audit log: ${err.message}`));
+
     return formatAssignment(assignment.toObject());
 };
 
-export const submitAssignment = async (schoolId, assignmentId, studentId, files) => {
+export const submitAssignment = async (schoolId, assignmentId, user, files, metadata) => {
+    const studentId = user._id;
     if (!mongoose.Types.ObjectId.isValid(assignmentId)) {
         throw new BadRequestError("Invalid assignment ID");
     }
@@ -803,6 +895,21 @@ export const submitAssignment = async (schoolId, assignmentId, studentId, files)
         }
 
         logger.info(`Re-submission for assignment ${assignmentId} by student ${studentId}`);
+        
+        createAuditLog({
+            schoolId,
+            actor: user._id,
+            actorModel: user.role === USER_ROLES.SUPER_ADMIN ? "SuperAdmin" : "User",
+            action: AUDIT_ACTIONS.ASSIGNMENT.SUBMITTED,
+            entityId: assignment._id,
+            entityModel: "Assignment",
+            status: "success",
+            details: { isLate, reSubmission: true },
+            ipAddress: metadata?.ip,
+            userAgent: metadata?.userAgent,
+            sessionToken: null
+        }).catch(err => logger.error(`Failed to create audit log: ${err.message}`));
+
         return formatSubmission(existing.toObject());
     }
 
@@ -815,6 +922,21 @@ export const submitAssignment = async (schoolId, assignmentId, studentId, files)
     });
 
     logger.info(`Submission created for assignment ${assignmentId} by student ${studentId}`);
+    
+    createAuditLog({
+        schoolId,
+        actor: user._id,
+        actorModel: user.role === USER_ROLES.SUPER_ADMIN ? "SuperAdmin" : "User",
+        action: AUDIT_ACTIONS.ASSIGNMENT.SUBMITTED,
+        entityId: assignment._id,
+        entityModel: "Assignment",
+        status: "success",
+        details: { isLate, reSubmission: false },
+        ipAddress: metadata?.ip,
+        userAgent: metadata?.userAgent,
+        sessionToken: null
+    }).catch(err => logger.error(`Failed to create audit log: ${err.message}`));
+
     return formatSubmission(submission.toObject());
 };
 

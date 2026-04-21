@@ -13,7 +13,9 @@ export const createNotice = asyncHandler(async (req, res) => {
         req.schoolId,
         req.user._id,
         req.body,
-        req.file || null
+        req.file || null,
+        req.user,
+        { ip: req.ip, userAgent: req.headers["user-agent"] }
     );
 
     res.status(201).json({
@@ -53,6 +55,26 @@ export const getReceivedNotices = asyncHandler(async (req, res) => {
 
     res.status(200).json({
         success: true,
+        data: result,
+    });
+});
+
+export const deleteReceivedNotice = asyncHandler(async (req, res) => {
+    const result = await noticeService.deleteReceivedNotice(req.schoolId, req.params.id, req.user);
+
+    res.status(200).json({
+        success: true,
+        message: "Notice removed from received list",
+        data: result,
+    });
+});
+
+export const bulkDeleteReceivedNotices = asyncHandler(async (req, res) => {
+    const result = await noticeService.bulkDeleteReceivedNotices(req.schoolId, req.body.ids, req.user);
+
+    res.status(200).json({
+        success: true,
+        message: "Selected notices removed from received list",
         data: result,
     });
 });

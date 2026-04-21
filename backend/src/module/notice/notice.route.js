@@ -14,6 +14,8 @@ import {
     acknowledgeNotice,
     getAcknowledgments,
     getTeacherStudents,
+    deleteReceivedNotice,
+    bulkDeleteReceivedNotices,
 } from "./notice.controller.js";
 import { checkRole } from "../../middlewares/role.middleware.js";
 import { requireFeature } from "../../middlewares/feature.middleware.js";
@@ -28,6 +30,8 @@ import {
     groupIdParamsSchema,
     acknowledgeNoticeSchema,
     getAcknowledgmentsSchema,
+    deleteReceivedNoticeSchema,
+    bulkDeleteReceivedNoticesSchema,
 } from "./notice.validation.js";
 
 // Cloudinary Storage for Notice Attachments
@@ -112,6 +116,18 @@ router.delete("/groups/:groupId", checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.
 
 // Received notices (all authenticated)
 router.get("/received", getReceivedNotices);
+router.delete(
+    "/received/:id",
+    checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN, USER_ROLES.TEACHER, USER_ROLES.STUDENT]),
+    validate(deleteReceivedNoticeSchema),
+    deleteReceivedNotice
+);
+router.post(
+    "/received/delete-many",
+    checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN, USER_ROLES.TEACHER, USER_ROLES.STUDENT]),
+    validate(bulkDeleteReceivedNoticesSchema),
+    bulkDeleteReceivedNotices
+);
 
 // Notices CRUD
 router.get("/", checkRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN, USER_ROLES.TEACHER, USER_ROLES.STUDENT]), getNotices);

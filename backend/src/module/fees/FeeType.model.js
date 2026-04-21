@@ -19,6 +19,12 @@ const feeTypeSchema = new mongoose.Schema(
             required: true,
             trim: true,
         },
+        category: {
+            type: String,
+            enum: ["FEE", "PENALTY"],
+            default: "FEE",
+            index: true,
+        },
         isDefault: {
             type: Boolean,
             default: false,
