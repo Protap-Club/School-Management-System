@@ -20,6 +20,7 @@ export function MultiSelectDropdown({
   label = "Options",
   className,
   disabled = false,
+  hideSelectAll = false,
 }) {
   const [searchTerm, setSearchTerm] = React.useState("");
   const filteredOptions = options.filter((opt) =>
@@ -118,22 +119,26 @@ export function MultiSelectDropdown({
             )}
           </div>
         </div>
-        <DropdownMenuCheckboxItem
-          checked={searchTerm ? isAllFilteredSelected : isAllSelected}
-          onSelect={(e) => e.preventDefault()}
-          onCheckedChange={toggleSelectAll}
-          className="font-bold text-primary focus:bg-primary/5 focus:text-primary rounded-lg flex items-center gap-2 [&>span[data-slot=dropdown-menu-checkbox-item-indicator]]:hidden"
-        >
-          <div className="flex items-center gap-2 flex-1">
-            {(searchTerm ? isAllFilteredSelected : isAllSelected) ? (
-              <CheckSquare className="h-4 w-4 text-primary" />
-            ) : (
-              <Square className="h-4 w-4 text-gray-300" />
-            )}
-            <span>{searchTerm ? "Select Filtered" : "Select All"}</span>
-          </div>
-        </DropdownMenuCheckboxItem>
-        <DropdownMenuSeparator />
+        {!hideSelectAll && (
+          <>
+            <DropdownMenuCheckboxItem
+              checked={searchTerm ? isAllFilteredSelected : isAllSelected}
+              onSelect={(e) => e.preventDefault()}
+              onCheckedChange={toggleSelectAll}
+              className="font-bold text-primary focus:bg-primary/5 focus:text-primary rounded-lg flex items-center gap-2 [&>span[data-slot=dropdown-menu-checkbox-item-indicator]]:hidden"
+            >
+              <div className="flex items-center gap-2 flex-1">
+                {(searchTerm ? isAllFilteredSelected : isAllSelected) ? (
+                  <CheckSquare className="h-4 w-4 text-primary" />
+                ) : (
+                  <Square className="h-4 w-4 text-gray-300" />
+                )}
+                <span>{searchTerm ? "Select Filtered" : "Select All"}</span>
+              </div>
+            </DropdownMenuCheckboxItem>
+            <DropdownMenuSeparator />
+          </>
+        )}
         <div className="max-h-60 overflow-y-auto custom-scrollbar p-1">
           {filteredOptions.length > 0 ? (
             filteredOptions.map((option) => {

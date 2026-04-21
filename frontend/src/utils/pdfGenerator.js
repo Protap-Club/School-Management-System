@@ -4,7 +4,7 @@ import { formatValue } from './index.js';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
-const SCHOOL_NAME = 'Navrachna International School';
+const DEFAULT_SCHOOL_NAME = 'School Management System';
 const ACADEMIC_YEAR = 'Academic Year 2026';
 
 const MONTH_LABELS = {
@@ -639,6 +639,43 @@ export const generatePenaltyWaiver = (p, student) => {
     }
 };
 
+// ─── Timetable Generator Helpers ──────────────────────────────────────────────
+
+const COLORS = {
+  primary: [31, 41, 55],    // gray-800
+  secondary: [75, 85, 99],  // gray-600
+  muted: [156, 163, 175],   // gray-400
+  border: [229, 231, 235],  // gray-200
+  bg: [249, 250, 251],      // gray-50
+};
+
+const pageWidth = (doc) => doc.internal.pageSize.width || doc.internal.pageSize.getWidth();
+
+const PAGE_CENTER = (doc, text) => {
+  const pw = pageWidth(doc);
+  const tw = doc.getTextWidth(text);
+  return (pw - tw) / 2;
+};
+
+const formatTime = (time) => {
+  if (!time) return '';
+  if (time.toLowerCase().includes('am') || time.toLowerCase().includes('pm')) return time;
+  const parts = time.split(':');
+  if (parts.length < 2) return time;
+  const hours = parseInt(parts[0], 10);
+  const minutes = parseInt(parts[1], 10);
+  if (isNaN(hours) || isNaN(minutes)) return time;
+  const period = hours >= 12 ? 'PM' : 'AM';
+  const hour12 = hours % 12 || 12;
+  return `${hour12.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')} ${period}`;
+};
+
+/** Resolves teacher display name from a populated or raw teacherId field. */
+const getTeacherName = (teacherId) => {
+  if (!teacherId || typeof teacherId !== 'object' || !teacherId.name) return 'No Assigned Teacher';
+  return teacherId.isArchived ? `${teacherId.name} (Archived)` : teacherId.name;
+};
+
 // ─── Timetable Generator ──────────────────────────────────────────────────────
 
 /** Loads an image URL as a base64 data URL; resolves null on failure. */
@@ -663,11 +700,6 @@ const loadImageAsBase64 = (url) =>
     img.src = `${url}${url.includes('?') ? '&' : '?'}t=${Date.now()}`;
   });
 
-/** Resolves teacher display name from a populated or raw teacherId field. */
-const resolveTeacherName = (teacherId) => {
-  if (!teacherId || typeof teacherId !== 'object' || !teacherId.name) return '';
-  return teacherId.isArchived ? `${teacherId.name} (Archived)` : teacherId.name;
-};
 
 /**
  * Generates a class or personal timetable in landscape PDF.
@@ -783,80 +815,82 @@ export const generateTimetable = async ({
   const PADDING = 1.2;
 
   // ── Build table data ────────────────────────────────────────────────────────
-  const body = timeSlots.map((slot) => {
+  const head = [['Time', ...DAYS.map(d => d.toUpperCase())]];
+  const body = [];
+
+  timeSlots.forEach((slot) => {
     const slotId = String(slot._id ?? slot.slotNumber ?? '');
     const timeLabel = `${formatTime(slot.startTime)}\n${formatTime(slot.endTime)}`;
 
-        if (slot.slotType === 'BREAK') {
-            // Break row: time column + one merged cell spanning all 6 days
-            body.push([
-                {
-                    content: timeLabel,
-                    styles: {
-                        fontStyle: 'normal',
-                        fontSize: 7.5,
-                        textColor: [130, 130, 130],
-                        fillColor: [250, 250, 250],
-                    },
-                },
-                {
-                    content: slot.label || 'Break',
-                    colSpan: DAYS.length,
-                    styles: {
-                        halign: 'center',
-                        fontStyle: 'italic',
-                        textColor: [150, 150, 150],
-                        fillColor: [250, 250, 250],
-                    },
-                },
-            ]);
-            return;
-        }
+    if (slot.slotType === 'BREAK') {
+      // Break row: time column + one merged cell spanning all 6 days
+      body.push([
+        {
+          content: timeLabel,
+          styles: {
+            fontStyle: 'normal',
+            fontSize: 7.5,
+            textColor: [130, 130, 130],
+            fillColor: [250, 250, 250],
+          },
+        },
+        {
+          content: slot.label || 'Break',
+          colSpan: DAYS.length,
+          styles: {
+            halign: 'center',
+            fontStyle: 'italic',
+            textColor: [150, 150, 150],
+            fillColor: [250, 250, 250],
+          },
+        },
+      ]);
+      return;
+    }
 
-        // Regular period row
-        const row = [
-            {
-                content: timeLabel,
-                styles: {
-                    fontStyle: 'bold',
-                    fontSize: 8,
-                    textColor: [60, 60, 60],
-                },
-            },
-        ];
+    // Regular period row
+    const row = [
+      {
+        content: timeLabel,
+        styles: {
+          fontStyle: 'bold',
+          fontSize: 8,
+          textColor: [60, 60, 60],
+        },
+      },
+    ];
 
-        DAYS.forEach((day) => {
-            const entry = entryMap.get(`${day}__${slotId}`);
-            if (entry) {
-                const teacher = getTeacherName(entry.teacherId);
-                const classLabel = entry.timetableId ? `${entry.timetableId.standard || ''}-${entry.timetableId.section || ''}` : '';
-                const isPersonalSchedule = standard === 'My Schedule';
-                // Always prioritize raw standard if provided directly, otherwise Fallback to teacher.
-                const secondaryText = isPersonalSchedule ? classLabel : teacher;
-                const subject = entry.subject || 'No Subject';
+    DAYS.forEach((day) => {
+      const entry = entryMap.get(`${day}__${slotId}`);
+      if (entry) {
+        const teacher = getTeacherName(entry.teacherId);
+        const classLabel = entry.timetableId ? `${entry.timetableId.standard || ''}-${entry.timetableId.section || ''}` : '';
+        const isMySchedule = standard === 'My Schedule';
+        const secondaryText = isMySchedule ? classLabel : teacher;
+        const subject = entry.subject || 'No Subject';
 
-                row.push({
-                    content: secondaryText ? `${subject}\n${secondaryText}` : subject,
-                    rawExt: { subject, secondaryText },
-                    styles: {
-                        textColor: [31, 41, 55],       // text-gray-800
-                        fillColor: [255, 255, 255],    // bg-white
-                        lineColor: [229, 231, 235],    // border-gray-200
-                        lineWidth: 0.1,                // Thin underlying cell grid
-                    },
-                });
-            } else {
-                row.push({
-                    content: '',
-                    styles: { 
-                        fillColor: [250, 250, 250],    // bg-gray-50
-                    },
-                });
-            }
+        row.push({
+          content: secondaryText ? `${subject}\n${secondaryText}` : subject,
+          rawExt: { subject, secondaryText },
+          styles: {
+            textColor: [31, 41, 55],       // text-gray-800
+            fillColor: [255, 255, 255],    // bg-white
+            lineColor: [229, 231, 235],    // border-gray-200
+            lineWidth: 0.1,                // Thin underlying cell grid
+          },
         });
-
-        body.push(row);
+      } else {
+        row.push({
+          content: '',
+          styles: { 
+            fillColor: [250, 250, 250],    // bg-gray-50
+          },
+        });
+      }
     });
+
+    body.push(row);
+  });
 
     autoTable(doc, {
         startY: TABLE_START_Y,
@@ -931,7 +965,7 @@ export const generateTimetable = async ({
     doc.setTextColor(180, 180, 180);
     doc.text(
         `${schoolName} — Computer generated timetable`,
-        pageWidth / 2,
+        pw / 2,
         finalY,
         { align: 'center' }
     );
@@ -941,6 +975,195 @@ export const generateTimetable = async ({
     : `schedule-${standard}.pdf`;
 
   doc.save(filename);
+};
+
+// ─── Exam Schedule Generator ────────────────────────────────────────────────
+
+/**
+ * Generates an official examination schedule PDF.
+ * 
+ * @param {object} exam     - The basic exam document
+ * @param {object} meta     - Calculated metadata (subjects, duration, candidate count, etc.)
+ * @param {string} school   - School name for branding
+ */
+export const generateExamSchedulePDF = (exam, meta, school = DEFAULT_SCHOOL_NAME) => {
+    console.log('Generating Exam Schedule PDF...', { exam, meta });
+    
+    try {
+        const doc = new jsPDF({ orientation: 'portrait' });
+        const pw = doc.internal.pageSize.width;
+        const navy = [30, 41, 59]; // slate-800
+        const primary = [79, 70, 229]; // indigo-600
+        const slate600 = [75, 85, 99];
+        const slate400 = [148, 163, 184];
+
+        // ── Header ──────────────────────────────────────────────────────────────
+        doc.setFillColor(...navy);
+        doc.rect(0, 0, pw, 50, 'F');
+        
+        doc.setFontSize(24);
+        doc.setTextColor(255, 255, 255);
+        doc.setFont(undefined, 'bold');
+        doc.text(exam.name.toUpperCase(), 20, 30);
+        
+        doc.setFontSize(10);
+        doc.setFont(undefined, 'normal');
+        doc.text(school.toUpperCase(), pw - 20, 20, { align: 'right' });
+        doc.text(`AY ${exam.academicYear} • ${exam.category} EXAM`, pw - 20, 30, { align: 'right' });
+
+        // ── Info Cards ──────────────────────────────────────────────────────────
+        let y = 65;
+        const drawMetadataField = (label, value, x, w) => {
+            doc.setFontSize(8);
+            doc.setTextColor(...slate400);
+            doc.setFont(undefined, 'bold');
+            doc.text(label.toUpperCase(), x, y);
+            
+            doc.setFontSize(11);
+            doc.setTextColor(...navy);
+            doc.setFont(undefined, 'bold');
+            doc.text(String(value), x, y + 6);
+        };
+
+        const targetText = `Class ${exam.standard} — ${Array.isArray(exam.section) ? exam.section.join(', ') : (exam.section || 'All')}`;
+        drawMetadataField('Target Audience', targetText, 20, 80);
+        drawMetadataField('Schedule Period', meta?.dateLabel || 'N/A', pw / 2 - 10, 60);
+        drawMetadataField('Total Sessions', `${exam.schedule?.length || 0} Subjects`, pw - 50, 40, { align: 'right' });
+
+        y += 25;
+
+        // ── Instructions / Overview ─────────────────────────────────────────────
+        if (exam.description) {
+            doc.setFillColor(248, 250, 252); // slate-50
+            doc.setDrawColor(226, 232, 240); // slate-200
+            
+            // Calculate height for description
+            const splitDescription = doc.splitTextToSize(exam.description, pw - 50);
+            const descHeight = (splitDescription.length * 5) + 15;
+            
+            doc.roundedRect(20, y, pw - 40, descHeight, 2, 2, 'FD');
+            
+            doc.setFontSize(8);
+            doc.setTextColor(...slate400);
+            doc.setFont(undefined, 'bold');
+            doc.text('OVERVIEW & INSTRUCTIONS', 28, y + 8);
+            
+            doc.setFontSize(9);
+            doc.setTextColor(...slate600);
+            doc.setFont(undefined, 'italic');
+            doc.text(splitDescription, 28, y + 16);
+            
+            y += descHeight + 10;
+        }
+
+        // ── Timetable Section ───────────────────────────────────────────────────
+        doc.setFontSize(12);
+        doc.setTextColor(...navy);
+        doc.setFont(undefined, 'bold');
+        doc.text('EXAMINATION TIMETABLE', 20, y);
+        y += 6;
+
+        const tableData = (exam.schedule || []).map(slot => [
+            slot.subject,
+            new Date(slot.examDate).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }),
+            `${slot.startTime} — ${slot.endTime}`,
+            `${slot.totalMarks} Marks`,
+            slot.assignedTeacher?.name || 'Unassigned'
+        ]);
+
+        autoTable(doc, {
+            startY: y,
+            margin: { left: 20, right: 20 },
+            head: [['Subject', 'Date', 'Time', 'Max Marks', 'Invigilator']],
+            body: tableData,
+            theme: 'striped',
+            headStyles: { 
+                fillColor: [...navy], 
+                textColor: [255, 255, 255], 
+                fontSize: 10, 
+                fontStyle: 'bold',
+                cellPadding: 5
+            },
+            bodyStyles: {
+                fontSize: 9,
+                cellPadding: 5,
+                textColor: [30, 41, 59]
+            },
+            columnStyles: {
+                0: { fontStyle: 'bold', textColor: [...primary] },
+                3: { halign: 'center', fontStyle: 'bold' }
+            },
+            didDrawPage: (data) => {
+                // Add page number to footer on each page
+                doc.setFontSize(8);
+                doc.setTextColor(...slate400);
+                doc.text(
+                    `Page ${data.pageNumber}`,
+                    pw / 2,
+                    doc.internal.pageSize.height - 10,
+                    { align: 'center' }
+                );
+            }
+        });
+
+        // ── Syllabus Appendix ───────────────────────────────────────────────────
+        const hasSyllabus = exam.schedule?.some(s => s.syllabus);
+        if (hasSyllabus) {
+            let finalY = doc.lastAutoTable.finalY + 20;
+            
+            // Check if we need a new page for syllabus
+            if (finalY > doc.internal.pageSize.height - 40) {
+                doc.addPage();
+                finalY = 30;
+            }
+
+            doc.setFontSize(12);
+            doc.setTextColor(...navy);
+            doc.setFont(undefined, 'bold');
+            doc.text('SYLLABUS DETAILS', 20, finalY);
+            finalY += 10;
+
+            exam.schedule.forEach(slot => {
+                if (!slot.syllabus) return;
+
+                const splitSyllabus = doc.splitTextToSize(slot.syllabus, pw - 40);
+                const heightNeeded = (splitSyllabus.length * 5) + 15;
+
+                if (finalY + heightNeeded > doc.internal.pageSize.height - 20) {
+                    doc.addPage();
+                    finalY = 30;
+                }
+
+                doc.setFontSize(10);
+                doc.setTextColor(...primary);
+                doc.setFont(undefined, 'bold');
+                doc.text(slot.subject, 20, finalY);
+                
+                doc.setFontSize(9);
+                doc.setTextColor(...slate600);
+                doc.setFont(undefined, 'normal');
+                doc.text(splitSyllabus, 20, finalY + 7);
+                
+                finalY += heightNeeded;
+            });
+        }
+
+        // ── Footer Branding ─────────────────────────────────────────────────────
+        const documentFooterY = doc.internal.pageSize.height - 15;
+        doc.setFontSize(8);
+        doc.setTextColor(...slate400);
+        doc.text(
+            `${school} Official Examination Schedule • Generated on ${new Date().toLocaleDateString()}`,
+            pw / 2,
+            documentFooterY,
+            { align: 'center' }
+        );
+
+        doc.save(`Exam_Schedule_${exam.name.replace(/\s+/g, '_')}_${exam.standard}.pdf`);
+
+    } catch (error) {
+        console.error('Failed to generate Exam Schedule PDF:', error);
+    }
 };
 
 // Backward-compatible alias used by timetable feature imports.
