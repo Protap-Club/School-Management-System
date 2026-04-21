@@ -6,6 +6,7 @@ import { ButtonSpinner, PageSpinner } from '@/components/ui/Spinner';
 import { createPortal } from 'react-dom';
 import { downloadFile } from '@/utils/downloadFile';
 import { MultiSelectDropdown } from '@/components/ui/MultiSelectDropdown';
+import SearchableSelect from '@/components/ui/SearchableSelect';
 // cspell:ignore msword openxmlformats officedocument wordprocessingml opendocument
 
 const TeacherSelectDropdown = ({ value, onChange, options, className }) => {
@@ -749,28 +750,60 @@ const ExamModal = ({ isOpen, onClose, onSubmit, editData, isLoading, userRole, u
                                         <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:col-span-3">
                                             <div className="space-y-1">
                                                 <label className={labelClasses}>Class *</label>
-                                                <MultiSelectDropdown
-                                                    label="Classes"
-                                                    placeholder="Select Classes"
-                                                    options={(availableStandards || []).map((s) => ({ label: `Class ${s}`, value: s }))}
-                                                    selected={form.standard}
-                                                    onChange={(vals) => handleChange('standard', vals)}
-                                                    className={errors.standard ? 'border-red-400' : ''}
-                                                />
-                                                {errors.standard && <p className="text-red-500 text-[11px] font-medium mt-1.5 ml-1">{errors.standard}</p>}
+                                                <div className="flex-1 min-w-[200px]">
+                                                {isTeacher ? (
+                                                    <SearchableSelect
+                                                        label="Class"
+                                                        placeholder="Select Class"
+                                                        options={(availableStandards || []).map((s) => ({ label: `Class ${s}`, value: s }))}
+                                                        value={form.standard?.[0] || ''}
+                                                        onChange={(val) => handleChange('standard', val ? [String(val)] : [])}
+                                                        error={errors.standard}
+                                                    />
+                                                ) : (
+                                                    <>
+                                                        <MultiSelectDropdown
+                                                            label="Classes"
+                                                            placeholder="Select Classes"
+                                                            options={(availableStandards || []).map((s) => ({ label: `Class ${s}`, value: s }))}
+                                                            selected={form.standard}
+                                                            onChange={(vals) => handleChange('standard', vals)}
+                                                            className={errors.standard ? 'border-red-400' : ''}
+                                                            hideSelectAll={isTeacher}
+                                                        />
+                                                        {errors.standard && <p className="text-red-500 text-[11px] font-medium mt-1.5 ml-1">{errors.standard}</p>}
+                                                    </>
+                                                )}
+                                                </div>
                                             </div>
 
                                             <div className="space-y-1">
                                                 <label className={labelClasses}>Section *</label>
-                                                <MultiSelectDropdown
-                                                    label="Sections"
-                                                    placeholder="Select Sections"
-                                                    options={(availableSections || []).map((s) => ({ label: `Section ${s}`, value: s }))}
-                                                    selected={form.section}
-                                                    onChange={(vals) => handleChange('section', vals)}
-                                                    className={errors.section ? 'border-red-400' : ''}
-                                                />
-                                                {errors.section && <p className="text-red-500 text-[11px] font-medium mt-1.5 ml-1">{errors.section}</p>}
+                                                <div className="flex-1 min-w-[200px]">
+                                                {isTeacher ? (
+                                                    <SearchableSelect
+                                                        label="Section"
+                                                        placeholder="Select Section"
+                                                        options={(availableSections || []).map((s) => ({ label: `Section ${s}`, value: s }))}
+                                                        value={form.section?.[0] || ''}
+                                                        onChange={(val) => handleChange('section', val ? [String(val)] : [])}
+                                                        error={errors.section}
+                                                    />
+                                                ) : (
+                                                    <>
+                                                        <MultiSelectDropdown
+                                                            label="Sections"
+                                                            placeholder="Select Sections"
+                                                            options={(availableSections || []).map((s) => ({ label: `Section ${s}`, value: s }))}
+                                                            selected={form.section}
+                                                            onChange={(vals) => handleChange('section', vals)}
+                                                            className={errors.section ? 'border-red-400' : ''}
+                                                            hideSelectAll={isTeacher}
+                                                        />
+                                                        {errors.section && <p className="text-red-500 text-[11px] font-medium mt-1.5 ml-1">{errors.section}</p>}
+                                                    </>
+                                                )}
+                                                </div>
                                             </div>
                                         </div>
 
