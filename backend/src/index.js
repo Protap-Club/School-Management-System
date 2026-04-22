@@ -29,6 +29,12 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
+
+// ── Proxy Trust ──────────────────────────────────────────────────────────────
+// Render (and most cloud platforms) sit behind a reverse proxy. Without this,
+// req.ip always resolves to 127.0.0.1. Setting to 1 trusts exactly one hop.
+app.set('trust proxy', 1);
+
 const PORT = conf.PORT;
 const isProduction = conf.NODE_ENV === 'production';
 const isDevelopment = !isProduction;
