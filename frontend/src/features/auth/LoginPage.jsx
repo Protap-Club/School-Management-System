@@ -78,7 +78,7 @@ const Login = () => {
             </div>
             <div className="bg-white/80 backdrop-blur-lg rounded-2xl shadow-xl w-full max-w-md p-8 relative z-10 border border-white/50">
                 <div className="text-center mb-10">
-                    <img src="/public/protap.png" alt="Protap Logo" className="w-20 h-20 mx-auto mb-4 object-contain" />
+                    <img src="/protap.png" alt="Protap Logo" className="w-20 h-20 mx-auto mb-4 object-contain" />
                     <h2 className="text-3xl font-bold text-gray-800">Welcome Back</h2>
                     <p className="text-gray-500 mt-2">Sign in to access your portal</p>
                 </div>
