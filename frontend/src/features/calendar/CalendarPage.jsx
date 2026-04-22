@@ -409,7 +409,7 @@ const renderFormField = (label, children) => (
   return (
     <DashboardLayout>
       {message?.text && (
-        <div className={`fixed top-6 right-6 z-[60] px-4 py-2.5 rounded-xl shadow-lg text-sm font-medium flex items-center gap-2 animate-fadeIn ${message?.type === 'error' ? 'bg-red-600 text-white' : 'bg-gray-900 text-white'}`}>
+        <div className={`fixed top-6 left-4 right-4 sm:left-auto sm:right-6 z-[100] px-5 py-3.5 rounded-xl shadow-lg flex items-center gap-3 animate-fadeIn backdrop-blur-sm ${message.type === 'success' ? 'bg-emerald-500/90 text-white' : 'bg-red-500/90 text-white'}`}>
           {message?.type === 'error' ? <FaTimes /> : <FaCalendarAlt />}{message?.text}
         </div>
       )}

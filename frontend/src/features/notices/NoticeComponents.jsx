@@ -184,7 +184,7 @@ export const ReceiverAckButton = ({ noticeId, currentUserId, acknowledgments = [
     return (
         <>
             {ackToast && (
-                <div className={`fixed top-6 right-6 z-[110] px-4 py-2.5 rounded-xl shadow-lg flex items-center gap-2 animate-fadeIn ${ackToast.type === 'success' ? 'bg-emerald-500 text-white' : 'bg-red-500 text-white'}`}>
+                <div className={`fixed top-6 left-4 right-4 sm:left-auto sm:right-6 z-[100] px-5 py-3.5 rounded-xl shadow-lg flex items-center gap-3 animate-fadeIn backdrop-blur-sm ${ackToast.type === 'success' ? 'bg-emerald-500/90 text-white' : 'bg-red-500/90 text-white'}`}>
                     <div className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center">
                         {ackToast.type === 'success' ? <FaCheck size={10} /> : <FaTimes size={10} />}
                     </div>

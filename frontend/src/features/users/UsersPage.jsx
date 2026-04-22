@@ -201,7 +201,7 @@ const UsersPage = () => {
     return (
         <DashboardLayout>
             {message?.text && (
-                <div className={`fixed top-6 right-6 z-[100] px-5 py-3.5 rounded-lg shadow-lg flex items-center gap-3 animate-fadeIn backdrop-blur-sm ${message.type === 'success' ? 'bg-emerald-500/90 text-white' : 'bg-red-500/90 text-white'}`}>
+                <div className={`fixed top-6 left-4 right-4 sm:left-auto sm:right-6 z-[100] px-5 py-3.5 rounded-lg shadow-lg flex items-center gap-3 animate-fadeIn backdrop-blur-sm ${message.type === 'success' ? 'bg-emerald-500/90 text-white' : 'bg-red-500/90 text-white'}`}>
                     <div className="w-5 h-5 rounded-full flex items-center justify-center bg-white/20">
                         {message.type === 'success' ? <FaCheck size={10} /> : <FaTimes size={10} />}
                     </div>

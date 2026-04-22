@@ -39,7 +39,7 @@ export const UsersTable = ({
 }) => {
     if (loading) {
         return (
-            <div className="py-16 text-center">
+            <div className="py-8 sm:py-16 text-center">
                 <div className="animate-spin rounded-full h-8 w-8 border-2 border-gray-200 border-t-gray-600 mx-auto"></div>
                 <p className="text-gray-400 text-sm mt-3">Loading users...</p>
             </div>
@@ -48,7 +48,7 @@ export const UsersTable = ({
 
     if (users.length === 0) {
         return (
-            <div className="py-16 text-center">
+            <div className="py-8 sm:py-16 text-center">
                 <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
                     <span className="text-gray-400 text-xl">👥</span>
                 </div>

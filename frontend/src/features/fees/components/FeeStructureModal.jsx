@@ -203,7 +203,7 @@ const FeeStructureModal = ({ isOpen, onClose, onSubmit, editData, isLoading, isA
                     <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg transition-colors"><FaTimes className="text-gray-400" size={16} /></button>
                 </div>
                 <form onSubmit={handleSubmit} className="p-8 space-y-6 overflow-y-auto">
-                    <div className="grid grid-cols-3 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                         <div>
                             <label className="block text-xs font-medium text-gray-600 mb-1">Academic Year *</label>
                             <input type="number" value={form.academicYear} onChange={(e) => handleChange('academicYear', e.target.value)}
@@ -229,7 +229,7 @@ const FeeStructureModal = ({ isOpen, onClose, onSubmit, editData, isLoading, isA
                             {errors.section && <p className="text-xs text-red-500 mt-1">{errors.section}</p>}
                         </div>
                     </div>
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
                             <label className="block text-xs font-medium text-gray-600 mb-1">Fee Type *</label>
                             <select
@@ -252,7 +252,7 @@ const FeeStructureModal = ({ isOpen, onClose, onSubmit, editData, isLoading, isA
                             {errors.name && <p className="text-xs text-red-500 mt-1">{errors.name}</p>}
                         </div>
                     </div>
-                    <div className="grid grid-cols-3 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                         <div>
                             <label className="block text-xs font-medium text-gray-600 mb-1">Amount (₹) *</label>
                             <input type="number" value={form.amount} onChange={(e) => handleChange('amount', e.target.value)}

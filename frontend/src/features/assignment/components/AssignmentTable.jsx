@@ -31,7 +31,7 @@ export const AssignmentTable = ({
 }) => {
     if (loading) {
         return (
-            <div className="py-16 text-center">
+            <div className="py-8 sm:py-16 text-center">
                 <div className="animate-spin rounded-full h-8 w-8 border-2 border-indigo-200 border-t-indigo-600 mx-auto"></div>
                 <p className="text-slate-400 text-sm mt-3">Loading assignments...</p>
             </div>
