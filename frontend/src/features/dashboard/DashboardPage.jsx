@@ -52,9 +52,13 @@ const Dashboard = () => {
 
   const todaySchedule = useMemo(() => {
     if (!scheduleData) return [];
+    
+    // For teachers, the data is nested in personalSchedule
+    const dayWiseData = isTeacher ? (scheduleData.personalSchedule || {}) : scheduleData;
+    
     const todayName = new Date().toLocaleDateString('en-US', { weekday: 'long' });
     const todayKey = DAY_MAP[todayName];
-    const rawSessions = scheduleData[todayKey] || [];
+    const rawSessions = dayWiseData[todayKey] || [];
 
     // Deduplicate by slot to avoid showing multiple classes for the same period if data is messy
     const uniqueSlots = new Map();
@@ -65,12 +69,21 @@ const Dashboard = () => {
       }
     });
 
-    return Array.from(uniqueSlots.values()).sort((a, b) => {
-      const timeA = a.timeSlotId?.startTime || '';
-      const timeB = b.timeSlotId?.startTime || '';
-      return timeA.localeCompare(timeB);
-    });
-  }, [scheduleData]);
+    // Filter for upcoming/ongoing sessions
+    const now = new Date();
+    const currentHHmm = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+    return Array.from(uniqueSlots.values())
+      .filter(s => {
+        const endTime = s.timeSlotId?.endTime || '';
+        return endTime > currentHHmm;
+      })
+      .sort((a, b) => {
+        const timeA = a.timeSlotId?.startTime || '';
+        const timeB = b.timeSlotId?.startTime || '';
+        return timeA.localeCompare(timeB);
+      });
+  }, [scheduleData, isTeacher]);
 
   // Fetch current month calendar events for overview
   useEffect(() => {
@@ -401,7 +414,7 @@ const Dashboard = () => {
           {isTeacher && (
             <Motion.div
               variants={itemVariants}
-              className="lg:col-span-2 bg-white rounded-[2.5rem] p-8 md:p-10 border border-gray-50 shadow-[0_20px_50px_-15px_rgba(0,0,0,0.05)] overflow-hidden relative group cursor-pointer"
+              className={`${hasFeature('attendance') ? 'lg:col-span-2' : 'lg:col-span-3'} bg-white rounded-[2.5rem] p-8 md:p-10 border border-gray-50 shadow-[0_20px_50px_-15px_rgba(0,0,0,0.05)] overflow-hidden relative group cursor-pointer`}
               onClick={() => navigate(`/${rolePrefix}/timetable`)}
             >
               {/* Background decorative icon removed */}
@@ -462,7 +475,7 @@ const Dashboard = () => {
           {!isTeacher && (
             <Motion.div
               variants={itemVariants}
-              className="lg:col-span-2 bg-white rounded-[2.5rem] p-8 md:p-10 border border-gray-50 shadow-[0_20px_50px_-15px_rgba(0,0,0,0.05)] overflow-hidden relative group"
+              className={`${hasFeature('attendance') ? 'lg:col-span-2' : 'lg:col-span-3'} bg-white rounded-[2.5rem] p-8 md:p-10 border border-gray-50 shadow-[0_20px_50px_-15px_rgba(0,0,0,0.05)] overflow-hidden relative group`}
             >
               {/* Background decorative icon removed */}
 
@@ -531,61 +544,63 @@ const Dashboard = () => {
           )}
 
           {/* Attendance Circle (Small) - Fixed 0% logic and routing */}
-          <Motion.div
-            variants={itemVariants}
-            className="bg-white rounded-[2.5rem] p-8 border border-gray-50 shadow-[0_20px_50px_-15px_rgba(0,0,0,0.05)] flex flex-col justify-between group cursor-pointer"
-            onClick={() => {
-              const path = (isAdmin || isSuperAdmin)
-                ? (activeSelectedClass === 'all' ? `/${rolePrefix}/attendance` : `/${rolePrefix}/attendance/${encodeURIComponent(activeSelectedClass)}`)
-                : `/${rolePrefix}/attendance`;
-              navigate(path);
-            }}
-          >
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-lg font-black text-gray-900 tracking-tight uppercase">Rate Overview</h2>
-  
-            </div>
-
-            <div className="flex-1 flex flex-col items-center justify-center space-y-8">
-              <CircularProgress
-                value={parseFloat(filteredStats.rate) === 0 ? 0 : filteredStats.rate}
-                size={180}
-                strokeWidth={14}
-                color="var(--color-primary)"
-                label={parseFloat(filteredStats.rate) === 0 ? "0% AS OF NOW" : (activeSelectedClass === 'all' ? 'Overall' : `Class ${activeSelectedClass}`)}
-              />
-
-              <div className="w-full space-y-3">
-                {[
-                  { label: 'Present', value: filteredStats.present, percentage: filteredStats.total > 0 ? ((filteredStats.present / filteredStats.total) * 100).toFixed(0) : 0, color: 'emerald' },
-                  { label: 'Absent', value: filteredStats.absent, percentage: filteredStats.total > 0 ? ((filteredStats.absent / filteredStats.total) * 100).toFixed(0) : 0, color: 'red' },
-                  { label: 'Late', value: filteredStats.late, percentage: filteredStats.total > 0 ? ((filteredStats.late / filteredStats.total) * 100).toFixed(0) : 0, color: 'amber' },
-                ].filter(row => row.label !== 'Late')
-                .map((row, i) => (
-                  <div key={i} className="space-y-1.5">
-                    <div className="flex justify-between text-[10px] font-bold uppercase tracking-tighter">
-                      <span className="text-gray-500">{row.label}</span>
-                      <span className="text-gray-900">{row.value} ({row.percentage}%)</span>
-                    </div>
-                    <div className="h-1.5 w-full bg-gray-50 rounded-full overflow-hidden">
-                      <Motion.div
-                        className={`h-full bg-${row.color}-500`}
-                        initial={{ width: 0 }}
-                        animate={{ width: `${row.percentage}%` }}
-                        transition={{ duration: 1, delay: 0.5 + (i * 0.1) }}
-                      />
-                    </div>
-                  </div>
-                ))}
+          {hasFeature('attendance') && (
+            <Motion.div
+              variants={itemVariants}
+              className="bg-white rounded-[2.5rem] p-8 border border-gray-50 shadow-[0_20px_50px_-15px_rgba(0,0,0,0.05)] flex flex-col justify-between group cursor-pointer"
+              onClick={() => {
+                const path = (isAdmin || isSuperAdmin)
+                  ? (activeSelectedClass === 'all' ? `/${rolePrefix}/attendance` : `/${rolePrefix}/attendance/${encodeURIComponent(activeSelectedClass)}`)
+                  : `/${rolePrefix}/attendance`;
+                navigate(path);
+              }}
+            >
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-lg font-black text-gray-900 tracking-tight uppercase">Rate Overview</h2>
+    
               </div>
-            </div>
-
-            <div className="mt-8 pt-6 border-t border-gray-50 flex items-center justify-center">
-              <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest flex items-center gap-2">
-                <Clock size={12} /> Last Sync: {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} IST
-              </p>
-            </div>
-          </Motion.div>
+  
+              <div className="flex-1 flex flex-col items-center justify-center space-y-8">
+                <CircularProgress
+                  value={parseFloat(filteredStats.rate) === 0 ? 0 : filteredStats.rate}
+                  size={180}
+                  strokeWidth={14}
+                  color="var(--color-primary)"
+                  label={parseFloat(filteredStats.rate) === 0 ? "0% AS OF NOW" : (activeSelectedClass === 'all' ? 'Overall' : `Class ${activeSelectedClass}`)}
+                />
+  
+                <div className="w-full space-y-3">
+                  {[
+                    { label: 'Present', value: filteredStats.present, percentage: filteredStats.total > 0 ? ((filteredStats.present / filteredStats.total) * 100).toFixed(0) : 0, color: 'emerald' },
+                    { label: 'Absent', value: filteredStats.absent, percentage: filteredStats.total > 0 ? ((filteredStats.absent / filteredStats.total) * 100).toFixed(0) : 0, color: 'red' },
+                    { label: 'Late', value: filteredStats.late, percentage: filteredStats.total > 0 ? ((filteredStats.late / filteredStats.total) * 100).toFixed(0) : 0, color: 'amber' },
+                  ].filter(row => row.label !== 'Late')
+                  .map((row, i) => (
+                    <div key={i} className="space-y-1.5">
+                      <div className="flex justify-between text-[10px] font-bold uppercase tracking-tighter">
+                        <span className="text-gray-500">{row.label}</span>
+                        <span className="text-gray-900">{row.value} ({row.percentage}%)</span>
+                      </div>
+                      <div className="h-1.5 w-full bg-gray-50 rounded-full overflow-hidden">
+                        <Motion.div
+                          className={`h-full bg-${row.color}-500`}
+                          initial={{ width: 0 }}
+                          animate={{ width: `${row.percentage}%` }}
+                          transition={{ duration: 1, delay: 0.5 + (i * 0.1) }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+  
+              <div className="mt-8 pt-6 border-t border-gray-50 flex items-center justify-center">
+                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest flex items-center gap-2">
+                  <Clock size={12} /> Last Sync: {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} IST
+                </p>
+              </div>
+            </Motion.div>
+          )}
         </div>
 
         {/* Classroom Status Matrix - gate by attendance feature */}

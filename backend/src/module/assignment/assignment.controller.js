@@ -39,7 +39,7 @@ export const createAssignment = asyncHandler(async (req, res) => {
 // GET /assignments/meta/metadata
 // Get dynamic dropdown options for assignments (role-scoped)
 export const getAssignmentMetadata = asyncHandler(async (req, res) => {
-    const result = await assignmentService.getAssignmentMetadata(req.schoolId);
+    const result = await assignmentService.getAssignmentMetadata(req.schoolId, req.user);
 
     res.status(200).json({
         success: true,

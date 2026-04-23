@@ -25,55 +25,43 @@ export const useAssignmentOptions = (user = null) => {
     const isTeacher = user?.role === 'teacher';
     const teacherProfile = user?.profile;
     const assignedClasses = teacherProfile?.assignedClasses || [];
-
-    // Get teacher-specific standards (unique standards from assigned classes)
-    const teacherStandards = useMemo(() => {
-        if (!isTeacher || assignedClasses.length === 0) return [];
-        const standards = new Set();
-        assignedClasses.forEach((item) => {
-            if (item.standard) standards.add(String(item.standard).trim());
-        });
-        return Array.from(standards);
-    }, [isTeacher, assignedClasses]);
+    const teacherScopedStandards = useMemo(
+        () => (isTeacher ? (data?.standards || []) : []),
+        [isTeacher, data?.standards]
+    );
 
     // Filtered standards based on role
     const availableStandards = useMemo(() => {
         if (isTeacher) {
-            // For teachers, only show standards they are assigned to
-            return allStandards.filter((standard) => teacherStandards.includes(standard));
+            // Teacher metadata is already backend-scoped to classes/subjects they teach.
+            return teacherScopedStandards;
         }
         return allStandards;
-    }, [isTeacher, allStandards, teacherStandards]);
+    }, [isTeacher, allStandards, teacherScopedStandards]);
 
     // Get sections for a specific standard that the teacher teaches
     const getTeacherSectionsForStandard = useCallback((standard) => {
-        if (!standard || assignedClasses.length === 0) return [];
-        const sections = new Set();
-        assignedClasses.forEach((item) => {
-            if (String(item.standard).trim() === String(standard).trim() && item.section) {
-                sections.add(normalizeSection(item.section));
-            }
-        });
-        return Array.from(sections).sort((a, b) => a.localeCompare(b));
-    }, [assignedClasses]);
+        if (!standard) return [];
+        return [...(mappings.classSections?.[standard] || [])]
+            .map((section) => normalizeSection(section))
+            .sort((a, b) => a.localeCompare(b));
+    }, [mappings.classSections]);
 
     // Get all subjects the teacher teaches across all assigned classes
     const teacherSubjects = useMemo(() => {
-        if (!isTeacher || assignedClasses.length === 0) return [];
+        if (!isTeacher) return [];
         const subjectsSet = new Set();
-        assignedClasses.forEach((item) => {
-            if (Array.isArray(item.subjects)) {
-                item.subjects.forEach((subject) => {
-                    if (subject) subjectsSet.add(String(subject).trim());
-                });
-            }
+        Object.values(mappings.sectionSubjects || {}).forEach((subjectList) => {
+            (Array.isArray(subjectList) ? subjectList : []).forEach((subject) => {
+                if (subject) subjectsSet.add(String(subject).trim());
+            });
         });
         return Array.from(subjectsSet);
-    }, [isTeacher, assignedClasses]);
+    }, [isTeacher, mappings.sectionSubjects]);
 
     // Get subjects for specific class-section combinations that teacher teaches
     const getTeacherSubjectsForClassSections = useCallback((standard, sections = []) => {
-        if (!standard || !isTeacher || assignedClasses.length === 0) return [];
+        if (!standard || !isTeacher) return [];
 
         const normalizedSections = Array.from(
             new Set(
@@ -83,23 +71,20 @@ export const useAssignmentOptions = (user = null) => {
             )
         );
 
-        if (normalizedSections.length === 0) return teacherSubjects;
+        const sectionsToCheck = normalizedSections.length > 0
+            ? normalizedSections
+            : getTeacherSectionsForStandard(standard);
 
-        // Get subjects that the teacher teaches for the given class-section combinations
         const subjectsForClassSections = new Set();
-        assignedClasses.forEach((item) => {
-            if (String(item.standard).trim() === String(standard).trim() &&
-                normalizedSections.includes(normalizeSection(item.section))) {
-                if (Array.isArray(item.subjects)) {
-                    item.subjects.forEach((subject) => {
-                        if (subject) subjectsForClassSections.add(String(subject).trim());
-                    });
-                }
-            }
+        sectionsToCheck.forEach((section) => {
+            const key = `${standard}-${section}`;
+            (mappings.sectionSubjects?.[key] || []).forEach((subject) => {
+                if (subject) subjectsForClassSections.add(String(subject).trim());
+            });
         });
 
         return Array.from(subjectsForClassSections);
-    }, [isTeacher, assignedClasses, teacherSubjects]);
+    }, [isTeacher, getTeacherSectionsForStandard, mappings.sectionSubjects]);
 
     // Check if teacher only teaches one subject (to make it uneditable)
     const hasSingleSubject = useMemo(() => {

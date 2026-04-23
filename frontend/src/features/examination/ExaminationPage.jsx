@@ -673,13 +673,15 @@ const ExaminationPage = () => {
                                     <FaCheckCircle size={18} />
                                   </button>
                                 )}
-                                <button
-                                  onClick={(e) => { e.stopPropagation(); setShowModal({ type: 'edit', open: true, data: exam }); }}
-                                  className="p-2 text-slate-400 hover:text-orange-500 hover:bg-orange-50 rounded-lg transition-all"
-                                  title="Edit Exam"
-                                >
-                                  <FaEdit size={18} />
-                                </button>
+                                {exam.status !== 'COMPLETED' && (
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); setShowModal({ type: 'edit', open: true, data: exam }); }}
+                                    className="p-2 text-slate-400 hover:text-orange-500 hover:bg-orange-50 rounded-lg transition-all"
+                                    title="Edit Exam"
+                                  >
+                                    <FaEdit size={18} />
+                                  </button>
+                                )}
                                 <button
                                   onClick={(e) => { e.stopPropagation(); setDeleteConfirm({ open: true, examId: exam._id }); }}
                                   className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all"
