@@ -52,9 +52,13 @@ const Dashboard = () => {
 
   const todaySchedule = useMemo(() => {
     if (!scheduleData) return [];
+    
+    // For teachers, the data is nested in personalSchedule
+    const dayWiseData = isTeacher ? (scheduleData.personalSchedule || {}) : scheduleData;
+    
     const todayName = new Date().toLocaleDateString('en-US', { weekday: 'long' });
     const todayKey = DAY_MAP[todayName];
-    const rawSessions = scheduleData[todayKey] || [];
+    const rawSessions = dayWiseData[todayKey] || [];
 
     // Deduplicate by slot to avoid showing multiple classes for the same period if data is messy
     const uniqueSlots = new Map();
@@ -65,12 +69,21 @@ const Dashboard = () => {
       }
     });
 
-    return Array.from(uniqueSlots.values()).sort((a, b) => {
-      const timeA = a.timeSlotId?.startTime || '';
-      const timeB = b.timeSlotId?.startTime || '';
-      return timeA.localeCompare(timeB);
-    });
-  }, [scheduleData]);
+    // Filter for upcoming/ongoing sessions
+    const now = new Date();
+    const currentHHmm = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+    return Array.from(uniqueSlots.values())
+      .filter(s => {
+        const endTime = s.timeSlotId?.endTime || '';
+        return endTime > currentHHmm;
+      })
+      .sort((a, b) => {
+        const timeA = a.timeSlotId?.startTime || '';
+        const timeB = b.timeSlotId?.startTime || '';
+        return timeA.localeCompare(timeB);
+      });
+  }, [scheduleData, isTeacher]);
 
   // Fetch current month calendar events for overview
   useEffect(() => {
