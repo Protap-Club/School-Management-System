@@ -33,7 +33,7 @@ USAGE:
 
 SCHOOLS:  JNV (Jawahar Navodaya Vidyalaya)
           NV  (Navrachna International School)
-          AV  (Ambe Vidyalaya)
+          NVV (Nalanda Vishwavidyalay)
 
 COMMANDS:
   seed-all            Runs ALL seed commands below in order (one-shot full setup)
@@ -47,6 +47,7 @@ COMMANDS:
   seed-assignments    Creates assignment records per class with future due dates
   seed-examinations   Creates class tests and term exams per class
   seed-results        Generates realistic Gaussian marks for completed exams
+  seed-financials     Creates demo financial records for NVV
   cleanup             Removes ALL seeded school data (run before re-seeding)
   help                Show this help message
 

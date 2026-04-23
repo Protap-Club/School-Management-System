@@ -14,13 +14,18 @@ import Result from "../../module/result/result.model.js";
 import { FeeAssignment, FeePayment, FeeStructure, StudentPenalty } from "../../module/fees/Fee.model.js";
 import { FeeType } from "../../module/fees/FeeType.model.js";
 import Salary from "../../module/fees/Salary.model.js";
+import { AuditLog } from "../../module/audit/AuditLog.model.js";
+import { ProxyAssignment, ProxyRequest } from "../../module/proxy/Proxy.model.js";
+import RefreshToken from "../../module/auth/RefreshToken.model.js";
+import PasswordResetToken from "../../module/auth/PasswordResetToken.model.js";
 import logger from "../../config/logger.js";
 import { loadSeedJson } from "../lib/loadJson.js";
 
 const { schools: schoolsDef } = loadSeedJson("schools.json");
+const legacySchoolCodes = ["AV"];
 
 const cleanup = async () => {
-  const codes = schoolsDef.map((s) => s.code);
+  const codes = [...new Set([...schoolsDef.map((s) => s.code), ...legacySchoolCodes])];
   logger.info(`=== Cleanup: removing seeded data for [${codes.join(", ")}] ===`);
 
   const schools = await School.find({ code: { $in: codes } }).select("_id");
@@ -41,6 +46,9 @@ const cleanup = async () => {
   await StudentPenalty.deleteMany({ schoolId: { $in: schoolIds } });
   await FeeType.deleteMany({ schoolId: { $in: schoolIds } });
   await Salary.deleteMany({ schoolId: { $in: schoolIds } });
+  await AuditLog.deleteMany({ schoolId: { $in: schoolIds } });
+  await ProxyAssignment.deleteMany({ schoolId: { $in: schoolIds } });
+  await ProxyRequest.deleteMany({ schoolId: { $in: schoolIds } });
 
   const timetables = await Timetable.find({ schoolId: { $in: schoolIds } }).select("_id");
   await TimetableEntry.deleteMany({ timetableId: { $in: timetables.map((t) => t._id) } });
@@ -52,13 +60,16 @@ const cleanup = async () => {
   await StudentProfile.deleteMany({ schoolId: { $in: schoolIds } });
   await TeacherProfile.deleteMany({ schoolId: { $in: schoolIds } });
   await AdminProfile.deleteMany({ userId: { $in: userIds } });
+  await RefreshToken.deleteMany({ userId: { $in: userIds } });
+  await PasswordResetToken.deleteMany({ userId: { $in: userIds } });
 
-  const emailDomains = codes.map((c) => c.toLowerCase());
-  const emailRegex = new RegExp(`@(${emailDomains.join("|")})\\.com$`, "i");
+  const emailDomains = [...new Set([...codes.map((c) => c.toLowerCase()), "ambevidyalaya"])];
+  const emailRegex = new RegExp(`@(${emailDomains.join("|")})\\.(com|edu\\.in)$`, "i");
   await User.deleteMany({
     $or: [
       { schoolId: { $in: schoolIds } },
       { email: { $regex: emailRegex } },
+      { email: { $regex: /@ambe/i } },
     ],
   });
 

@@ -19,7 +19,7 @@ const uniqueEmail = (baseLocalPart, domain, seen) => {
 /**
  * Build student records for a specific school.
  * @param {object} usersData - Full users.json data
- * @param {string} schoolCode - School code (JNV, NV, AV)
+ * @param {string} schoolCode - School code (JNV, NV, NVV)
  */
 export const buildStudentRecords = (usersData, schoolCode) => {
   const { studentConfig: cfg, studentNamePools: pools } = usersData;
