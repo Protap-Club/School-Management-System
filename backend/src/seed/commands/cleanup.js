@@ -11,6 +11,9 @@ import { Assignment } from "../../module/assignment/Assignment.model.js";
 import { Submission } from "../../module/assignment/Submission.model.js";
 import Exam from "../../module/examination/Exam.model.js";
 import Result from "../../module/result/result.model.js";
+import { FeeAssignment, FeePayment, FeeStructure, StudentPenalty } from "../../module/fees/Fee.model.js";
+import { FeeType } from "../../module/fees/FeeType.model.js";
+import Salary from "../../module/fees/Salary.model.js";
 import logger from "../../config/logger.js";
 import { loadSeedJson } from "../lib/loadJson.js";
 
@@ -32,6 +35,12 @@ const cleanup = async () => {
   await Assignment.deleteMany({ schoolId: { $in: schoolIds } });
   await Result.deleteMany({ schoolId: { $in: schoolIds } });
   await Exam.deleteMany({ schoolId: { $in: schoolIds } });
+  await FeePayment.deleteMany({ schoolId: { $in: schoolIds } });
+  await FeeAssignment.deleteMany({ schoolId: { $in: schoolIds } });
+  await FeeStructure.deleteMany({ schoolId: { $in: schoolIds } });
+  await StudentPenalty.deleteMany({ schoolId: { $in: schoolIds } });
+  await FeeType.deleteMany({ schoolId: { $in: schoolIds } });
+  await Salary.deleteMany({ schoolId: { $in: schoolIds } });
 
   const timetables = await Timetable.find({ schoolId: { $in: schoolIds } }).select("_id");
   await TimetableEntry.deleteMany({ timetableId: { $in: timetables.map((t) => t._id) } });

@@ -18,6 +18,8 @@ const commands = {
     "seed-results": () => import("./commands/seedResults.js"),
     "cleanup": () => import("./commands/cleanup.js"),
     "nfc": () => import("./commands/nfc.js"),
+    "seed-financials": () => import("./commands/seedFinancials.js"),
+
 };
 
 const showHelp = () => {

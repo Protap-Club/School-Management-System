@@ -31,6 +31,8 @@ export const buildStudentRecords = (usersData, schoolCode) => {
 
   for (const standard of cfg.standards) {
     for (const section of cfg.sections) {
+      const sectionRecords = [];
+
       for (let roll = 1; roll <= cfg.studentsPerSection; roll++) {
         counter += 1;
         const firstName = firstNames[counter % firstNames.length];
@@ -39,11 +41,10 @@ export const buildStudentRecords = (usersData, schoolCode) => {
         const localPart = firstName.toLowerCase();
         const email = uniqueEmail(localPart, emailDomain, seenEmails);
 
-        records.push({
+        sectionRecords.push({
           index: counter,
           standard,
           section,
-          roll,
           firstName,
           lastName,
           fullName,
@@ -53,6 +54,15 @@ export const buildStudentRecords = (usersData, schoolCode) => {
           address: pools.addresses[counter % pools.addresses.length],
         });
       }
+
+      sectionRecords
+        .sort((left, right) => left.fullName.localeCompare(right.fullName))
+        .forEach((student, index) => {
+          records.push({
+            ...student,
+            roll: index + 1,
+          });
+        });
     }
   }
 

@@ -6,7 +6,10 @@ import Salary from "../../module/fees/Salary.model.js";
 import logger from "../../config/logger.js";
 import { getAcademicYear, getSchoolClassSections } from "../lib/generatedAcademicSeed.js";
 
-const generateReceiptString = (num) => `RCPT-${String(num).padStart(6, "0")}`;
+const generateReceiptString = (schoolCode, num) =>
+    `${schoolCode}-RCPT-${String(num).padStart(6, "0")}`;
+
+const generateTransactionRef = (schoolCode, num) => `${schoolCode}-TXN-${String(num).padStart(6, "0")}`;
 
 // Simple deterministic hash for procedural generation
 const hashInt = (num) => {
@@ -199,8 +202,8 @@ const seedFinancials = async () => {
                 amount: assignment.paidAmount,
                 paymentDate: payDate,
                 paymentMode: ["CASH", "UPI", "ONLINE"][hashInt(receiptCounter) % 3],
-                transactionRef: `TXN${receiptCounter}`,
-                receiptNumber: generateReceiptString(receiptCounter++),
+                transactionRef: generateTransactionRef(code, receiptCounter),
+                receiptNumber: generateReceiptString(code, receiptCounter++),
                 recordedBy: admin._id
             });
         }

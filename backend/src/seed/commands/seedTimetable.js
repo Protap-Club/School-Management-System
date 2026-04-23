@@ -1,5 +1,4 @@
 import { TimeSlot, Timetable, TimetableEntry } from "../../module/timetable/Timetable.model.js";
-import User from "../../module/user/model/User.model.js";
 import School from "../../module/school/School.model.js";
 import logger from "../../config/logger.js";
 import { loadSeedJson } from "../lib/loadJson.js";
@@ -25,6 +24,128 @@ const DAY_MAP = {
 
 const daysOfWeek = getSeedDaysOfWeek();
 
+const buildAssignmentMap = (teacherProfiles) => {
+  const assignmentMap = new Map();
+
+  teacherProfiles.forEach((profile) => {
+    profile.assignedClasses?.forEach((assignedClass) => {
+      const classKey = `${assignedClass.standard}-${assignedClass.section}`.toUpperCase();
+      assignedClass.subjects?.forEach((subject) => {
+        assignmentMap.set(`${classKey}-${subject}`, profile.userId);
+      });
+    });
+  });
+
+  return assignmentMap;
+};
+
+const buildClassSubjectEdges = (classSections, assignmentMap) =>
+  classSections.flatMap((classSection) => {
+    const classKey = createClassKey(classSection).toUpperCase();
+    return getSubjectsForStandard(classSection.standard).map((subject) => ({
+      edgeKey: `${classKey}-${subject}`,
+      classKey,
+      standard: String(classSection.standard),
+      section: String(classSection.section).toUpperCase(),
+      subject,
+      teacherId: assignmentMap.get(`${classKey}-${subject}`),
+    }));
+  });
+
+const sortEdgeOptions = (left, right) => {
+  const teacherDiff = String(left.teacherId).localeCompare(String(right.teacherId));
+  if (teacherDiff !== 0) return teacherDiff;
+  return left.subject.localeCompare(right.subject);
+};
+
+const findMatchingForSlot = (remainingEdges, classKeys) => {
+  const edgesByClass = remainingEdges.reduce((groups, edge) => {
+    if (!groups.has(edge.classKey)) groups.set(edge.classKey, []);
+    groups.get(edge.classKey).push(edge);
+    return groups;
+  }, new Map());
+
+  edgesByClass.forEach((edges) => edges.sort(sortEdgeOptions));
+
+  const matchByTeacher = new Map();
+
+  const tryAssign = (classKey, visitedTeachers) => {
+    const options = edgesByClass.get(classKey) || [];
+
+    for (const edge of options) {
+      const teacherKey = String(edge.teacherId);
+      if (visitedTeachers.has(teacherKey)) continue;
+      visitedTeachers.add(teacherKey);
+
+      const existingEdge = matchByTeacher.get(teacherKey);
+      if (!existingEdge || tryAssign(existingEdge.classKey, visitedTeachers)) {
+        matchByTeacher.set(teacherKey, edge);
+        return true;
+      }
+    }
+
+    return false;
+  };
+
+  for (const classKey of classKeys) {
+    if (!tryAssign(classKey, new Set())) {
+      return null;
+    }
+  }
+
+  const matching = [...matchByTeacher.values()];
+  const matchedClassCount = new Set(matching.map((edge) => edge.classKey)).size;
+
+  if (matching.length !== classKeys.length || matchedClassCount !== classKeys.length) {
+    return null;
+  }
+
+  return matching;
+};
+
+const buildSlotPlan = (classSections, assignmentMap, slotCount, schoolCode) => {
+  const classKeys = classSections.map((classSection) => createClassKey(classSection).toUpperCase());
+  const edges = buildClassSubjectEdges(classSections, assignmentMap).map((edge, index) => ({
+    ...edge,
+    edgeId: index,
+  }));
+
+  const missingTeacherEdges = edges.filter((edge) => !edge.teacherId);
+  if (missingTeacherEdges.length) {
+    const sample = missingTeacherEdges
+      .slice(0, 5)
+      .map((edge) => edge.edgeKey)
+      .join(", ");
+    throw new Error(`[${schoolCode}] Missing teacher assignments for: ${sample}`);
+  }
+
+  if (edges.length !== classKeys.length * slotCount) {
+    throw new Error(
+      `[${schoolCode}] Cannot build a full daily timetable: ${edges.length} class-subject slots for ${classKeys.length} classes and ${slotCount} periods`
+    );
+  }
+
+  const plan = [];
+  let remainingEdges = [...edges];
+
+  for (let slotIndex = 0; slotIndex < slotCount; slotIndex += 1) {
+    const matching = findMatchingForSlot(remainingEdges, classKeys);
+    if (!matching) {
+      throw new Error(`[${schoolCode}] Unable to create a conflict-free timetable for period ${slotIndex + 1}`);
+    }
+
+    const usedEdgeIds = new Set(matching.map((edge) => edge.edgeId));
+    matching.forEach((edge) => plan.push({ ...edge, slotIndex }));
+    remainingEdges = remainingEdges.filter((edge) => !usedEdgeIds.has(edge.edgeId));
+  }
+
+  if (remainingEdges.length) {
+    throw new Error(`[${schoolCode}] Timetable plan left ${remainingEdges.length} unscheduled periods`);
+  }
+
+  return plan;
+};
+
 const seedTimetable = async () => {
   logger.info("=== Seeding Timetable ===");
 
@@ -37,13 +158,11 @@ const seedTimetable = async () => {
       continue;
     }
 
-    // 🔥 CLEAN OLD DATA
     const existing = await Timetable.find({ schoolId: school._id }).select("_id");
     await TimetableEntry.deleteMany({ timetableId: { $in: existing.map((t) => t._id) } });
     await Timetable.deleteMany({ schoolId: school._id });
     await TimeSlot.deleteMany({ schoolId: school._id });
 
-    // 1️⃣ TIME SLOTS
     const slots = await TimeSlot.insertMany(
       ttData.timeSlots.map((slot) => ({
         ...slot,
@@ -56,13 +175,11 @@ const seedTimetable = async () => {
       slotByNumber[slot.slotNumber] = slot;
     });
 
-    // 2️⃣ TIMETABLE HEADERS
     const classSections = getSchoolClassSections(code);
-
-    const timetableHeaders = classSections.map((cls) => ({
+    const timetableHeaders = classSections.map((classSection) => ({
       schoolId: school._id,
-      standard: String(cls.standard),
-      section: String(cls.section).toUpperCase(),
+      standard: String(classSection.standard),
+      section: String(classSection.section).toUpperCase(),
       academicYear: ttData.academicYear || getAcademicYear(),
     }));
 
@@ -70,87 +187,53 @@ const seedTimetable = async () => {
 
     const timetableMap = {};
     createdTimetables.forEach((item) => {
-      timetableMap[`${item.standard}-${item.section}`] = item._id;
+      timetableMap[`${item.standard}-${item.section}`.toUpperCase()] = item._id;
     });
 
-    // ✅ NEW LOGIC: FETCH TEACHER ASSIGNMENTS FROM TeacherProfile
     const TeacherProfile = (await import("../../module/user/model/TeacherProfile.model.js")).default;
     const teacherProfiles = await TeacherProfile.find({ schoolId: school._id }).lean();
+    const assignmentMap = buildAssignmentMap(teacherProfiles);
 
-    // Map: "standard-section-subject" -> teacherUserId
-    const assignmentMap = new Map();
-    teacherProfiles.forEach(profile => {
-      profile.assignedClasses.forEach(ac => {
-        const classKey = `${ac.standard}-${ac.section}`.toUpperCase();
-        ac.subjects.forEach(sub => {
-          assignmentMap.set(`${classKey}-${sub}`, profile.userId);
-        });
-      });
-    });
-
-    // 3️⃣ CREATE ENTRIES
-    const entries = [];
     const classSlots = Object.values(slotByNumber)
       .filter((slot) => slot.slotType === "CLASS")
       .sort((a, b) => a.slotNumber - b.slotNumber);
+    const slotPlan = buildSlotPlan(classSections, assignmentMap, classSlots.length, code);
 
-    const occupiedTeacherSlots = new Set();
-    let conflictWarningCount = 0;
+    const entries = [];
+    daysOfWeek.forEach((day, dayIndex) => {
+      const dayShort = DAY_MAP[day];
+      if (!dayShort) return;
 
-    for (const timetable of createdTimetables) {
-      const classKey = `${timetable.standard}-${timetable.section}`.toUpperCase();
-      const subjects = getSubjectsForStandard(timetable.standard);
+      slotPlan.forEach((plannedPeriod) => {
+        const slot = classSlots[(plannedPeriod.slotIndex + dayIndex) % classSlots.length];
+        const timetableId = timetableMap[plannedPeriod.classKey];
+        if (!slot || !timetableId) return;
 
-      // Create an offset so parallel sections don't get the same subject at the same time
-      const sectionOffset = timetable.section.charCodeAt(0) - 65; // A=0, B=1, etc.
-      const standardOffset = parseInt(timetable.standard, 10) || 0;
-      const classOffset = sectionOffset + standardOffset;
-
-      daysOfWeek.forEach((day, dayIndex) => {
-        const dayShort = DAY_MAP[day];
-        if (!dayShort) return;
-
-        classSlots.forEach((slot, slotIndex) => {
-          // Deterministic rotation to pick a subject for this slot, shifted by classOffset
-          const subject = subjects[(slotIndex + dayIndex + classOffset) % subjects.length];
-          const teacherId = assignmentMap.get(`${classKey}-${subject}`);
-
-          if (teacherId) {
-            const conflictKey = `${teacherId.toString()}-${dayShort}-${slot._id.toString()}`;
-            if (occupiedTeacherSlots.has(conflictKey)) {
-              conflictWarningCount++;
-              logger.debug(`[${code}] Conflict: Teacher ${teacherId} already busy on ${dayShort} slot ${slot.slotNumber}`);
-            } else {
-              occupiedTeacherSlots.add(conflictKey);
-              entries.push({
-                schoolId: school._id,
-                timetableId: timetable._id,
-                dayOfWeek: dayShort,
-                timeSlotId: slot._id,
-                subject,
-                teacherId,
-                roomNumber: `Class ${timetable.standard}-${timetable.section}`,
-              });
-            }
-          } else {
-            logger.debug(`[${code}] No teacher assigned for ${classKey} -> ${subject}`);
-          }
+        entries.push({
+          schoolId: school._id,
+          timetableId,
+          dayOfWeek: dayShort,
+          timeSlotId: slot._id,
+          subject: plannedPeriod.subject,
+          teacherId: plannedPeriod.teacherId,
+          roomNumber: `Class ${plannedPeriod.standard}-${plannedPeriod.section}`,
         });
       });
-    }
+    });
 
     if (entries.length) {
       await TimetableEntry.insertMany(entries, { ordered: false });
-    }
-
-    if (conflictWarningCount > 0) {
-      logger.warn(`[${code}] Skipped ${conflictWarningCount} entries due to teacher timetable conflicts`);
     }
 
     logger.info(
       `[${code}] Timetable seeded: ${slots.length} slots, ${createdTimetables.length} timetables, ${entries.length} entries`
     );
   }
+};
+
+export const timetableSeedInternals = {
+  buildAssignmentMap,
+  buildSlotPlan,
 };
 
 export default seedTimetable;

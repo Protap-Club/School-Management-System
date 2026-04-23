@@ -49,193 +49,167 @@ const buildTeacherContact = (code, index) => {
   return `+91-${String(startingNumber + index)}`;
 };
 
-const buildGeneratedTeacherIdentity = (code, index, assignedClass, usedNames) => {
-  const schoolDomain =
-    usersData.studentConfig?.emailDomains?.[code] || `${code.toLowerCase()}.com`;
-
-  let selectedName =
-    teacherPool.find((name) => !usedNames.has(name.toLowerCase()));
-
-  // fallback (still needed)
-  if (!selectedName) {
-    selectedName = `Teacher ${assignedClass.standard}${assignedClass.section}`;
+const buildDefaultTeacherName = (index, usedNames) => {
+  const selectedName = teacherPool.find((name) => !usedNames.has(name.toLowerCase()));
+  if (selectedName) {
+    usedNames.add(selectedName.toLowerCase());
+    return selectedName;
   }
 
-  usedNames.add(selectedName.toLowerCase());
-
-  // ✅ CRITICAL FIX: guaranteed unique suffix
-  const uniqueSuffix = `${assignedClass.standard}${assignedClass.section}-${index}`;
-
-  return {
-    name: selectedName,
-    email: `${slugify(selectedName)}.${uniqueSuffix}@${schoolDomain}`,
-    contactNo: buildTeacherContact(code, index),
-  };
+  const fallbackName = `Teacher ${String(index).padStart(2, "0")}`;
+  usedNames.add(fallbackName.toLowerCase());
+  return fallbackName;
 };
 
-/**
- * KEY FIX: This function generates exactly 48 teachers (or as specified).
- * It distributes the 336 class-subject slots (48 classes * 7 subjects) among these 48 teachers.
- * Each teacher handles ~7 assignments for their specialized subject.
- */
+const qualificationFor = (profile, index) =>
+  profile?.qualification || qualifications[index % qualifications.length];
+
+const joiningDateFor = (profile, index) => {
+  if (profile?.joiningDate) return profile.joiningDate;
+  const month = (index % 12) + 1;
+  const day = (index % 27) + 1;
+  return `2021-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+};
+
+const salaryFor = (profile, index) => {
+  if (profile?.expectedSalary) return profile.expectedSalary;
+  return 36000 + (index % 12) * 1200;
+};
+
+const getOrCreateAssignedClass = (teacher, cls) => {
+  const standard = String(cls.standard);
+  const section = String(cls.section).toUpperCase();
+  let assignedClass = teacher.assignedClasses.find(
+    (item) => item.standard === standard && item.section === section
+  );
+
+  if (!assignedClass) {
+    assignedClass = { standard, section, subjects: [] };
+    teacher.assignedClasses.push(assignedClass);
+  }
+
+  return assignedClass;
+};
+
+const addTeachingAssignment = (teacher, cls, subject) => {
+  const assignedClass = getOrCreateAssignedClass(teacher, cls);
+  if (!assignedClass.subjects.includes(subject)) {
+    assignedClass.subjects.push(subject);
+  }
+  if (!teacher.subjects.includes(subject)) {
+    teacher.subjects.push(subject);
+  }
+};
+
+const buildTeacherRecords = (code, classSections, seedTeachers = usersData[code]?.teachers || []) => {
+  const schoolProfiles = profilesData[code]?.teacherProfiles || [];
+  const schoolDomain = usersData.studentConfig?.emailDomains?.[code] || `${code.toLowerCase()}.com`;
+  const usedNames = new Set(seedTeachers.map((teacher) => String(teacher.name).toLowerCase()));
+
+  return classSections.map((classSection, index) => {
+    const existingTeacher = seedTeachers[index];
+    const name = existingTeacher?.name || buildDefaultTeacherName(index + 1, usedNames);
+    const email = existingTeacher?.email || `${slugify(name)}.${index + 1}@${schoolDomain}`;
+    const profile = schoolProfiles.find((item) => item.email === email);
+    const teacherMeta = { ...existingTeacher, ...profile };
+
+    return {
+      name,
+      email,
+      role: "teacher",
+      contactNo: existingTeacher?.contactNo || buildTeacherContact(code, index + 1),
+      employeeId: teacherMeta.employeeId || `${code}-TCH-${String(index + 1).padStart(3, "0")}`,
+      qualification: qualificationFor(teacherMeta, index),
+      joiningDate: joiningDateFor(teacherMeta, index),
+      expectedSalary: salaryFor(teacherMeta, index),
+      classTeacherOf: {
+        standard: String(classSection.standard),
+        section: String(classSection.section).toUpperCase(),
+      },
+      specialization: "",
+      subjects: [],
+      assignedClasses: [],
+    };
+  });
+};
+
+const applyTeachingAssignments = (teachers, classSections) => {
+  const teacherByClassKey = new Map(
+    teachers.map((teacher) => [toClassKey(teacher.classTeacherOf), teacher])
+  );
+  const sortedStandards = [
+    ...new Set(classSections.map((classSection) => Number(classSection.standard))),
+  ].sort((left, right) => left - right);
+  const sectionOrder = [
+    ...new Set(classSections.map((classSection) => String(classSection.section).toUpperCase())),
+  ].sort((left, right) => left.localeCompare(right));
+  const standardSet = new Set(sortedStandards);
+
+  const nearestConfiguredStandard = (standard, offset) => {
+    const requested = Number(standard) + offset;
+    if (standardSet.has(requested)) return requested;
+
+    return sortedStandards.reduce((nearest, candidate) => {
+      const candidateDistance = Math.abs(candidate - requested);
+      const nearestDistance = Math.abs(nearest - requested);
+      if (candidateDistance !== nearestDistance) {
+        return candidateDistance < nearestDistance ? candidate : nearest;
+      }
+      return Math.abs(candidate - Number(standard)) < Math.abs(nearest - Number(standard))
+        ? candidate
+        : nearest;
+    }, sortedStandards[0]);
+  };
+
+  const adjacentOffsetsBySubjectIndex = [-1, 0, 1, -1, 1, 0, 0];
+
+  sortClassSections(classSections).forEach((classSection) => {
+    const standard = String(classSection.standard);
+    const section = String(classSection.section).toUpperCase();
+    const sectionIndex = Math.max(0, sectionOrder.indexOf(section));
+    const subjects = getSubjectsForStandard(standard);
+
+    subjects.forEach((subject, subjectIndex) => {
+      const offset = adjacentOffsetsBySubjectIndex[subjectIndex % adjacentOffsetsBySubjectIndex.length];
+      const teacherStandard = nearestConfiguredStandard(standard, offset);
+      const teacherSection = sectionOrder[(sectionIndex + subjectIndex) % sectionOrder.length];
+      const teacher =
+        teacherByClassKey.get(`${teacherStandard}-${teacherSection}`) ||
+        teacherByClassKey.get(`${standard}-${section}`);
+
+      addTeachingAssignment(teacher, { standard, section }, subject);
+    });
+  });
+
+  teachers.forEach((teacher) => {
+    teacher.assignedClasses.sort((left, right) => {
+      const standardDiff = Number(left.standard) - Number(right.standard);
+      if (standardDiff !== 0) return standardDiff;
+      return left.section.localeCompare(right.section);
+    });
+    teacher.assignedClasses.forEach((assignedClass) => {
+      assignedClass.subjects.sort((left, right) => left.localeCompare(right));
+    });
+    teacher.subjects.sort((left, right) => left.localeCompare(right));
+    teacher.specialization = teacher.subjects[0] || "General";
+  });
+};
+
 export const buildTeacherSeedData = (code) => {
   const schoolDef = schoolMap.get(code);
+  const classSections = getSchoolClassSections(code);
 
   if (schoolDef?.handCrafted) {
     const demo = loadSeedJson("demoProfiles.json");
-    if (demo && demo[code] && demo[code].teachers) {
-      return demo[code].teachers;
+    if (demo?.[code]?.teachers) {
+      const teachers = buildTeacherRecords(code, classSections, demo[code].teachers);
+      applyTeachingAssignments(teachers, classSections);
+      return teachers;
     }
   }
 
-  const classSections = getSchoolClassSections(code);
-  const existingTeachers = usersData[code]?.teachers || [];
-  const TOTAL_TEACHERS = 36;
-
-  // 1. Calculate Subject Demand across all classes
-  const subjectDemand = {};
-  let totalSlotsCount = 0;
-  classSections.forEach((cls) => {
-    const clsSubjects = getSubjectsForStandard(cls.standard);
-    clsSubjects.forEach(sub => {
-      subjectDemand[sub] = (subjectDemand[sub] || 0) + 1;
-      totalSlotsCount++;
-    });
-  });
-
-  const sortedSubjects = Object.keys(subjectDemand).sort((a, b) => subjectDemand[b] - subjectDemand[a]);
-
-  // 2. Proportional Specialization Assignment
-  // We want to map 48 teachers to these subjects based on demand
-  const teacherSpecializations = [];
-  let allocated = 0;
-  
-  sortedSubjects.forEach((sub, idx) => {
-    // Each subject gets at least 1 teacher
-    let count = Math.max(1, Math.round((subjectDemand[sub] / totalSlotsCount) * TOTAL_TEACHERS));
-    // Adjustment for the last subject or if we exceed 48
-    if (idx === sortedSubjects.length - 1) {
-      count = TOTAL_TEACHERS - allocated;
-    } else if (allocated + count > TOTAL_TEACHERS - (sortedSubjects.length - 1 - idx)) {
-      count = 1; // leave room for remaining subjects
-    }
-    
-    for (let i = 0; i < count; i++) {
-      if (teacherSpecializations.length < TOTAL_TEACHERS) {
-        teacherSpecializations.push(sub);
-      }
-    }
-    allocated += count;
-  });
-
-  // Final check/fill
-  while (teacherSpecializations.length < TOTAL_TEACHERS) {
-    teacherSpecializations.push(sortedSubjects[0]); // Fill with most common subject (usually Math/English)
-  }
-
-  const allProfilesData = loadSeedJson("profiles.json");
-  const jsonTeacherProfiles = allProfilesData[code]?.teacherProfiles || [];
-
-  const BASE_SALARY = {
-    "B.Ed.": 32000, "M.Ed.": 36000, "B.Sc., B.Ed.": 38000,
-    "M.Sc., B.Ed.": 44000, "B.A., B.Ed.": 34000, "M.A., B.Ed.": 39000,
-    "B.Com., B.Ed.": 33000, "M.Com., B.Ed.": 37000,
-  };
-
-  // 3. Initialize Teacher Pool (48 records)
-  const teachers = [];
-  const usedNames = new Set(existingTeachers.map(t => String(t.name).toLowerCase()));
-
-  for (let i = 0; i < TOTAL_TEACHERS; i++) {
-    let teacherBase;
-    let jsonProfile = null;
-    if (i < existingTeachers.length) {
-      teacherBase = { ...existingTeachers[i] };
-      jsonProfile = jsonTeacherProfiles.find(p => p.email === teacherBase.email);
-    } else {
-      const schoolDomain = usersData.studentConfig?.emailDomains?.[code] || `${code.toLowerCase()}.com`;
-      let name = teacherPool.find(n => !usedNames.has(n.toLowerCase()));
-      if (!name) name = `Teacher ${i + 1}`;
-      usedNames.add(name.toLowerCase());
-
-      teacherBase = {
-        name,
-        email: `${slugify(name)}.${i + 1}@${schoolDomain}`,
-        contactNo: buildTeacherContact(code, i + 1),
-      };
-    }
-
-    const schoolProfiles = profilesData[code]?.teacherProfiles || [];
-    const jsonProfile = schoolProfiles.find(p => p.email === teacherBase.email);
-
-    teachers.push({
-      ...teacherBase,
-      role: "teacher",
-      employeeId: jsonProfile?.employeeId || `${code}-T${String(i + 1).padStart(3, "0")}`,
-      qualification,
-      joiningDate,
-      expectedSalary,
-      specialization: teacherSpecializations[i],
-      subjects: [teacherSpecializations[i]],
-      assignedClasses: [],
-      expectedSalary: jsonProfile?.expectedSalary,
-    });
-  }
-
-  // 4. Distribute all (Class-Subject) Slots
-  const slotsToFulfill = [];
-  classSections.forEach((cls) => {
-    const clsSubjects = getSubjectsForStandard(cls.standard);
-    clsSubjects.forEach(sub => {
-      slotsToFulfill.push({
-        standard: String(cls.standard),
-        section: String(cls.section).toUpperCase(),
-        subject: sub,
-      });
-    });
-  });
-
-  const teachersBySubject = {};
-  teachers.forEach(t => {
-    if (!teachersBySubject[t.specialization]) teachersBySubject[t.specialization] = [];
-    teachersBySubject[t.specialization].push(t);
-  });
-
-  const assignmentCount = new Map(teachers.map(t => [t.email, 0]));
-
-  slotsToFulfill.forEach((slot) => {
-    let subjectTeachers = teachersBySubject[slot.subject];
-    
-    // Fallback: if no teacher specializes in this specific subject (rare), 
-    // pick teacher with least assignments
-    if (!subjectTeachers || subjectTeachers.length === 0) {
-      subjectTeachers = teachers;
-    }
-
-    // Sort by current load to pick the least busy teacher
-    subjectTeachers.sort((a, b) => assignmentCount.get(a.email) - assignmentCount.get(b.email));
-    const targetTeacher = subjectTeachers[0];
-
-    // Add to their assignedClasses
-    let existingAssignment = targetTeacher.assignedClasses.find(
-      ac => ac.standard === slot.standard && ac.section === slot.section
-    );
-
-    if (existingAssignment) {
-      if (!existingAssignment.subjects.includes(slot.subject)) {
-        existingAssignment.subjects.push(slot.subject);
-      }
-    } else {
-      targetTeacher.assignedClasses.push({
-        standard: slot.standard,
-        section: slot.section,
-        subjects: [slot.subject]
-      });
-    }
-
-    assignmentCount.set(targetTeacher.email, assignmentCount.get(targetTeacher.email) + 1);
-  });
-
+  const teachers = buildTeacherRecords(code, classSections);
+  applyTeachingAssignments(teachers, classSections);
   return teachers;
 };
 
