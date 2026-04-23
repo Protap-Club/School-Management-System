@@ -65,7 +65,7 @@ const studentSubmissionUpload = multer({
 
         cb(new BadRequestError("File type not allowed. Supported: PDF, JPG, JPEG"), false);
     },
-    limits: { fileSize: 10 * 1024 * 1024, files: 1 },
+    limits: { fileSize: 10 * 1024 * 1024, files: 5 },
 });
 
 const withUploadHandling = (middleware, fileSizeMessage) => (req, res, next) => {
@@ -121,10 +121,7 @@ router.post(
     "/:id/submit",
     checkRole([USER_ROLES.STUDENT]),
     withUploadHandling(
-        studentSubmissionUpload.fields([
-            { name: "file", maxCount: 1 },
-            { name: "files", maxCount: 1 },
-        ]),
+        studentSubmissionUpload.array("files", 5),
         "Submission file size must be 10MB or less"
     ),
     validate(submitAssignmentSchema),
