@@ -25,6 +25,62 @@ const formatDateTime = (value) => {
     });
 };
 
+// ─── Submission Table Skeleton ────────────────────────────────────────────────
+// 5 columns: assignment, student, submitted, files, view
+const ROW_COUNT = 5;
+const SubmissionTableSkeleton = () => (
+    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className="overflow-x-auto">
+            <Table>
+                <TableHeader>
+                    <TableRow className="border-b border-slate-200 bg-slate-50/80 hover:bg-slate-50/80">
+                        <TableHead className="px-4 py-3"><div className="skeleton-shimmer h-3 rounded-md w-24" /></TableHead>
+                        <TableHead className="px-4 py-3"><div className="skeleton-shimmer h-3 rounded-md w-16" /></TableHead>
+                        <TableHead className="px-4 py-3"><div className="skeleton-shimmer h-3 rounded-md w-20" /></TableHead>
+                        <TableHead className="px-4 py-3"><div className="skeleton-shimmer h-3 rounded-md w-10" /></TableHead>
+                        <TableHead className="w-24 px-4 py-3" />
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {Array.from({ length: ROW_COUNT }).map((_, i) => (
+                        <TableRow key={i} className="border-b border-slate-100 last:border-0" style={{ height: '76px' }}>
+                            {/* Assignment + subject + class tags */}
+                            <TableCell className="px-4 py-3.5 align-top">
+                                <div className="skeleton-shimmer h-3.5 rounded-md w-40" />
+                                <div className="skeleton-shimmer h-2.5 rounded-md w-24 mt-1.5" />
+                                <div className="flex gap-1.5 mt-2">
+                                    <div className="skeleton-shimmer h-4 rounded-full w-14" />
+                                    <div className="skeleton-shimmer h-4 rounded-full w-14" />
+                                </div>
+                            </TableCell>
+                            {/* Student + email + roll */}
+                            <TableCell className="px-4 py-3.5 align-top">
+                                <div className="skeleton-shimmer h-3.5 rounded-md w-32" />
+                                <div className="skeleton-shimmer h-2.5 rounded-md w-28 mt-1.5" />
+                                <div className="flex gap-1.5 mt-2">
+                                    <div className="skeleton-shimmer h-4 rounded-full w-16" />
+                                </div>
+                            </TableCell>
+                            {/* Submitted date + on-time badge */}
+                            <TableCell className="px-4 py-3.5 align-top">
+                                <div className="skeleton-shimmer h-3.5 rounded-md w-36" />
+                                <div className="skeleton-shimmer h-5 rounded-full w-16 mt-2" />
+                            </TableCell>
+                            {/* Files */}
+                            <TableCell className="px-4 py-3.5 align-top">
+                                <div className="skeleton-shimmer h-3 rounded-md w-20" />
+                                <div className="skeleton-shimmer h-3 rounded-md w-20 mt-1.5" />
+                            </TableCell>
+                            {/* View — empty during load */}
+                            <TableCell className="px-4 py-3.5 w-24" />
+                        </TableRow>
+                    ))}
+                </TableBody>
+            </Table>
+        </div>
+    </div>
+);
+
 export const AssignmentSubmissionTable = ({
     submissions,
     loading,
@@ -36,12 +92,7 @@ export const AssignmentSubmissionTable = ({
     onViewClick,
 }) => {
     if (loading) {
-        return (
-            <div className="py-8 sm:py-16 text-center">
-                <div className="animate-spin rounded-full h-8 w-8 border-2 border-indigo-200 border-t-indigo-600 mx-auto"></div>
-                <p className="text-slate-400 text-sm mt-3">Loading submitted assignments...</p>
-            </div>
-        );
+        return <SubmissionTableSkeleton />;
     }
 
     if (!submissions || submissions.length === 0) {

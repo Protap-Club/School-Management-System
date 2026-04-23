@@ -571,9 +571,9 @@ const ExaminationPage = () => {
 
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden min-h-[400px]">
           {examsLoading ? (
-            <div className="p-8 space-y-4">
+            <div className="p-8 space-y-3">
               {[1, 2, 3, 4, 5].map(i => (
-                <div key={i} className="h-20 bg-slate-50 rounded-xl animate-pulse" />
+                <div key={i} className="skeleton-shimmer h-20 rounded-xl" style={{ animationDelay: `${(i - 1) * 0.1}s` }} />
               ))}
             </div>
           ) : filteredExams.length > 0 ? (

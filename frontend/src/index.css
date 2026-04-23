@@ -20,6 +20,14 @@
     --primary-hover-rgb: 29 78 216;
     --secondary-color: #ffffff;
     --bg-color: #f3f4f6;
+    /* ─── Skeleton shimmer design tokens ──────────────────────────────────────
+       Colors are derived from the app's real surface colors (one step above
+       white card surface). Do NOT use Boneyard's defaults (#f0f0f0 / #222222).
+    */
+    --skeleton-base:      #eef0f2; /* one step lighter than --bg-color (#f3f4f6 card bg) */
+    --skeleton-highlight: #fafafa; /* card surface — creates the moving shimmer sweep */
+    --skeleton-angle:     110deg;
+    --skeleton-speed:     1.6s;
     --background: oklch(1 0 0);
     --foreground: oklch(0.145 0 0);
     --card: oklch(1 0 0);
@@ -310,4 +318,25 @@ input::-ms-clear {
         height: auto !important;
         overflow: visible !important;
     }
+}
+
+/* ─── Premium Shimmer Skeleton System ─────────────────────────────────────────
+   Replaces all animate-pulse + bg-gray-100 skeleton patterns.
+   Uses design-token-native colors (--skeleton-base / --skeleton-highlight)
+   with a 110° angle sweep at 1.6s — matches premium loading UX standards.
+───────────────────────────────────────────────────────────────────────────── */
+@keyframes shimmer {
+    0%   { background-position: -200% center; }
+    100% { background-position:  200% center; }
+}
+
+.skeleton-shimmer {
+    background: linear-gradient(
+        var(--skeleton-angle),
+        var(--skeleton-base)      25%,
+        var(--skeleton-highlight) 50%,
+        var(--skeleton-base)      75%
+    );
+    background-size: 200% 100%;
+    animation: shimmer var(--skeleton-speed) ease-in-out infinite;
 }

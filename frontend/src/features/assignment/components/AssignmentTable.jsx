@@ -11,6 +11,66 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { PaginationControls } from '../../../components/ui/PaginationControls';
 
+// ─── Assignment Table Skeleton ────────────────────────────────────────────────
+// Mirrors the real 6-column layout: title+desc block, subject, class pill,
+// due date, status pill, actions (left empty during load)
+const ROW_COUNT = 6;
+const AssignmentTableSkeleton = () => (
+    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className="overflow-x-auto">
+            <Table>
+                <TableHeader>
+                    <TableRow className="border-b border-slate-200 bg-slate-50/80 hover:bg-slate-50/80">
+                        <TableHead className="px-4 py-3"><div className="skeleton-shimmer h-3 rounded-md w-24" /></TableHead>
+                        <TableHead className="px-4 py-3"><div className="skeleton-shimmer h-3 rounded-md w-16" /></TableHead>
+                        <TableHead className="px-4 py-3"><div className="skeleton-shimmer h-3 rounded-md w-14" /></TableHead>
+                        <TableHead className="px-4 py-3"><div className="skeleton-shimmer h-3 rounded-md w-10" /></TableHead>
+                        <TableHead className="px-4 py-3"><div className="skeleton-shimmer h-3 rounded-md w-14" /></TableHead>
+                        <TableHead className="w-28 px-4 py-3" />
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {Array.from({ length: ROW_COUNT }).map((_, i) => (
+                        <TableRow key={i} className="border-b border-slate-100 last:border-0" style={{ height: '72px' }}>
+                            {/* Assignment column — title + description lines + tag pills */}
+                            <TableCell className="px-4 py-3.5">
+                                <div className="space-y-2">
+                                    <div className="skeleton-shimmer h-3.5 rounded-md w-48" />
+                                    <div className="skeleton-shimmer h-2.5 rounded-md w-64" />
+                                    <div className="flex gap-1.5 mt-1">
+                                        <div className="skeleton-shimmer h-4 rounded-full w-20" />
+                                        <div className="skeleton-shimmer h-4 rounded-full w-14" />
+                                        <div className="skeleton-shimmer h-4 rounded-full w-16" />
+                                    </div>
+                                </div>
+                            </TableCell>
+                            {/* Subject */}
+                            <TableCell className="px-4 py-3.5">
+                                <div className="skeleton-shimmer h-3.5 rounded-md w-20" />
+                                <div className="skeleton-shimmer h-2.5 rounded-md w-16 mt-1" />
+                            </TableCell>
+                            {/* Class pill */}
+                            <TableCell className="px-4 py-3.5">
+                                <div className="skeleton-shimmer h-5 rounded-md w-14" />
+                            </TableCell>
+                            {/* Due date */}
+                            <TableCell className="px-4 py-3.5">
+                                <div className="skeleton-shimmer h-3.5 rounded-md w-24" />
+                            </TableCell>
+                            {/* Status pill */}
+                            <TableCell className="px-4 py-3.5">
+                                <div className="skeleton-shimmer h-5 rounded-full w-16" />
+                            </TableCell>
+                            {/* Actions — always empty during load */}
+                            <TableCell className="px-4 py-3.5 w-28" />
+                        </TableRow>
+                    ))}
+                </TableBody>
+            </Table>
+        </div>
+    </div>
+);
+
 export const AssignmentTable = ({
     assignments,
     loading,
@@ -30,12 +90,7 @@ export const AssignmentTable = ({
     sortOptions = []
 }) => {
     if (loading) {
-        return (
-            <div className="py-8 sm:py-16 text-center">
-                <div className="animate-spin rounded-full h-8 w-8 border-2 border-indigo-200 border-t-indigo-600 mx-auto"></div>
-                <p className="text-slate-400 text-sm mt-3">Loading assignments...</p>
-            </div>
-        );
+        return <AssignmentTableSkeleton />;
     }
 
     if (!assignments || assignments.length === 0) {

@@ -42,7 +42,7 @@ import {
 // EmptyState moved to shared components/ui/EmptyState.jsx
 
 const RESULT_SKELETON_CELL = 'px-5 py-4';
-const RESULT_SKELETON_BAR = 'h-4 bg-slate-100 rounded-lg animate-pulse';
+const RESULT_SKELETON_BAR = 'h-4 rounded-lg';
 
 const SummaryCard = ({ icon: Icon, title, value, accent = 'text-slate-700', bg = 'bg-white' }) => (
   <div className={`${bg} rounded-2xl border border-slate-200 shadow-sm p-5 flex items-center gap-4`}>

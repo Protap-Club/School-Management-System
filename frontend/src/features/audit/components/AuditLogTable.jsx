@@ -385,7 +385,7 @@ export const AuditLogTable = ({ logs, isLoading }) => {
                 </thead>
                 <tbody className="divide-y divide-slate-100/60">
                     {isLoading ? (
-                        <SkeletonRows rows={8} columns={8} cellClass="px-3 py-3" barClass="h-3.5 bg-slate-100 rounded w-3/4" />
+                        <SkeletonRows rows={8} columns={8} cellClass="px-3 py-3" barClass="h-3.5 rounded w-3/4" rowHeight="48px" />
                     ) : !logs || logs.length === 0 ? (
                         <EmptyState />
                     ) : (

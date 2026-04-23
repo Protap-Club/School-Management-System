@@ -11,6 +11,60 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { PaginationControls } from '@/components/ui/PaginationControls';
 
+// ─── Users Table Skeleton ─────────────────────────────────────────────────────
+// Matches the real row layout: avatar circle + name/email pair + role pill +
+// status dot. Action buttons are intentionally never skeletonized.
+const ROW_COUNT = 7;
+const UserTableSkeleton = () => (
+    <div className="overflow-x-auto">
+        <Table>
+            <TableHeader>
+                <TableRow className="border-b border-gray-100 bg-gray-50/50">
+                    <TableHead className="px-4 py-3"><div className="skeleton-shimmer h-3 rounded-md w-10" /></TableHead>
+                    <TableHead className="px-4 py-3"><div className="skeleton-shimmer h-3 rounded-md w-20" /></TableHead>
+                    <TableHead className="px-4 py-3 hidden md:table-cell"><div className="skeleton-shimmer h-3 rounded-md w-28" /></TableHead>
+                    <TableHead className="px-4 py-3"><div className="skeleton-shimmer h-3 rounded-md w-14" /></TableHead>
+                    <TableHead className="px-4 py-3 w-24" />
+                </TableRow>
+            </TableHeader>
+            <TableBody>
+                {Array.from({ length: ROW_COUNT }).map((_, i) => (
+                    <TableRow key={i} style={{ height: '56px' }}>
+                        {/* User cell — avatar + name/email */}
+                        <TableCell className="px-4 py-3">
+                            <div className="flex items-center gap-3">
+                                {/* Circular avatar bone */}
+                                <div className="skeleton-shimmer w-8 h-8 rounded-full flex-shrink-0" />
+                                <div className="space-y-1.5">
+                                    <div className="skeleton-shimmer h-3.5 rounded-md w-28" />
+                                    <div className="skeleton-shimmer h-2.5 rounded-md w-20 md:hidden" />
+                                </div>
+                            </div>
+                        </TableCell>
+                        {/* Role pill bone */}
+                        <TableCell className="px-4 py-3">
+                            <div className="skeleton-shimmer h-5 rounded-full w-16" />
+                        </TableCell>
+                        {/* Email — desktop only */}
+                        <TableCell className="px-4 py-3 hidden md:table-cell">
+                            <div className="skeleton-shimmer h-3 rounded-md w-40" />
+                        </TableCell>
+                        {/* Status dot + label */}
+                        <TableCell className="px-4 py-3">
+                            <div className="flex items-center gap-1.5">
+                                <div className="skeleton-shimmer w-1.5 h-1.5 rounded-full" />
+                                <div className="skeleton-shimmer h-3 rounded-md w-10" />
+                            </div>
+                        </TableCell>
+                        {/* Action buttons — always empty during load */}
+                        <TableCell className="px-4 py-3 w-24" />
+                    </TableRow>
+                ))}
+            </TableBody>
+        </Table>
+    </div>
+);
+
 export const UsersTable = ({
     users,
     loading,
@@ -38,13 +92,9 @@ export const UsersTable = ({
     onPageSizeChange,
 }) => {
     if (loading) {
-        return (
-            <div className="py-8 sm:py-16 text-center">
-                <div className="animate-spin rounded-full h-8 w-8 border-2 border-gray-200 border-t-gray-600 mx-auto"></div>
-                <p className="text-gray-400 text-sm mt-3">Loading users...</p>
-            </div>
-        );
+        return <UserTableSkeleton />;
     }
+
 
     if (users.length === 0) {
         return (

@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import { useAuth } from '../auth';
@@ -120,7 +120,6 @@ const CalendarPage = () => {
   }, [adminSchoolClasses, isAdmin]);
 
   const normalizedStandard = adminClassInput.standard.trim();
-  const normalizedSection = adminClassInput.section.trim().toUpperCase();
 
   const adminStandardOptions = useMemo(() => {
     const fromPairs = Array.from(
@@ -161,7 +160,6 @@ const CalendarPage = () => {
     return fallback.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
   }, [availableClasses.classSections, availableClasses.sections, normalizedStandard]);
 
-  const isAdminClassValid = isAdmin && formData.targetAudience === 'classes' && formData.targetClasses.length > 0;
   const isClassSelectionInvalid = formData.targetAudience === 'classes' && formData.targetClasses.length === 0;
 
   const { message, showMessage } = useToastMessage();
@@ -341,9 +339,8 @@ const CalendarPage = () => {
 
   const calendarDays = useMemo(() => {
     const cells = [];
-    const totalCells = firstDay + daysInMonth;
-    const rows = Math.ceil(totalCells / 7);
     
+
     for (let i = 0; i < firstDay; i++) {
       const isFirstRow = i < 7;
       const isFirstCol = i % 7 === 0;
@@ -471,7 +468,32 @@ const renderFormField = (label, children) => (
         </div>
 
         {loading ? (
-          <div className="flex items-center justify-center h-96 bg-white rounded-xl shadow-sm border border-gray-200"><ButtonSpinner className="w-8 h-8 border-2 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" /></div>
+          <div className="rounded-xl shadow-sm border border-gray-200 overflow-hidden ring-1 ring-black/5">
+            {/* Weekday header — same as real grid */}
+            <div className="grid grid-cols-7 bg-gray-50/80 border-b border-gray-200">
+              {WEEKDAYS.map(day => (
+                <div key={day} className="py-3 text-center text-[11px] font-bold text-gray-500 uppercase tracking-widest">
+                  {day}
+                </div>
+              ))}
+            </div>
+            {/* 5 skeleton rows × 7 cells — matches real cell min-height */}
+            <div className="grid grid-cols-7 bg-white">
+              {Array.from({ length: 35 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="border-b border-r border-gray-100 p-2 min-h-[90px] flex flex-col gap-1.5"
+                  style={{ animationDelay: `${(i % 7) * 0.04}s` }}
+                >
+                  {/* Date number bone */}
+                  <div className="skeleton-shimmer h-5 w-5 rounded-full self-end" />
+                  {/* 0–2 event pill bones — vary by position for realism */}
+                  {i % 5 !== 0 && <div className="skeleton-shimmer h-3.5 rounded w-full" />}
+                  {i % 3 === 0 && <div className="skeleton-shimmer h-3.5 rounded w-4/5" />}
+                </div>
+              ))}
+            </div>
+          </div>
         ) : (
           <div className="rounded-xl shadow-sm border border-gray-200 overflow-hidden ring-1 ring-black/5">
             <div className="grid grid-cols-7 bg-gray-50/80 border-b border-gray-200">
@@ -480,6 +502,7 @@ const renderFormField = (label, children) => (
             <div className="grid grid-cols-7 bg-transparent">{calendarDays}</div>
           </div>
         )}
+
       </div>
 
       {/* ── Day Details Modal ── */}

@@ -223,16 +223,35 @@ const Dashboard = () => {
   if (loading) {
     return (
       <DashboardLayout>
-        <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
-          <div className="relative w-16 h-16">
-            <div className="absolute inset-0 border-4 border-primary/20 rounded-full"></div>
-            <div className="absolute inset-0 border-4 border-primary rounded-full border-t-transparent animate-spin"></div>
+        <div className="max-w-[1600px] mx-auto space-y-8 p-4 md:p-6 lg:p-8">
+          {/* Keep greeting visible — only data is loading */}
+          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 mb-10">
+            <div className="space-y-1">
+              <h1 className="text-4xl md:text-5xl font-black text-gray-900 tracking-tight">
+                Welcome, <span className="text-primary">{user?.name?.split(' ')[0] || 'User'}</span>
+              </h1>
+            </div>
           </div>
-          <p className="text-gray-400 font-bold uppercase tracking-widest text-xs animate-pulse">Initializing System...</p>
+          {/* Stat card skeleton grid — 4 cards matching real rounded-[2rem] h-36 layout */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {[0, 1, 2, 3].map((i) => (
+              <div
+                key={i}
+                style={{ animationDelay: `${i * 0.12}s` }}
+                className="skeleton-shimmer rounded-[2rem] h-36 border border-gray-50"
+              />
+            ))}
+          </div>
+          {/* Placeholder content area */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="skeleton-shimmer rounded-3xl h-80 border border-gray-50 lg:col-span-2" />
+            <div className="skeleton-shimmer rounded-3xl h-80 border border-gray-50" />
+          </div>
         </div>
       </DashboardLayout>
     );
   }
+
 
   return (
     <DashboardLayout>
