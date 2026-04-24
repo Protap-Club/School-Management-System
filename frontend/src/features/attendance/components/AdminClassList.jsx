@@ -113,7 +113,7 @@ const AdminClassList = ({
 
 
     if (Object.keys(groupedClasses).length === 0) {
-        return <div className="text-center py-16 text-muted-foreground font-medium">No classes match your search.</div>;
+        return <div className="text-center py-8 sm:py-16 text-muted-foreground font-medium">No classes match your search.</div>;
     }
 
     return (

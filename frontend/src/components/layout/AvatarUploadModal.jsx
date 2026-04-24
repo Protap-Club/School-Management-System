@@ -117,7 +117,7 @@ const AvatarUploadModal = ({ user, isOpen, onClose, onUploadSuccess }) => {
                             />
                         ) : (
                             <div className="w-full h-full rounded-2xl bg-gradient-to-br from-indigo-100 to-purple-100 flex items-center justify-center border-4 border-gray-50 shadow-sm">
-                                <span className="text-6xl font-bold text-indigo-500">
+                                <span className="text-4xl sm:text-6xl font-bold text-indigo-500">
                                     {user?.name?.charAt(0)?.toUpperCase() || 'U'}
                                 </span>
                             </div>

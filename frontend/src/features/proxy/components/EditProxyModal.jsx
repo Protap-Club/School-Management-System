@@ -113,7 +113,7 @@ const EditProxyModal = ({ isOpen, onClose, request }) => {
 
                 <div className="p-6 overflow-y-auto max-h-[calc(90vh-200px)]">
                     <div className="mb-6 p-4 bg-gray-50 rounded-xl border border-gray-100">
-                        <div className="grid grid-cols-3 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                             <div>
                                 <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Date</p>
                                 <p className="text-sm font-bold text-gray-900">{formatDate(request.date)}</p>
@@ -141,7 +141,7 @@ const EditProxyModal = ({ isOpen, onClose, request }) => {
                             <label className="block text-sm font-medium text-gray-700 mb-3">
                                 Assignment Type
                             </label>
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <button
                                     type="button"
                                     onClick={() => setSelectedType("proxy")}

@@ -37,6 +37,7 @@ const getApiErrorMessage = (err) =>
   'Failed to save assignment';
 
 const normalizeSection = (value) => String(value || '').trim().toUpperCase();
+const getCurrentUserId = (user) => String(user?._id || user?.userid || '');
 
 const matchesTeacher = (teacher, standard, section, subject) =>
   (teacher?.profile?.assignedClasses || []).some((item) =>
@@ -148,8 +149,17 @@ export const AssignmentModal = ({ isOpen, onClose, assignmentToEdit = null }) =>
   const subjects = getSubjectsForSections(formData.standard, selectedSections);
   const teachers = useMemo(() => teachersQuery.data?.data?.users || [], [teachersQuery.data?.data?.users]);
   const detailedAssignment = detailResponse?.data;
+  const currentUserId = useMemo(() => getCurrentUserId(user), [user]);
 
   const teacherMatchesBySection = useMemo(() => {
+    if (isTeacher && currentUserId && formData.standard && formData.subject) {
+      const map = new Map();
+      selectedSections.forEach((section) => {
+        map.set(section, [{ _id: currentUserId, name: user?.name || 'You' }]);
+      });
+      return map;
+    }
+
     const map = new Map();
     selectedSections.forEach((section) => {
       map.set(
@@ -158,7 +168,7 @@ export const AssignmentModal = ({ isOpen, onClose, assignmentToEdit = null }) =>
       );
     });
     return map;
-  }, [formData.standard, formData.subject, selectedSections, teachers]);
+  }, [currentUserId, formData.standard, formData.subject, isTeacher, selectedSections, teachers, user?.name]);
 
   const singleSectionTeachers = useMemo(() => {
     if (selectedSections.length !== 1) return [];
@@ -166,6 +176,10 @@ export const AssignmentModal = ({ isOpen, onClose, assignmentToEdit = null }) =>
   }, [selectedSections, teacherMatchesBySection]);
 
   const teacherOptions = useMemo(() => {
+    if (isTeacher && currentUserId && selectedSections.length === 1 && formData.subject) {
+      return [{ label: user?.name || 'You', value: currentUserId }];
+    }
+
     const options = new Map();
     
     // Add teachers that match the class-section-subject mapping
@@ -174,15 +188,15 @@ export const AssignmentModal = ({ isOpen, onClose, assignmentToEdit = null }) =>
     });
     
     // For teachers creating assignments, ensure they can see themselves if they teach this class-section-subject
-    if (isTeacher && user?._id && selectedSections.length === 1 && formData.subject) {
+    if (isTeacher && currentUserId && selectedSections.length === 1 && formData.subject) {
       const isMappedToAssignment = assignedClasses.some((item) =>
         String(item.standard).trim() === String(formData.standard).trim() &&
         normalizeSection(item.section) === normalizeSection(selectedSections[0]) &&
         Array.isArray(item.subjects) && item.subjects.includes(formData.subject)
       );
       
-      if (isMappedToAssignment && !options.has(String(user._id))) {
-        options.set(String(user._id), { label: user.name, value: user._id });
+      if (isMappedToAssignment && !options.has(currentUserId)) {
+        options.set(currentUserId, { label: user.name, value: currentUserId });
       }
     }
     
@@ -195,7 +209,7 @@ export const AssignmentModal = ({ isOpen, onClose, assignmentToEdit = null }) =>
     }
     
     return Array.from(options.values());
-  }, [formData.assignedTeacher, formData.standard, formData.subject, selectedSections, singleSectionTeachers, teachers, isTeacher, user, assignedClasses]);
+  }, [currentUserId, formData.assignedTeacher, formData.standard, formData.subject, selectedSections, singleSectionTeachers, teachers, isTeacher, user, assignedClasses]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -271,16 +285,9 @@ export const AssignmentModal = ({ isOpen, onClose, assignmentToEdit = null }) =>
         if (singleSectionTeachers.length === 1) {
           // Only one teacher mapped to this class-section-subject
           next = { ...next, assignedTeacher: String(singleSectionTeachers[0]._id) };
-        } else if (isTeacher && user?._id) {
+        } else if (isTeacher && currentUserId) {
           // For teachers creating assignments, auto-select themselves if they teach this class-section-subject
-          const isMappedToAssignment = assignedClasses.some((item) =>
-            String(item.standard).trim() === String(next.standard).trim() &&
-            normalizeSection(item.section) === normalizeSection(next.sections[0]) &&
-            Array.isArray(item.subjects) && item.subjects.includes(next.subject)
-          );
-          if (isMappedToAssignment) {
-            next = { ...next, assignedTeacher: String(user._id) };
-          }
+          next = { ...next, assignedTeacher: currentUserId };
         }
       }
 
@@ -291,7 +298,7 @@ export const AssignmentModal = ({ isOpen, onClose, assignmentToEdit = null }) =>
 
       return next;
     });
-  }, [availableStandards, getSubjectsForSections, isEditing, isOpen, sectionOptions, singleSectionTeachers, isTeacher, user?._id, assignedClasses, hasSingleSubject, singleSubject]);
+  }, [availableStandards, currentUserId, getSubjectsForSections, isEditing, isOpen, sectionOptions, singleSectionTeachers, isTeacher, assignedClasses, hasSingleSubject, singleSubject]);
 
   if (!isOpen) return null;
 

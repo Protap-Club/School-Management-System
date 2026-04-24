@@ -77,7 +77,6 @@ const seedProfiles = async () => {
 
     // --- Student Profiles ---
     const { studentConfig: cfg } = usersData;
-    const rollPrefix = cfg.rollNumberPrefixes[code] || code;
     const studentRecords = buildStudentRecords(usersData, code);
     let counter = 0;
     const admissionBase = new Date(cfg.admissionDateStart || cfg.admissionDate);
@@ -93,7 +92,7 @@ const seedProfiles = async () => {
         await StudentProfile.create({
           userId: user._id,
           schoolId: school._id,
-          rollNumber: String(student.roll).padStart(2, "0"),
+          rollNumber: String(student.roll),
           standard: student.standard,
           section: student.section,
           year: cfg.year,

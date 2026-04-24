@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import { useAuth } from '../auth';
@@ -7,6 +7,13 @@ import api from '../../lib/axios';
 import { ButtonSpinner } from '../../components/ui/Spinner';
 import { useToastMessage } from '../../hooks/useToastMessage';
 import { useSchoolClasses } from '../../hooks/useSchoolClasses';
+import {
+  useCalendarEvents,
+  useCreateCalendarEvent,
+  useUpdateCalendarEvent,
+  useDeleteCalendarEvent,
+  useClearDayEvents,
+} from './api/queries';
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const TYPE_CONFIG = {
@@ -48,15 +55,22 @@ const CalendarPage = () => {
   const canEdit = isAdmin || isTeacher;
 
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [events, setEvents] = useState([]);
-  
+  const currentYear  = currentDate.getFullYear();
+  const currentMonth = currentDate.getMonth();   // 0-indexed, matches Date API
+
+  // ── React Query ──────────────────────────────────────────────────────────
+  const { data: events = [], isLoading: loading } = useCalendarEvents(currentYear, currentMonth);
+  const { mutateAsync: createEvent,  isPending: creatingEvent  } = useCreateCalendarEvent(currentYear, currentMonth);
+  const { mutateAsync: updateEvent,  isPending: updatingEvent  } = useUpdateCalendarEvent(currentYear, currentMonth);
+  const { mutateAsync: deleteEvent,  isPending: deletingEvent  } = useDeleteCalendarEvent(currentYear, currentMonth);
+  const { mutateAsync: clearDay,     isPending: clearingDay    } = useClearDayEvents(currentYear, currentMonth);
+
+  const saving = creatingEvent || updatingEvent || deletingEvent || clearingDay;
+
   // Modals
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDayModal, setShowDayModal] = useState(false);
   const [selectedDateStr, setSelectedDateStr] = useState(null); // String YYYY-MM-DD
-  
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
 
   const [tooltip, setTooltip] = useState({ event: null, position: { x: 0, y: 0 }, placement: 'bottom', expanded: false });
   const [formData, setFormData] = useState(resetFormForDate(''));
@@ -106,7 +120,6 @@ const CalendarPage = () => {
   }, [adminSchoolClasses, isAdmin]);
 
   const normalizedStandard = adminClassInput.standard.trim();
-  const normalizedSection = adminClassInput.section.trim().toUpperCase();
 
   const adminStandardOptions = useMemo(() => {
     const fromPairs = Array.from(
@@ -147,32 +160,13 @@ const CalendarPage = () => {
     return fallback.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
   }, [availableClasses.classSections, availableClasses.sections, normalizedStandard]);
 
-  const isAdminClassValid = isAdmin && formData.targetAudience === 'classes' && formData.targetClasses.length > 0;
   const isClassSelectionInvalid = formData.targetAudience === 'classes' && formData.targetClasses.length === 0;
 
   const { message, showMessage } = useToastMessage();
   const updateFormField = (field, value) => setFormData(prev => ({ ...prev, [field]: value }));
 
-  const fetchEvents = useCallback(async () => {
-    try {
-      setLoading(true);
-      const startOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
-      const endOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
-      startOfMonth.setHours(0, 0, 0, 0);
-      endOfMonth.setHours(23, 59, 59, 999); 
-      const calRes = await api.get('/calendar', {
-        params: { start: startOfMonth.toISOString(), end: endOfMonth.toISOString() }
-      });
-
-      setEvents(calRes.data?.success && Array.isArray(calRes.data?.data) ? calRes.data.data : []);
-    } catch (error) { 
-      console.error('Failed to fetch events:', error); 
-      showMessage('Failed to load calendar events', 'error'); 
-    }
-    finally { setLoading(false); }
-  }, [currentDate, showMessage]);
-
-  useEffect(() => { fetchEvents(); }, [fetchEvents]);
+  // fetchEvents is no longer needed — React Query re-fetches automatically when
+  // currentYear/currentMonth change (month navigation) or after mutations.
 
   const nextMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
   const prevMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
@@ -265,66 +259,66 @@ const CalendarPage = () => {
 
   const handleSaveEvent = useCallback(async () => {
     if (!formData.title.trim()) return;
+
+    if (isAdmin && formData.targetAudience === 'classes' && formData.targetClasses.length === 0) {
+      showMessage('Please select at least one class.', 'error');
+      return;
+    }
+
+    let startD, endD;
+    if (formData.allDay) {
+      startD = new Date(formData.startDate);
+      startD.setHours(0, 0, 0, 0);
+      endD = new Date(formData.endDate);
+      endD.setHours(23, 59, 59, 999);
+    } else {
+      startD = new Date(`${formData.startDate}T${formData.startTime}:00`);
+      endD = new Date(`${formData.endDate}T${formData.endTime}:00`);
+    }
+
+    const payload = {
+      title: formData.title.trim(),
+      start: startD.toISOString(),
+      end: endD.toISOString(),
+      allDay: formData.allDay,
+      type: formData.type,
+      description: formData.description,
+      targetAudience: formData.targetAudience,
+      targetClasses: formData.targetClasses,
+    };
+
     try {
-      setSaving(true);
-
-      if (isAdmin && formData.targetAudience === 'classes' && formData.targetClasses.length === 0) {
-        showMessage('Please select at least one class.', 'error');
-        setSaving(false);
-        return;
-      }
-
-      let startD, endD;
-      if (formData.allDay) {
-        startD = new Date(formData.startDate);
-        startD.setHours(0, 0, 0, 0);
-        endD = new Date(formData.endDate);
-        endD.setHours(23, 59, 59, 999);
+      if (formData._id) {
+        await updateEvent({ id: formData._id, payload });
+        showMessage('success', 'Event updated!');
       } else {
-        startD = new Date(`${formData.startDate}T${formData.startTime}:00`);
-        endD = new Date(`${formData.endDate}T${formData.endTime}:00`);
+        await createEvent(payload);
+        showMessage('success', 'Event created!');
       }
-      
-      const resolvedTargetClasses = formData.targetClasses;
-
-      const payload = { 
-        title: formData.title.trim(), 
-        start: startD.toISOString(), 
-        end: endD.toISOString(), 
-        allDay: formData.allDay, 
-        type: formData.type, 
-        description: formData.description, 
-        targetAudience: formData.targetAudience, 
-        targetClasses: resolvedTargetClasses 
-      };
-      
-      if (formData._id) { await api.put(`/calendar/${formData._id}`, payload); showMessage('success', 'Event updated!'); }
-      else { await api.post('/calendar', payload); showMessage('success', 'Event created!'); }
-      setShowEditModal(false); fetchEvents();
-    } catch (error) { showMessage('error', error.response?.data?.message || 'Failed to save event'); }
-    finally { setSaving(false); }
-  }, [formData, fetchEvents, isAdmin, showMessage]);
+      setShowEditModal(false);
+    } catch (error) {
+      showMessage('error', error.response?.data?.message || 'Failed to save event');
+    }
+  }, [formData, createEvent, updateEvent, isAdmin, showMessage]);
 
   const handleDeleteEvent = useCallback(async (idToUse = formData._id) => {
     if (!idToUse) return;
-    try { 
-      setSaving(true); 
-      await api.delete(`/calendar/${idToUse}`); 
-      showMessage('success', 'Event deleted!'); 
-      setShowEditModal(false); 
+    try {
+      await deleteEvent(idToUse);
+      showMessage('success', 'Event deleted!');
+      setShowEditModal(false);
       setDeleteConfirm({ open: false, type: 'single', id: null, dateStr: null, hasExams: false });
-      fetchEvents(); 
+    } catch (error) {
+      showMessage('error', error.response?.data?.message || 'Failed to delete event');
     }
-    catch (error) { showMessage('error', error.response?.data?.message || 'Failed to delete event'); }
-    finally { setSaving(false); }
-  }, [formData._id, fetchEvents, showMessage]);
+  }, [formData._id, deleteEvent, showMessage]);
 
-  const handleClearDayEvents = async (dateStr, containsExamManagedEvents = false) => {
+  const handleClearDayEvents = (dateStr, containsExamManagedEvents = false) => {
     setDeleteConfirm({
       open: true,
       type: 'clear',
-      dateStr: dateStr,
-      hasExams: containsExamManagedEvents
+      dateStr,
+      hasExams: containsExamManagedEvents,
     });
   };
 
@@ -332,15 +326,11 @@ const CalendarPage = () => {
     const { dateStr } = deleteConfirm;
     if (!dateStr) return;
     try {
-      setSaving(true);
-      const res = await api.delete(`/calendar/date/${dateStr}`);
-      showMessage('success', res.data?.message || 'Events cleared!');
+      const res = await clearDay(dateStr);
+      showMessage('success', res?.message || 'Events cleared!');
       setDeleteConfirm({ open: false, type: 'single', id: null, dateStr: null, hasExams: false });
-      fetchEvents();
     } catch (error) {
-       showMessage('error', error.response?.data?.message || 'Failed to clear events');
-    } finally {
-      setSaving(false);
+      showMessage('error', error.response?.data?.message || 'Failed to clear events');
     }
   };
 
@@ -349,9 +339,8 @@ const CalendarPage = () => {
 
   const calendarDays = useMemo(() => {
     const cells = [];
-    const totalCells = firstDay + daysInMonth;
-    const rows = Math.ceil(totalCells / 7);
     
+
     for (let i = 0; i < firstDay; i++) {
       const isFirstRow = i < 7;
       const isFirstCol = i % 7 === 0;
@@ -409,7 +398,7 @@ const renderFormField = (label, children) => (
   return (
     <DashboardLayout>
       {message?.text && (
-        <div className={`fixed top-6 right-6 z-[60] px-4 py-2.5 rounded-xl shadow-lg text-sm font-medium flex items-center gap-2 animate-fadeIn ${message?.type === 'error' ? 'bg-red-600 text-white' : 'bg-gray-900 text-white'}`}>
+        <div className={`fixed top-6 left-4 right-4 sm:left-auto sm:right-6 z-[100] px-5 py-3.5 rounded-xl shadow-lg flex items-center gap-3 animate-fadeIn backdrop-blur-sm ${message.type === 'success' ? 'bg-emerald-500/90 text-white' : 'bg-red-500/90 text-white'}`}>
           {message?.type === 'error' ? <FaTimes /> : <FaCalendarAlt />}{message?.text}
         </div>
       )}
@@ -479,7 +468,32 @@ const renderFormField = (label, children) => (
         </div>
 
         {loading ? (
-          <div className="flex items-center justify-center h-96 bg-white rounded-xl shadow-sm border border-gray-200"><ButtonSpinner className="w-8 h-8 border-2 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" /></div>
+          <div className="rounded-xl shadow-sm border border-gray-200 overflow-hidden ring-1 ring-black/5">
+            {/* Weekday header — same as real grid */}
+            <div className="grid grid-cols-7 bg-gray-50/80 border-b border-gray-200">
+              {WEEKDAYS.map(day => (
+                <div key={day} className="py-3 text-center text-[11px] font-bold text-gray-500 uppercase tracking-widest">
+                  {day}
+                </div>
+              ))}
+            </div>
+            {/* 5 skeleton rows × 7 cells — matches real cell min-height */}
+            <div className="grid grid-cols-7 bg-white">
+              {Array.from({ length: 35 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="border-b border-r border-gray-100 p-2 min-h-[90px] flex flex-col gap-1.5"
+                  style={{ animationDelay: `${(i % 7) * 0.04}s` }}
+                >
+                  {/* Date number bone */}
+                  <div className="skeleton-shimmer h-5 w-5 rounded-full self-end" />
+                  {/* 0–2 event pill bones — vary by position for realism */}
+                  {i % 5 !== 0 && <div className="skeleton-shimmer h-3.5 rounded w-full" />}
+                  {i % 3 === 0 && <div className="skeleton-shimmer h-3.5 rounded w-4/5" />}
+                </div>
+              ))}
+            </div>
+          </div>
         ) : (
           <div className="rounded-xl shadow-sm border border-gray-200 overflow-hidden ring-1 ring-black/5">
             <div className="grid grid-cols-7 bg-gray-50/80 border-b border-gray-200">
@@ -488,6 +502,7 @@ const renderFormField = (label, children) => (
             <div className="grid grid-cols-7 bg-transparent">{calendarDays}</div>
           </div>
         )}
+
       </div>
 
       {/* ── Day Details Modal ── */}

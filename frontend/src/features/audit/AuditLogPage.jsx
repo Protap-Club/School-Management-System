@@ -73,13 +73,13 @@ export const AuditLogPage = () => {
 
     return (
         <DashboardLayout>
-            <div className="w-full flex-col flex gap-6 p-6 max-w-7xl mx-auto">
-                <div className="flex items-start gap-4 mb-2">
-                    <div className="bg-white rounded-xl shadow-sm p-3 border border-slate-100 text-violet-600 shrink-0">
-                        <ShieldCheck size={32} />
+            <div className="w-full flex-col flex gap-6 p-4 sm:p-6 max-w-7xl mx-auto">
+                <div className="flex items-start gap-3 sm:gap-4 mb-2">
+                    <div className="bg-white rounded-xl shadow-sm p-2 sm:p-3 border border-slate-100 text-violet-600 shrink-0">
+                        <ShieldCheck size={28} />
                     </div>
                     <div className="flex flex-col gap-1">
-                        <h1 className="text-3xl font-bold text-slate-900">Audit Logs</h1>
+                        <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">Audit Logs</h1>
                         <p className="text-sm text-slate-500 font-normal">
                             Comprehensive, immutable trail of critical system operations and data mutations.
                         </p>
@@ -104,7 +104,7 @@ export const AuditLogPage = () => {
                 </div>
 
                 {/* ── Refresh Control Bar ── */}
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                     <div className="flex items-center gap-1.5">
                         <Info className="w-3.5 h-3.5 text-slate-400" />
                         <span className="text-xs text-slate-400">

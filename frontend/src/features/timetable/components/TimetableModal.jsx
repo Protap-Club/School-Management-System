@@ -154,8 +154,8 @@ const TimetableModal = ({
   const dayDisplay = DAY_MAP_REVERSE[slotInfo?.day] || slotInfo?.day;
 
   return (
-    <div className="modal-overlay fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-[2px] p-4 font-sans">
-      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all animate-fadeIn">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
+      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto transform transition-all animate-fadeIn custom-scrollbar">
         <div className="bg-gradient-to-r from-primary/10 to-transparent px-6 py-5 flex items-center justify-between border-b border-gray-100">
           <div>
             <h3 className="text-xl font-bold text-gray-800">{initialData ? 'Edit Period' : 'Add Period'}</h3>

@@ -164,27 +164,129 @@ const getActiveTeacherIds = async (schoolId) => {
     return teachers.map((teacher) => teacher._id);
 };
 
+const normalizeTeacherScopeEntry = (entry = {}) => {
+    const normalized = normalizeClassSection(entry);
+    if (!normalized.standard || !normalized.section) {
+        return null;
+    }
+
+    return normalized;
+};
+
+const buildTeacherAssignmentScope = async (schoolId, teacherId, options = {}) => {
+    const { keySet = null } = options;
+    const [teacherProfile, timetableEntries] = await Promise.all([
+        TeacherProfile.findOne({
+            schoolId,
+            userId: teacherId,
+        })
+            .select("assignedClasses")
+            .lean(),
+        TimetableEntry.find({
+            schoolId,
+            teacherId,
+        })
+            .select("teacherId timetableId subject")
+            .populate({
+                path: "timetableId",
+                select: "standard section",
+            })
+            .lean(),
+    ]);
+
+    const classKeys = new Set();
+    const subjectMap = new Map();
+
+    const register = ({ standard, section, subjects = [] }) => {
+        const normalized = normalizeTeacherScopeEntry({ standard, section });
+        if (!normalized) return;
+
+        const key = buildClassSectionKey(normalized.standard, normalized.section);
+        if (keySet && !keySet.has(key)) return;
+
+        classKeys.add(key);
+
+        if (!subjectMap.has(key)) {
+            subjectMap.set(key, new Set());
+        }
+
+        subjects.forEach((subject) => {
+            const trimmed = String(subject || "").trim();
+            if (trimmed) {
+                subjectMap.get(key).add(trimmed);
+            }
+        });
+    };
+
+    (teacherProfile?.assignedClasses || []).forEach((assignedClass) => {
+        register({
+            standard: assignedClass.standard,
+            section: assignedClass.section,
+            subjects: assignedClass.subjects || [],
+        });
+    });
+
+    timetableEntries.forEach((entry) => {
+        register({
+            standard: entry.timetableId?.standard,
+            section: entry.timetableId?.section,
+            subjects: entry.subject ? [entry.subject] : [],
+        });
+    });
+
+    return { classKeys, subjectMap };
+};
+
 const findMatchingTeacherIdsForAssignment = async (schoolId, standard, section, subject) => {
     const activeTeacherIds = await getActiveTeacherIds(schoolId);
     if (!activeTeacherIds.length) {
         return [];
     }
 
-    const profiles = await TeacherProfile.find({
-        schoolId,
-        userId: { $in: activeTeacherIds },
-        assignedClasses: {
-            $elemMatch: {
-                standard,
-                section,
-                subjects: subject,
+    const [profiles, timetableEntries] = await Promise.all([
+        TeacherProfile.find({
+            schoolId,
+            userId: { $in: activeTeacherIds },
+            assignedClasses: {
+                $elemMatch: {
+                    standard,
+                    section,
+                    subjects: subject,
+                },
             },
-        },
-    })
-        .select("userId")
-        .lean();
+        })
+            .select("userId")
+            .lean(),
+        TimetableEntry.find({
+            schoolId,
+            teacherId: { $in: activeTeacherIds },
+            subject,
+        })
+            .select("teacherId timetableId subject")
+            .populate({
+                path: "timetableId",
+                select: "standard section",
+            })
+            .lean(),
+    ]);
 
-    return profiles.map((profile) => String(profile.userId));
+    const matchingTeacherIds = new Set(
+        profiles.map((profile) => String(profile.userId))
+    );
+
+    timetableEntries.forEach((entry) => {
+        const normalized = normalizeTeacherScopeEntry(entry.timetableId || {});
+        if (!normalized) return;
+
+        if (
+            normalized.standard === String(standard || "").trim() &&
+            normalized.section === String(section || "").trim().toUpperCase()
+        ) {
+            matchingTeacherIds.add(String(entry.teacherId));
+        }
+    });
+
+    return [...matchingTeacherIds];
 };
 
 const resolveAssignedTeacherForAssignment = async ({
@@ -193,6 +295,7 @@ const resolveAssignedTeacherForAssignment = async ({
     section,
     subject,
     requestedTeacherId,
+    requestingUser,
 }) => {
     const teacherIds = await findMatchingTeacherIdsForAssignment(schoolId, standard, section, subject);
 
@@ -204,6 +307,13 @@ const resolveAssignedTeacherForAssignment = async ({
         }
 
         return requestedTeacherId;
+    }
+
+    if (
+        requestingUser?.role === USER_ROLES.TEACHER &&
+        teacherIds.includes(String(requestingUser._id))
+    ) {
+        return String(requestingUser._id);
     }
 
     if (teacherIds.length === 1) {
@@ -334,6 +444,7 @@ export const createAssignment = async (schoolId, user, body, files, metadata) =>
             section: normalizedClassSection.section,
             subject,
             requestedTeacherId: body.assignedTeacher,
+            requestingUser: user,
         });
 
         assignmentPayloads.push({
@@ -710,6 +821,7 @@ export const updateAssignment = async (schoolId, assignmentId, user, role, body,
             section: assignment.section,
             subject: assignment.subject,
             requestedTeacherId: body.assignedTeacher,
+            requestingUser: user,
         });
     }
     assignment.requiresSubmission = true;
@@ -829,16 +941,15 @@ export const removeAttachment = async (schoolId, assignmentId, user, publicId, m
 
     createAuditLog({
         schoolId,
-        actor: user._id,
-        actorModel: user.role === USER_ROLES.SUPER_ADMIN ? "SuperAdmin" : "User",
+        actorId: user._id,
+        actorRole: user.role,
         action: AUDIT_ACTIONS.ASSIGNMENT.UPDATED,
-        entityId: assignment._id,
-        entityModel: "Assignment",
-        status: "success",
-        details: { removedAttachment: publicId },
-        ipAddress: metadata?.ip,
-        userAgent: metadata?.userAgent,
-        sessionToken: null
+        targetModel: "Assignment",
+        targetId: assignment._id,
+        description: `Removed attachment from assignment: ${assignment.title}`,
+        metadata: { removedAttachment: publicId },
+        ip: metadata?.ip,
+        userAgentString: metadata?.userAgent
     }).catch(err => logger.error(`Failed to create audit log: ${err.message}`));
 
     return formatAssignment(assignment.toObject());
@@ -851,11 +962,11 @@ export const submitAssignment = async (schoolId, assignmentId, user, files, meta
     }
 
     if (!files?.length) {
-        throw new BadRequestError("A submission file is required");
+        throw new BadRequestError("At least one submission file is required");
     }
 
-    if (files.length > 1) {
-        throw new BadRequestError("Only one submission file is allowed");
+    if (files.length > 5) {
+        throw new BadRequestError("A maximum of 5 submission files are allowed");
     }
 
     await closeExpiredAssignmentById(schoolId, assignmentId);
@@ -898,16 +1009,15 @@ export const submitAssignment = async (schoolId, assignmentId, user, files, meta
         
         createAuditLog({
             schoolId,
-            actor: user._id,
-            actorModel: user.role === USER_ROLES.SUPER_ADMIN ? "SuperAdmin" : "User",
+            actorId: user._id,
+            actorRole: user.role,
             action: AUDIT_ACTIONS.ASSIGNMENT.SUBMITTED,
-            entityId: assignment._id,
-            entityModel: "Assignment",
-            status: "success",
-            details: { isLate, reSubmission: true },
-            ipAddress: metadata?.ip,
-            userAgent: metadata?.userAgent,
-            sessionToken: null
+            targetModel: "Assignment",
+            targetId: assignment._id,
+            description: `Re-submitted assignment: ${assignment.title}`,
+            metadata: { isLate, reSubmission: true },
+            ip: metadata?.ip,
+            userAgentString: metadata?.userAgent
         }).catch(err => logger.error(`Failed to create audit log: ${err.message}`));
 
         return formatSubmission(existing.toObject());
@@ -925,16 +1035,15 @@ export const submitAssignment = async (schoolId, assignmentId, user, files, meta
     
     createAuditLog({
         schoolId,
-        actor: user._id,
-        actorModel: user.role === USER_ROLES.SUPER_ADMIN ? "SuperAdmin" : "User",
+        actorId: user._id,
+        actorRole: user.role,
         action: AUDIT_ACTIONS.ASSIGNMENT.SUBMITTED,
-        entityId: assignment._id,
-        entityModel: "Assignment",
-        status: "success",
-        details: { isLate, reSubmission: false },
-        ipAddress: metadata?.ip,
-        userAgent: metadata?.userAgent,
-        sessionToken: null
+        targetModel: "Assignment",
+        targetId: assignment._id,
+        description: `Submitted assignment: ${assignment.title}`,
+        metadata: { isLate, reSubmission: false },
+        ip: metadata?.ip,
+        userAgentString: metadata?.userAgent
     }).catch(err => logger.error(`Failed to create audit log: ${err.message}`));
 
     return formatSubmission(submission.toObject());
@@ -1022,7 +1131,7 @@ export const listSubmissions = async (schoolId, assignmentId) => {
     };
 };
 
-export const getAssignmentMetadata = async (schoolId) => {
+export const getAssignmentMetadata = async (schoolId, user) => {
     const { classSections, keySet } = await getConfiguredClassSectionContext(schoolId);
 
     const standards = new Set();
@@ -1033,7 +1142,46 @@ export const getAssignmentMetadata = async (schoolId) => {
         sectionSubjects: {},
     };
 
-    classSections.forEach(({ standard, section }) => {
+    // ── Teacher-scoped filtering ─────────────────────────────────
+    // When the caller is a teacher, restrict the dropdown options to
+    // only the classes and subjects they are assigned to teach.
+    let teacherClassKeys = null; // null = no restriction (admin)
+    let teacherSubjectMap = null; // Map<"standard-section", Set<subject>>
+
+    if (user?.role === USER_ROLES.TEACHER) {
+        const teacherScope = await buildTeacherAssignmentScope(schoolId, user._id, { keySet });
+
+        if (teacherScope.classKeys.size > 0) {
+            teacherClassKeys = new Set();
+            teacherSubjectMap = new Map();
+
+            teacherScope.classKeys.forEach((key) => {
+                teacherClassKeys.add(key);
+            });
+
+            teacherScope.subjectMap.forEach((subjectSet, key) => {
+                const [standard, section] = key.split("::");
+                teacherSubjectMap.set(`${standard}-${section}`, new Set(subjectSet));
+            });
+        } else {
+            // Teacher has no assigned classes → return empty metadata
+            return {
+                standards: [],
+                sections: [],
+                subjects: [],
+                mappings: { classSections: {}, sectionSubjects: {} },
+            };
+        }
+    }
+
+    // ── Build class-sections and seed subjects from school config ──
+    // classSections from getConfiguredClassSections include { standard, section, subjects }
+    classSections.forEach(({ standard, section, subjects: configSubjects }) => {
+        const key = buildClassSectionKey(standard, section);
+
+        // Skip class-sections that this teacher is not assigned to
+        if (teacherClassKeys && !teacherClassKeys.has(key)) return;
+
         standards.add(standard);
         sections.add(section);
 
@@ -1042,10 +1190,68 @@ export const getAssignmentMetadata = async (schoolId) => {
         }
         mappings.classSections[standard].add(section);
 
-        const key = `${standard}-${section}`;
-        mappings.sectionSubjects[key] = new Set();
+        const mapKey = `${standard}-${section}`;
+        if (!mappings.sectionSubjects[mapKey]) {
+            mappings.sectionSubjects[mapKey] = new Set();
+        }
+
+        // Add subjects from school config (the primary subject source!)
+        if (Array.isArray(configSubjects)) {
+            for (const subj of configSubjects) {
+                const trimmed = String(subj || "").trim();
+                if (!trimmed) continue;
+
+                // For teachers, only include subjects they actually teach
+                if (teacherSubjectMap) {
+                    const allowed = teacherSubjectMap.get(mapKey);
+                    if (!allowed || !allowed.has(trimmed)) continue;
+                }
+
+                subjects.add(trimmed);
+                mappings.sectionSubjects[mapKey].add(trimmed);
+            }
+        }
     });
 
+    // ── For teachers, also populate subjects directly from their profile ──
+    // (catches subjects that exist in teacher's assignment but may be missing from school config)
+    if (teacherSubjectMap) {
+        for (const [mapKey, subjectSet] of teacherSubjectMap) {
+            if (!mappings.sectionSubjects[mapKey]) continue;
+
+            for (const subject of subjectSet) {
+                subjects.add(subject);
+                mappings.sectionSubjects[mapKey].add(subject);
+            }
+        }
+    }
+
+    // ── For admins, also pull subjects from all teacher profiles ──
+    if (!teacherSubjectMap) {
+        const allTeacherProfiles = await TeacherProfile.find({ schoolId })
+            .select("assignedClasses")
+            .lean();
+
+        for (const profile of allTeacherProfiles) {
+            for (const ac of profile.assignedClasses || []) {
+                const normalized = normalizeClassSection(ac);
+                const key = buildClassSectionKey(normalized.standard, normalized.section);
+                if (!keySet.has(key)) continue;
+
+                const mapKey = `${normalized.standard}-${normalized.section}`;
+                if (!mappings.sectionSubjects[mapKey]) continue;
+
+                for (const subj of ac.subjects || []) {
+                    const trimmed = String(subj || "").trim();
+                    if (!trimmed) continue;
+                    subjects.add(trimmed);
+                    mappings.sectionSubjects[mapKey].add(trimmed);
+                }
+            }
+        }
+    }
+
+    // ── Enrich from timetable entries and existing assignments ──
     const timetables = await Timetable.find({ schoolId })
         .select("_id standard section")
         .lean();
@@ -1055,6 +1261,7 @@ export const getAssignmentMetadata = async (schoolId) => {
         const normalized = normalizeClassSection(timetable);
         const key = buildClassSectionKey(normalized.standard, normalized.section);
         if (!keySet.has(key)) continue;
+        if (teacherClassKeys && !teacherClassKeys.has(key)) continue;
         timetableClassMap.set(String(timetable._id), normalized);
     }
 
@@ -1077,8 +1284,15 @@ export const getAssignmentMetadata = async (schoolId) => {
         const timetableClass = timetableClassMap.get(String(entry.timetableId));
         if (!timetableClass || !entry.subject) return;
 
-        subjects.add(entry.subject);
         const mapKey = `${timetableClass.standard}-${timetableClass.section}`;
+
+        // For teachers, only include subjects they actually teach for that class
+        if (teacherSubjectMap) {
+            const allowed = teacherSubjectMap.get(mapKey);
+            if (!allowed || !allowed.has(entry.subject)) return;
+        }
+
+        subjects.add(entry.subject);
         mappings.sectionSubjects[mapKey]?.add(entry.subject);
     });
 
@@ -1088,9 +1302,17 @@ export const getAssignmentMetadata = async (schoolId) => {
 
         const key = buildClassSectionKey(normalized.standard, normalized.section);
         if (!keySet.has(key)) return;
+        if (teacherClassKeys && !teacherClassKeys.has(key)) return;
+
+        const mapKey = `${normalized.standard}-${normalized.section}`;
+
+        // For teachers, only include subjects they actually teach for that class
+        if (teacherSubjectMap) {
+            const allowed = teacherSubjectMap.get(mapKey);
+            if (!allowed || !allowed.has(assignment.subject)) return;
+        }
 
         subjects.add(assignment.subject);
-        const mapKey = `${normalized.standard}-${normalized.section}`;
         mappings.sectionSubjects[mapKey]?.add(assignment.subject);
     });
 

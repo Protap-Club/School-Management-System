@@ -42,7 +42,7 @@ import {
 // EmptyState moved to shared components/ui/EmptyState.jsx
 
 const RESULT_SKELETON_CELL = 'px-5 py-4';
-const RESULT_SKELETON_BAR = 'h-4 bg-slate-100 rounded-lg animate-pulse';
+const RESULT_SKELETON_BAR = 'h-4 rounded-lg';
 
 const SummaryCard = ({ icon: Icon, title, value, accent = 'text-slate-700', bg = 'bg-white' }) => (
   <div className={`${bg} rounded-2xl border border-slate-200 shadow-sm p-5 flex items-center gap-4`}>
@@ -318,7 +318,7 @@ const ResultPage = () => {
   return (
     <DashboardLayout>
       {toast?.text && (
-        <div className={`fixed top-6 right-6 z-100 px-5 py-3.5 rounded-xl shadow-lg flex items-center gap-3 animate-fadeIn backdrop-blur-sm ${toast?.type === 'success' ? 'bg-emerald-500/90 text-white' : 'bg-red-500/90 text-white'}`}>
+        <div className={`fixed top-6 left-4 right-4 sm:left-auto sm:right-6 z-[100] px-5 py-3.5 rounded-xl shadow-lg flex items-center gap-3 animate-fadeIn backdrop-blur-sm ${toast?.type === 'success' ? 'bg-emerald-500/90 text-white' : 'bg-red-500/90 text-white'}`}>
           <div className="w-6 h-6 rounded-full flex items-center justify-center bg-white/20">
             {toast?.type === 'success' ? <FaCheckCircle size={12} /> : <FaTimes size={12} />}
           </div>

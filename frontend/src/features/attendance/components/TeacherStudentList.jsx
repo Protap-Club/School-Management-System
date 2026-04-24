@@ -80,7 +80,7 @@ const TeacherStudentList = ({
                 </TableBody>
             </Table>
             {filteredStudents.length === 0 && (
-                <div className="text-center py-16 text-muted-foreground font-medium border-t">No students match your search.</div>
+                <div className="text-center py-8 sm:py-16 text-muted-foreground font-medium border-t">No students match your search.</div>
             )}
             {filteredStudents.length > 0 && (
                 <PaginationControls

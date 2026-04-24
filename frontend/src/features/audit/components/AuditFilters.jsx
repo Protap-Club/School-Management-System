@@ -18,7 +18,7 @@ const CONTROL_CLS =
 // ─── Styled Select ────────────────────────────────────────────────────────────
 
 const FilterSelect = ({ value, onChange, children, 'aria-label': ariaLabel }) => (
-    <div className="relative flex-1 min-w-[130px]">
+    <div className="relative flex-1 min-w-[110px]">
         <select
             value={value || ''}
             onChange={(e) => onChange(e.target.value)}
@@ -38,7 +38,7 @@ const FilterSelect = ({ value, onChange, children, 'aria-label': ariaLabel }) =>
 // ─── Styled Date Input ────────────────────────────────────────────────────────
 
 const DateInput = ({ value, onChange, placeholder, 'aria-label': ariaLabel }) => (
-    <div className="relative flex-1 min-w-[130px]">
+    <div className="relative flex-1 min-w-[110px]">
         {/* Calendar icon overlay — decorative */}
         <Calendar
             size={13}
@@ -76,11 +76,11 @@ export const AuditFilters = ({ filters, setFilters, schools = [] }) => {
         filters.action_type || filters.severity || filters.outcome;
 
     return (
-        <div className="w-full px-4 py-3 bg-white ring-1 ring-slate-900/5 rounded-xl shadow-sm mb-2 flex flex-col gap-3">
+        <div className="w-full px-3 sm:px-4 py-3 bg-white ring-1 ring-slate-900/5 rounded-xl shadow-sm mb-2 flex flex-col gap-3">
             {/* ── Row 1: Primary Filters ─────────────────────────────── */}
-            <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
                 {/* Search — widest control */}
-                <div className="relative flex-[2] min-w-[200px]">
+                <div className="relative flex-[2] min-w-[160px] sm:min-w-[200px]">
                     <Search
                         size={13}
                         className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400"
@@ -168,9 +168,9 @@ export const AuditFilters = ({ filters, setFilters, schools = [] }) => {
             </div>
 
             {/* ── Row 2: School & Dates ─────────────────────────────── */}
-            <div className="flex flex-wrap items-center justify-between gap-2 w-full">
+            <div className="flex flex-col sm:flex-row flex-wrap sm:items-center sm:justify-between gap-2 w-full">
                 {/* School — takes remaining space but looks neatly aligned */}
-                <div className="flex-1 min-w-[200px]">
+                <div className="w-full sm:flex-1 sm:min-w-[180px]">
                     <FilterSelect
                         aria-label="Filter by school"
                         value={filters.schoolId}

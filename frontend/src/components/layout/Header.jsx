@@ -99,7 +99,7 @@ const Header = () => {
                     aria-label={isMobileOpen ? 'Close sidebar' : 'Open sidebar'}
                     aria-expanded={isMobileOpen}
                     aria-controls="dashboard-sidebar"
-                    className="rounded-lg p-2 text-gray-500 transition-colors hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                    className="rounded-lg p-2 text-gray-500 transition-colors hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-100 min-h-[44px] min-w-[44px] flex items-center justify-center"
                     title="Toggle Sidebar">
                     <img src="/menus.png" alt="Menu" className="w-5 h-5" />
                 </button>
@@ -122,7 +122,7 @@ const Header = () => {
             <div className="flex items-center gap-2 sm:gap-3">
                 {user?.role !== 'super_admin' && (
                     <button onClick={handleNotificationClick}
-                        className="p-2 lg:p-2.5 rounded-full text-gray-500 hover:bg-gray-100 hover:text-blue-600 transition-all focus:outline-none focus:ring-2 focus:ring-blue-100 relative group" title="Notifications">
+                        className="p-2 lg:p-2.5 rounded-full text-gray-500 hover:bg-gray-100 hover:text-blue-600 transition-all focus:outline-none focus:ring-2 focus:ring-blue-100 relative group min-h-[44px] min-w-[44px] flex items-center justify-center" title="Notifications">
                         <FaBell className="w-5 h-5" />
                         {unreadCount > 0 && (
                             <span className="absolute top-1.5 right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white ring-2 ring-white animate-pulse-subtle">
@@ -137,7 +137,7 @@ const Header = () => {
                 <div className="relative flex items-center gap-2 border-l border-gray-200 pl-2 sm:gap-3 lg:gap-4 lg:pl-4" ref={dropdownRef}>
                     <button
                         onClick={() => setDropdownOpen(!dropdownOpen)}
-                        className="flex items-center gap-2 md:gap-3 focus:outline-none rounded-lg p-1 hover:bg-gray-50 transition-colors"
+                        className="flex items-center gap-2 md:gap-3 focus:outline-none rounded-lg p-1 hover:bg-gray-50 transition-colors min-h-[44px]"
                         title="Account Menu"
                     >
                         <div

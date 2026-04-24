@@ -1,8 +1,20 @@
 import React from 'react';
 import { Card, CardContent } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
 
 export const AttendanceStatCards = ({ stats, statCardsConfig, isLoading }) => {
+    if (isLoading) {
+        return (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {statCardsConfig.map(({ key }) => (
+                    <div
+                        key={key}
+                        className="skeleton-shimmer rounded-3xl h-28 border border-slate-100"
+                    />
+                ))}
+            </div>
+        );
+    }
+
     return (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {statCardsConfig.map(({ icon: Icon, label, key, color, bg, onClick }) => (
@@ -15,7 +27,7 @@ export const AttendanceStatCards = ({ stats, statCardsConfig, isLoading }) => {
                         <div className="space-y-1">
                             <p className="text-[11px] font-bold text-slate-400 uppercase tracking-[0.15em]">{label}</p>
                             <div className={`text-4xl sm:text-5xl font-black tracking-tight ${color}`}>
-                                {isLoading ? <Skeleton className="h-10 w-16" /> : stats[key]}
+                                {stats[key]}
                             </div>
                         </div>
                     </CardContent>

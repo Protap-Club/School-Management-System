@@ -1149,7 +1149,7 @@
           "manage_calendar"
         ],
         "department": "Administration",
-        "employeeId": "AV-ADM-001"
+        "employeeId": "NVV-ADM-001"
       },
       {
         "email": "ashish@nvv.edu.in",
@@ -1160,7 +1160,7 @@
           "manage_results"
         ],
         "department": "Academics",
-        "employeeId": "AV-ADM-002"
+        "employeeId": "NVV-ADM-002"
       }
     ],
     "teacherProfiles": []

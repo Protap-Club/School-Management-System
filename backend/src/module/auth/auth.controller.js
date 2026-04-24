@@ -3,6 +3,7 @@ import asyncHandler from "../../utils/asyncHandler.js";
 import { conf } from "../../config/index.js";
 import logger from "../../config/logger.js";
 import { UnauthorizedError } from "../../utils/customError.js";
+import { getClientIp } from "../../utils/getClientIp.js";
 
 // Shared cookie options for the refresh token
 const REFRESH_COOKIE_OPTIONS = {
@@ -19,7 +20,7 @@ export const login = asyncHandler(async (req, res) => {
     const platform = req.headers["x-platform"] === "mobile" ? "mobile" : "web";
     const metadata = {
         userAgent: req.headers["user-agent"],
-        ip: req.ip || req.headers["x-forwarded-for"] || req.connection.remoteAddress,
+        ip: getClientIp(req),
     };
 
     const result = await authService.login(email, password, platform, metadata);
@@ -56,7 +57,7 @@ export const refresh = async (req, res, next) => {
 
         const metadata = {
             userAgent: req.headers["user-agent"],
-            ip: req.ip || req.headers["x-forwarded-for"] || req.connection.remoteAddress,
+            ip: getClientIp(req),
         };
 
         const result = await authService.refreshAccessToken(oldRefreshToken, metadata);
@@ -83,7 +84,7 @@ export const logout = asyncHandler(async (req, res) => {
     const refreshToken = req.cookies?.refreshToken || req.body?.refreshToken;
     const metadata = {
         userAgent: req.headers["user-agent"],
-        ip: req.ip || req.headers["x-forwarded-for"] || req.connection.remoteAddress,
+        ip: getClientIp(req),
     };
 
     await authService.logout(refreshToken, metadata);
@@ -128,7 +129,7 @@ export const forgotPassword = asyncHandler(async (req, res) => {
     const { email, method } = req.body;
     const metadata = {
         userAgent: req.headers["user-agent"],
-        ip: req.ip || req.headers["x-forwarded-for"] || req.connection.remoteAddress,
+        ip: getClientIp(req),
     };
 
     const result = await authService.forgotPassword(email, metadata, method);
@@ -145,7 +146,7 @@ export const resetPassword = asyncHandler(async (req, res) => {
     const { token, newPassword } = req.body;
     const metadata = {
         userAgent: req.headers["user-agent"],
-        ip: req.ip || req.headers["x-forwarded-for"] || req.connection.remoteAddress,
+        ip: getClientIp(req),
     };
 
     const result = await authService.resetPassword(token, newPassword, metadata);

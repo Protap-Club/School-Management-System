@@ -571,9 +571,9 @@ const ExaminationPage = () => {
 
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden min-h-[400px]">
           {examsLoading ? (
-            <div className="p-8 space-y-4">
+            <div className="p-8 space-y-3">
               {[1, 2, 3, 4, 5].map(i => (
-                <div key={i} className="h-20 bg-slate-50 rounded-xl animate-pulse" />
+                <div key={i} className="skeleton-shimmer h-20 rounded-xl" style={{ animationDelay: `${(i - 1) * 0.1}s` }} />
               ))}
             </div>
           ) : filteredExams.length > 0 ? (
@@ -673,13 +673,15 @@ const ExaminationPage = () => {
                                     <FaCheckCircle size={18} />
                                   </button>
                                 )}
-                                <button
-                                  onClick={(e) => { e.stopPropagation(); setShowModal({ type: 'edit', open: true, data: exam }); }}
-                                  className="p-2 text-slate-400 hover:text-orange-500 hover:bg-orange-50 rounded-lg transition-all"
-                                  title="Edit Exam"
-                                >
-                                  <FaEdit size={18} />
-                                </button>
+                                {exam.status !== 'COMPLETED' && (
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); setShowModal({ type: 'edit', open: true, data: exam }); }}
+                                    className="p-2 text-slate-400 hover:text-orange-500 hover:bg-orange-50 rounded-lg transition-all"
+                                    title="Edit Exam"
+                                  >
+                                    <FaEdit size={18} />
+                                  </button>
+                                )}
                                 <button
                                   onClick={(e) => { e.stopPropagation(); setDeleteConfirm({ open: true, examId: exam._id }); }}
                                   className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all"
@@ -972,7 +974,7 @@ const ExaminationPage = () => {
         )}
 
         {message?.text && (
-          <div className={`fixed top-6 right-6 z-100 px-5 py-3.5 rounded-xl shadow-lg flex items-center gap-3 animate-fadeIn backdrop-blur-sm ${message.type === 'success' ? 'bg-emerald-500/90 text-white' : 'bg-red-500/90 text-white'}`}>
+          <div className={`fixed top-6 left-4 right-4 sm:left-auto sm:right-6 z-[100] px-5 py-3.5 rounded-xl shadow-lg flex items-center gap-3 animate-fadeIn backdrop-blur-sm ${message.type === 'success' ? 'bg-emerald-500/90 text-white' : 'bg-red-500/90 text-white'}`}>
             <div className="w-6 h-6 rounded-full flex items-center justify-center bg-white/20">
               {message.type === 'success' ? <FaCheckCircle size={12} /> : <FaTimes size={12} />}
             </div>

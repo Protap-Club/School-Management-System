@@ -654,7 +654,7 @@ const FeesPage = () => {
     return (
         <DashboardLayout>
             {toast?.text && (
-                <div className={`fixed top-6 right-6 z-[100] px-5 py-3.5 rounded-xl shadow-lg flex items-center gap-3 animate-fadeIn backdrop-blur-sm ${toast?.type === 'success' ? 'bg-emerald-500/90 text-white' : 'bg-red-500/90 text-white'}`}>
+                <div className={`fixed top-6 left-4 right-4 sm:left-auto sm:right-6 z-[100] px-4 py-3 rounded-xl shadow-lg flex items-center gap-3 animate-fadeIn ${toast?.type === 'success' ? 'bg-emerald-500 text-white' : 'bg-red-500 text-white'}`}>
                     <div className="w-6 h-6 rounded-full flex items-center justify-center bg-white/20">
                         {toast?.type === 'success' ? <FaCheck size={12} /> : <FaTimes size={12} />}
                     </div>
@@ -664,21 +664,23 @@ const FeesPage = () => {
 
             <div className="space-y-6">
                 {/* Header */}
-                <div className="flex items-center gap-6 mb-8">
-                    <div className="w-16 h-16 bg-white rounded-2xl shadow-lg flex items-center justify-center text-primary transform hover:rotate-6 transition-transform">
-                        <FaMoneyCheckAlt size={32} />
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6 mb-8">
+                    <div className="w-14 h-14 sm:w-16 sm:h-16 shrink-0 bg-white rounded-2xl shadow-lg flex items-center justify-center text-primary transform hover:rotate-6 transition-transform">
+                        <FaMoneyCheckAlt size={28} />
                     </div>
                     <div className="space-y-1">
-                        <h1 className="text-3xl font-bold text-gray-900">Fee Management</h1>
-                        <p className="text-gray-500 mt-1">Configure structures, track collections, and manage staff payouts</p>
+                        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Fee Management</h1>
+                        <p className="text-gray-500 mt-1 text-sm">Configure structures, track collections, and manage staff payouts</p>
                     </div>
                 </div>
 
                 {/* Tabs */}
+                <div className="overflow-x-auto pb-1 -mx-1 px-1">
                 <div className="flex gap-1 bg-gray-100 p-1 rounded-xl w-fit">
                     {isAdmin && renderTabBtn('management', <FaListAlt size={12} />, 'Fee Structure')}
                     {(!isAdmin && !isTeacher) && renderTabBtn('structures', <FaListAlt size={12} />, 'Assigned Fees')}
                     {isTeacher && renderTabBtn('salary', <FaWallet size={12} />, 'My Salary')}
+                </div>
                 </div>
 
                 {/* ── TAB: Management (Unified) ────────────────────────── */}
@@ -818,7 +820,7 @@ const FeesPage = () => {
                                     </div>
 
                                     {/* Table */}
-                                    <div className="overflow-x-auto">
+                                    <div className="w-full overflow-x-auto">
                                         {selectedPenaltyStudentId ? (
                                             <table className="w-full text-sm">
                                                 <thead>
