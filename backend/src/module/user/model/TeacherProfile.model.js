@@ -71,7 +71,13 @@ const teacherProfileSchema = new mongoose.Schema(
 
 teacherProfileSchema.index(
   { schoolId: 1, 'classTeacherOf.standard': 1, 'classTeacherOf.section': 1 },
-  { unique: true, sparse: true }
+  {
+    unique: true,
+    partialFilterExpression: {
+      'classTeacherOf.standard': { $type: 'string' },
+      'classTeacherOf.section': { $type: 'string' },
+    },
+  }
 );
 
 export default mongoose.model("TeacherProfile", teacherProfileSchema);
